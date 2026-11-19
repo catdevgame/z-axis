@@ -1,0 +1,18 @@
+# Reference run 2, segment 17: Skitching. Goal: "Skitch on the golfcart."
+# The cart (node "Car_GolfCart", translation at 0x712C50 in PCSX2's heap) drives a loop
+# round the yard at about 0.25 units/frame (period about 1110 frames); the skater tops out
+# at about 0.28. Start the chase just after the cart passes the player's z on the west
+# side, cut the corner behind it, close in on its back and hold CIRCLE (Skitch).
+# Start: ref39-hpole-done (slot 68). Checkpoints: 69 ref40-skitch-go, 70 ref41-skitching,
+# 71 ref42-skitch-done.
+tips 240                                            # 6 boxes in run 2: HINTs, title "Skitching", "Skitch on the golfcart."
+checkpoint 69 ref40-skitch-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                    # standing at (-27.38, 0.38)
+waitval 0x712C58 f32 > 20 1200                      # cart on the far (+z) side
+waitval 0x712C50 f32 < -30 1200                     # ... then on the west side
+waitval 0x712C58 f32 < 2 1200                       # ... and just past the player's z
+chase 0x712C50 2.5 3 900 CIRCLE -0.5                # hold on (player lifted to y -0.8)
+checkpoint 70 ref41-skitching ../recomp/dumps/ref2 ../reference/pcsx2-run2
+waitval 0x276FE4 u32 == 3 1800                      # "Good Job", then HINT
+release
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 71 ref42-skitch-done ../recomp/dumps/ref2 ../reference/pcsx2-run2

@@ -1,0 +1,21 @@
+# Callee-saved registers the original reads as it found them, where a read in the C++ stays (readable_pass.py mirrors).
+# Every other ee::callerRegister or ee::callerFloat of a saved register is dead: an ELF dataflow of all 6,324 functions
+# finds no read of the entry value there. function, register, why it stays.
+# A row of single registers (s0-s7, gp, fp, ra, f20-f31; commas between) is also where the function's ee::LeftByCaller
+# locals are, one each in declaration order: readable_entries.py gives them those registers in the build's copy.
+# A game (ai, dm2, bmx) as the second column, `function<TAB>game<TAB>registers<TAB>why`, is that game's row alone: its
+# instance's body, or its own body (_OWN) of the function; a row without one is every game's, and a game's row goes
+# before it for that game.
+readHmtlChunk	s2	a bit-field word: the flags' bits 12-31 are the register's, stored in UiAsset.textureFlags, read only masked
+readHmtlChunk	dm2	s3	DM2's (0x15D158): the same word is in s3 there; under readHlibChunk a stack address
+initZgui	bmx	s3	BMX XXX's (0x179F48): the same word is in s3 there (the body's ZGE4 steps)
+initZgui	dm2	s4	DM2's (0x14FA68): the same word is in s4 there (its own body initZguiObjects' ee::LeftByCaller)
+initZgui	s2	the same word, built for the default material (its ee::LeftByCaller)
+finishUiImageLoad	dm2	s3	DM2's (0x15DB48): the same word in the same register (its own body finishFrameImageLoad's ee::LeftByCaller)
+finishUiImageLoad	s3	the same word, an image's material (its ee::LeftByCaller)
+saveFloatRegisters	f20-f31	an interrupt's save of what the interrupted code left
+restoreFloatRegisters	f20-f31	its restore
+endSaveJob	ra	recording only (PS2X_JOB_RETURNS), a Draft
+sourceHeard	*	audio's stale reads: another round's
+readSoundSourceEvent	*	audio's stale reads: another round's
+playSoundSourceVoice	*	audio's stale reads: another round's

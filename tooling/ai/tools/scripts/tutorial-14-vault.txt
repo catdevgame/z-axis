@@ -1,0 +1,10 @@
+# Reference run 2, segment 14: Vaulting (L14 waist-high edge at x -8.41).
+# Goal: hold CIRCLE when approaching the edge (vault, control state 32).
+# Start: ref32-handplant-done (slot 61). Checkpoints: 62 ref33-vault-go, 63 ref34-vault-done.
+tips 240                                            # 4 boxes in run 2: HINT, title "Vaulting", tips
+checkpoint 62 ref33-vault-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                     # standing at (-25.86, -2.27)
+down UP+CIRCLE
+waitval 0x276FE4 u32 == 3 1800                      # HINT: vaults from manuals
+release
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 63 ref34-vault-done ../recomp/dumps/ref2 ../reference/pcsx2-run2

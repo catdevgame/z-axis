@@ -1,0 +1,7 @@
+# wlane.py poke --diff: dm2, input menus, to tick 15000, clock 4096, poke entry=0x190b38 sp-0xb4=VALUE, values 3F8CCCCD, C2F6E979, 7FFFFFFF, FFFFFFFF
+# DEAD on menus (differential): at 3F8CCCCD/C2F6E979/7FFFFFFF/FFFFFFFF the lane changes no branch, jump, load or store address or call, and nothing observable; it moves 1 RAM words (t12000 1, t15000 1); it is read by the 1 loads listed
+# reads the lane: transformPoint+0x14 lqc2 (values 7FFFFFFF, C2F6E979, FFFFFFFF)
+# stores it: FUN_001a33f0+0x798 sqc2
+# words the lane moves between the values, per dump tick (career_ab.py: `lanes=FILE input=NAME reason`)
+t12000 0x015EF73C 3F8CCCCD C2F6E979 heap
+t15000 0x015EF73C 3F8CCCCD C2F6E979 heap

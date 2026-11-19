@@ -1,0 +1,666 @@
+# Shared functions whose words differ in DM2 and which are the same logic: read in the machine code, then replayed.
+# function, what differs. readable_symbols.py gives them level 2 (docs/READABLE.md "Symbols").
+classifyContactVelocity	registers
+classifyFaceNormal	registers
+markEdgesFacingLight	registers
+planeDistance	registers
+newPad	registers
+planeThrough	one move
+closestPointOnSegment	a move, AI's vnop
+posedFaceNormals	AI's vnop
+newSceneCamera	scheduling (a delay slot)
+newSceneLight	scheduling (a delay slot)
+setPartPosition	scheduling
+matrixRotateX	DM2 calls matrixCopy where AI has it inline
+matrixRotateY	DM2 calls matrixCopy where AI has it inline
+matrixRotateZ	DM2 calls matrixCopy where AI has it inline
+allocateIn	kMemoryKinds
+freeIn	kMemoryKinds
+reallocateIn	kMemoryKinds
+cloneFramePart	kCopyAnyStream
+sendEngineMessage	MessageTarget.messages
+handleGridChunk	no empty-table check
+handleDlenChunk	no empty-table check
+handleOfstChunk	no empty-table check
+handleClenChunk	no empty-table check
+addMicroprogramCall	no dry run
+cameraNearClip	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+setCameraScales	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+sceneWorldMatrix	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+sceneRootNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+setSkyNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+addWorldObject	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+removeWorldObject	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+addWorldTexture	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+removeWorldTexture	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+skyNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+loadCollisionTreeChunk	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+nodeNameHash	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+nodeTags	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+objectClass	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+findInstanceById	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+rootNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+addGeometryChild	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+forEachChild	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+setLodTable	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+nodeCollisionFrame	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+setNodeMaterialSet	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+buildBodyHierarchy	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+readDconChunk	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+bodyFromBone	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+applyBodyToBone	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+applyBodyOrientation	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+resolveBodyContactList	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+bindDynamicsToBones	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+setDynamicsContactHandler	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+flipMeshPacket	a global's address only (bound)
+findObjects	globals' addresses only (bound)
+movieIsPlaying	the same global, gp-relative in DM2
+nodeName	the same words
+projectTriangleOnAxis	registers
+collisionWorldBounds	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+integrateBodyRotation	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+forEachConnectedBody	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+initUploadBuffers	a global's address and field offsets: the Renderer's DM2 layout (PS2X_GAME_DM2)
+removeLevelObjects	kLevelObjects (DM2 0x100) and the table's address
+addPathRecord	kPaths (DM2 0x40) and the tables' addresses
+freeDynamicsBodies	field offsets of DM2's layouts (Dynamics, RigidBody)
+wakeDynamics	field offsets of DM2's layouts, registers
+lookAtMatrix	AI's vnops, registers
+sceVu0Normalize	AI's vnops
+clipSegmentToBox	registers, a data address
+vertexPosition	scheduling
+cameraMoved	AI's loop that does nothing
+ps2MovieTask	addresses; DM2's ps2MovieStop takes no argument (AI's 1 goes unread there)
+pairStillTouching	DM2's ignore list (RigidBody.ignored, #if PS2X_GAME_DM2)
+setNodeTags	kIsDm2: DM2 releases the table it is given (bug kept)
+copyGeoObject	kIsDm2: DM2 releases the table it set even when shared
+cloneFrameCollision	kIsDm2: DM2 shares no source part
+openAssetLibrary	kIsDm2: DM2 goes on with no directory (bug kept)
+parseFloat	kIsDm2: DM2 skips no '{'
+parseInt	kIsDm2: DM2 skips no '{'
+resolveBodyContact	registers, AI's vnop
+integrateBody	registers, AI reloads a float global
+contactImpulse	registers, AI computes 1/mass twice
+pairTouched	registers, AI computes each 1/mass twice
+solveDynamicsIsland	DM2's Dynamics layout (system +0x14), scheduling
+setCameraFieldOfView	DM2's camera bits (one lower: kCamera* perGame) and Camera layout
+setCameraViewport	DM2's camera bits and Camera layout
+swapCameraViewport	DM2's camera bits and Camera layout
+setSceneDepthRange	DM2's camera bits and Camera layout
+setCameraClears	DM2's camera bits
+setCameraFogStart	DM2's camera bits and Camera layout; AI loads the old start into f0 (no reader: the C++ returns the flags)
+sweepSwapNext	DM2's SweepEnd layout (no box record word: value +0x0C)
+sweepMoveUp	DM2's SweepEnd layout
+sweepHighDown	DM2's SweepEnd layout
+sweepLowUp	DM2's SweepEnd layout
+sweepLowDown	DM2's SweepEnd layout
+sweepUpdateBody	DM2's SweepEnd layout
+sweepPassLow	DM2's sweep has no ignore lists (#if PS2X_GAME_DM2), a data address, scheduling; a contact's boxes ordered by the ends' high flags and the slot squaring the first's kind (kIsDm2), ZGE3's by kind
+setScenePosition	registers
+boneBindPosition	registers
+setEmitterObjectPosition	registers
+subdivideBezierLength	registers
+placeAttached	registers
+closestOnSegment	moves, AI's vnop
+nearestOnBezierSteps	a data address
+freeLitoRecords	data addresses (gp-relative), the frame
+movieInit	a data address (gp-relative)
+movieOpen	a data address (gp-relative)
+movieClose	a data address (gp-relative)
+moviePlay	a data address (gp-relative)
+movieStop	a data address (gp-relative)
+frameLevelForDistance	scheduling (a branch likely)
+measurePathPoints	scheduling (the control points' addresses)
+buildTextureUploadPacket	scheduling: the block width (at least 1) stored earlier
+setGsTextureFromImage	scheduling: the block width (at least 1) stored earlier
+boxesContact	scheduling, registers, data addresses
+registerMoboChunkHandler	sizeof(Scene): the struct's DM2 layout (PS2X_GAME_DM2)
+setSceneRootColour	field offsets only: the node's DM2 layout (PS2X_GAME_DM2)
+setNodeDrawCheck	field offsets only: the node's DM2 layout (PS2X_GAME_DM2)
+setSceneShadowViewTest	the node's DM2 layout: the shadow view test's own word (perGame)
+deliverObjectMessages	MessageTarget.messages
+driveBodyFromBone	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
+newBodyContactRecord	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
+removeBodyContact	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
+newDmmRegion	DmmRegion's DM2 layout (dmm.h: no search hint)
+dmmCarveBlock	DmmRegion's DM2 layout (dmm.h: no search hint)
+dmmAllocate	DmmRegion's DM2 layout (dmm.h: no search hint), a data address
+dmmRelease	DmmRegion's DM2 layout (dmm.h: no search hint)
+dmmFindFreeHandle	DmmRegion's DM2 layout (dmm.h: the search starts at handle 1)
+zmemDMMLock	DmmRegion's DM2 layout (dmm.h)
+dmmUnlockHandle	DmmRegion's DM2 layout (dmm.h)
+dmmCompact	DmmRegion's DM2 layout (dmm.h: no search hint)
+clearPathRecords	kPaths (DM2 has half as many paths), a data address
+cameraCut	kIsDm2: DM2's cut test (camera.cpp), the camera's DM2 layout
+loadMaterial	the material's and the MATI's layouts (material.h: no name hash, no leave-out bit, four layers' texture ids and their MATI words kept)
+materialNameHash	ZGE2's materials have no name: the first texture's hash (pictureLevel, textureHash) stands for it
+materialTags	the material's layout (its tag table at +0x0C)
+markMaterialTableDirty	the table's flag values (kMaterialTableDirty 0x4)
+materialTableIsBlended	the table's flag values
+newMaterialTable	no size kept in the table's flags (kMaterialTableKeepsSize); the table from the heap (ZGE2 has no sized pools)
+copyMaterialTable	kCopyMaterials 0x2000
+releaseMaterialTable	heapFree in place of freeSized (no size in the flags)
+newLoadedTexture	the texture's object type (4)
+releaseLoadedTexture	the texture's type not cleared before the pool takes it back
+initTextures	seven state words cleared, the material's size 0x310 and a pool block of 1024
+newMaterial	the material's layout and object type (3)
+copyMaterial	the material's size 0x310 and layout
+freeMaterial	the material's layout (textureSlotOf)
+addMaterialTexture	the material's layout (textureSlotOf)
+setMaterialTexture	the material's layout (textureSlotOf)
+pictureLevelCount	the material's layout (textureCount at +0x38)
+pictureLevel	the material's layout (the texture id in the layer's record, 0xB0 apart)
+freeDrawBuckets	the bucket's layout (draw.h: four words, 0x10 apart)
+drawQueuedNodes	the bucket's layout (its end at +0x04, its draw hook at +0x0C)
+initDisplayState	one state word and a 0x2D0-byte set-up cleared; then initDisplay (ZGE2's, 0x100388) with no saveGlobalPointer call first (ZGE2 keeps the global pointer in initDmaChannels)
+resetFramePackets	ZGE2 swaps and finishes the frame in hand first and has no frame packets to clear
+initDrawBuckets	the bucket's layout, the shadow bucket 3, no sorted bucket hooks (draw.h)
+drawPrimitives	ZGE2 draws nothing before the renderer is ready (primitiveRendererOff)
+drawLines	ZGE2 draws nothing before the renderer is ready
+drawTexturedPrimitives	ZGE2 draws nothing before the renderer is ready
+drawFans	ZGE2 draws nothing before the renderer is ready
+drawPrimitiveStrips	ZGE2 draws nothing before the renderer is ready
+materialHasAlpha	the texture-alpha bit one lower (33; the pair corrected to DM2 0x11D730, read)
+materialIsBlended	the blended bit one lower (34; the pair corrected to DM2 0x11D740, read)
+refreshMaterialTableFlags	no leave-out bit to skip (ZGE2 has none); the table's flag values
+removeLevelObjects	the level object pool's DM2 size (kLevelObjects), data addresses
+changeSceneState	the own-lights flag's DM2 place (node.h kNodeOwnLightsBit: the upper word), a delay slot
+readMoboChunk	MoboBone's DM2 layout and parent by place (scene.h MoboBone::parentAmong), the frame
+forEachNodeInSubtree	ZGE2 recurses over child and sibling, so it walks the root's next siblings too (kIsDm2); the same order otherwise
+setNodeCastsShadow	the shadow flag's DM2 bit (node.h kNodeCastsShadow) and the node's DM2 layout
+markBonesPosed	the posed flag's DM2 place (node.h kNodeBonesPosedBit: the upper word)
+setModelsHiddenTask	the task's source line (zobjModel.c: perGame)
+cloneModelPose	field offsets only: the scene's DM2 layout (scene.h)
+cameraTransform	field offsets only: the camera's DM2 layout (camera.h)
+drawFrustum	field offsets only: the camera's DM2 layout (camera.h), registers
+projectToScreen	field offsets only: the camera's DM2 layout (camera.h)
+cameraFarClip	field offsets only: the camera's DM2 layout (camera.h)
+cameraFieldOfView	field offsets only: the camera's DM2 layout (camera.h)
+setEmitterObjectScale	registers
+setSceneScale	registers
+newParticleEmitterObject	the draw task's source line (zobjPEmit.c: perGame)
+textureCacheCameraHook	ZGE2's returns 1 (perGame)
+objectComponent	ZGE2 reads the level object's node inline and asks a missing node's tags through 0 (nodeOfLevelObject, kIsDm2)
+levelObjectClassTag	ZGE2 reads the level object's node inline and asks a missing node's class through 0 (nodeOfLevelObject, kIsDm2)
+setCameraFarPlane	ZGE2 takes any distance and always marks the far clip changed (no 1000 cap, no compare: kIsDm2); the camera's DM2 layout
+registerDynamicsChunkHandlers	the definition record's size (sizeof(Dynamics): DM2's 0x38)
+loadDynamicsDefinition	the definition record's size; kIsDm2: one contact number (Dynamics' DM2 layout)
+resetDynamicsDefinitions	kIsDm2: the pool destroyed without the null check; the record's size
+readBodyDefinition	BodyExtents' DM2 layout (dynamics.h: the length first)
+newDynamicsForce	DynamicsForce's DM2 layout (dynamics.h: the length first)
+readDbdyChunk	BodySphere's and BodyExtents' DM2 layouts, the rigid body's DM2 size; registers
+readConstraint	kIsDm2: the joint's two bodies ignore each other (RigidBody::addIgnored); Dynamics' DM2 layout
+readDynamicsConstraint	kIsDm2: the joint's two bodies ignore each other (RigidBody::addIgnored); Dynamics' DM2 layout
+saveBodyState	DM2 calls its matrix copy routine where AI copies inline (copyBodyMatrix); registers
+restoreBodyState	DM2 calls its matrix copy routine where AI copies inline (copyBodyMatrix, a tail call); registers
+updateWorldInertia	DM2 calls its matrix copy routine where AI copies inline (copyBodyMatrix); registers
+initCollisionFrames	the frame record's DM2 size (CollisionFrame: its levels in a pointer array)
+newCollisionFrame	the frame record's DM2 size (CollisionFrame: its levels in a pointer array)
+frameLevels	the frame's levels in a pointer array (CollisionFrame's DM2 layout and accessors)
+frameLevelPart	the frame's levels in a pointer array (CollisionFrame's DM2 layout and accessors)
+addFrameLevel	the frame's levels in a pointer array (CollisionFrame's DM2 layout and accessors)
+releaseCollisionFrame	the frame's DM2 layout; its level array freed (CollisionFrame::freeLevels)
+cloneCollisionFrame	kIsDm2: the levels copied last first; all 16 TGFR bits copied (kFrameFromDiscMask); the frame's DM2 layout
+setNodeShownFlag	the shown bit in the flags' upper word (stateFlags)
+setNodeShown	the shown bit in the flags' upper word (stateFlags)
+setNodeCollidesFlag	the collides bit in the flags' upper word (stateFlags)
+startTerrainRenderTask	the newTask call's source line (kThisLine)
+findBodyContact	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
+readDynamicsBodyPair	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
+readDynamicsHinge	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
+addToSolvedForces	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
+drawDynamicsObject	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
+placeBodiesAtBones	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
+pushBodiesFromPoint	field offsets only: the rigid body's, Dynamics' and BodyExtents' DM2 layouts (PS2X_GAME_DM2)
+resetDynamicsBones	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
+setFrameTagTable	field offsets only: the frame's DM2 layout (PS2X_GAME_DM2)
+walkSweepAxisEnds	field offsets only: SweepEnd's DM2 layout (PS2X_GAME_DM2)
+addBodyImpulseAt	registers
+sweepAddBody	kIsDm2: the box's record (three low ends, kSweepBoxBytes) made last, no end told of it; SweepEnd's DM2 layout
+newCollisionTable	the sweep's DM2 size (kSweepHandlerSlots: 3) and SweepEnd's
+projectBoxOnAxis	BodyExtents' DM2 layout; DM2 takes a magnitude by a compare and a negate where AI has it in one (the same but for -0); registers
+boxClosestPoint	BodyExtents' DM2 layout; the separating axes walked by a register where AI walks by address; registers
+setNodeCollides	the shown and collides bits in the flags' upper word (stateFlags); registers
+frameCollisionPart	field offsets only: ZGE2's 0x1C-byte frame (PS2X_GAME_DM2)
+frameTree	field offsets only: ZGE2's 0x1C-byte frame (PS2X_GAME_DM2)
+collideBodyPair	kIsDm2: bodies on each other's ignore lists do not collide (RigidBody::ignores), tested first
+invertSolverMatrix3	kIsDm2: the determinant's third term takes the second cofactor (ZGE2's slip; ZGE3 corrects it); registers
+resolveBodyContacts	kIsDm2: the damping multiplied as stored (ZGE2 keeps -0.1; ZGE3 negates 0.1); the rigid body's DM2 layout; g_contactDamping bound (bound.tsv)
+setNodeLevelOfDetail	kIsDm2: ZGE2's one level a node in drawFlags bits 8-11 and one drawn part (levelWord, setDrawnPart); the node's DM2 layout; registers
+setTreeLevelOfDetail	kIsDm2: ZGE2's level in drawFlags bits 8-11 (levelWord); the node's DM2 layout
+addWorldNode	kIsDm2: the in-world and sky bits in the flags' upper word, in-world as bit 9 (worldFlags, kInWorldBit); the world's DM2 layout
+removeWorldNode	kIsDm2: the in-world bit in the flags' upper word, bit 9 (worldFlags, kInWorldBit); the world's DM2 layout
+initTerrain	kIsDm2: no SDRD chunk handler step (ZGE2 has none to register)
+releaseCollisionWorld	kIsDm2: ZGE2 frees no regions here and resets no frame packets; the world's DM2 layout
+sectorInView	the Sector's DM2 layout (sphere +0x30)
+releaseCollisionWorld	kIsDm2: ZGE2 has no frame-ready wait and no material table count to reset (its first call is freeAllRegions, its last resetFramePackets); the world's DM2 layout
+newCollisionWorld	kIsDm2: no scene file mode guard, a 0x60-byte world with no inverse cell size and no cell total, no level frame to reset (ZGE2)
+buildWorldGrid	ZGE2's 0x60-byte Sector (kSectorBytes, box at +0x10) with its four leading words cleared (kIsDm2)
+freeWorldGrid	ZGE2's Sector layout (kSectorBytes, nodes at +0x50) and world layout
+newModelPose	kIsDm2: ZGE2's scenes have no type byte (kSceneType 0); the scene's DM2 layout (scene.h, 0x60 bytes)
+setupSceneModel	kIsDm2: ZGE2 has no isSceneRoot step; the bone-tree and bucket flags are in the flags' upper word (nodeTreeFlags), kNodeBonesPosedBit bit 40; the scene's and node's DM2 layouts
+countModelNodes	kIsDm2: the bone-tree flag is in the flags' upper word (nodeTreeFlags)
+addModelBone	kIsDm2: the bone-tree flag is in the flags' upper word (nodeTreeFlags); Node::nameHash and name at DM2 +0x118 and +0x11C
+pathPointTags	the path point's DM2 layout (PathPoint: tags +0x10)
+followerPosition	the path point's DM2 layout (PathPoint: position +0x20)
+followerHeading	the path point's DM2 layout (PathPoint: position +0x20)
+loadWaypoints	the path point's DM2 layout (PathPoint: the order word +0x08)
+setFollowerSegment	kIsDm2: ZGE2 takes the speed from the follower once it is on the path; ZGE3 asks followerSpeed first
+followerOrientation	kIsDm2: ZGE2's z axis is the heading itself and its x axis up x heading (no vec3Negate steps)
+findRegion	kIsDm2: ZGE2's findRegion is given a point and asks boxContainsPoint (DM2 0x13B538); ZGE3's a box and boxContainsBox
+findRegionAt	kIsDm2: ZGE2's findRegionAt is given a box (boxGivenAsPoint) and asks boxContainsBox (DM2 0x13B5C8, its only caller); ZGE3's a point and boxContainsPoint
+newCursorArray	kIsDm2: ZGE2's 0x14-byte array record from the heap (no arrays' pool, no sharing word; references = 1); ZGE2's only array constructor
+freePointerArray	kIsDm2: the items and the record both from the heap (no sized heap, no pool)
+addArrayReference	kIsDm2: the references word itself, not a field of the sharing word
+releaseArrayReference	kIsDm2: the references word itself
+clearCursorArray	ZGE2's array layout (count, capacity, cursor whole words)
+current	ZGE2's array layout
+pointerArrayAt	ZGE2's array layout
+pointerArrayFind	ZGE2's array layout
+pointerArrayCount	ZGE2's array layout
+cursorArrayCapacity	ZGE2's array layout
+forEachCursorEntry	ZGE2's array layout
+pointerArrayAdd	ZGE2's array layout
+pointerArrayPushBack	ZGE2's array layout
+pointerArrayRemoveAt	ZGE2's array layout
+pointerArrayRemoveCurrent	ZGE2's array layout
+arrayFirst	ZGE2's array layout (walkFirst)
+arrayNext	ZGE2's array layout (walkNext)
+searchTreeForEach	kIsDm2: the walk without the parent argument (walkSearchTreeInOrder); an empty tree answers with the visit's address
+boxContainsBox	kIsDm2: the corners compared one component at a time on the FPU (ZGE3 and ZGE4: boxWithin on VU0)
+forEachCellOnSegment	ZGE2's CollisionWorld layout (cellSize +0x00, boundsMin +0x10, cellCount +0x30, cell +0x3C)
+cloneScene	ZGE2's cloneScene takes the scene alone (READABLE_PARAM_EXCEPT(dm2, flags = kNodeKeepsRegion)); kIsDm2: it clones with kInstanceKeepName | kInstanceWithFamily | kNodeKeepsRegion (its instanceGeometryNode reads no bit 19), gives the clone no name hash and copies no pose
+forEachSectorNode	kIsDm2: ZGE2 walks the sector's node list through its array functions (arrayFirst, arrayNext: DM2 0x1390A8, 0x1390D0) where ZGE3 inlines the walk
+initGeometryNodes	kNodeBytes and kNodesABlock (DM2 0x1D0 bytes, 0x200 a block); the release callback's address
+nodeSceneObject	kIsDm2: ZGE2 looks the bone up for any pooled record (no scene kind, asked for or not) with its own search of the bone tree (searchBoneTreeForNode, DM2 0x14A040); the level object's DM2 pool bounds
+objectNameHash	kIsDm2: ZGE2 reads the record's node straight off levelObjectOf (no objectLevelNode call, no node test)
+deliverMessage	kIsDm2: ZGE2 looks the type up from a copy on its frame (key +0x08); MessageTarget's DM2 offset
+setObjectPosition	kIsDm2: ZGE2 has no markPoseStale step after a move
+setObjectRotationMatrix	kIsDm2: ZGE2 has no markPoseStale step after a turn
+setObjectAngles	kIsDm2: ZGE2 has no markPoseStale step after a turn
+setNodeLocalMatrix	kIsDm2: ZGE2 marks the tree's root moved first and copies the matrix whether or not the node is mirrored (markRootThenSetLocalMatrix)
+initSceneObject	kIsDm2: ZGE2 has no kObjectPoseStale flag to set (kNewObjectFlags)
+initQueries	kIsDm2: ZGE2's 0xD850-byte query state cleared (HitNodes, FaceHits and the walk stack live in it), one pool (the QueryHits'), no HitNode, face buffer or cache pools
+shutdownCollisionQueries	kIsDm2: the one pool destroyed (no HitNode, face buffer or cache pools)
+updateDynamics	kIsDm2: the probe through ZGE2's seven-argument collisionQuery (collisionQueryUncached, the results an 8-byte HitNodeTable); no contact damping store; the step's substep loop runs once
+releaseWorldNodes	ZGE2's world layout (lists +0x48) and array walk (arrayFirst called, not inlined)
+releaseWorldObjects	ZGE2's world layout (lists +0x4C) and array walk (arrayFirst called)
+releaseWorldTextures	ZGE2's world layout (lists +0x50) and array walk (arrayFirst called)
+forEachWorldMesh	ZGE2's world layout and array walk (arrayFirst and arrayNext called, not inlined)
+forEachWorldObject	ZGE2's world layout and array walk (arrayFirst and arrayNext called)
+zglSceneFindTextureFromHash	ZGE2's world layout and array walk (arrayFirst and arrayNext called)
+finishCollisionWorld	kIsDm2: regions finished and the cells given theirs only (no mesh finish, no orphan part release, no display idle)
+dmmDebugWalk	ZGE2's DmmRegion layout (freeList at +0x18)
+newMemoryRegion	ZGE2's memory state record keeps the regions' pool a word later (+0x10; g_memoryRegionPool bound there)
+cloneModelScene	ZGE2's cloneScene takes the scene alone: the call passes one word (READABLE_PARAM_EXCEPT(dm2, ...))
+freeGeometryNode	kIsDm2: ZGE2 takes the node off the moved list (pointerArrayFind, pointerArrayRemoveAt) and has no render state to free; the node's DM2 layout
+placeOnParent	kIsDm2: ZGE2 transforms the position through its own transformPoint (DM2 0x1128D8) where ZGE3 inlines the product
+updateNodeBounds	kIsDm2: ZGE2 transforms the bounds into the box itself (boxTransform, DM2 0x13B468) with no margin step (no updateNodeBox)
+newRegion	the region record's DM2 layout (Region: 0x40 bytes, hiddenCount a word at +0x30, hidden +0x34)
+freeRegion	the region record's DM2 layout (Region::hidden +0x34)
+finishRegions	the region record's DM2 layout (Region::hiddenCount +0x30, hidden +0x34)
+setNodeGeometry	field offsets only: the node's DM2 layout (model +0x144, geometryId +0x13C); its tail call is updateNodeBounds at its DM2 pair
+freeModelPose	kIsDm2: ZGE2 frees only the bones here and clears nothing (a skinned scene's names and matrices are releaseScene's)
+releaseScene	kIsDm2: ZGE2 frees a skinned scene's names and matrices after its node (heapFree, no test); the scene's DM2 layout
+subscribe	field offsets only: MessageTarget::messages at DM2 +0x44; the key's frame slot (readable_locals_dm2 +0x08)
+unsubscribe	field offsets only: MessageTarget::messages at DM2 +0x44; the key's frame slot (readable_locals_dm2 +0x08)
+attachObject	kIsDm2: ZGE2 has no markPoseStale step (no tail call at the end)
+objectSubscriptions	field offsets only: MessageTarget::messages at DM2 +0x44
+testHitNodeFaces	kIsDm2: ZGE2 draws the node box the query tests (kQueryDrawTestedBoxes, blue) and takes the HitNode from the query state's array, given back by the count
+poolGrow	kIsDm2: ZGE2 has no allocator field (allocateAligned64's step written in: allocateAligned(0x40, the bytes rounded to 64)) and puts the block at the front of the blocks list (listPushFront)
+createPool	kIsDm2: ZGE2's 0x30-byte record (kPoolBytes) with no allocators, memory flags 3 bits wide (no one-record flag), later blocks as big as the first
+destroyPool	kIsDm2: ZGE2's blocks are freed with heapFree (no freeBlock field)
+initMemoryRegions	kIsDm2: ZGE2's 0x14-byte memory state; the pools' list made here (no initTagRecords, no sized pools); g_pools a word later than AI's
+shutdownMemoryRegions	kIsDm2: ZGE2 leaves the regions' pool's address in the state and frees the pools' list itself (no shutDownPools)
+initMathUtilities	kIsDm2: ZGE2 builds its sine, arc sine and arc tangent tables first (buildSineTable, buildArcSineTable, buildArcTangentTable)
+boxFromPoint	kIsDm2: ZGE2 copies the point's x, y and z on the FPU (the corners' w are left)
+boxExtend	kIsDm2: ZGE2 compares x, y and z on the FPU, writing a corner only where the point is past it
+sphereFromBox	kIsDm2: ZGE2 makes the centre in the sphere itself (boxCentre into it) and leaves its w
+matrixMultiply	kIsDm2: ZGE2 multiplies on the FPU, the 3x4 part only (the w column left)
+quaternionNormalize	kIsDm2: ZGE2 divides by the length on the FPU (sqrt.s, div.s)
+quaternionSlerp	kIsDm2: ZGE2 does not normalise the blend (no quaternionNormalize call)
+createPrimitiveMaterials	ZGE2 numbers the material states its own way (MaterialState per engine: kStatePrimType 14, kStateZtst 46, kStateAbe 18, the ALPHA fields 34-37)
+forEachWorldSector	ZGE2 CollisionWorld layout (cellCount +0x30, cell +0x3C) and no cell total: the three counts multiplied, as the body does
+addGifTag	kIsDm2: ZGE2 has no streams word and always writes the tag (ZGE3 skips 0x18 bytes when nothing is rebuilt); its strip tag's high word is 0xC000 << 46, without ZGE3's PRIM bits 0x38 (kStripTagHigh perGame)
+buildGsTextureUpload	kIsDm2 step already in the body: ZGE2 has no video mode word, so a texture has room for four levels always (ZGE3 allows two in the few-levels mode); its CLUT goes through buildClutUpload (DM2 own body copyClutColours)
+requestTextureCacheFlush	kIsDm2: ZGE2 sets the countdown to 1 and starts a new epoch on every request (DM2 0x107180 has no test of the countdown, which AI's 0x107FB0 makes); its cache at 0x25CD20 has the countdown at +0xC as AI's
+forEachCellInSphere	ZGE2 CollisionWorld layout (cellSize +0x00, boundsMin +0x10, cellCount +0x30): the same arithmetic
+matrixToQuaternion	kIsDm2: ZGE2 takes each w difference the other way round and negates the product (the same value but for a zero's sign)
+addContactRows	the same logic: DM2's compiler copies the first point's turn into both arms of the body test (0x142390); its gp data its own
+boxesOverlap	kIsDm2 (axisSquared): ZGE2 squares each separating axis through its lengthSquared (DM2 0x127C00); the gp data its own
+faceNormal	kIsDm2: ZGE2's face normal stream has no indices (the face's own element)
+applyBodiesToObjects	kIsDm2: ZGE2 reads no animator and neither marks the pose stale nor sets the animator's changes after the bodies; the dynamics' and body's DM2 layout
+registerPvsChunkHandlers	the region pool's records are ZGE2's Region (0x40 bytes, view_regions.h)
+loadBufferStreamChunk	the load context's DM2 layout (ZGE2: the buffer streams' counts at +0x24, +0x28, +0x2C)
+loadGeometry	kGeoLoadContextBytes: ZGE2's load context is 0x30 bytes
+readTerrChunk	kIsDm2: ZGE2 sets the material callback (storeMaterial) for the level and puts the old one back; kGeoLoadContextBytes
+openMemoryFile	ZGE2 opens a memory file for reading only (mode 1)
+queueFileRequest	the request task's flags and source line are ZGE2's (0x105, line 0x18B)
+makeBuffer	kTagTableType: ZGE2's object type for a tag table is 5
+addRigidColours	ZGE2 returns the next VU address (READABLE_RESULT_ONLY(dm2, uint32_t)); kIsDm2: a strip's colours from the stream, not vertexColour
+advanceTextureCache	kIsDm2: ZGE2 copies the cache's free bytes into its frame statistics (0x2073C8 +0x2C, the debug line's VramFree) first and tests that copy signed (DM2 0x1071A0 slt), where ZGE3 tests freeBytes unsigned after the survey; the survey is 0x106D30 (surveyResidentTextures)
+clonePart	kIsDm2: ZGE2 (DM2 0x1251C0) ORs 0x4000 as the always-copied bit (kAlwaysCopied perGame), keeps the clone's own flags (no 0x3800 disc flags copied) and has no cloneRenderState and no clone of the chain after the part; the header copy (+0x0, +0x34..+0x3D) and the stream bits and kinds are ZGE3's
+buildRigid	kIsDm2: ZGE2 fills the material table's entries in order (DM2 0x10A630: a cursor stepped 8 bytes an entry) where ZGE3 uses table[submesh]; its addGifTag and addMicroprogramCall take no streams word (the callees read only theirs)
+resetDrawBuckets	ZGE2's DrawBucket has no reset hook (the DrawBucket layout per engine: bucketResetHook is 0), so the loop sets each bucket's end to its begin (DM2 0x108CA8, seven buckets at 0x25CF14 in steps of 0x10)
+drawPrimitiveQuads	kIsDm2 already in primitiveRendererOff: ZGE2 (DM2 0x105F98) returns at once when its renderer-ready word (0x25C994) is 0, with the high half of that word's address left as the result, as kPrimitiveNotReadyResult; the quad strip is built in the frame as ZGE3's
+releaseStream	kIsDm2: ZGE2 walks an array stream's records with arrayFirst and arrayNext (DM2 0x124D60: jal 0x1390A8 / 0x1390D0) where ZGE3 inlines the walk; the rest (kinds under 14, the holder switch, heapFree, releaseMaterialTable, freePointerArray, releaseTagTable, setPartStream) as ZGE3's
+drawScreenPrimitives	kIsDm2: ZGE2 (DM2 0x104C68) moves a vertex with its transformPoint call (0x1128D8) where ZGE3 inlines the VU0 transform, and its frame keeps only the GIF tag, the moved vertex, the depth bit and the strips left (its register saves start at +0x30: no next strip, no screen vertex block stored)
+initTextureCache	kIsDm2: ZGE2 (DM2 0x1070B0) sets the pool's bottom (0x54000) and top (0x100000) itself where ZGE3 calls resetTextureCache: low, high and the free bytes stay as memoryFill left them; the resident list is newCursorArray(0x180) at 0x138FB8
+readTbmpChunk	ZGE2's image kinds numbered from 0 (kImageKind*)
+readTzmpChunk	ZGE2's image kinds numbered from 0 (kImageKind*)
+readTtgaChunk	ZGE2's image kinds numbered from 0 (kImageKind*)
+registerBitmapChunkHandlers	ZGE2's image kinds numbered from 0 (kImageKind*)
+registerTextureChunkHandlers	ZGE2's image kinds numbered from 0 (kImageKind*)
+initImages	ZGE2 keeps one static image record (no pool)
+findBoneChannel	the channel's ZGE2 layout (0x40 bytes, kAnimationChannelBytes; boneId +0x30)
+setBoneRotation	the channel's ZGE2 layout (flags +0x34); ZGE2's channels keep no object (kChannelsKeepNoObject): the flags answered, no invalidateAnimator
+setBoneTranslation	the channel's ZGE2 layout (flags +0x34); ZGE2's channels keep no object (kChannelsKeepNoObject): the flags answered, no invalidateAnimator
+updateBoneModelMatrices	kIsDm2: a top bone's model matrix through ZGE2's copy routine (copyRotationAndTranslation: the w column left)
+updatePose	kIsDm2: ZGE2 keeps no pose-stale flag (poseScene its tail call)
+loadZitModel	the load request's ZGE2 layout (three words: model +0x08)
+registerAnimationChunks	kIsDm2: ZGE2 registers no ATRW, ASCA or ACBI handlers
+registerLoadedAsset	ZGE2 takes no leftWithScene (READABLE_PARAM_EXCEPT(dm2, ...)): every record left with the scene
+newSceneEmitter	ZGE2's registerLoadedAsset takes no leftWithScene (five words)
+loadSceneAnimations	kIsDm2: ZGE2 registers the record left with the scene and takes the flag off one to keep
+newBoneMirror	the mirror's ZGE2 header (three words, kBoneMirrorHeaderBytes; no size kept); its block from the heap (ZGE2 has no sized pools)
+initSceneObjects	kIsDm2: ZGE2's stale-objects task at priority 262, the pool's debug report registered (debugStubZero, g_sceneObjectReport), no effect arrays or emitter chunks: the emitters' set-up answers
+sample	ZGE2's BankSample is 0x14 bytes (no distance byte; bank at +0x12)
+unloadSoundBankAt	ZGE2's BankSample is 0x14 bytes (the samples walked last first in steps of 0x14)
+allocateVoice	ZGE2's BankSample: no distance byte, the envelope from +0x06, the bank at +0x12
+setVoicePitch	ZGE2's BankSample: the bank at +0x12
+initSoundChannels	ZGE2's sound task at priority 6, ps2Chan.c's line 233
+addStreamFile	ZGE2's StreamFlags (the rates from 0x08, stereo 0x100)
+openSoundStream	ZGE2's StreamFlags (looped 0x02); kIsDm2: the file request's path is the name, no prefix copied first
+openStream	kIsDm2: the file request's path is the name, no prefix copied first
+streamStatus	ZGE2 answers 1 for the driver's state 2; kIsDm2: no 5 stored for a state past 8
+loadBank	kIsDm2: no flushCache before fileSize; a bank in sound memory keeps its whole file (no shrinkBlock)
+soundSourceState	ZGE2 answers 4 for a state not stopped, playing or paused
+openMusicTrack	ZGE2's StreamFlags (44100 0x40, 11025 0x08, stereo 0x100)
+playSoundStreamSample	ZGE2's StreamFlags: looped is 0x02
+soundTask	kIsDm2: ZGE2 has no hold on the updates (no g_soundUpdateHold test)
+strFileOpen	kIsDm2: ZGE2's IOP lock (no semaphore; the holder marked with the label)
+strFileRead	kIsDm2: ZGE2's IOP lock (no semaphore; the holder marked with the label)
+strFileReset	kIsDm2: ZGE2's IOP lock (no semaphore; the holder marked with the label)
+changeInputVolume	kIsDm2: ZGE2's IOP lock (no semaphore; letting it go answers the label held)
+audioDecDelete	kIsDm2: ZGE2's IOP lock (no semaphore)
+audioDecPause	kIsDm2: ZGE2's IOP lock (no semaphore; letting it go answers the label held)
+ps2MovieInit	kIsDm2: no texture made (ZGE2's ps2MovieOpen makes it)
+ps2MovieStopTasks	kIsDm2: no sound updates let go (ZGE2 holds none for a movie)
+ps2MovieStop	kIsDm2: the task run until the movie has ended; no end hook, no texture cache flush
+sendToIOP	kIsDm2: ZGE2's IOP lock (no semaphore)
+audioDecSendToIOP	kIsDm2: ZGE2's IOP lock (no semaphore)
+proceedAudio	kIsDm2: the audio sent on whether or not the movie has any
+openPadRecording	kIsDm2: ZGE2 neither fixes the time step nor counts the frames
+readPadRecording	kIsDm2: ZGE2 counts no frames
+writePadRecording	kIsDm2: ZGE2 counts no frames
+uploadSoundBank	ZGE2's BankSample (0x14); kIsDm2: the two wave pieces (0x410 bytes) in its frame, no heap block
+setPadVibration	kIsDm2: ZGE2 keeps each level as it comes back from its float (fptoui) and answers the big one's
+setPrimitiveTexture	the default textures one word further on (PrimitiveWords::defaultMaterials at +0x08: lw 0x8 where AI has lw 0x4); bindTexture bound (DM2 0x103FA8)
+resetDmaChannels	ZGE2 only resets the controller (sceDmaReset(1), a tail call there): DmaChannels has no interrupt mask, so nothing is enabled again
+copyTextureTiles	ZGE2 does not mark level 0 to upload after the tiles (no pendingUploads |= 1): kIsDm2 step
+newPart	ZGE2 has no clearRenderState call (the part's state stays as cleared): kIsDm2 step
+beginShadowPassIfEnabled	ZGE2 has no g_enabled switch: always beginShadowPass's chain (kIsDm2 step)
+applyShadowBufferIfEnabled	ZGE2 has no g_enabled switch: always applyShadowBuffer's chain (kIsDm2 step)
+freeShadowBuffers	g_packetBuffers bound (DM2 0x25CF94: g_buffersReady + 0x0C)
+findNodeMaterialByHash	ZGE2's node layout (model +0x144, drawFlags +0x160: node.h)
+unlinkNodeFromParent	ZGE2's node layout (firstChild +0x14C, nextSibling +0x150, parent +0x154: node.h)
+walkNodeChildren	ZGE2's node layout (firstChild +0x14C, nextSibling +0x150: node.h)
+walkTopLevelNode	ZGE2's node layout (parent +0x154: node.h)
+clipSegmentToFrustumPlane	register allocation only (the same instructions, other temporaries)
+clipSegmentsToPlanes	ZGE2's camera layout (viewPlaneCount +0x250, planeCount +0x340: camera.h)
+findTextureByHash	the search words bound (DM2 g_materialPoolReady + 0x10 .. + 0x18)
+setPartUv	ZGE2's UV stream keeps the two floats (8 bytes a vertex, copied) where ZGE3 stores them as s16 times 4096: kIsDm2 step
+renderCountedFrame	ZGE2 counts no frames (no g_renderedFrameCount): kIsDm2 step; g_renderingFrame bound (0x2073B4)
+initDmaChannels	ZGE2: no interrupt mask (DmaChannels) and no completion handler added; after resetDmaChannels (0x107638) it keeps the global pointer (saveGlobalPointer, 0x107410): kIsDm2 step
+initCycleTimers	ZGE2's timer state is 0x18 bytes (kCycleTimersBytes: no bars' masks)
+shutDownCycleTimers	kIsDm2: ZGE2 only marks the timers not ready (no clear)
+initProfiler	ZGE2's Profiler (0x74 bytes, no displayFlags) and ProfileBar (0x28) layouts, rows 2 apart (rowGap)
+newProfileBar	ZGE2's ProfileBar layout (0x28 bytes, startCount +0x20, no display mask), own-frame flag bit 0 (kNewProfileBarOwnFrame), the display task's source line 561
+startProfileBar	kIsDm2: no setTimerMask (ZGE2 keeps no bars' masks); startCount +0x20
+stopProfileBar	kIsDm2: no clearTimerMask; startCount +0x20
+endProfileBarFrame	ZGE2's ProfileBar layout (startCount +0x20)
+freeProfileBar	ZGE2 has no display flags to take the bar's mask out of (removeProfileBarDisplayMask)
+newAppProfileBar	ZGE2: no display mask, tasks at 261 and 262, source lines 603 and 607
+newEngineProfileBar	ZGE2's source lines 653 and 657
+drawProfileLabel	kIsDm2: ZGE2 prints the label at x 0 (debugTextCoordinate(0))
+matrixCopyRotation	kIsDm2: ZGE2 copies the nine floats of rows 0 to 2 (no w)
+newTask	ZGE2's 12-byte RenderStage (no enabled word) and unprofiled flag bit 31 (kTaskUnprofiled)
+insertTask	ZGE2's task state: line in 31 bits, no enabled flag (kTaskLineMask, kTaskEnabled 0)
+runRenderStage	ZGE2's stages always run (renderStageEnabled), no task enabled flag, unprofiled bit 31
+releaseDeferred	g_deferredPools and g_deferredPoolIndex bound (DM2 0x274B8C, 0x274B94); the same logic
+allocateMemory	kIsDm2: ZGE2 allocates from the main region alone (regionAllocate, no heap)
+freeMemory	kIsDm2: ZGE2 releases the main region's top with no test (no heap)
+updateFrameRate	kIsDm2: ZGE2 keeps no frame seconds and calls the game's frame untested; the frame stages 5 and 6 (kStageBeforeFrame, kStageAfterFrame)
+initEngineTimers	the timers' task at ZGE2's after-frame stage 6 (kStageAfterFrame)
+startMemoryCardCall	the poll task at ZGE2's after-frame stage 6, source line 683
+initPlatformSettings	ZGE2's settings are 0x3C bytes (kPlatformSettingsBytes), no CD mode
+beginScript	kIsDm2: ZGE2 resets the reader inline (resetTokenReaderState; no resetTokenReader)
+parseTextInteger	kIsDm2: ZGE2 skips no '{' (DM2's one parser, parseInt's address)
+parseTextFloat	kIsDm2: ZGE2 skips no '{' (DM2's one parser, parseFloat's address)
+copyTranslation	kIsDm2: ZGE2 copies the translation's three floats (no w)
+nextToken	kIsDm2: ZGE2 ends the tokens (0) at a "*/" with no comment open
+drawProfilePeak	the same logic: g_screenWidth bound (DM2 0x2073B8, 8 into g_cameraDefaults where AI's is 0xC in)
+drawProfileTime	the same logic: g_screenWidth bound (DM2 0x2073B8)
+drawDebugGeometry	kIsDm2: ZGE2's primitive array drawn in order and emptied (g_debugPrimitives, no pool)
+initDebug	kIsDm2: no primitive pool (ZGE2's array counted from 0), the text task at 260, source lines 642 and 646
+shutdownDebugSystem	kIsDm2: no pool to destroy
+addDebugLine	ZGE2's primitive from the array (newPrimitive, debugPrimitiveRoom): 0 when full
+addDebugPoint	ZGE2's primitive from the array: 0 when full
+drawTriangle	ZGE2's primitive from the array: 0 when full
+addDebugText	ZGE2's primitive from the array: 0 when full
+runEngineHooks	ZGE2 calls engineNoop seven times
+setObjectOrientation	kIsDm2: ZGE2 has no markPoseStale step after a turn (the hook word answered); the quaternion read as bytes (callers pass unaligned ones)
+retainNode	ZGE2's reference count is the flags' low halfword (nodeReferences/setNodeReferences)
+releaseNode	ZGE2: the count in the flags' low halfword, the node hidden (flagsHigh's kNodeShown) at every release, no moved list
+releaseMessages	kIsDm2: ZGE2 sends no kDeletingMessage and tests no box after it; its waiting-set key is the word after the object it writes (bug kept: Zge2WaitingKey); MessageTarget::messages at +0x44
+attachObjectAt	kIsDm2: ZGE2 marks no pose stale; it answers the next sibling linked (unlinked: the last attachment record its search read)
+initCameraObjects	kIsDm2: ZGE2 also makes its camera objects' matrix records' pool (CameraObjectMatrices, 0x130 bytes, 4 a block)
+shutdownSceneRecords	kIsDm2: ZGE2 also destroys its camera objects' matrix records' pool
+createObjectAnimator	kIsDm2: ZGE2 animates model objects alone (no kind asked, no old animator freed); its channels keep no object (kChannelsKeepNoObject)
+freeSubscriberRecord	field offsets only: MessageTarget::messages at +0x44 (ZGE2)
+bindSceneAnimator	ZGE2's scenes keep no changes word (setSceneChanges); the 0x40-byte channel, its boneId at +0x30
+updateFrustum	kIsDm2: ZGE2 spans the field of view over the screen rectangle (spannedRectangle) and halves the tangent's angle by a shift; the camera's DM2 layout
+updateProjection	kIsDm2: ZGE2 centres every view on the display's centre and works the guard band out in double (libgcc), once for each axis; the camera's DM2 layout
+newSceneRecord	kIsDm2: ZGE2's 0x450-byte camera (kCameraRecordBytes) of type 1, fromWorld alone the identity, fog start 1 and no fog end, no owner; the defaults' DM2 offsets
+setCameraNearClip	kIsDm2: ZGE2 marks the projection changed whatever the near clip was; the camera's DM2 layout
+firstCameraOfKind	kIsDm2: ZGE2 keeps no first camera (it counts no views)
+setCurrentCamera	kIsDm2: ZGE2 counts no views
+partInView	kIsDm2: ZGE2 calls its point transform (transformPoint); the camera's DM2 layout
+partClipFlags	kIsDm2: ZGE2 calls its point transform (transformPoint); the camera's DM2 layout
+boneMatrix	kIsDm2: ZGE2 copies the bone's matrix out through copyRotationAndTranslation
+boneName	kIsDm2: ZGE2 looks the bone's name up by its id among the scene's bones (boneNameById, DM2 0x11EC30)
+animationDone	ZGE2's layouts: the channel record 0x40 bytes with its tracks at +0x38, a track's link at +0x38 (AnimationChannel, AnimationTrack under PS2X_GAME_DM2)
+freeObjectAnimator	kIsDm2: ZGE2 takes the tracks off with unlinkTrack (DM2 0x130E68, singly linked, the one before handed in) and ends with heapFree as its tail call, leaving the object's animator word; the layouts as animationDone's
+registerGeometryChunkHandlers	kIsDm2: ZGE2 has none of the indexed meshes' chunks (TIVC .. TII6, TIFN)
+updatedNodeVisibleInView	kIsDm2: ZGE2 has the view test inline (no nodeVisibleInView)
+initScenes	kIsDm2: ZGE2 makes no 2D camera; its Camera record 0x450 bytes
+shutDownScenes	kIsDm2: ZGE2 has no 2D camera to free
+closestPointOnTriangle	ZGE2 squares the edges and the point offset through lengthSquared (they sit on its stack: SquaredVector) and tests e against a double 0 in region 4
+releaseTagTable	kIsDm2: ZGE2 frees the table whole (heapFree, DM2 0x129068)
+loadFaceNormalsChunk	kIsDm2 (partIgnoresStream): ZGE2 keeps face normals always (its empty face loop dropped)
+loadNormalsChunk	kIsDm2 (partIgnoresStream): ZGE2 keeps a part's normals when it has bones or g_keepAllNormals is set (its empty vertex loop dropped)
+loadPartHeaderChunk	ZGE2 takes every flag bit from the TGPH (kPartFlagsTaken) and sets no render class
+loadGeoObjectChunk	kIsDm2: ZGE2 neither adds the object nor clears ctx->object
+storeMaterial	ZGE2's four texture slots (kMaterialTextureNames), the world's textures only (no loaded-texture search)
+loadMaterialTableChunk	kIsDm2: ZGE2 sets no material callback here (readTerrChunk sets it for the file)
+loadPartChunk	kIsDm2: ZGE2 clears the part's render state after its chunks (ZGE3 in newPart)
+readChunkFile	kIsDm2: ZGE2 reads a file under 64 KB into the heap (heapAllocate, heapFree; kZge2MemoryFileBytes)
+readZfgeChunk	kIsDm2: ZGE2 clears g_keepAllNormals after the geometry file (DM2 0x121B48)
+runFileRequests	ZGE2's 18 request operations: no kFileOpCreate (startFileRequest's default for it)
+loadMaterialChunk	ZGE2 rewrites the MATI flags' bit-fields in place (the same bits) and has an empty four-layer loop: no difference in what it does
+loadUvsChunk	kIsDm2: ZGE2 keeps the float pairs as the file has them (loadPlainStream; its empty vertex loop dropped)
+registerLightChunkHandlers	kIsDm2: ZGE2 makes no light pool (its LITO handler drops the light: dropLitoChunk)
+readPvsoChunk	kIsDm2: ZGE2 reads only the older body (no flag word, no size test) and keeps newRegion's count
+transformContactFaces	ZGE2: the contact objects in place (HitNodeTable: contactObject), each vertex through transformPoint
+testNodeFaces	kIsDm2: ZGE2's whole-part leaf (InlineLeafTree), the points into node space through transformPoint, kinds 0 and 1 only; its segmentFaceTree is handed the tree (READABLE_PARAM_ONLY); its NodeSpaceShape in the frame up to the box (frameBytes)
+resolveDevicePath	kIsDm2: ZGE2 hands on the path itself past the device's name and colon (no root prefix, no buffer; DevicePathCopy takes no frame)
+readAsset	kIsDm2: ZGE2 reads no packed entry (AssetInflateState takes no frame)
+attachMaterialTable	kIsDm2: ZGE2 only adds the table to the part's material sets (its tail call; no count, no result: READABLE_RESULT_EXCEPT)
+materialTextureSlot	layout: ZGE2 keeps the texture slot in the layer's record (textureSlotOf: + 0x50 + slot * 0xB0 + 0xA0), ZGE3 in the header
+endCameraSetup	kIsDm2: ZGE2's is empty (returns 1): no view packet begun, no set-up word
+initMaterialLayers	layout and value: ZGE2's four layers cleared up to their texture id (kMaterialLayerClearedBytes), the quadword count in the layer (+0x90), its GIF tag with no VU1 program; the state-changed mark in its own word (markMaterialStateChanged)
+clearDisplayRectangle	kIsDm2: its rows are always field rows (y << 3: ZGE2 reads no display flags there); its first sceGsSyncPath passes two words (ZGE3's leaves the packet's and the display's addresses in the next two); ZGE2's double buffer layout (GsDrawBuffer, one draw environment)
+resetPrimitiveBuffers	kIsDm2: ZGE2 first sets both packets' texture to none and clears their program start, and has no NOP before the FLUSHA with the interrupt
+setCameraMatrix	kIsDm2: ZGE2 copies the axes and position by copyRotationAndTranslation (no row's w); the camera's DM2 layout (no viewStale word)
+markNodeMoved	kIsDm2: ZGE2 keeps kNodeMoved and kNodeNotMoved in the flags' upper word (nodeStateFlags, bits 7 and 11 there) and lists only a node already flagged moved
+updateMovedNodes	kIsDm2: ZGE2 starts each walk of the moved list with arrayFirst and updates each node with its own updateMovedNode (moveNodeInGrid)
+newAppInstanceNode	kIsDm2: ZGE2 counts the reference in the flags' low halfword, sets shown and colliding in the state word (no light change, no object groups, no origin), keeps no position key, one level of detail in drawFlags (bits 8-11 set to 15) and no node render state
+matchWorldName	the collision world's DM2 layout (boundsMin +0x10)
+markRegionsOutOfView	kIsDm2: ZGE2 finds the point's region with its findRegion (the point form, boxContainsPoint); the region's DM2 layout (view_regions.h)
+freeImageData	kIsDm2: ZGE2's record has no flag: its data always goes back to the main region (freeMemory)
+newImageRecord	kIsDm2: ZGE2 hands out its one record (g_imageRecord), cleared, with no pool and no flag
+freeImageRecord	kIsDm2: ZGE2 frees the data alone (its one record stays)
+shutdownImageReaders	kIsDm2: ZGE2 has no record pool to destroy
+setImageReader	the readers' table (imageReaders, bound in DM2)
+findImageReader	kIsDm2: ZGE2 asks the first three kinds, takes each to have its reader, and answers 4 when none knows the file (kNoImageReader)
+readImage	kIsDm2: ZGE2 reads with the kind it is given (no search for kind 0)
+readTgaImage	kIsDm2: ZGE2 clears the image record first
+readBmpImage	kIsDm2: ZGE2 clears the image record first and halves each palette entry's alpha
+newPointerArray	kIsDm2: ZGE2 has one array constructor (newCursorArray's: the record and its items from the heap); DM2 0x138FB8 is it word for word
+reflectVector	registers only (a dead scratch register); read, no recording
+rotationFromTo	registers only and kSameDirection's word (0.999 in both ELFs); read, no recording
+copyQuad	registers only (the quadword copied through another scratch register); read, no recording
+shutdownDynamicsPool	kIsDm2: ZGE2 destroys the definitions' pool with no test and keeps the word; read, no recording
+shutdownTerrain	kIsDm2: ZGE2's chain ends with the parts (no shutdownSectorFlags); the regions and the node flag as ZGE3's
+handleNameChunk	kIsDm2: ZGE2 reads an empty NAME chunk as any other (no test, one chunkDataSize); read, no recording
+closeAssetLibrary	kIsDm2: ZGE2 closes the file and gives the record back, freeing no table; read, no recording
+shutdownLitoChunks	kIsDm2: ZGE2's light chunks keep no pool to destroy; read, no recording
+textEscape	ZGE2's TextStyle (scale +0x20, colour +0x30: 16 bytes after the position)
+outputMovieFrame	kIsDm2: ZGE2 has no wait before the upload and returns voBufDecCount's count
+drawDebugLines	the same logic: the line draw's data bound (DM2 0x25B988, aligned)
+drawDebugTriangles	the same logic: the triangle draw's data bound (DM2 0x25B998, aligned)
+drawDebugSpheres	the same logic (its words differ only in addresses)
+drawDebugAxes	the same logic (one load scheduled elsewhere)
+drawDebugBoxes	ZGE2 draws the box lines without the 0x10 flag (kUnderTransform perGame)
+movieShutdown	the same logic: its flag read gp-relative (DM2)
+formatIntAttribute	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zfloatToText	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+vectorToText	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zquaternionToText	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zfloatSet	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zfloatCopy	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zfloatText	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+sint32Set	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+sint32Copy	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+sint32Text	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+vectorParse	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zquaternionSetText	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+voidSet	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+voidCopyOut	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+boolSet	ZGE2's variable (+0x0C, Node::valueAs); ZGE2's Bool keeps the word as given (kBoolKeepsWord)
+boolCopy	ZGE2's variable (+0x0C, Node::valueAs); ZGE2's Bool keeps the word as given (kBoolKeepsWord)
+boolParse	ZGE2's variable (+0x0C, Node::valueAs); ZGE2's Bool keeps the word as given (kBoolKeepsWord)
+boolToText	ZGE2's variable (+0x0C, Node::valueAs); ZGE2's Bool keeps the word as given (kBoolKeepsWord)
+registerZguiNodeKind	ZGE2's zgui memory is a DMM region (zguiAllocate: dmmAllocate, then zmemDMMLock); its NodeKindRow has create at +0x30 (0x34 bytes)
+newZguiNode	ZGE2's zgui memory (zguiAllocate); the kind's name at the ListedAction's +0x08 (a kIsDm2 step); NodeKindRow's create at +0x30
+registerVariableType	ZGE2 keeps no name hash in its types (kTypesKeepNameHash): the type is only listed
+currentScriptOwner	ZGE2 keeps the running script's widget in a global of its own (g_scriptOwner, kIsDm2)
+stringDestroy	ZGE2's zgui memory is a DMM region: the text's block released through zguiRelease (dmmHandleOf, then dmmRelease)
+commandLockInput	ZGE2 sends it through the scene messages, from the running script's widget (g_scriptOwner) to the root, at once (kIsDm2); its LockInput is 0x8003 (Message, perGame)
+commandUnlockInput	ZGE2 sends it through the scene messages, from the running script's widget (g_scriptOwner) to the root, at once (kIsDm2); its UnlockInput is 0x8004 (Message, perGame)
+cloneDynamicsDefinition	ZGE2's layouts only (Dynamics 0x38, RigidBody 0x410, BodyExtents length first): DM2 0x145458 once the bind pairs it (d7coll pair result; the old pair named it copyDynamicsDefinition)
+setCameraClearColour	DM2's camera bits and Camera layout
+setCameraFogColour	DM2's camera bits and Camera layout
+drawSky	kIsDm2: ZGE2 draws the sky as a listed node (drawListedNode), without updateWorldMatrices or setTreeLevelOfDetail
+shutDownRenderer	kIsDm2: ZGE2 frees no screen overlay, frame prologue, fix-ups or profile bar (its shadow, upload and frame buffers only)
+shutdownEngineSystems	kIsDm2: ZGE2 shuts down no effect manager, heaps, search trees or chunk handlers here
+shutDownSceneObjects	kIsDm2: ZGE2 has no particle emitter objects or particle types to shut down
+shutdownEngine	kIsDm2: ZGE2 shuts the graphics systems and deferred pools down first and its world cell tree after the tag tables
+freeMemoryRegion	kIsDm2: ZGE2 gives back the memory state's never-written second word instead of the region's memory (bug kept)
+shutdownPrimitiveRenderer	kIsDm2: ZGE2 walks each buffer list with arrayFirst and arrayNext calls where ZGE3 inlines the walk
+decodeMoviePicture	kIsDm2: ZGE2 prints the sample's "decode thread: end" and "decode thread: aborted" messages (printf) and does not keep the scratchpad around the decode
+initEngine	kIsDm2: ZGE2 has no token pool, allocators, effect manager or ZFFD handler, and shows its own start-up picture (showScreenSizedRawImage of ASSETS\LEGAL1.RAW) with no game hook
+startEngine	kIsDm2: ZGE2's engine state is 0x68 bytes and its frame state two records (0x18 and the frame counts' 0x34); it sets no frame pacing or colour scale, makes the task pool itself (no initRenderStages) and sets up its world cell tree before the tag tables
+registerWidgetKind	ZGE2's zgui memory is a DMM region (zguiAllocate), and each kind keeps the class of its widgets' scene objects (objectClass, a fifth word: READABLE_PARAM_ONLY)
+freeZguiList	ZGE2's zgui memory is a DMM region: each row released with zguiRelease (dmmHandleOf 0x129BC0, dmmRelease 0x1299B8; DM2 0x14F9E8..0x14F9F4) where ZGE3 gives it back to the heap
+stringSetText	ZGE2's zgui memory is a DMM region (zguiRelease, zguiAllocate: DM2 0x15F3A4..0x15F3E0), and ZGE2 has no \\ escape (a backslash pair is kept as it is; DM2 0x15F428..0x15F530 tests \", \n, CR LF, LF and quotes only)
+newUiAssetEntry	ZGE2's zgui memory is a DMM region: the UiAsset comes from zguiAllocate (dmmAllocate 0x129910, zmemDMMLock 0x129C60 at DM2 0x15CB90..0x15CB9C) where ZGE3 takes it from the heap
+newUiLibrary	ZGE2's zgui memory is a DMM region: the UiLibrary comes from zguiAllocate (dmmAllocate 0x129910, zmemDMMLock 0x129C60 at DM2 0x15CBF0..0x15CBFC) where ZGE3 takes it from the heap
+finishUiLibraryLoad	ZGE2 plays the load's OnLoaded as PLAY does for the load's widget (setScriptOwner 0x160018, commandPlay 0x161040 at DM2 0x15D988..0x15D994) where ZGE3 finds the animation node and plays it, and gives the pending record back to its DMM region (zguiRelease: dmmHandleOf 0x129BC0, dmmRelease 0x1299B8 at 0x15D9BC..0x15D9C8)
+finishUiAssetLibraryLoad	ZGE2 sets the script owner to the load's widget before its PLAY (setScriptOwner 0x160018 at DM2 0x15DAD4) and gives the pending record back to its DMM region (zguiRelease at 0x15DB08..0x15DB2C)
+unloadUiLibrary	ZGE2 gives each asset and the library back to its DMM region (zguiRelease at DM2 0x15DE44..0x15DE58, 0x15DE74..0x15DE88) where ZGE3 gives them to the heap; its fireGuiEventHandlers is refreshWidgetTree (own body)
+zguiScript_Load	ZGE2 takes the pending load's record from its DMM region (zguiAllocate: dmmAllocate 0x129910, zmemDMMLock 0x129C60 at DM2 0x15D710..0x15D718 and 0x15D828..0x15D834) where ZGE3 takes it from the heap; for a library loaded already ZGE2 queues its OnLoaded with QUEUE (commandQueue 0x161138 at DM2 0x15D64C) where ZGE3 plays it at once
+vectorSet	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+vectorCopy	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zquaternionSet	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+zquaternionCopyOut	ZGE2's variable: the ListedVariable's value (+0x0C, Node::valueAs)
+setGuiTaskRunning	ZGE2's draw task has priority 1 and zgui.c's line 295 (kDrawTaskPriority, kRestartDrawTaskLine)
+drawSky	kIsDm2: ZGE2 draws the sky as a listed node (drawListedNode), without updateWorldMatrices or setTreeLevelOfDetail
+shutDownRenderer	kIsDm2: ZGE2 frees no screen overlay, frame prologue, fix-ups or profile bar (its shadow, upload and frame buffers only)
+shutdownEngineSystems	kIsDm2: ZGE2 shuts down no effect manager, heaps, search trees or chunk handlers here
+shutDownSceneObjects	kIsDm2: ZGE2 has no particle emitter objects or particle types to shut down
+shutdownEngine	kIsDm2: ZGE2 shuts the graphics systems and deferred pools down first and its world cell tree after the tag tables
+freeMemoryRegion	kIsDm2: ZGE2 gives back the memory state's never-written second word instead of the region's memory (bug kept)
+shutdownPrimitiveRenderer	kIsDm2: ZGE2 walks each buffer list with arrayFirst and arrayNext calls where ZGE3 inlines the walk
+decodeMoviePicture	kIsDm2: ZGE2 prints the sample's "decode thread: end" and "decode thread: aborted" messages (printf) and does not keep the scratchpad around the decode
+newCamera	kIsDm2: ZGE2's newSceneRecord takes three words (READABLE_PARAM_EXCEPT), and the camera object gets a cleared 0x130-byte record of its own of matrices from g_cameraObjectMatricesPool at the animator's place
+initEffectTables	kIsDm2: ZGE2 keeps no particle budget or counts (and, as ZGE4, answers nothing)
+freeNamedEffectClasses	the same calls in the same order (AI's file is compiled unoptimised: the words differ throughout)
+registerEffectClassName	kIsDm2: ZGE2 asks the heap itself (no effectNameAllocate) and leaves through pointerArrayAdd
+unregisterEffectClassName	the same calls in the same order (AI's file is compiled unoptimised)
+registerEffectTypeName	kIsDm2: ZGE2 asks the heap itself (no effectNameAllocate) and leaves through pointerArrayAdd
+registerNamedEffectClass	kIsDm2: ZGE2 asks the heap itself (no effectNameAllocate) and leaves through pointerArrayAdd
+initEffectClass	kIsDm2: ZGE2 leaves through initList
+zguiFree	ZGE2's zgui memory is a DMM region (zguiRelease)
+resetScenePoints	kIsDm2: ZGE2 makes no SDTD record pool (its ScenePoint 0x40 bytes)
+readSdptChunk	kIsDm2: ZGE2's ScenePoint (0x40: the hashes first, index and tag size in words, tags +0x10, position +0x20, orientation +0x30); the chunk's index read as a word
+registerScenePointChunkHandlers	kIsDm2: ZGE2's 256 KB tag region, no SDTD record pool or handler
+leaveModelScenes	kIsDm2: ZGE2 frees no SDTD records
+findScenePoint	kIsDm2: ZGE2's ScenePoint (the index a word at +8)
+findLocators	kIsDm2: ZGE2's ScenePoint (the hashes at +0 and +4)
+freeLocators	the scene points' globals by gp (ZGE2's module order)
+freeScenePoint	the scene points' globals by gp (ZGE2's module order)
+setScenePointTask	kIsDm2: zscnpts.c's task source line (229); the module's globals by gp
+shutdownScenePoints	kIsDm2: ZGE2 destroys no SDTD record pool
+handleAnimChunk	kHasEventSets: ZGE2 has no event sets (no current event set cleared)
+drawParticleEmitters	kIsDm2: ZGE2 walks the object's emitters with arrayFirst and arrayNext (DM2's 0x40-byte EffectEmitter)
+destroyEmitterObject	kIsDm2: ZGE2 walks the object's emitters with arrayFirst and arrayNext
+startEffect	kIsDm2: ZGE2 walks the emitters with arrayFirst and arrayNext, makes the emitter list 0x100 long, keeps no owner
+startSource	kIsDm2: ZGE2 keeps the new source's squared distance as the whole number (startDistance)
+updatePad	kIsDm2: ZGE2 takes libpad's state 0 alone for a pad gone, asks again after a failed analog-mode switch, keeps no pad ID (kKeepsPadId)
+nextPrimitiveBuffer	kIsDm2: ZGE2 takes the frame's next DMA buffer with arrayFirst and arrayNext
+closeScreenPrimitivePackets	kIsDm2: ZGE2 takes each packet's first buffer with arrayFirst
+flushTextureCache	kIsDm2: ZGE2 takes the resident list's first texture with arrayFirst
+newStream	kIsDm2: ZGE2's stream records are object type 6, it counts no strip-group bytes and leaves the indices word
+allocateShadowBuffers	kIsDm2: ZGE2's shadow buffers are 32 KB and it has no shadows-on flag
+applyDisplayBuffers	kIsDm2: ZGE2 does not look for a pending GS reset
+releasePartPackets	kIsDm2: ZGE2 frees each buffer's packet and material table, with no use count
+drawShadowCasters	kIsDm2: ZGE2 takes the mesh packet's address itself and leaves the VU1 state's owner
+initPrimitiveRenderer	kIsDm2: ZGE2 (DM2 0x105BD0) clears 0x390 bytes of the primitives' state, sets its primitives-on word (PrimitiveWords::primitivesOn, +0x04) with ready, takes no buffers ahead and sets one world vertex's constants; the materials, packets and buffers are ZGE3's
+initRenderer	kIsDm2: ZGE2 (DM2 0x108310) sets its drawing-on word (Renderer::drawingOn, +0x04), has no frame prologue, screen overlay, least-words statistics, scene light directions or frame fix-ups; the shadow buffers, microprograms, upload buffers, frame buffers and the default lights' matrices are ZGE3's (its Renderer layout)
+resetTextureCacheAndFlush	kIsDm2: ZGE2 (DM2 0x107260) sets the pool's two ends alone (poolTop, poolBottom) before the flush request; no cursors or free bytes
+resolveRenderType	kIsDm2: ZGE2 (DM2 0x107BD0) resolves the type at every call, skins every part with bones (no prelit skinned type), reads the sky flag in the flags' upper word and tests no node pointer; its sky type is 0x14 (RenderType::Sky)
+buildSkinned	kIsDm2: ZGE2 (DM2 0x109798) fills the material table in submesh order and sends normals always; its UV, position and normal writers are ZGE2's own bodies
+drawRigid	kIsDm2: ZGE2 (DM2 0x10A880) writes the texture request in (requestTexturesWrittenIn), sends one clip plane (the frustum's first, in the node's space) when clipped, OFFSET 0x200 and the unfogged prelit program 0x1A
+screenTexturedRectangle	registers and addresses (DM2 0x10AC00: AI's logic; it faulted before only on the unbound g_vuAddress)
+screenRectangle	kIsDm2: ZGE2 (DM2 0x10ADD8) takes eight arguments (no GS context: context 1) and converts the near depth unsigned to 64 bits with libgcc's __fixunssfdi
+vif1Interrupt	kIsDm2: ZGE2 (DM2 0x107668) has no hold on the uploads and keeps no upload statistics
+buildShadowVolumePacket	kIsDm2: ZGE2 (DM2 0x10B5F0) draws the volume in GS context 1 with program 0x18 and far scale 1, and puts the scene's FRAME and ZBUF back from the scratchpad's +0 and +0x10
+ps2SifInit	kIsDm2: ZGE2 (DM2 0x111B28) sets the disc mode to a CD (sceCdMmode(1)) every time it starts disc access: it has no CD mode setting
+findBodyFaceContacts	kIsDm2: ZGE2 (DM2 0x13EFA8) moves a face's corners through transformPoint past the 40 world faces
+updateParticleEmitters	kIsDm2: ZGE2 (DM2 0x146940) walks the emitters with arrayFirst/arrayNext and marks no pose out of date
+findAffectorByName	registers and addresses (DM2 0x14CA20: AI's logic; unbound before)
+resetEffectClass	registers and addresses (DM2 0x14CCB8: AI's logic; unbound before)
+addEffectClassAffector	kIsDm2: ZGE2 (DM2 0x14CD90) asks the heap for the link itself and leaves through listPush
+addEffectClassAffectorByName	kIsDm2: ZGE2 (DM2 0x14CE40) leaves through addEffectClassAffector
+destroyCameraObject	kIsDm2: ZGE2 (DM2 0x146508) hands the object's place record back to g_cameraObjectMatricesPool after the camera record
+setUpBoneChain	registers and addresses (DM2 0x13C240: AI's logic; zge/scene/bone_chain.cpp was not in DM2's instance before)
+aimBoneChain	registers and addresses (DM2 0x13C6B0: AI's logic; zge/scene/bone_chain.cpp was not in DM2's instance before)
+newBuffer	kIsDm2: ZGE2 (DM2 0x1263E8) takes the table from the heap (it has no sized pools)
+objectLevelNode	registers and addresses (DM2 0x14A898: AI's logic with nodeOfLevelObject's ZGE2 step, the node read in place; unbound before, its dm2 row named it objectSceneNode)
+findWorldObjectByHash	kIsDm2: ZGE2 (DM2 0x1204F0) walks the world's object list with arrayFirst/arrayNext
+dynamicsDebugRecord	DM2 0x1456D0: the same test and result; ZGE2 reaches g_contactObjects gp-relative (gp-0x6F98) where AI loads its absolute address, and returns through movz
+findEffectClassByName	registers and addresses (DM2 0x14C8B0: AI's logic, the class names walked with arrayFirst/arrayNext at gp-0x6EFC (g_effectClassNames), compareStrings on the record's name +4)
+startMovie	registers and addresses (DM2 0x116A10: AI's steps and calls in its order; the IOP lock's ZGE2 form (count and labels, no semaphore) inline as takeIopLock/releaseIopLock give it; ZGE2's smaller decoder work, kDecoderWorkBytes)
+endMovie	registers and addresses (DM2 0x116D00: AI's steps and calls in its order, the IOP lock's ZGE2 form inline, changeThreadPriority as the tail jump)
+loadLevelPaths	registers and addresses (DM2 0x149E78: AI's steps and calls in its order: the paths' tree at gp-0xE60 (g_paths), the "Waypoint" locators, findPathRecord/loadPath per name, the list freed; its pair now that the bind is regenerated)
+updateWorldMatrices2	kIsDm2: ZGE2 (DM2 0x123D70) copies the local or the parent's world through copyRotationAndTranslation where ZGE3 moves four quadwords inline; kNodeTakesParentWorld is the flags' upper word's bit 13 (the doubleword's bit 45)
+bindTexture	registers and addresses (DM2 0x103FA8: AI's steps and calls in its order with ZGE2's material layout through the per-game hooks: the two-sided bit 35, the listed frame +0x40, the first layer's GIF tag +0x60 and quadword count +0xE0)
+cyclesToTime	kIsDm2: ZGE2 (DM2 0x113C68) converts the clock rate as an unsigned 64-bit count through libgcc's __floatdisf (half of it, its low bit kept, converted and doubled when the top bit is set); ZGE3 as an int (cvt.s.w)
+debugTextPrint	kIsDm2: ZGE2 (DM2 0x102048) keeps the coordinate's flag bits and makes the position with its margin a 16-bit integer again (cvt.w.s, then the short) before the float; ZGE3 masks the flags
+drawScreenLineLists	kIsDm2: ZGE2 (DM2 0x1046F8) transforms each vertex by a call (transformPoint) where ZGE3 does it on VU0 inline; the vertices left is kept in a register (readable_locals_dm2.tsv places the locals)
+drawScreenLines	kIsDm2: ZGE2 (DM2 0x104430) transforms each vertex by a call (transformPoint) where ZGE3 does it on VU0 inline; the next line kept in a register and no spill of the vertex page (readable_locals_dm2.tsv places the locals; the unused qword local on the tag)
+pcfsRead	kIsDm2: ZGE2 registers "rwfread() failed." (registerFileError) when fewer bytes came than asked, as rwfwrite does; its callback and byte count come in the other order of registers (the signature's)
+addScenePoint	layout: DM2's ScenePoint (locators.h: the hashes, index and tags first, the position and orientation after, 0x40 bytes) and registers; the kind and name hashes compared as one doubleword (ld), the same test
+copyBoneList	kIsDm2: ZGE2's copyPoseBones (DM2 0x11E570, its own body copiedPoseBones) allocates the copy's bones and returns them, which the list keeps; DM2's Scene keeps the bone poses and names 4 bytes lower (layout)

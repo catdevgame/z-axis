@@ -1,0 +1,23 @@
+# Reference run 2, segment 18: Wall Rides (L18 wall at (-4.74, 26.96), the skater starts
+# heading +x+z at 45 degrees towards it).
+# Goal: jump at the wall, DOWN+CROSS, hold CROSS: Wall Ride, "Good job", WALLRIDE XP.
+# Start: ref42-skitch-done (slot 71). Checkpoints: 72 ref43-wallride-go, 73 ref44-wallride,
+# 74 ref45-wallride-done, 75 ref46-cess-go (start of "Cess Slides"; end of run 2's Tutorial part).
+tips 240                                            # 3 boxes in run 2: title "Wall Rides" and its tips
+checkpoint 72 ref43-wallride-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                  # standing at (-25.86, 0.68)
+down UP+CROSS
+waitval 0x2A76F0 f32 > -11 600
+up CROSS                                            # jump
+waitval 0x2A76F0 f32 > -5.5 600
+up UP
+down DOWN+CROSS                                     # onto the wall
+wait 6
+up DOWN
+checkpoint 73 ref44-wallride ../recomp/dumps/ref2 ../reference/pcsx2-run2
+waitval 0x2A76F4 f32 > -0.05 600                    # back on the ground
+release
+waitval 0x276FE4 u32 == 3 1800
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 74 ref45-wallride-done ../recomp/dumps/ref2 ../reference/pcsx2-run2
+tips 240                                            # 4 boxes in run 2: HINT, title "Cess Slides", tips
+checkpoint 75 ref46-cess-go ../recomp/dumps/ref2 ../reference/pcsx2-run2

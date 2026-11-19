@@ -1,0 +1,19 @@
+#pragma once
+
+// The Android build's documents (android_documents.cpp): what its platform
+// file (platform_android.cpp) asks of them.
+
+#include <functional>
+#include <string>
+#include <vector>
+
+namespace ps2x_android
+{
+    // The documents UI for disc images (several at once) or a folder; the
+    // picks come to `picked` on the UI thread. False before the activity
+    // has installed the documents (Documents.install).
+    bool pickDocuments(bool folder, std::function<void(std::vector<std::string>)> picked);
+    // The documents UI for a new document (`name` suggested); its URI comes
+    // to `created` on the UI thread, nothing when the player backs out.
+    bool createDocument(const std::string &name, const std::string &mimeType, std::function<void(std::string)> created);
+}

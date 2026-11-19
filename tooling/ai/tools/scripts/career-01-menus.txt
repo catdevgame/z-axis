@@ -1,0 +1,25 @@
+# Reference run 2, Career part, segment 1: fresh boot -> main menu -> CAREER -> player
+# select -> name entry (END) -> level select, cursor moved to MOVIE LOT (the first career
+# level; the next one, CIVIC CENTER, is locked).
+# Start: right after `pcsx2pad.py launch` (fresh boot, slot-1 card Mcd001.ps2 as backed up
+# in pcsx2-test-data/reference/Mcd001-before-run2.ps2). Run from tools/.
+# Front-end waits as in tutorial-01-start.txt. 0x857E54 is the level-select cursor (zgui
+# level-select panel field, PCSX2 heap): 0 TUTORIAL, 1 MOVIE LOT, 2 CIVIC CENTER.
+# Checkpoints (slot, name): 76 car01-main-menu, 77 car02-level-select-movielot.
+waitpolls 1
+pressuntil START 0x276FE4 u32 == 1 3600 60          # skip AKA, Z-Axis and intro movies
+waitval 0x240A20 u32 == 0x8323E0 1800               # main menu up
+wait 30
+checkpoint 76 car01-main-menu ../recomp/dumps/ref2 ../reference/pcsx2-run2
+pressuntil CROSS 0x240A20 u32 != 0x8323E0 600 120   # CAREER
+waitval 0x240A20 u32 == 0x840F90 900                # player select
+wait 30
+pressuntil CROSS 0x240A20 u32 != 0x840F90 600 120
+waitval 0x240A20 u32 == 0x847700 900                # enter your name (cursor on END)
+wait 30
+pressuntil CROSS 0x240A20 u32 != 0x847700 600 120
+waitval 0x240A20 u32 == 0x857D40 900                # level select: TUTORIAL
+wait 30
+pressuntil RIGHT 0x857E54 u32 == 1 300 40           # MOVIE LOT
+wait 30
+checkpoint 77 car02-level-select-movielot ../recomp/dumps/ref2 ../reference/pcsx2-run2

@@ -1,0 +1,11 @@
+# Reads the scan sees and the code does not use: function, registers, why. A row here takes the
+# read out of fncheck_traced_gen.py's tables and readable_args.py's needs, so read the listing first.
+221458	a2	__pack_d: libgcc 2.95's fp-bit.c assembles the high word as a bit field over an unset register: and + or replace all 32 bits
+222150	a2	__pack_f: the same for its one word
+117d78	f12,f13,f14,f15,f16,f17,f18,f19	saveFloatRegisters: the interrupt handlers' save of every FPR as the interrupted code left them, not arguments: the hook reads the guest context
+148760	a2,a3,t0,t1,t2,t3	formatString: sprintf: variadic, these go to a frame for the format, read only as far as it asks; a call names the words its format reads
+148798	a1,a2,a3,t0,t1,t2,t3	formatScratch: the same
+1667b8	a2,a3,t0,t1,t2,t3	formatLocalizedText: the same
+14bbd0	a3,t0,t1,t2,t3	debugPrint: the same
+22af38	a1	_ulp: newlib mprec.c builds the double in a union and sets one half; on the path that keeps the high half zero the other half is masked in and then masked out (and with 0xffffffff, then with 0xffffffff00000000), so the incoming a1 never reaches the result
+14cfe8	a2	quaternionToEuler: keeps a2 in s1 across quaternionToMatrix and hands it back as matrixToEuler's a2, which matrixToEuler never reads (its code names a0 and a1 only): the word findPieceAnchors passes (0) reaches nothing

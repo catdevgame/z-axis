@@ -1,0 +1,28 @@
+# How a game module's code is compiled: by the workshop's build (cmake/game_module.cmake) and by the app on the
+# player's machine (the same file, shipped with the module's headers). One flag per line, after the kinds it is for:
+#   all      every module
+#   arm64    ARM64 targets (macOS, Android)
+#   x86_64   x86-64 targets (macOS, Windows)
+# The optimization level is the build's (Release: -O3) in the workshop, -O3 in the app.
+all -DPS2X_GAME_MODULE=1
+# No library header: the module's own view of the runtime (game_module/module_runtime.h) and the declarations the
+# compiler's intrinsics headers reach (game_module/libc).
+all -nostdlibinc
+all -nostdinc++
+# Generated code is called from the runtime and calls it; the runtime's EE scheduler unwinds it with a C++ exception
+# (EeDispatcherTransfer), so the module's frames have unwind tables.
+all -fexceptions
+all -funwind-tables
+# No stack protector (its guard and handler are the C library's); sqrt and its kin as instructions, not calls that set
+# errno (generated code never reads errno).
+all -fno-stack-protector
+all -fno-math-errno
+all -fvisibility=hidden
+arm64 -DUSE_SSE2NEON
+x86_64 -march=x86-64-v2
+# VU1's units (the app's first run: the core's out-of-line pipelines, src/lib/vu/ps2_vu1_core.cpp, and the microprograms
+# compiled ahead of time), as the runtime compiles them (runtime/CMakeLists.txt): each product and sum rounded on its
+# own (vu1: both kinds); the microprograms also with the rounding mode left to run time, the VU's round toward zero
+# (vu1aot: theirs alone).
+vu1 -ffp-contract=off
+vu1aot -frounding-math

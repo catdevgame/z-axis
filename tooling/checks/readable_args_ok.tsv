@@ -1,0 +1,15 @@
+# Hits read in the listing and found harmless (readable_args.py): kind, function, callee, registers, why.
+dropped	11b8c0	214bc0	a1@11b914	giveLock: SignalSema takes the semaphore alone; a kernel wrapper counts as variadic, a1 is the function's temporary
+dropped	11b8c0	214bc0	a2@11b914	giveLock: the same, a2
+dropped	11b3f8	214bc0	a2@11b4ac	checkDvdResult: SignalSema reads the semaphore (a0) alone, as giveLock's rows say; this failure-branch call passes a1 (the context) as the original does and the original sets no a2 there
+unseen	142da8	0	a1,f12,f13	startEvents: a class's id hook takes the object; a1 and f12 are the loop's, set before its branch back; f13 is startEvents' own parameter, no id hook takes a float (the same call, now typed through ee::FunctionPtr)
+unseen	166358	0	a1	saveSystemTask: the client's finished hook, the call as it always was; the original's a1 is its own, the return address that told the jalr went with the save lines
+dropped	1bd1f8	14fa68	t0@1bd248	findCloserObject: t0 is the temporary of its lq/sq of the position; searchTreeForEach writes t0 from a2 in the delay slot at 0x14FA70 before any read, on both paths, and reads a0 to a2 (the scan's needs agree); the drafter's variadic flag on it is what asked
+unseen	11a790	0	a1,a2	pcfs.cpp callBack (pcfsCheckFormatted the first of its callers): a device gets the request task's relay (relayFileReport, which reads a0 alone) or no callback, and ignoreFileReport reads nothing; at the jalr a1 is the callback's own function word (the jump target) and a2 the callback record, what the caller held
+unseen	162038	0	a1,a2,a3	callFileCallback: a file callback takes its report alone: ignoreFileReport reads nothing, relayFileReport reads a0; a1-a3 are what the caller held
+unseen	14f258	0	a2	forEachCursorEntry: the visit takes the item and the context; its one visitor is freeEmitterListEntry (the ELF has one jal of forEachCursorEntry, from clearCursorArray, whose two callers freeEmitterList and clearEmitterList both pass it), which reads a0 alone (heapFree, then free); a2 is the function's own entry a2 at the first visit and what the last visit left after
+dropped	1216f0	21daa0	a0@121708	initMemoryCardDevice: sceMcInit takes no argument (its listing reads none before writing it, and the runtime replaces it with a handler that reads none); a0 is the card record the original keeps for its own store in the delay slot
+unseen	120c10	0	a1,a2	reportMemoryCardIoResult: a file callback takes its report alone, as callFileCallback's row says (ignoreFileReport reads nothing, relayFileReport and the device's own read a0); a1 and a2 are the bytes done and the context the original held
+dropped	114bd8	214bc0	a1@114c74	sendToIOP: SignalSema takes the semaphore alone (a kernel wrapper counts as variadic, as giveLock's rows say); a1 is the SIF DMA start's count (1) and a2, a3 what the function's start left, releaseIopLock sets only a0 (releaseIopLock's hit, keyed by its first caller in file order: startMovie's rows until movies1 put the PS2 player in zge/movie/ps2/)
+dropped	114bd8	214bc0	a2@114c74	sendToIOP: the same, a2
+dropped	114bd8	214bc0	a3@114c74	sendToIOP: the same, a3

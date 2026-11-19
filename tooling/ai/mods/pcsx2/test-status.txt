@@ -1,0 +1,31 @@
+# Test status per pnach section, folded into each section's description by
+# tools/build_mods_pnach.py. Tab-separated: section name, status. Tested in
+# PCSX2 2.8.2 (macOS) on 2026-10-20; details in README.md.
+Widescreen 16:9 (HUD fix)	tested in PCSX2
+Widescreen 16:10 (HUD fix)	tested in PCSX2
+Widescreen 21:9 (HUD fix)	tested in PCSX2
+Camera Distance 150%	tested in PCSX2
+Camera Distance 200%	tested in PCSX2
+Camera Height 150%	tested in PCSX2
+Camera Height 200%	tested in PCSX2
+Field of View 90	tested in PCSX2
+Field of View 105	tested in PCSX2
+Motion Blur Off	tested in PCSX2
+Motion Blur Low	tested in PCSX2
+Split Screen Draw Distance Far	tested in PCSX2
+Split Screen Draw Distance Farthest	tested in PCSX2
+Quick Restart (L3+R3)	tested in PCSX2
+Developer Debug Menu (L3+SELECT)	tested in PCSX2
+Hide HUD Toggle (R3+SELECT)	tested in PCSX2
+Keep Skating When Out of Juice	tested in PCSX2
+Juice Drain 50%	tested in PCSX2
+No Juice Drain	tested in PCSX2
+Juice Lost on Crash 50%	partly tested: value checked in PCSX2 memory, crash not played
+Cheat: Low Gravity Wall Ride	partly tested: value checked in PCSX2 memory, effect not played
+Cheat: Juice Regeneration	tested in PCSX2
+Cheat: Invulnerability	partly tested: value checked in PCSX2 memory, effect not played
+Cheat: Perfect Grind	partly tested: values checked in PCSX2 memory, effect not played
+Cheat: Perfect Handplant	partly tested: values checked in PCSX2 memory, effect not played
+Cheat: Perfect Manual	partly tested: values checked in PCSX2 memory, effect not played
+Cheat: Super Spin	partly tested: value checked in PCSX2 memory, effect not played
+Unlock Everything	tested in PCSX2

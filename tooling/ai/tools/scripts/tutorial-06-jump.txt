@@ -1,0 +1,16 @@
+# Reference run, segment 6: Jumping, jump over the low wall (front face at x = -14.6).
+# Hold CROSS to prepare (and accelerate), release to jump.
+# Start: checkpoint ref12-fakie-done (slot 41).
+# Checkpoints: 42 ref13-jump-go, 43 ref14-jump-air, 44 ref15-jump-done.
+tips 240                                            # HINT + Jumping + 2 tips
+checkpoint 42 ref13-jump-go                         # standing at (-25.86, -2.27)
+down UP+CROSS
+waitval 0x2A76F0 f32 > -18.5 600
+up CROSS                                            # jump
+waitval 0x2A76F4 f32 < -1.0 120                     # airborne (y up is negative)
+checkpoint 43 ref14-jump-air
+waitval 0x2A76F0 f32 > -10 300                      # landed past the wall: "Nice Job"
+up UP
+waitval 0x276FE4 u32 == 3 3600
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 44 ref15-jump-done                       # HINT: to jump without speeding up, tap X

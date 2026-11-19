@@ -1,0 +1,13 @@
+# Reference run 2, segment 12: Bail Off A Pipe (L12 quarterpipe, x -2.49).
+# Goal: fly off the side of the quarterpipe and press CIRCLE in the air to land safely.
+# Riding up at an angle towards z +8 leaves the side of the pipe at z ~13.3 (without
+# CIRCLE: "You cratered!").
+# Start: ref28-bowl-done (slot 57). Checkpoints: 58 ref29-bail-go, 59 ref30-bail-done.
+tips 240                                            # 2 boxes in run 2: title "Bail Off A Pipe", 1 tip
+checkpoint 58 ref29-bail-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                      # standing at (-25.86, 0)
+goto -4 8 x>-5 600                                  # up the face at an angle
+waitval 0x2A76F8 f32 > 13.3 600                     # off the side
+press CIRCLE 10
+waitval 0x276FE4 u32 == 3 1800
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 59 ref30-bail-done ../recomp/dumps/ref2 ../reference/pcsx2-run2                    # "Handplants" title

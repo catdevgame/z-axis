@@ -1,0 +1,4 @@
+# As readable_args_dead.tsv, DM2: functions word-identical with AI's row (the bind table's body rows), the same read.
+1e95f0	a2	__pack_d: libgcc 2.95's fp-bit.c assembles the high word as a bit field over an unset register: and + or replace all 32 bits
+1ea2e8	a2	__pack_f: the same for its one word
+1373b0	a2	quaternionToEuler: keeps a2 in s1 across quaternionToMatrix and hands it back as matrixToEuler's a2, which matrixToEuler never reads (its code names a0 and a1 only): the word findPieceAnchors passes (0) reaches nothing

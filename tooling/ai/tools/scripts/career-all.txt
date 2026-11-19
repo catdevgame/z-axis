@@ -1,0 +1,9 @@
+# Reference run 2, Career part, all segments: fresh boot -> MOVIE LOT -> pause, challenges,
+# memory card save -> grind, manual, ollie + grab -> pause.
+#   python3 pcsx2pad.py quit
+#   cp pcsx2-test-data/reference/Mcd001-before-run2.ps2 pcsx2-test-data/PCSX2/memcards/Mcd001.ps2
+#   python3 pcsx2pad.py launch
+#   PCSX2PAD_RECORD=/tmp/ref2-career.log python3 pcsx2pad.py run scripts/career-all.txt
+run scripts/career-01-menus.txt
+run scripts/career-02-loadin.txt
+run scripts/career-03-skate.txt

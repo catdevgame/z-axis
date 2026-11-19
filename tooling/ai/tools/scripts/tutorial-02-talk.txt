@@ -1,0 +1,20 @@
+# Reference run, segment 2: intro tips, skate to the chef, talk (CIRCLE).
+# Start: checkpoint ref03-first-tip (slot 32), e.g.
+#   python3 pcsx2pad.py loadstate 32 && python3 pcsx2pad.py run scripts/tutorial-02-talk.txt
+# Player position 0x2A76F0 (x, y, z floats; +x is ahead at the start, y up is
+# negative, RIGHT turns towards -z). The chef stands at about (0.23, -4.41).
+# Checkpoints: 33 ref04-talk-go, 34 ref05-talk-skating, 35 ref06-talk-done.
+tips 240                                            # 3 boxes: talking to people / challenges / bubble
+checkpoint 33 ref04-talk-go                         # standing at (-34.79, 0.91)
+goto -24 -0.5 1.0 900                               # D-pad UP (+LEFT/RIGHT steering)
+checkpoint 34 ref05-talk-skating                    # rolling, bubble and chef ahead
+goto -14 -1.6 1.0 900
+waitval 0x2A76F0 f32 > -6 600                       # coast
+down DOWN                                           # brake
+wait 40
+up DOWN
+peekf 0x2A76F0 3                                    # about (-0.2, -2.7), next to the chef
+press CIRCLE                                        # talk: "There you go."
+waitval 0x276FE4 u32 == 3 1800
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 35 ref06-talk-done                       # "Basic Skating" title box

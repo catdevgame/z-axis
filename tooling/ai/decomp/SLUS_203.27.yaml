@@ -1,0 +1,92 @@
+name: Aggressive Inline (USA) SLUS_203.27
+sha1: f46a8b71b6a481428d34e6f4f64e3bb283ce336e  # of SLUS_203.27.rom (flat load image)
+options:
+  basename: SLUS_203.27
+  target_path: SLUS_203.27.rom
+  elf_path: build/SLUS_203.27.elf
+  base_path: .
+  platform: ps2
+  compiler: EEGCC
+
+  gp_value: 0x0027A8F0
+  ld_gp_expression: cod_LIT4_START + 0x7FF0
+
+  asm_path: asm
+  src_path: src
+  build_path: build
+  asset_path: assets
+
+  ld_script_path: SLUS_203.27.ld
+  ld_dependencies: True
+  ld_wildcard_sections: True
+  ld_bss_contains_common: True
+
+  create_asm_dependencies: True
+
+  find_file_boundaries: True
+
+  o_as_suffix: True
+
+  symbol_addrs_path:
+    - symbol_addrs.txt
+
+  undefined_funcs_auto_path: undefined_funcs_auto.txt
+  undefined_syms_auto_path: undefined_syms_auto.txt
+
+
+  string_encoding: ASCII
+  data_string_encoding: ASCII
+  rodata_string_guesser_level: 2
+  data_string_guesser_level: 2
+
+  named_regs_for_c_funcs: False
+
+  section_order:
+    - .text
+    # - .vutext
+    - .data
+    - .rodata
+    - .lit4
+    - .sdata
+    - .sbss
+    - .bss
+
+  auto_link_sections:
+    - .data
+    - .rodata
+    - .lit4
+    - .sdata
+    - .sbss
+    - .bss
+
+segments:
+  - name: cod
+    type: code
+    start: 0x000000
+    vram: 0x00100000
+    bss_size: 0x3AA18  # end of rom data (0x279158) to end of .bss (0x2B3B70)
+    subalign: null
+    subsegments:
+      - [0x000000, asm, cod/000000]            # .text   0x00100000
+      - [0x04D310, c, cod/func_0014D310]       # decompiled (matching)
+      - [0x04D348, asm, cod/04D348]
+      - [0x04ED88, c, cod/func_0014ED88]       # decompiled (matching)
+      - [0x04EDC0, asm, cod/04EDC0]
+      - [0x08C588, c, cod/func_0018C588]       # decompiled (matching)
+      - [0x08C5C0, asm, cod/08C5C0]
+      - [0x0FC098, c, cod/func_001FC098]       # decompiled (matching)
+      - [0x0FC0E8, asm, cod/0FC0E8]
+      - [0x12DB34, pad, cod/12DB34]            # gap
+      - [0x12DB40, textbin, cod/vutext]        # .vutext 0x0022DB40 (VU1 microcode)
+      - [0x1318B0, pad, cod/1318B0]            # gap (.reginfo slot)
+      - [0x131900, data, cod/131900]           # .data   0x00231900
+      - [0x161E48, pad, cod/161E48]            # gap
+      - [0x161E80, rodata, cod/161E80]         # .rodata 0x00261E80
+      - [0x172890, pad, cod/172890]            # gap
+      - [0x172900, lit4, cod/172900]           # .lit4   0x00272900
+      - [0x17322C, pad, cod/17322C]            # gap
+      - [0x173280, sdata, cod/173280]          # .sdata  0x00273280
+      - { type: sbss, vram: 0x00279180, name: cod/00279180 } # .sbss
+      - { type: sbss, vram: 0x0027994C, name: cod/gap_0027994C } # gap, not linked
+      - { type: bss, vram: 0x00279980, name: cod/00279980 }  # .bss
+  - [0x179158]

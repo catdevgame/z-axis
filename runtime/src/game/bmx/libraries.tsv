@@ -1,0 +1,27 @@
+# BMX XXX's (SLUS-20415) libraries and their pinned versions (libraries are never rewritten, each
+# is ported from its pinned version's source; docs/READABLE.md "Layout", sce/). Every version string is
+# AI's (plus libscf), and every library function that pairs with AI's is AI's code: BMX XXX links the same
+# release 2.4 SDK, newlib and libgcc, and its link left out the functions nothing references (AI's not
+# linked here). Counts over the ELF's 610 library functions (work database layer sdk) against AI's: identical
+# (masked words equal), differ (close, drifted, weak), no AI counterpart, AI's of that library not linked
+# here. Made by d1data from the work database (its script and per-function table were scratch, not kept).
+# library	version	evidence	functions	identical to AI's	differ from AI's	no AI counterpart	AI's not linked here	port from
+libkernl	Sony runtime library release 2.4 (2430), AI's	version string PsIIlibkernl 2430 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	129	124	5	0	87	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libmpeg	Sony runtime library release 2.4 (2420), AI's	version string PsIIlibmpeg 2420 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	123	122	1	0	18	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libmc	Sony runtime library release 2.4 (2430), AI's	version string PsIIlibmc 2430 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	20	9	11	0	8	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libgraph	Sony runtime library release 2.4 (2400), AI's	version string PsIIlibgraph 2400 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	20	19	1	0	1	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libpad	Sony runtime library release 2.4 (2410), AI's	version string PsIIlibpad 2410 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	19	19	0	0	11	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libcdvd	Sony runtime library release 2.4 (2420), AI's	version string PsIIlibcdvd 2420 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	10	10	0	0	10	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libdma	Sony runtime library release 2.4 (2400), AI's	version string PsIIlibdma 2400 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	7	6	1	0	9	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libipu	Sony runtime library release 2.4 (2400), AI's	version string PsIIlibipu 2400 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	9	9	0	0	0	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libpkt	Sony runtime library release 2.4 (2400), AI's	version string PsIIlibpkt 2400 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	39	39	0	0	0	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libsdr	Sony runtime library release 2.4 (2400), AI's	version string PsIIlibsdr 2400 in the ELF, as AI's; close pairs differ only in unmasked addresses (same size)	3	2	1	0	4	no source: AI's treatment (not_ported.tsv, the runtime), the code is AI's
+libscf	Sony runtime library release 2.4 (2400)	version string PsIIlibscf  2400; AI links no libscf (GetRomName, IsT10K, sceScfGetLanguage)	3	0	0	3	0	no source: the recompiled original or the runtime
+libdev	Sony runtime library release 2.4, AI's	no version string; the library match: as AI's	8	8	0	0	37	no source: AI's treatment
+libvu0	Sony runtime library release 2.4, AI's	no version string; the library match: as AI's	9	9	0	0	33	no source: AI's treatment
+kernel	Sony runtime library release 2.4, AI's	syscall wrappers: no version string; the 3 drifted are 4-instruction wrappers paired with another call number	52	49	3	0	62	no source: AI's treatment
+libc	newlib 1.8.2	the same code as AI's pinned 1.8.2: 101 identical, _vfprintf_r and _vfiprintf_r close only for unmasked addresses; strstr linked here, not in AI	104	101	2	1	16	newlib 1.8.2 source (sce/libc*.cpp, mprec.cpp)
+libm	newlib 1.8.2	the same code as AI's pinned 1.8.2: every one identical	20	20	0	0	5	newlib 1.8.2 source (sce/libm.cpp)
+libgcc	GCC 2.95 libgcc2.c and config/fp-bit.c (the EE's no-denormals unpack_d)	the same code as AI's: every one identical	28	28	0	0	12	GCC 2.95.2 source (sce/libgcc.cpp)
+crt0	Sony runtime library release 2.4, AI's	identical to AI's	2	2	0	0	0	AI's
+other	-	the rest: no library name 2, libkernl_1 1, libsk 1, libhttps 1	5	5	0	0	0	as their AI counterparts, else the recompiled original

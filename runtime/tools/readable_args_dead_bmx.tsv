@@ -1,0 +1,6 @@
+# As readable_args_dead.tsv, BMX XXX: functions word-identical with AI's row (the bind table's body rows), the same read, and BMX XXX's own words read dead in its machine code (each row says what the function reads and where the word goes).
+23f6b0	a2	__pack_d: libgcc 2.95's fp-bit.c assembles the high word as a bit field over an unset register: and + or replace all 32 bits
+240370	a2	__pack_f: the same for its one word
+117118	f12,f13,f14,f15,f16,f17,f18,f19	saveFloatRegisters: the interrupt handlers' save of every FPR as the interrupted code left them, not arguments: the hook reads the guest context
+145b18	a3	addDebugPoint (ZGE4, the shared one's fourth word, which no version reads): reads a0 (place), a1 (colour), a2 (flags) and f12 (radius); a3 reaches only newPrimitive (0x1457A0, which sets a0) and poolAlloc (0x137B40) to poolGrow's call of the pool's allocator (0x137598: jalr of +0x34 with a0 the bytes, a1 the -16 mask), the scan's upper bound; drawAnimateSystem (0x14ED88) leaves its own entry a3 there
+1463e8	a2	quaternionToEuler: keeps a2 in s1 across quaternionToMatrix and hands it back as matrixToEuler's a2, which matrixToEuler never reads (its code names a0 and a1 only): the word findPieceAnchors passes (0) reaches nothing

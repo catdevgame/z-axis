@@ -1,0 +1,12 @@
+# Reference run, segment 4: Sharp Turns, slalom between the banners (R1/L1 while turning).
+# Start: checkpoint ref08-banners-done (slot 37).
+# Checkpoints: 38 ref09-slalom-go, 39 ref10-slalom-done.
+tips 240                                            # Sharp Turns + 2 tips
+checkpoint 38 ref09-slalom-go                       # standing at (-25.86, 10.21)
+goto -17.11 10.21 1.5 900 SHARP
+goto 4.33 -10.63 1.5 900 SHARP
+goto 17.11 1.33 1.5 900 SHARP
+goto 32.59 -18.62 1.5 900 SHARP                     # "Good job."
+waitval 0x276FE4 u32 == 3 3600
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 39 ref10-slalom-done                     # "Fakie" title box

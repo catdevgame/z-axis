@@ -1,0 +1,27 @@
+# Game binary and anything extracted from it (never commit)
+SLUS_203.27
+*.iso
+/asm/
+/assets/
+/bin/
+/build/
+/expected/
+/nonmatchings/
+# toolchain downloads (fetched by tools/setup.sh)
+/tools/compilers/
+/tools/wibo
+/tools/binutils/
+/.venv/
+/logs/
+*.o
+*.elf
+*.s.o
+__pycache__/
+.splache
+*.ld
+!/linker_scripts/*.ld
+undefined_*_auto.txt
+*.rom
+build.ninja
+.ninja_*
+*.d

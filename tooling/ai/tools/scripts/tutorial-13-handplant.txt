@@ -1,0 +1,15 @@
+# Reference run 2, segment 13: Handplants (L13 quarterpipe, lip at x ~-5.7, y ~-2.5).
+# Goal: ride up perpendicular, hold TRIANGLE at the lip (Hand Plant), CROSS to drop back in.
+# Start: ref30-bail-done (slot 59). Checkpoints: 60 ref31-handplant-go, 61 ref32-handplant-done.
+tips 240                                            # 4 boxes in run 2: title "Handplants" and its tips
+checkpoint 60 ref31-handplant-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                 # standing at (-27.38, 0)
+down UP
+waitval 0x2A76F0 f32 > -8.5 600                     # on the face
+up UP
+down TRIANGLE                                       # Hand Plant
+wait 24
+up TRIANGLE
+press CROSS                                         # back into the pipe
+waitval 0x276FE4 u32 == 3 1800                      # HINT: select different handplants
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 61 ref32-handplant-done ../recomp/dumps/ref2 ../reference/pcsx2-run2

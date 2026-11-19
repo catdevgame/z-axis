@@ -1,0 +1,57 @@
+# BMX XXX reference run 1 (PCSX2 2.8.2): bmxpcsx2.py launch, then bmxpcsx2.py run tools/scripts/bmx-ref-run1.txt.
+# Fresh boot (an empty formatted card), the title, the main menu, HARDCORE TOUR, the rider and level select (the
+# cursors moved and back), the Bronx; in the level the ride is the schedule (by level frame): the overview and
+# CHALLENGES dismissed, down the street and off the kerb, a hop onto the low rail and a grind, Homeless Jones's
+# challenge (TRIANGLE, his lines), cans 04, 09 and 10 collected, a hop with a trick (SQUARE+LEFT), a stop.
+# Checkpoints: savestates (RAM in $BMX_REF_DATA/ref, picture in pcsx2-run1, state in states).
+schedule tools/scripts/bmx-ref-run1-schedule.txt
+waitval 0x29D040 u32 == 1 7200
+waitsec 6
+checkpoint 1 ck01-title
+press START
+wait 240
+checkpoint 1 ck02-mainmenu
+press DOWN
+wait 60
+checkpoint 1 ck03-mainmenu-down
+press UP
+wait 60
+press CROSS
+wait 400
+checkpoint 1 ck04-riderselect
+press RIGHT
+wait 200
+checkpoint 1 ck05-riderselect-right
+press LEFT
+wait 200
+press CROSS
+wait 400
+checkpoint 1 ck06-levelselect
+press RIGHT
+wait 120
+press LEFT
+wait 120
+press CROSS
+waitframe 150 7200
+checkpoint 1 ck07-overview
+waitframe 400
+checkpoint 1 ck08-start
+waitframe 690
+checkpoint 1 ck09-kerb-air
+waitframe 1000
+checkpoint 1 ck10-grind
+waitframe 1100
+checkpoint 1 ck11-line-banked
+waitframe 1450
+checkpoint 1 ck12-jones-talk
+waitframe 1700
+checkpoint 1 ck13-goal-given
+waitframe 1900
+checkpoint 1 ck14-can-1
+waitframe 2050
+checkpoint 1 ck15-trick-air
+waitframe 2200
+checkpoint 1 ck16-cans-2-score
+waitframe 2420
+checkpoint 1 ck17-stopped-cans-3
+seenlog tools/scripts/bmx-ref-run1-seen.txt

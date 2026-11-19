@@ -1,0 +1,14 @@
+# Reference run 2, Tutorial part: from the end of run 1 (ref21-modgrind-go, slot 50) through
+# lessons Modifying Grinds .. Wall Rides, to the start of "Cess Slides" (ref46-cess-go).
+#   python3 pcsx2pad.py loadstate 50
+#   PCSX2PAD_RECORD=/tmp/ref2-tut.log python3 pcsx2pad.py run scripts/tutorial-run2.txt
+run scripts/tutorial-09-modgrind.txt
+run scripts/tutorial-10-air.txt
+run scripts/tutorial-11-bowl.txt
+run scripts/tutorial-12-bail.txt
+run scripts/tutorial-13-handplant.txt
+run scripts/tutorial-14-vault.txt
+run scripts/tutorial-15-vpole.txt
+run scripts/tutorial-16-hpole.txt
+run scripts/tutorial-17-skitch.txt
+run scripts/tutorial-18-wallride.txt

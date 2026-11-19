@@ -1,0 +1,12 @@
+# The compiler and linker the app bundles to build each game's code on the player's machine (game modules,
+# runtime/game_module.h): LLVM's clang and lld, Apache-2.0 WITH LLVM-exception. One source release, pinned by its
+# SHA-256 (github.com/llvm/llvm-project/releases), built by build-llvm.sh / build-llvm.ps1 into one stripped program
+# per host (clang and lld, the AArch64 and X86 targets only) and the headers a module's compile
+# reaches. The built archives are kept in the workshop's archive store (by name and hash, never in the tree), named <version>-<host>-<recipe>.tar.xz (<recipe>: the hash of the build's
+# configuration, build-llvm.sh CFG / build-llvm.ps1 $cfg); each host's line below pins its archive: archive-HOST NAME SHA256 BYTES. NAME VALUE per line.
+version 23.1.5
+source https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/llvm-project-23.1.5.src.tar.xz
+source_sha256 fb50b1eac93ddeb3aa8dab4cfe324dff74f4a9c2bdee6160c9e36188f8d06a6e
+# The archives, once built (host: macos-arm64, macos-x86_64, windows-x64, linux-x64, android-arm64):
+archive-macos-arm64 23.1.5-macos-arm64-ef550542.tar.xz fc02eec5e12bdcedbab1a9e300ca814ce851fbf6f78c240fa831fe0bc57f7a93 36754944
+archive-windows-x64 23.1.5-windows-x64-7acd5fe3.tar.xz 50697c812d854801402bc4b2d40484746be3a1d97d42adc043849ffeb9e9a9d0 184655712

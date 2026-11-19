@@ -1,0 +1,274 @@
+# BMX XXX's (SLUS-20415) library functions with no C++ here and no runtime replacement, on purpose (libraries are never
+# rewritten; sce/not_ported.tsv is AI's). Every function of functions.tsv's sdk layer is readable (a shared body at
+# level 2, or this folder's), the runtime's (runtime_replaced.py: a stub or a kernel call wrapper, nothing of the
+# game's left), or a row here. Sony's release 2.4, AI's (plus libscf) has no source on disk; newlib's and libgcc's rows (memcmp, _sbrk_r, __moddi3) are only called by the runtime's stubs.
+# A row's reason is this game's, from its call graph (direct calls and code that takes the address), its data and
+# its recording corpus: "the runtime replaces its callers" when every caller is the runtime's or such a row, "dead"
+# when nothing reaches it, "the recompiled original runs" otherwise. Where AI's row says the same, its words are
+# kept. Columns: address, library, name, AI's counterpart (its name and the pair: identical, close, drifted, weak,
+# or none), why. See docs/READABLE.md, "Layout" (sce/).
+0x00100008	crt0	start	start (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001000B8	crt0	exitThreadCall	exitThreadCall (identical)	kernel call wrapper, the runtime is the kernel
+0x00114218	libipu	setD3_CHCR	setD3_CHCR (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00114280	libipu	setD4_CHCR	setD4_CHCR (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00220130	libgraph	sceGsGetGParam	sceGsGetGParam (identical)	the runtime replaces its callers
+0x00220FF0	libgraph	sceGsSetHalfOffset	sceGsSetHalfOffset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00221078	libgraph	sceGsSetHalfOffset2	sceGsSetHalfOffset2 (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00221448	libgraph	sceGsSetDefDispEnv	sceGsSetDefDispEnv (close)	in AI the runtime replaces it (a stub); in BMX XXX the runtime replaces its callers (sceGsSetDefDBuffDc)
+0x002216B8	libgraph	sceGsPutDispEnv	sceGsPutDispEnv (identical)	in AI the runtime replaces it (a stub); in BMX XXX the runtime replaces its callers (sceGsSwapDBuffDc)
+0x00221778	libgraph	sceGszbufaddr	sceGszbufaddr (identical)	in AI the runtime replaces it (a stub); in BMX XXX the runtime replaces its callers (sceGsSetDefDBuffDc, sceGsSetDefDrawEnv, sceGsSetDefDrawEnv2)
+0x00221840	libgraph	sceGsSetDefDrawEnv	sceGsSetDefDrawEnv (identical)	in AI the runtime replaces it (a stub); in BMX XXX the runtime replaces its callers (sceGsSetDefDBuffDc)
+0x00221A28	libgraph	sceGsSetDefClear	sceGsSetDefClear (identical)	in AI the runtime replaces it (a stub); in BMX XXX the runtime replaces its callers (sceGsSetDefDBuffDc)
+0x00221B30	libgraph	sceGsPutDrawEnv	sceGsPutDrawEnv (identical)	in AI the runtime replaces it (a stub); in BMX XXX the runtime replaces its callers (sceGsSwapDBuffDc)
+0x00221DF8	libmpeg	_type2id	_type2id (identical)	the runtime replaces its callers
+0x00222270	libmpeg	_pack_header	_pack_header (identical)	the runtime replaces its callers
+0x002223C0	libmpeg	_system_header	_system_header (identical)	the runtime replaces its callers
+0x00222430	libmpeg	_PES_packet	_PES_packet (identical)	the runtime replaces its callers
+0x00222C88	libmpeg	sceMpegDelete	sceMpegDelete (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00222DC8	libmpeg	_dispatchMpegCallback	_dispatchMpegCallback (identical)	the runtime replaces its callers
+0x00222E18	libmpeg	_dispatchMpegCbNodata	_dispatchMpegCbNodata (identical)	the runtime replaces its callers
+0x00222E40	libmpeg	mpegWorkAreaInit	mpegWorkAreaInit (identical)	the runtime replaces its callers
+0x00222E58	libmpeg	mpegWorkAreaReset	mpegWorkAreaReset (identical)	the runtime replaces its callers
+0x00222E68	libmpeg	mpegWorkAreaMark	mpegWorkAreaMark (identical)	the runtime replaces its callers
+0x00222E78	libmpeg	mpegWorkAreaAlloc	mpegWorkAreaAlloc (identical)	the runtime replaces its callers
+0x00222EE8	libmpeg	_getpic	_getpic (identical)	the runtime replaces its callers
+0x00223058	libmpeg	_decodeOrSkipFrame	_decodeOrSkipFrame (identical)	the runtime replaces its callers
+0x00223170	libmpeg	_decodeOrSkip	_decodeOrSkip (identical)	the runtime replaces its callers
+0x002231B8	libmpeg	_decodeOrSkipField	_decodeOrSkipField (identical)	the runtime replaces its callers
+0x00223380	libmpeg	mpegSetMpeg1	mpegSetMpeg1 (identical)	the runtime replaces its callers
+0x00223390	libmpeg	_lastFrame	_lastFrame (identical)	the runtime replaces its callers
+0x00223410	libmpeg	_clearOnce	_clearOnce (identical)	the runtime replaces its callers
+0x00223470	libmpeg	_clearEach	_clearEach (identical)	the runtime replaces its callers
+0x00223530	libmpeg	mpegPrintError	mpegPrintError (identical)	the runtime replaces its callers
+0x00223540	libmpeg	_Error1	_Error1 (identical)	the runtime replaces its callers
+0x00223578	libmpeg	_Error	_Error (identical)	the runtime replaces its callers
+0x002235D0	libmpeg	_RefImageInit	_RefImageInit (identical)	the runtime replaces its callers
+0x002235F0	libmpeg	_sequenceHeader	_sequenceHeader (identical)	the runtime replaces its callers
+0x00223718	libmpeg	_initSeq	_initSeq (identical)	the runtime replaces its callers
+0x002239C0	libmpeg	_initRefImages	_initRefImages (identical)	the runtime replaces its callers
+0x00223AA0	libmpeg	_setDefaultQM	_setDefaultQM (identical)	the runtime replaces its callers
+0x00223B78	libmpeg	_sequenceExtension	_sequenceExtension (identical)	the runtime replaces its callers
+0x00223CA8	libmpeg	_sequenceDisplayExtension	_sequenceDisplayExtension (identical)	the runtime replaces its callers
+0x00223D38	libmpeg	_sequenceScalableExtension	_sequenceScalableExtension (identical)	the runtime replaces its callers
+0x00223D48	libmpeg	_unknownExtension	_unknownExtension (identical)	the runtime replaces its callers
+0x00223D58	libmpeg	_pictureSpatialScalableExtension	_pictureSpatialScalableExtension (identical)	the runtime replaces its callers
+0x00223D68	libmpeg	_pictureTemporalScalableExtension	_pictureTemporalScalableExtension (identical)	the runtime replaces its callers
+0x00223D78	libmpeg	mpegStopIpuDma	mpegStopIpuDma (identical)	the runtime replaces its callers
+0x00223D88	libmpeg	mpegRestartIpuDma	mpegRestartIpuDma (identical)	the runtime replaces its callers
+0x00223DA0	libmpeg	_motionComp0	_motionComp0 (identical)	the runtime replaces its callers
+0x00223FF0	libmpeg	_getAllRefs	_getAllRefs (close)	the runtime replaces its callers
+0x002246F8	libmpeg	_getRef0	_getRef0 (identical)	the runtime replaces its callers
+0x00224B18	libmpeg	_doMC	_doMC (identical)	the runtime replaces its callers
+0x00224D38	libmpeg	_rix_000	_rix_000 (identical)	the runtime replaces its callers
+0x00224DB0	libmpeg	_ri0_000	_ri0_000 (identical)	the runtime replaces its callers
+0x00224E48	libmpeg	_rix_001	_rix_001 (identical)	the runtime replaces its callers
+0x00224F00	libmpeg	_ri0_001	_ri0_001 (identical)	the runtime replaces its callers
+0x00224FD0	libmpeg	_rix_010	_rix_010 (identical)	the runtime replaces its callers
+0x00225080	libmpeg	_ri0_010	_ri0_010 (identical)	the runtime replaces its callers
+0x00225138	libmpeg	_rix_011	_rix_011 (identical)	the runtime replaces its callers
+0x00225230	libmpeg	_ri0_011	_ri0_011 (identical)	the runtime replaces its callers
+0x00225330	libmpeg	_rix_100	_rix_100 (identical)	the runtime replaces its callers
+0x002253D0	libmpeg	_ri0_100	_ri0_100 (identical)	the runtime replaces its callers
+0x00225480	libmpeg	_rix_101	_rix_101 (identical)	the runtime replaces its callers
+0x00225560	libmpeg	_ri0_101	_ri0_101 (identical)	the runtime replaces its callers
+0x00225648	libmpeg	_rix_110	_rix_110 (identical)	the runtime replaces its callers
+0x00225720	libmpeg	_ri0_110	_ri0_110 (identical)	the runtime replaces its callers
+0x002257F0	libmpeg	_rix_111	_rix_111 (identical)	the runtime replaces its callers
+0x00225910	libmpeg	_ri0_111	_ri0_111 (identical)	the runtime replaces its callers
+0x00225A28	libmpeg	_copyAddRefImage	_copyAddRefImage (identical)	the runtime replaces its callers
+0x00225A88	libmpeg	_copyRefImage	_copyRefImage (identical)	the runtime replaces its callers
+0x00225AE8	libmpeg	_ipuSetMPEG1	_ipuSetMPEG1 (identical)	the runtime replaces its callers
+0x00225B10	libmpeg	_waitBdecOut	_waitBdecOut (identical)	the runtime replaces its callers
+0x00225D00	libmpeg	_ipuVdecMotionCode	_ipuVdecMotionCode (identical)	the runtime replaces its callers
+0x00225D20	libmpeg	_dualPrimeVector	_dualPrimeVector (identical)	the runtime replaces its callers
+0x00225EA8	libmpeg	_mbAddressIncrement	_mbAddressIncrement (identical)	the runtime replaces its callers
+0x00225FB8	libmpeg	_pictureData0	_pictureData0 (identical)	the runtime replaces its callers
+0x002260C0	libmpeg	_sliceA0	_sliceA0 (identical)	the runtime replaces its callers
+0x002261F0	libmpeg	_slice0	_slice0 (identical)	the runtime replaces its callers
+0x002263E0	libmpeg	_skipMB0	_skipMB0 (identical)	the runtime replaces its callers
+0x002264A0	libmpeg	_decMB0	_decMB0 (identical)	the runtime replaces its callers
+0x00226948	libmpeg	_decodeMotionVectorPart	_decodeMotionVectorPart (identical)	the runtime replaces its callers
+0x002269D0	libmpeg	_motionVectors	_motionVectors (identical)	the runtime replaces its callers
+0x00226B70	libmpeg	_motionVector	_motionVector (identical)	the runtime replaces its callers
+0x00226CC0	libmpeg	_sendIpuCommand	_sendIpuCommand (identical)	the runtime replaces its callers
+0x00226CF0	libmpeg	_waitIpuIdle	_waitIpuIdle (identical)	the runtime replaces its callers
+0x00226D98	libmpeg	_waitIpuIdle64	_waitIpuIdle64 (identical)	the runtime replaces its callers
+0x00226E48	libmpeg	_ipuVdec	_ipuVdec (identical)	the runtime replaces its callers
+0x00226FC0	libmpeg	_peepBit	_peepBit (identical)	the runtime replaces its callers
+0x002270C8	libmpeg	_flushBuf	_flushBuf (identical)	the runtime replaces its callers
+0x002271B8	libmpeg	_nextBit	_nextBit (identical)	the runtime replaces its callers
+0x00227308	libmpeg	_nextStartCode	_nextStartCode (identical)	the runtime replaces its callers
+0x00227388	libmpeg	_sliceB	_sliceB (identical)	the runtime replaces its callers
+0x002273F0	libmpeg	_nextHeader	_nextHeader (identical)	the runtime replaces its callers
+0x00227500	libmpeg	_pictureHeader	_pictureHeader (identical)	the runtime replaces its callers
+0x002275C8	libmpeg	_extensionAndUserData	_extensionAndUserData (identical)	the runtime replaces its callers
+0x002276F0	libmpeg	_pictureCodingExtension	_pictureCodingExtension (identical)	the runtime replaces its callers
+0x002278E0	libmpeg	_extrainfo	_extrainfo (identical)	the runtime replaces its callers
+0x00227928	libmpeg	_updateTempTackData	_updateTempTackData (identical)	the runtime replaces its callers
+0x002279A0	libmpeg	_groupOfPicturesHeader	_groupOfPicturesHeader (identical)	the runtime replaces its callers
+0x00227A40	libmpeg	_quantMatrixExtension	_quantMatrixExtension (identical)	the runtime replaces its callers
+0x00227B08	libmpeg	_pictureDisplayExtension	_pictureDisplayExtension (identical)	the runtime replaces its callers
+0x00227C00	libmpeg	_copyrightExtension	_copyrightExtension (identical)	the runtime replaces its callers
+0x00227C90	libmpeg	_decPicture	_decPicture (identical)	the runtime replaces its callers
+0x00227D60	libmpeg	_outputFrame	_outputFrame (identical)	the runtime replaces its callers
+0x00227DF0	libmpeg	_updateRefImage	_updateRefImage (identical)	the runtime replaces its callers
+0x002280A8	libmpeg	_isOutSizeOK	_isOutSizeOK (identical)	the runtime replaces its callers
+0x00228148	libmpeg	_cpr8	_cpr8 (identical)	the runtime replaces its callers
+0x002283B8	libmpeg	_markOutput	_markOutput (identical)	the runtime replaces its callers
+0x002283E0	libmpeg	_getPtsDtsFlags	_getPtsDtsFlags (identical)	the runtime replaces its callers
+0x00228570	libmpeg	_dispRefImage	_dispRefImage (identical)	the runtime replaces its callers
+0x00228680	libmpeg	_dispRefImageField	_dispRefImageField (identical)	the runtime replaces its callers
+0x00228838	libmpeg	dmaRefImage	dmaRefImage (identical)	the runtime replaces its callers
+0x00228990	libmpeg	receiveDataFromIPU	receiveDataFromIPU (identical)	the runtime replaces its callers
+0x00228A00	libmpeg	_doCSC	_doCSC (identical)	the runtime replaces its callers
+0x00228B18	libmpeg	_ch3dmaCSC	_ch3dmaCSC (identical)	the runtime replaces its callers
+0x00228C90	libmpeg	_doCSC2	_doCSC2 (identical)	the runtime replaces its callers
+0x00228E40	libmpeg	_ch4dma	_ch4dma (identical)	the runtime replaces its callers
+0x00228F48	libmpeg	_csc_storeRefImage	_csc_storeRefImage (identical)	the runtime replaces its callers
+0x002291C0	libmpeg	_sysbitInit	_sysbitInit (identical)	the runtime replaces its callers
+0x002291F8	libmpeg	_sysbitPeek	_sysbitPeek (identical)	the runtime replaces its callers
+0x00229218	libmpeg	_sysbitFlush	_sysbitFlush (identical)	the runtime replaces its callers
+0x002292B0	libmpeg	_sysbitGet	_sysbitGet (identical)	the runtime replaces its callers
+0x00229300	libmpeg	_sysbitMarker	_sysbitMarker (identical)	the runtime replaces its callers
+0x00229348	libmpeg	_sysbitJump	_sysbitJump (identical)	the runtime replaces its callers
+0x002293A0	libmpeg	_sysbitPtr	_sysbitPtr (identical)	the runtime replaces its callers
+0x002293D0	libipu	ipuSetD3_CHCR	ipuSetD3_CHCR (identical)	the runtime replaces its callers
+0x00229438	libipu	ipuSetD4_CHCR	ipuSetD4_CHCR (identical)	the runtime replaces its callers
+0x00229740	libipu	ipuResetSetD4_CHCR	ipuResetSetD4_CHCR (identical)	the runtime replaces its callers
+0x00229F80	libdev	sceDevVu0Reset	sceDevVu0Reset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00229F98	libdev	sceDevVu0Pause	sceDevVu0Pause (identical)	dead in all three games; no source of the pinned version on disk
+0x00229FF8	libdev	sceDevVu0Sync	sceDevVu0Sync (identical)	dead in all three games; no source of the pinned version on disk
+0x0022A038	libdev	sceDevVu1Reset	sceDevVu1Reset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A050	libdev	sceDevVu1Pause	sceDevVu1Pause (identical)	dead in all three games; no source of the pinned version on disk
+0x0022A0B0	libdev	sceDevVu1Sync	sceDevVu1Sync (identical)	dead in all three games; no source of the pinned version on disk
+0x0022A120	libdev	sceDevVif1Reset	sceDevVif1Reset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A148	libpkt	gifPacketInit	gifPacketInit (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A158	libpkt	gifPacketReset	gifPacketReset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A168	libpkt	gifPacketTerminate	gifPacketTerminate (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A1C0	libpkt	gifPacketSize_	gifPacketSize (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A1D8	libpkt	gifPacketCnt	gifPacketCnt (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A250	libpkt	gifPacketRef	gifPacketRef (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A2E8	libpkt	gifPacketCall	gifPacketCall (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A378	libpkt	gifPacketRet	gifPacketRet (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A3F0	libpkt	gifPacketEnd	gifPacketEnd (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A468	libpkt	sceGifPkOpenGifTag	sceGifPkOpenGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A480	libpkt	sceGifPkCloseGifTag	sceGifPkCloseGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A528	libpkt	gifPacketAddDword	gifPacketAddDword (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A550	libpkt	sceGifPkAddGsAD	sceGifPkAddGsAD (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A578	libpkt	vif1PacketInit	vif1PacketInit (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A588	libpkt	vif1PacketReset_	vif1PacketReset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A598	libpkt	vif1PacketCloseDmaTag	vif1PacketCloseDmaTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A5F0	libpkt	vif1PacketCnt_	vif1PacketCnt (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A648	libpkt	vif1PacketNext_	vif1PacketNext (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A6B8	libpkt	vif1PacketRef_	vif1PacketRef (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A750	libpkt	vif1PacketCall_	vif1PacketCall (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A7C0	libpkt	vif1PacketRet_	vif1PacketRet (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A818	libpkt	vif1PacketEnd_	vif1PacketEnd (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A870	libpkt	vif1PacketOpenUnpack_	vif1PacketOpenUnpack (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A900	libpkt	vif1PacketCloseUnpack_	vif1PacketCloseUnpack (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A958	libpkt	vif1PacketOpenDirect_	vif1PacketOpenDirect (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A9B0	libpkt	vif1PacketCloseDirect_	vif1PacketCloseDirect (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A9E0	libpkt	vif1PacketOpenGifTag_	vif1PacketOpenGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022A9F8	libpkt	vif1PacketCloseGifTag_	vif1PacketCloseGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AAA0	libpkt	vif1PacketAlign_	vif1PacketAlign (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AB20	libpkt	vif1PacketAddCode_	vif1PacketAddCode (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AB38	libpkt	vif1PacketAddCallCode_	vif1PacketAddCallCode (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AB50	libpkt	vif1PacketAddWord_	vif1PacketAddWord (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AB68	libpkt	vif1PacketAddWords_	vif1PacketAddWords (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022ABA8	libpkt	vif1PacketAddDword2_	vif1PacketAddDword2 (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022ABD0	libpkt	vif1PacketAddQword_	vif1PacketAddQword (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AC20	libpkt	vif1PacketAddDword_	vif1PacketAddDword (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AC48	libpkt	vif1PacketAddGsAd_	vif1PacketAddGsAd (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AC78	libpkt	vif1PacketAddGsData_	vif1PacketAddGsData (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022ACC8	libpkt	vif1PacketAddQwords_	vif1PacketAddQwords (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022AD40	libpad	_send_to_iop	_send_to_iop (identical)	the runtime replaces its callers
+0x0022BB60	libvu0	sceVu0MulMatrix	sceVu0MulMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BBA8	libvu0	sceVu0Normalize	sceVu0Normalize (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BBE8	libvu0	sceVu0TransposeMatrix	sceVu0TransposeMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BC30	libvu0	sceVu0ScaleVector	sceVu0ScaleVector (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BC48	libvu0	sceVu0CopyVector	sceVu0CopyVector (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BC58	libvu0	sceVu0CopyMatrix_	sceVu0CopyMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BC80	libvu0	sceVu0UnitMatrix	sceVu0UnitMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BCA8	libvu0	sceVu0NormalLightMatrix	sceVu0NormalLightMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BD68	libvu0	sceVu0LightColorMatrix	sceVu0LightColorMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022BDD0	kernel	signalSemaHandler	signalSemaHandler (identical)	the runtime replaces its callers
+0x0022BE60	libcdvd	cmd_sem_init	cmd_sem_init (identical)	the runtime is the CD driver (Kernel/Stubs/CD.cpp, the game's override)
+0x0022BEF8	libcdvd	cdvd_exit	cdvd_exit (identical)	the runtime replaces its callers
+0x0022BF78	libcdvd	_sceCd_Poff_Intr	_sceCd_Poff_Intr (identical)	the runtime replaces its callers
+0x0022BFB8	libcdvd	PowerOffCB	PowerOffCB (identical)	the runtime replaces its callers
+0x0022C090	libcdvd	_sceCdSCmd	_sceCdSCmd (identical)	the runtime replaces its callers
+0x0022CAF0	kernel	_sifClearSyncFlag	_sifClearSyncFlag (identical)	the runtime replaces its callers
+0x0022CB00	libkernl	VSync	VSync (identical)	the runtime replaces its callers
+0x0022CB90	libkernl	VSync2	VSync2 (identical)	the runtime replaces its callers
+0x0022CD30	libkernl	_close	_close (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022CD38	libkernl	kernelStubMinusOne	kernelStubMinusOne (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022CD40	libkernl	sbrk	sbrk (identical)	the runtime replaces its callers
+0x0022CDF0	libkernl	isatty	isatty (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022CDF8	libkernl	_fstat	_fstat (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022CEB8	libkernl	SyncDCache	SyncDCache (identical)	the runtime replaces its callers
+0x0022CFE0	libkernl	InvalidDCache	InvalidDCache (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022D060	libkernl	DisableIntc	DisableIntc (identical)	the runtime replaces its callers
+0x0022D0C8	libkernl	EnableIntc	EnableIntc (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022D130	libkernl	DisableDmac	DisableDmac (identical)	the runtime replaces its callers
+0x0022D198	libkernl	EnableDmac	EnableDmac (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0022D220	libkernl	kCopy	kCopy (identical)	the runtime replaces its callers
+0x0022D340	libkernl	_ttyInitQueue	_ttyInitQueue (identical)	the runtime replaces its callers
+0x0022D368	libkernl	QueuePeekWriteDone	QueuePeekWriteDone (identical)	the runtime replaces its callers
+0x0022D3A8	libkernl	QueuePeekReadDone	QueuePeekReadDone (identical)	the runtime replaces its callers
+0x0022D860	libkernl	kputchar	kputchar (identical)	the runtime replaces its callers
+0x0022D898	libkernl	deci2Putchar	deci2Putchar (close)	the runtime replaces its callers
+0x0022D948	libkernl	serialPutchar	serialPutchar (identical)	the runtime replaces its callers
+0x0022D980	libkernl	ftoi	ftoi (identical)	the runtime replaces its callers
+0x0022DA10	libkernl	printfloat	printfloat (identical)	the runtime replaces its callers
+0x0022E140	libkernl	kprintf	kprintf (identical)	the runtime replaces its callers
+0x0022E1D8	libkernl	_set_sreg	_set_sreg (identical)	the runtime replaces its callers
+0x0022E1F8	libkernl	_sifRpcSetServer	_sifRpcSetServer (identical)	the runtime replaces its callers
+0x0022E208	libkernl	sceSifGetSreg	sceSifGetSreg (identical)	the runtime replaces its callers
+0x0022E6A8	libkernl	isceSifSendCmd	isceSifSendCmd (identical)	the runtime replaces its callers
+0x0022E8BC	libkernl	kernelNoop	kernelNoop (identical)	dead in every game; the runtime is the SIF: the command and RPC layer is replaced (sceSifInitCmd, sceSifAddCmdHandler, sceSifSendCmd, sceSifInitRpc and the rest are its stubs)
+0x0022EA60	libkernl	sceSifExitRpc	sceSifExitRpc (identical)	the runtime replaces its callers
+0x0022EA88	libkernl	_rpc_get_packet	_rpc_get_packet (identical)	the runtime replaces its callers
+0x0022EB30	libkernl	_rpc_free_packet	_rpc_free_packet (identical)	the runtime replaces its callers
+0x0022EBC0	libkernl	_request_end	_request_end (identical)	the runtime replaces its callers
+0x0022EC78	libkernl	_request_rdata	_request_rdata (identical)	the runtime replaces its callers
+0x0022ECD8	libkernl	_search_svdata	_search_svdata (identical)	the runtime replaces its callers
+0x0022ED28	libkernl	_request_bind	_request_bind (identical)	the runtime replaces its callers
+0x0022EF18	libkernl	_request_call	_request_call (identical)	the runtime replaces its callers
+0x0022F5A0	libkernl	_sceFsIobSemaMK	_sceFsIobSemaMK (identical)	the runtime replaces its callers
+0x0022F600	libkernl	new_iob	new_iob (identical)	the runtime replaces its callers
+0x0022F688	libkernl	get_iob	get_iob (close)	the runtime replaces its callers
+0x0022F6F8	libkernl	_sceFs_Rcv_Intr	_sceFs_Rcv_Intr (identical)	the runtime replaces its callers
+0x0022FB08	libkernl	_sceFsWaitS	_sceFsWaitS (identical)	the runtime replaces its callers
+0x0022FB38	libkernl	_fileioUnlock	_fileioUnlock (identical)	the runtime replaces its callers
+0x0022FB48	libkernl	_sceFs_Poff_Intr	_sceFs_Poff_Intr (identical)	the runtime replaces its callers
+0x0022FD40	libkernl	_fileioCheckVersion	_fileioCheckVersion (identical)	the runtime replaces its callers
+0x00230A70	libkernl	sifRpcCallFunc2	sceSifFreeSysMemory (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00230AE8	libkernl	sifRpcCallFunc2Wrapper	sceSifFreeIopHeap (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00230B08	libkernl	_lf_bind	_lf_bind (identical)	the runtime replaces its callers
+0x00230C08	libkernl	_loadfileCheckVersion	_loadfileCheckVersion (identical)	the runtime replaces its callers
+0x00230EC0	libkernl	sceSifLoadModule	sceSifLoadModule (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231168	libkernl	DIntr	DIntr (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x002311B0	libkernl	EIntr	EIntr (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x002311C8	libkernl	supplement_crt0	supplement_crt0 (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231210	libkernl	kFindAddress	kFindAddress (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231258	libkernl	GetSystemCallTableEntry	GetSystemCallTableEntry (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x002312A8	libkernl	_InitSys	_InitSys (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231308	libkernl	kCopy	kCopy2 (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231350	libkernl	PatchIsNeeded	PatchIsNeeded (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x002313B8	libkernl	InitExecPS2	InitExecPS2 (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231470	libkernl	Exit	Exit (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231498	libkernl	topThread	topThread (identical)	the runtime replaces its callers
+0x002317F0	libkernl	kputs	kputs (identical)	the runtime replaces its callers
+0x00231828	libkernl	kCopy	kCopy3 (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231880	libkernl	InitTLBFunctions	InitTLBFunctions (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00231988	libkernl	InitTLB32MB	InitTLB32MB (identical)	the runtime replaces its callers
+0x00231B80	libkernl	fn_21D880	- (identical)	the runtime replaces its callers
+0x00232468	libmc	mcWakeupHandler	mcWakeupHandler (identical)	the runtime replaces its callers
+0x00232490	libmc	mcDelayThread	mcDelayThread (identical)	the runtime replaces its callers
+0x002330D0	libsdr	_sdrCB	_sdrCB (identical)	dead in every game; the runtime is the sound RPC: libsdr is replaced (sceSdRemoteInit, sceSdRemote and sceSdTransToIOP are its stubs)
+0x002331B0	libscf	GetRomName	none	Sony libscf 2.4, no AI counterpart; no source of the pinned version on disk and no runtime replacement: the recompiled original runs (called by IsT10K)
+0x00233250	libscf	IsT10K	none	Sony libscf 2.4, no AI counterpart; no source of the pinned version on disk and no runtime replacement: the recompiled original runs (called by sceScfGetLanguage)
+0x00233290	libscf	sceScfGetLanguage	none	Sony libscf 2.4, no AI counterpart; no source of the pinned version on disk and no runtime replacement: the recompiled original runs (called by FUN_0011c3d8)
+0x00233FF8	libc	memcmp	memcmp (identical)	the runtime replaces its callers
+0x00234830	libc	_sbrk_r	_sbrk_r (identical)	the runtime replaces its callers
+0x0023E4D8	libgcc	__moddi3	__moddi3 (identical)	the runtime replaces its callers

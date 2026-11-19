@@ -1,0 +1,398 @@
+# Dave Mirra BMX 2's (SLUS-20159) library functions with no C++ here and no runtime replacement, on purpose (libraries are never
+# rewritten; sce/not_ported.tsv is AI's). Every function of functions.tsv's sdk layer is readable (a shared body at
+# level 2, or this folder's), the runtime's (runtime_replaced.py: a stub or a kernel call wrapper, nothing of the
+# game's left), or a row here. Sony's release 2.2 has no source on disk; newlib's and libgcc's rows (memcmp, _sbrk_r, __moddi3) are only called by the runtime's stubs.
+# A row's reason is this game's, from its call graph (direct calls and code that takes the address), its data and
+# its recording corpus: "the runtime replaces its callers" when every caller is the runtime's or such a row, "dead"
+# when nothing reaches it, "the recompiled original runs" otherwise. Where AI's row says the same, its words are
+# kept. Columns: address, library, name, AI's counterpart (its name and the pair: identical, close, drifted, weak,
+# or none), why. See docs/READABLE.md, "Layout" (sce/).
+0x00100008	crt0	start	start (close)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001000A8	libkernl	callSystemHook0	callSystemHook0 (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001000B0	crt0	exitThreadCall	exitThreadCall (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x0010FA78	libipu	setD3_CHCR	setD3_CHCR (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x0010FAE0	libipu	setD4_CHCR	setD4_CHCR (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x00128D88	libkernl	_InitSys	_InitSys (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001CC910	libgraph	sceGsGetGParam	sceGsGetGParam (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs (called by sceGsPutDispEnv, sceGsSetDefDBuff, sceGsSetDefDispEnv, sceGszbufaddr)
+0x001CC988	libgraph	sceGsSetDefDBuff	sceGsSetDefDBuffDc (drifted)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (reached on the PC; called by resetCameraViewports_)
+0x001CCC20	libgraph	sceGsSwapDBuff	sceGsSwapDBuffDc (close)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (reached on the PC; called by applyDisplayBuffers_, swapDisplayBuffers_)
+0x001CDB68	libgraph	sceGsSetHalfOffset	sceGsSetHalfOffset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001CDBF0	libgraph	sceGsSetDefDispEnv	sceGsSetDefDispEnv (close)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (reached on the PC; called by sceGsSetDefDBuff)
+0x001CDE60	libgraph	sceGsPutDispEnv	sceGsPutDispEnv (identical)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (called by sceGsSwapDBuff)
+0x001CDF20	libgraph	sceGszbufaddr	sceGszbufaddr (identical)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (reached on the PC; called by sceGsSetDefDBuff, sceGsSetDefDrawEnv)
+0x001CDFE8	libgraph	sceGsSetDefDrawEnv	sceGsSetDefDrawEnv (identical)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (reached on the PC; called by sceGsSetDefDBuff)
+0x001CE1D0	libgraph	sceGsSetDefClear	sceGsSetDefClear (identical)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (reached on the PC; called by sceGsSetDefDBuff)
+0x001CE2D8	libgraph	sceGsPutDrawEnv	sceGsPutDrawEnv (identical)	in AI the runtime replaces it (a stub); in DM2 it has no runtime replacement and no source of the pinned version on disk: the recompiled original runs (reached on the PC; called by sceGsSwapDBuff)
+0x001CE3C0	libmpeg	_type2id	_type2id (identical)	the runtime replaces its callers
+0x001CE448	libmpeg	mpegDemuxPacket	mpegDemuxPacket (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CE938	libmpeg	sceMpegDemuxPss	sceMpegDemuxPss (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CEA50	libmpeg	_pack_header	_pack_header (identical)	the runtime replaces its callers
+0x001CEBA0	libmpeg	_system_header	_system_header (identical)	the runtime replaces its callers
+0x001CEC10	libmpeg	_PES_packet	_PES_packet (drifted)	the runtime replaces its callers
+0x001CF478	libmpeg	sceMpegDelete	sceMpegDelete (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001CF598	libmpeg	sceMpegSetDecodeMode	sceMpegSetDecodeMode (identical)	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001CF5D0	libmpeg	sceMpegIsEnd	sceMpegIsEnd (identical)	the runtime replaces it (game_overrides binds the MPEG HLE's handler: the decoder's state is the HLE's)
+0x001CF5E0	libmpeg	sceMpegIsRefBuffEmpty	sceMpegIsRefBuffEmpty (identical)	the runtime replaces it (game_overrides binds the MPEG HLE's handler: the decoder's state is the HLE's)
+0x001CF6C0	libmpeg	_dispatchMpegCallback	_dispatchMpegCallback (identical)	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001CF710	libmpeg	_dispatchMpegCbNodata	_dispatchMpegCbNodata (identical)	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001CF738	libmpeg	sceMpegSetDefaultPtsGap	sceMpegSetDefaultPtsGap (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF750	libmpeg	sceMpegResetDefaultPtsGap	sceMpegResetDefaultPtsGap (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF760	libmpeg	mpegSetInternalD8	mpegSetInternalD8 (weak)	dead in AI, and the runtime plays the movies in every game
+0x001CF778	libmpeg	mpegInternalCC	mpegInternalCC (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF788	libmpeg	mpegInternalD0	mpegInternalD0 (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF798	libmpeg	mpegInternalB4	mpegInternalB4 (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF7A8	libmpeg	mpegInternalB4b	mpegInternalB4b (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF7B8	libmpeg	mpegSwapInternalE8	mpegSwapInternalE8 (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF7C8	libmpeg	mpegSetInternalF0	mpegSetInternalF0 (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF7E0	libmpeg	mpegWorkAreaInit	mpegWorkAreaInit (identical)	the runtime replaces its callers
+0x001CF7F8	libmpeg	mpegWorkAreaReset	mpegWorkAreaReset (identical)	the runtime replaces its callers
+0x001CF808	libmpeg	mpegWorkAreaMark	mpegWorkAreaMark (identical)	the runtime replaces its callers
+0x001CF818	libmpeg	_alalcAlloc	mpegWorkAreaAlloc (weak)	the runtime replaces its callers
+0x001CF880	libmpeg	mpegWorkAreaLeft	mpegWorkAreaLeft (identical)	dead in AI, and the runtime plays the movies in every game
+0x001CF898	libmpeg	_getpic	_getpic (drifted)	the runtime replaces its callers
+0x001CFA20	libmpeg	_decodeOrSkipFrame	_decodeOrSkipFrame (weak)	the runtime replaces its callers
+0x001CFB48	libmpeg	_decodeOrSkip	_decodeOrSkip (drifted)	the runtime replaces its callers
+0x001CFB88	libmpeg	_decodeOrSkipField	_decodeOrSkipField (drifted)	the runtime replaces its callers
+0x001CFD68	libmpeg	-	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001CFD78	libmpeg	_lastFrame	_lastFrame (weak)	the runtime replaces its callers
+0x001CFE00	libmpeg	_clearOnce	_clearOnce (weak)	the runtime replaces its callers
+0x001CFE50	libmpeg	_clearEach	_clearEach (close)	the runtime replaces its callers
+0x001CFF18	libmpeg	mpegPrintError	mpegPrintError (identical)	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001CFF28	libmpeg	_Error1	_Error1 (weak)	the runtime replaces its callers
+0x001CFF58	libmpeg	_Error	_Error (weak)	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001CFFB0	libmpeg	_sendDataToIPU	_sendDataToIPU (drifted)	the runtime replaces its callers
+0x001D0088	libmpeg	_RefImageInit	_RefImageInit (identical)	the runtime replaces its callers
+0x001D00A8	libmpeg	_sequenceHeader	_sequenceHeader (weak)	the runtime replaces its callers
+0x001D0200	libmpeg	_initSeq	_initSeq (weak)	the runtime replaces its callers
+0x001D0548	libmpeg	_initRefImages	_initRefImages (close)	the runtime replaces its callers
+0x001D0630	libmpeg	_setDefaultQM	_setDefaultQM (drifted)	the runtime replaces its callers
+0x001D06F0	libmpeg	_sequenceExtension	_sequenceExtension (weak)	the runtime replaces its callers
+0x001D0858	libmpeg	_sequenceDisplayExtension	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D08F8	libmpeg	-	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D0908	libmpeg	-	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D0918	libmpeg	-	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D0928	libmpeg	-	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D0938	libmpeg	mpegStopIpuDma	mpegStopIpuDma (identical)	the runtime replaces its callers
+0x001D0948	libmpeg	mpegRestartIpuDma	mpegRestartIpuDma (identical)	the runtime replaces its callers
+0x001D0960	libmpeg	_motionComp0	_motionComp0 (weak)	the runtime replaces its callers
+0x001D0C98	libmpeg	_getAllRefs	_getAllRefs (weak)	the runtime replaces its callers
+0x001D1348	libmpeg	_getRef0	_getRef0 (weak)	the runtime replaces its callers
+0x001D1768	libmpeg	_doMC	_doMC (weak)	the runtime replaces its callers
+0x001D18F8	libmpeg	_rix_000	_rix_000 (identical)	the runtime replaces its callers
+0x001D1970	libmpeg	_ri0_000	_ri0_000 (identical)	the runtime replaces its callers
+0x001D1A08	libmpeg	_rix_001	_rix_001 (identical)	the runtime replaces its callers
+0x001D1AC0	libmpeg	_ri0_001	_ri0_001 (identical)	the runtime replaces its callers
+0x001D1B90	libmpeg	_rix_010	_rix_010 (identical)	the runtime replaces its callers
+0x001D1C40	libmpeg	_ri0_010	_ri0_010 (identical)	the runtime replaces its callers
+0x001D1CF8	libmpeg	_rix_011	_rix_011 (identical)	the runtime replaces its callers
+0x001D1DF0	libmpeg	_ri0_011	_ri0_011 (identical)	the runtime replaces its callers
+0x001D1EF0	libmpeg	_rix_100	_rix_100 (drifted)	the runtime replaces its callers
+0x001D1F98	libmpeg	_ri0_100	_ri0_100 (identical)	the runtime replaces its callers
+0x001D2048	libmpeg	_rix_101	_rix_101 (close)	the runtime replaces its callers
+0x001D2130	libmpeg	_ri0_101	_ri0_101 (identical)	the runtime replaces its callers
+0x001D2218	libmpeg	_rix_110	_rix_110 (close)	the runtime replaces its callers
+0x001D22F8	libmpeg	_ri0_110	_ri0_110 (identical)	the runtime replaces its callers
+0x001D23C8	libmpeg	_rix_111	_rix_111 (close)	the runtime replaces its callers
+0x001D24F0	libmpeg	_ri0_111	_ri0_111 (identical)	the runtime replaces its callers
+0x001D2608	libmpeg	_copyAddRefImage	_copyAddRefImage (identical)	the runtime replaces its callers
+0x001D2668	libmpeg	_copyRefImage	_copyRefImage (identical)	the runtime replaces its callers
+0x001D26C8	libmpeg	_ipuSetMPEG1	_ipuSetMPEG1 (identical)	the runtime replaces its callers
+0x001D26F0	libmpeg	_waitBdecOut	_waitBdecOut (drifted)	the runtime replaces its callers
+0x001D28D8	libmpeg	_ipuVdecMotionCode	_ipuVdecMotionCode (close)	the runtime replaces its callers
+0x001D28F8	libmpeg	_dualPrimeVector	_dualPrimeVector (weak)	the runtime replaces its callers
+0x001D2A80	libmpeg	_mbAddressIncrement	_mbAddressIncrement (weak)	the runtime replaces its callers
+0x001D2B90	libmpeg	_pictureData0	_pictureData0 (drifted)	the runtime replaces its callers
+0x001D2CB8	libmpeg	_sliceA0	_sliceA0 (weak)	the runtime replaces its callers
+0x001D2DE0	libmpeg	_slice0	_slice0 (weak)	the runtime replaces its callers
+0x001D2FE0	libmpeg	_skipMB0	_skipMB0 (weak)	the runtime replaces its callers
+0x001D30B0	libmpeg	_decMB0	_decMB0 (weak)	the runtime replaces its callers
+0x001D35D8	libmpeg	_decodeMotionVectorPart	_decodeMotionVectorPart (identical)	the runtime replaces its callers
+0x001D3660	libmpeg	_motionVectors	_motionVectors (weak)	the runtime replaces its callers
+0x001D37E0	libmpeg	_motionVector	_motionVector (weak)	the runtime replaces its callers
+0x001D3920	libmpeg	_sendIpuCommand	_sendIpuCommand (weak)	the runtime replaces its callers
+0x001D3950	libmpeg	_waitIpuIdle	_waitIpuIdle (drifted)	the runtime replaces its callers
+0x001D39F8	libmpeg	_waitIpuIdle64	_waitIpuIdle64 (drifted)	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D3AA8	libmpeg	_ipuVdec	_ipuVdec (drifted)	the runtime replaces its callers
+0x001D3C60	libmpeg	_peepBit	_peepBit (weak)	the runtime replaces its callers
+0x001D3D98	libmpeg	_flushBuf	_flushBuf (weak)	the runtime replaces its callers
+0x001D3EB0	libmpeg	_nextBit	_nextBit (drifted)	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D4018	libmpeg	_nextStartCode	_nextStartCode (weak)	the runtime replaces its callers
+0x001D4080	libmpeg	_sliceB	_sliceB (weak)	the runtime replaces its callers
+0x001D40F0	libmpeg	_nextHeader	_nextHeader (drifted)	the runtime replaces its callers
+0x001D4218	libmpeg	_pictureHeader	_pictureHeader (weak)	the runtime replaces its callers
+0x001D42E8	libmpeg	_extensionAndUserData	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D4398	libmpeg	_pictureCodingExtension	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D45C8	libmpeg	_extrainfo	_extrainfo (weak)	the runtime replaces its callers
+0x001D4600	libmpeg	_updateTempTackData	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D46E0	libmpeg	_groupOfPicturesHeader	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D47C8	libmpeg	_quantMatrixExtension	_quantMatrixExtension (weak)	the runtime replaces its callers
+0x001D4878	libmpeg	_pictureDisplayExtension	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D4968	libmpeg	_copyrightExtension	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D4A18	libmpeg	_decPicture	_decPicture (weak)	the runtime replaces its callers
+0x001D4AF8	libmpeg	_outputFrame	_outputFrame (weak)	the runtime replaces its callers
+0x001D4BB0	libmpeg	_updateRefImage	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D4F90	libmpeg	_isOutSizeOK	_isOutSizeOK (weak)	the runtime replaces its callers
+0x001D5030	libmpeg	_cpr8	_cpr8 (weak)	the runtime replaces its callers
+0x001D5220	libmpeg	_markOutput	_markOutput (weak)	the runtime replaces its callers
+0x001D5258	libmpeg	_getPtsDtsFlags	_getPtsDtsFlags (close)	the runtime replaces its callers
+0x001D53F0	libmpeg	_dispRefImage	_dispRefImage (weak)	the runtime replaces its callers
+0x001D5508	libmpeg	_dispRefImageField	_dispRefImageField (weak)	the runtime replaces its callers
+0x001D56C8	libmpeg	_doCSC	_doCSC (drifted)	the runtime replaces its callers
+0x001D57B0	libmpeg	_ch3dmaCSC	_ch3dmaCSC (weak)	the runtime replaces its callers
+0x001D58F8	libmpeg	_doCSC2	_doCSC2 (drifted)	the runtime replaces its callers
+0x001D5AB8	libmpeg	_ch4dma	none	the runtime plays the movies: libmpeg is entered only through its API, whose entry points are the runtime's stubs (sceMpegInit, sceMpegAddBs, sceMpegGetPicture and the rest), and from the engine's MPEG stream sample, which the native movies replace; no DM2 recording reaches it
+0x001D5B90	libmpeg	_csc_storeRefImage	_csc_storeRefImage (weak)	the runtime replaces its callers
+0x001D5DE8	libmpeg	_sysbitInit	_sysbitInit (identical)	the runtime replaces its callers
+0x001D5E20	libmpeg	_sysbitPeek	_sysbitPeek (identical)	the runtime replaces its callers
+0x001D5E40	libmpeg	_sysbitFlush	_sysbitFlush (identical)	the runtime replaces its callers
+0x001D5ED8	libmpeg	_sysbitGet	_sysbitGet (identical)	the runtime replaces its callers
+0x001D5F28	libmpeg	_sysbitMarker	_sysbitMarker (identical)	the runtime replaces its callers
+0x001D5F70	libmpeg	_sysbitJump	_sysbitJump (identical)	the runtime replaces its callers
+0x001D5FC8	libmpeg	_sysbitPtr	_sysbitPtr (identical)	the runtime replaces its callers
+0x001D5FF8	libipu	setD3_CHCR	ipuSetD3_CHCR (identical)	the runtime replaces its callers
+0x001D6060	libipu	setD4_CHCR	ipuSetD4_CHCR (identical)	the runtime replaces its callers
+0x001D6368	libipu	setD4_CHCR	ipuResetSetD4_CHCR (identical)	the runtime replaces its callers
+0x001D6748	libdma	sceDmaPutStallAddr	- (identical)	dead in every game; the runtime is the DMA library (sceDmaReset, sceDmaSend and the rest are its stubs)
+0x001D7078	-	-	none	no AI counterpart; dead in DM2: no caller reaches it and its address is in no data or code
+0x001D7098	-	-	none	no AI counterpart; dead in DM2: no caller reaches it and its address is in no data or code
+0x001D70B8	libdev	devVu0Running	devVu0Running (identical)	dead in all three games; no source of the pinned version on disk
+0x001D70D0	libdev	sceDevVu0Reset	sceDevVu0Reset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D70E8	libdev	sceDevVu0Pause	sceDevVu0Pause (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7148	libdev	sceDevVu0Continue	sceDevVu0Continue (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7198	libdev	sceDevVu0PutDBit	sceDevVu0PutDBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D71C8	libdev	sceDevVu0PutTBit	sceDevVu0PutTBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D71F8	libdev	sceDevVu0GetDBit	sceDevVu0GetDBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7208	libdev	sceDevVu0GetTBit	sceDevVu0GetTBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7218	libdev	sceDevVu0Sync	sceDevVu0Sync (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7258	libdev	sceDevVu0Exec	sceDevVu0Exec (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7268	libdev	sceDevVu0GetTpc	sceDevVu0GetTpc (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7278	libdev	sceDevVu0GetCnd	sceDevVu0GetCnd (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7358	libdev	sceDevVu0PutCnd	sceDevVu0PutCnd (drifted)	dead in all three games; no source of the pinned version on disk
+0x001D74C8	libdev	sceVuCheckBusy	sceVuCheckBusy (identical)	dead in all three games; no source of the pinned version on disk
+0x001D74F8	libdev	sceVu0MemWriteQ	sceVu0MemWriteQ (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7538	libdev	sceVu0MemReadQ	sceVu0MemReadQ (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7580	libdev	sceDevVu1Reset	sceDevVu1Reset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D7598	libdev	sceDevVu1Pause	sceDevVu1Pause (identical)	dead in all three games; no source of the pinned version on disk
+0x001D75F8	libdev	sceDevVu1Continue	sceDevVu1Continue (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7648	libdev	sceDevVu1PutDBit	sceDevVu1PutDBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7678	libdev	sceDevVu1PutTBit	sceDevVu1PutTBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D76A8	libdev	sceDevVu1GetDBit	sceDevVu1GetDBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D76B8	libdev	sceDevVu1GetTBit	sceDevVu1GetTBit (identical)	dead in all three games; no source of the pinned version on disk
+0x001D76C8	libdev	sceDevVu1Sync	sceDevVu1Sync (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7710	libdev	sceDevVu1Exec	sceDevVu1Exec (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7720	libdev	sceDevVu1GetTpc	sceDevVu1GetTpc (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7748	libdev	sceDevVu1GetCnd	sceDevVu1GetCnd (identical)	dead in all three games; no source of the pinned version on disk
+0x001D78D8	libdev	sceDevVu1PutCnd	sceDevVu1PutCnd (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7A48	libdev	sceDevVif0Pause	sceDevVif0Pause (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7AB0	libdev	sceDevVif0Continue	sceDevVif0Continue (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7AF0	libdev	sceDevVif0PutErr	sceDevVif0PutErr (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7B10	libdev	sceDevVif0GetErr	sceDevVif0GetErr (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7B20	libdev	sceDevVif0Sync	sceDevVif0Sync (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7B70	libdev	sceDevVif0GetCnd	sceDevVif0GetCnd (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7CF0	libdev	sceDevVif0PutFifo	sceDevVif0PutFifo (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7D50	libdev	sceDevVif1Reset	sceDevVif1Reset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D7D78	libdev	sceDevVif1Pause	sceDevVif1Pause (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7DE0	libdev	sceDevVif1Continue	sceDevVif1Continue (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7E20	libdev	sceDevVif1PutErr	sceDevVif1PutErr (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7E40	libdev	sceDevVif1GetErr	sceDevVif1GetErr (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7E50	libdev	sceDevVif1Sync	sceDevVif1Sync (identical)	dead in all three games; no source of the pinned version on disk
+0x001D7EA0	libdev	sceDevVif1GetCnd	sceDevVif1GetCnd (identical)	dead in all three games; no source of the pinned version on disk
+0x001D8078	libdev	sceDevVif1PutFifo	sceDevVif1PutFifo (identical)	dead in all three games; no source of the pinned version on disk
+0x001D80D8	libdev	sceDevVif1GetFifo	sceDevVif1GetFifo (identical)	dead in all three games; no source of the pinned version on disk
+0x001D8138	libpkt	gifPacketInit	gifPacketInit (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8148	libpkt	gifPacketReset	gifPacketReset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8158	libpkt	gifPacketTerminate	gifPacketTerminate (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D81B0	libpkt	gifPacketSize_	gifPacketSize (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D81C8	libpkt	gifPacketCnt	gifPacketCnt (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8240	libpkt	gifPacketRef	gifPacketRef (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D82D8	libpkt	sceGifPkCall	gifPacketCall (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8368	libpkt	sceGifPkRet	gifPacketRet (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D83E0	libpkt	gifPacketEnd	gifPacketEnd (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8458	libpkt	sceGifPkOpenGifTag	sceGifPkOpenGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8470	libpkt	sceGifPkCloseGifTag	sceGifPkCloseGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8518	libpkt	gifPacketAddDword	gifPacketAddDword (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8540	libpkt	sceGifPkAddGsAD	sceGifPkAddGsAD (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8568	libpkt	vif1PacketInit	vif1PacketInit (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8578	libpkt	vif1PacketReset_	vif1PacketReset (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8588	libpkt	vif1PacketCloseDmaTag	vif1PacketCloseDmaTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D85E0	libpkt	vif1PacketCnt_	vif1PacketCnt (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8638	libpkt	sceVif1PkNext	vif1PacketNext (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D86A8	libpkt	vif1PacketRef_	vif1PacketRef (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8740	libpkt	vif1PacketCall_	vif1PacketCall (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D87B0	libpkt	sceVif1PkRet	vif1PacketRet (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8808	libpkt	vif1PacketEnd_	vif1PacketEnd (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8860	libpkt	vif1PacketOpenUnpack_	vif1PacketOpenUnpack (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D88F0	libpkt	sceVif1PkCloseUpkCode	vif1PacketCloseUnpack (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8948	libpkt	vif1PacketOpenGifTag_	vif1PacketOpenGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8960	libpkt	sceVif1PkCloseGifTag	vif1PacketCloseGifTag (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8A08	libpkt	vif1PacketAlign_	vif1PacketAlign (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8A88	libpkt	vif1PacketAddCode_	vif1PacketAddCode (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8AA0	libpkt	vif1PacketAddCallCode_	vif1PacketAddCallCode (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8AB8	libpkt	vif1PacketAddWord_	vif1PacketAddWord (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8AD0	libpkt	vif1PacketAddWords_	vif1PacketAddWords (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8B10	libpkt	vif1PacketAddDword2_	vif1PacketAddDword2 (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8B38	libpkt	vif1PacketAddQword_	vif1PacketAddQword (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8B88	libpkt	vif1PacketAddDword_	vif1PacketAddDword (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8BB0	libpkt	sceVif1PkAddGsDataN	vif1PacketAddGsData (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8C00	libpkt	vif1PacketAddQwords_	vif1PacketAddQwords (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001D8C78	libpad	_send_to_iop	_send_to_iop (weak)	the runtime replaces its callers
+0x001D9540	libpad	scePadReqIntToStr	scePadReqIntToStr (identical)	dead in every game; the runtime is the pad library (scePadInit, scePadRead and the rest are its stubs; Kernel/Stubs/Pad.cpp has this one too)
+0x001DA020	libvu0	sceVu0ApplyMatrix	sceVu0ApplyMatrix (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA050	libvu0	sceVu0MulMatrix	sceVu0MulMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA098	libvu0	sceVu0OuterProduct	sceVu0OuterProduct (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA0B8	libvu0	sceVu0InnerProduct	sceVu0InnerProduct (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA0E0	libvu0	sceVu0Normalize	sceVu0Normalize (close)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA118	libvu0	sceVu0TransposeMatrix	sceVu0TransposeMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA160	libvu0	sceVu0InversMatrix	sceVu0InversMatrix (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA1D0	libvu0	sceVu0DivVector	sceVu0DivVector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA1F0	libvu0	sceVu0DivVectorXYZ	sceVu0DivVectorXYZ (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA210	libvu0	sceVu0InterVector	sceVu0InterVector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA238	libvu0	sceVu0AddVector	sceVu0AddVector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA250	libvu0	sceVu0SubVector	sceVu0SubVector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA268	libvu0	sceVu0MulVector	sceVu0MulVector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA280	libvu0	sceVu0ScaleVector	sceVu0ScaleVector (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA298	libvu0	sceVu0TransMatrix	sceVu0TransMatrix (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA2C8	libvu0	sceVu0CopyVector	sceVu0CopyVector (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA2D8	libvu0	sceVu0CopyMatrix	sceVu0CopyMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA300	libvu0	sceVu0FTOI4Vector	sceVu0FTOI4Vector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA310	libvu0	sceVu0FTOI0Vector	sceVu0FTOI0Vector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA320	libvu0	sceVu0ITOF4Vector	sceVu0ITOF4Vector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA330	libvu0	sceVu0ITOF0Vector	sceVu0ITOF0Vector (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA340	libvu0	sceVu0UnitMatrix	sceVu0UnitMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA3E0	libvu0	sceVu0RotMatrixZ	sceVu0RotMatrixZ (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA488	libvu0	sceVu0RotMatrixX	sceVu0RotMatrixX (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA530	libvu0	sceVu0RotMatrixY	sceVu0RotMatrixY (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA5D8	libvu0	sceVu0RotMatrix	sceVu0RotMatrix (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA628	libvu0	sceVu0ClampVector	sceVu0ClampVector (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA650	libvu0	sceVu0CameraMatrix	sceVu0CameraMatrix (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA700	libvu0	sceVu0NormalLightMatrix	sceVu0NormalLightMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA7C0	libvu0	sceVu0LightColorMatrix	sceVu0LightColorMatrix (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DA828	libvu0	sceVu0ViewScreenMatrix	sceVu0ViewScreenMatrix (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DA930	libvu0	sceVu0DropShadowMatrix	sceVu0DropShadowMatrix (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DAAC0	libvu0	sceVu0RotTransPersN	sceVu0RotTransPersN (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DAB18	libvu0	sceVu0RotTransPers	sceVu0RotTransPers (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs (called by projectToScreen)
+0x001DAB60	libvu0	sceVu0CopyVectorXYZ	sceVu0CopyVectorXYZ (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DAB80	libvu0	sceVu0InterVectorXYZ	sceVu0InterVectorXYZ (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DABB0	libvu0	sceVu0ScaleVectorXYZ	sceVu0ScaleVectorXYZ (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DABC8	libvu0	sceVu0ClipScreen	sceVu0ClipScreen (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DAC10	libvu0	sceVu0ClipScreen3	sceVu0ClipScreen3 (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DAC70	libvu0	sceVu0ClipAll	sceVu0ClipAll (identical)	dead in every game; the runtime has the library (Kernel/Stubs/VU.cpp has this function; the game recompiles libvu0 for the ones it calls, in vu0.cpp)
+0x001DAD60	-	-	none	no AI counterpart; the runtime replaces its callers (sceCdDelayThread)
+0x001DAE28	libcdvd	cd_callback	cd_callback (close)	dead in every game; the runtime is the CD driver (Kernel/Stubs/CD.cpp, the game's override)
+0x001DAED8	libcdvd	_Cdvd_cbLoop	_Cdvd_cbLoop (identical)	the runtime replaces its callers
+0x001DB070	libcdvd	cdDmaEndHandler	cdDmaEndHandler (identical)	dead in every game; the runtime is the CD driver (Kernel/Stubs/CD.cpp, the game's override)
+0x001DB110	libcdvd	cmd_sem_init	cmd_sem_init (identical)	the runtime is the CD driver (Kernel/Stubs/CD.cpp, the game's override)
+0x001DB1A8	libcdvd	cdvd_exit	cdvd_exit (close)	the runtime replaces its callers
+0x001DB338	libcdvd	sceCdPOffCallback	sceCdPOffCallback (identical)	the runtime is the CD driver (Kernel/Stubs/CD.cpp, the game's override)
+0x001DB3A8	libcdvd	_sceCd_Poff_Intr	_sceCd_Poff_Intr (drifted)	the runtime replaces its callers
+0x001DB3D8	libcdvd	PowerOffCB	PowerOffCB (weak)	the runtime replaces its callers
+0x001DB830	libcdvd	_sceCdNCmd	_sceCdNCmd (identical)	the runtime replaces its callers
+0x001DC6D8	libcdvd	_sceCdSCmd	_sceCdSCmd (identical)	the runtime replaces its callers
+0x001DD180	libcdvd	sceCdPowerOff	none	Sony libcdvd 2.2, no AI counterpart; dead in DM2: no caller reaches it and its address is in no data or code
+0x001DE510	kernel	_sifClearSyncFlag	_sifClearSyncFlag (drifted)	the runtime replaces its callers
+0x001DE520	libkernl	VSync	none	Sony libkernl 2.2, no AI counterpart; the runtime replaces its callers (sceGsSyncV)
+0x001DE560	libkernl	VSync2	none	Sony libkernl 2.2, no AI counterpart; the runtime replaces its callers (sceGsSyncV)
+0x001DE6B8	libkernl	kernelStubEioA	kernelStubEioA (identical)	dead in all three games; no source of the pinned version on disk
+0x001DE6E0	libkernl	_close	_close (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DE6E8	libkernl	kernelStubMinusOne	kernelStubMinusOne (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DE6F0	libkernl	_lseek	_lseek (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DE6F8	libkernl	sbrk	sbrk (identical)	the runtime replaces its callers
+0x001DE7A8	libkernl	isatty	isatty (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DE7B0	libkernl	_fstat	_fstat (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DE7C8	libkernl	kernelStubTrue	kernelStubTrue (identical)	dead in all three games; no source of the pinned version on disk
+0x001DE7D0	libkernl	kill	kill (identical)	dead in all three games; no source of the pinned version on disk
+0x001DE7F8	libkernl	kernelStubEioB	kernelStubEioB (identical)	dead in all three games; no source of the pinned version on disk
+0x001DE820	libkernl	kernelStubEioC	kernelStubEioC (identical)	dead in all three games; no source of the pinned version on disk
+0x001DE8F0	libkernl	SyncDCache	SyncDCache (identical)	the runtime replaces its callers
+0x001DE970	libkernl	iSyncDCache	iSyncDCache (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001DEA30	libkernl	InvalidDCache	InvalidDCache (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DEAB0	libkernl	iInvalidDCache	iInvalidDCache (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001DEAC8	libkernl	DisableIntc	DisableIntc (identical)	the runtime replaces its callers
+0x001DEB30	libkernl	EnableIntc	EnableIntc (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DEB98	libkernl	DisableDmac	DisableDmac (identical)	the runtime replaces its callers
+0x001DEC00	libkernl	EnableDmac	EnableDmac (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001DECF0	libkernl	-	none	Sony libkernl 2.2, no AI counterpart; dead in DM2: no caller reaches it and its address is in no data or code
+0x001DED58	libkernl	iEnableIntc	iEnableIntc (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001DED78	libkernl	iDisableIntc	iDisableIntc (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001DED98	libkernl	iEnableDmac	iEnableDmac (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001DEDB8	libkernl	iDisableDmac	iDisableDmac (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001DEDD8	libkernl	-	none	Sony libkernl 2.2, no AI counterpart; dead in DM2: no caller reaches it and its address is in no data or code
+0x001DEDF8	libkernl	-	none	Sony libkernl 2.2, no AI counterpart; dead in DM2: no caller reaches it and its address is in no data or code
+0x001DEE18	libkernl	topThread	topThread (identical)	the runtime replaces its callers
+0x001DF0E0	libkernl	iSuspendThread	iSuspendThread (identical)	dead in every game; kernel call wrapper, the runtime is the kernel
+0x001DF178	libkernl	_ttyInitQueue	_ttyInitQueue (identical)	the runtime replaces its callers
+0x001DF1A0	libkernl	QueuePeekWriteDone	QueuePeekWriteDone (identical)	the runtime replaces its callers
+0x001DF1E0	libkernl	QueuePeekReadDone	QueuePeekReadDone (identical)	the runtime replaces its callers
+0x001DF698	libkernl	kputchar	kputchar (identical)	the runtime replaces its callers
+0x001DF6D0	libkernl	deci2Putchar	deci2Putchar (close)	the runtime replaces its callers
+0x001DF780	libkernl	serialPutchar	serialPutchar (identical)	the runtime replaces its callers
+0x001DF7B8	libkernl	ftoi	ftoi (identical)	the runtime replaces its callers
+0x001DF848	libkernl	printfloat	printfloat (identical)	the runtime replaces its callers
+0x001DFF78	libkernl	kprintf	kprintf (identical)	the runtime replaces its callers
+0x001E0010	libkernl	_set_sreg	_set_sreg (identical)	the runtime replaces its callers
+0x001E0030	libkernl	_sifRpcSetServer	_sifRpcSetServer (identical)	the runtime replaces its callers
+0x001E0040	libkernl	sceSifGetSreg	sceSifGetSreg (identical)	the runtime replaces its callers
+0x001E0058	libkernl	sceSifSetSreg	sceSifSetSreg (identical)	dead in every game; the runtime is the SIF: the command and RPC layer is replaced (sceSifInitCmd, sceSifAddCmdHandler, sceSifSendCmd, sceSifInitRpc and the rest are its stubs)
+0x001E0078	libkernl	_sifGetCmdData	_sifGetCmdData (identical)	dead in every game; the runtime is the SIF: the command and RPC layer is replaced (sceSifInitCmd, sceSifAddCmdHandler, sceSifSendCmd, sceSifInitRpc and the rest are its stubs)
+0x001E0340	libkernl	sceSifSetCmdBuffer	sceSifSetCmdBuffer (identical)	dead in every game; the runtime is the SIF: the command and RPC layer is replaced (sceSifInitCmd, sceSifAddCmdHandler, sceSifSendCmd, sceSifInitRpc and the rest are its stubs)
+0x001E0358	libkernl	sceSifSetSysCmdBuffer	sceSifSetSysCmdBuffer (identical)	dead in every game; the runtime is the SIF: the command and RPC layer is replaced (sceSifInitCmd, sceSifAddCmdHandler, sceSifSendCmd, sceSifInitRpc and the rest are its stubs)
+0x001E0540	libkernl	isceSifSendCmd	isceSifSendCmd (identical)	the runtime replaces its callers
+0x001E0754	libkernl	kernelNoop	kernelNoop (identical)	dead in every game; the runtime is the SIF: the command and RPC layer is replaced (sceSifInitCmd, sceSifAddCmdHandler, sceSifSendCmd, sceSifInitRpc and the rest are its stubs)
+0x001E08F8	libkernl	sceSifExitRpc	sceSifExitRpc (identical)	the runtime replaces its callers
+0x001E0920	libkernl	_rpc_get_packet	_rpc_get_packet (identical)	the runtime replaces its callers
+0x001E09C8	libkernl	_rpc_free_packet	_rpc_free_packet (identical)	the runtime replaces its callers
+0x001E0A58	libkernl	_request_end	_request_end (identical)	the runtime replaces its callers
+0x001E0B10	libkernl	_request_rdata	_request_rdata (identical)	the runtime replaces its callers
+0x001E0CC8	libkernl	_search_svdata	_search_svdata (identical)	the runtime replaces its callers
+0x001E0D18	libkernl	_request_bind	_request_bind (identical)	the runtime replaces its callers
+0x001E0F08	libkernl	_request_call	_request_call (identical)	the runtime replaces its callers
+0x001E16B8	libkernl	_sceFsIobSemaMK	_sceFsIobSemaMK (identical)	the runtime replaces its callers
+0x001E1718	libkernl	new_iob	new_iob (identical)	the runtime replaces its callers
+0x001E17A0	libkernl	get_iob	get_iob (close)	the runtime replaces its callers
+0x001E1810	libkernl	_sceFs_Rcv_Intr	_sceFs_Rcv_Intr (drifted)	the runtime replaces its callers
+0x001E1C18	libkernl	_sceFsWaitS	_sceFsWaitS (identical)	the runtime replaces its callers
+0x001E1C48	libkernl	_fileioUnlock	_fileioUnlock (identical)	the runtime replaces its callers
+0x001E1DF8	libkernl	_fileioCheckVersion	_fileioCheckVersion (identical)	the runtime replaces its callers
+0x001E2D38	libkernl	sceIoctl2	sceIoctl2 (close)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E2F10	libkernl	_sceCallCode	_sceCallCode (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E30B8	libkernl	sceRemove	sceRemove (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E30D8	libkernl	sceMkdir	sceMkdir (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3288	libkernl	sceRmdir	sceRmdir (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E32A8	libkernl	sceFormat	sceFormat (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3518	libkernl	sceAddDrv	sceAddDrv (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3638	libkernl	sceChdir	sceChdir (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3658	libkernl	sceDopen	sceDopen (close)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E36F8	libkernl	sceDclose	sceDclose (drifted)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3880	libkernl	sceDread	sceDread (close)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E39D8	libkernl	sceGetstat	sceGetstat (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3B78	libkernl	sceChstat	sceChstat (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3DB8	libkernl	sceRename	sceRename (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3FA8	libkernl	sceUmount	sceUmount (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E3FC8	libkernl	sceSync	sceSync (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E4160	libkernl	sceMount	sceMount (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E43D0	libkernl	fileioPathCall21	fileioPathCall21 (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E43F0	libkernl	sceLseek64	sceLseek64 (close)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E4610	libkernl	sceDevctl	sceDevctl (close)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E4840	libkernl	sceSymlink	sceSymlink (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E4A20	libkernl	sceReadlink	sceReadlink (identical)	dead in every game; the runtime is the file system: the fileio client it belongs to is replaced (sceOpen, sceClose, sceRead, sceWrite, sceLseek, sceIoctl and sceFsInit are its stubs)
+0x001E4CE0	libkernl	sifRpcCallFunc2	sceSifFreeSysMemory (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001E4E48	libkernl	_lf_bind	_lf_bind (identical)	the runtime replaces its callers
+0x001E4F48	libkernl	_loadfileCheckVersion	_loadfileCheckVersion (identical)	the runtime replaces its callers
+0x001E5218	libkernl	sceSifLoadModuleBuffer	sceSifLoadModuleBuffer (identical)	dead in every game; the runtime loads the IOP modules: the module loader is replaced (sceSifLoadModule, sceSifLoadModuleBuffer, sceSifLoadElf and sceSifLoadFileReset are its stubs)
+0x001E5238	libkernl	sceSifLoadStartModuleBuffer	sceSifLoadStartModuleBuffer (identical)	dead in every game; the runtime loads the IOP modules: the module loader is replaced (sceSifLoadModule, sceSifLoadModuleBuffer, sceSifLoadElf and sceSifLoadFileReset are its stubs)
+0x001E5480	libkernl	sceSifLoadModule	sceSifLoadModule (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001E54A0	libkernl	sceSifLoadStartModule	sceSifLoadStartModule (identical)	dead in every game; the runtime loads the IOP modules: the module loader is replaced (sceSifLoadModule, sceSifLoadModuleBuffer, sceSifLoadElf and sceSifLoadFileReset are its stubs)
+0x001E55C8	libkernl	sceSifLoadElfPart	sceSifLoadElfPart (identical)	dead in every game; the runtime loads the IOP modules: the module loader is replaced (sceSifLoadModule, sceSifLoadModuleBuffer, sceSifLoadElf and sceSifLoadFileReset are its stubs)
+0x001E5A90	libkernl	DIntr	DIntr (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001E5AD8	libkernl	EIntr	EIntr (identical)	no source of the pinned version on disk and no runtime replacement: the recompiled original runs
+0x001E5CA8	libkernl	kputs	kputs (identical)	the runtime replaces its callers
+0x001E5E78	libmc	_lmcGetClientPtr	_lmcGetClientPtr (identical)	dead in every game; the runtime is the memory card: libmc is replaced (sceMcInit, sceMcOpen and the rest are its stubs)
+0x001E6600	libmc	-	none	Sony libmc 2.2, no AI counterpart; the runtime replaces its callers (mcDelayThread)
+0x001E6608	libmc	mcDelayThread	mcDelayThread (identical)	the runtime replaces its callers
+0x001E7468	libsdr	sceSdCallBack	sceSdCallBack (weak)	dead in every game; the runtime is the sound RPC: libsdr is replaced (sceSdRemoteInit, sceSdRemote and sceSdTransToIOP are its stubs)
+0x001E7680	libsdr	sceSdRemoteCallbackInit	sceSdRemoteCallbackInit (identical)	dead in every game; the runtime is the sound RPC: libsdr is replaced (sceSdRemoteInit, sceSdRemote and sceSdTransToIOP are its stubs)
+0x001E7758	libsdr	_sdrCBThread	_sdrCBThread (identical)	dead in every game; the runtime is the sound RPC: libsdr is replaced (sceSdRemoteInit, sceSdRemote and sceSdTransToIOP are its stubs)
+0x001E77C0	libsdr	_sdrCB	_sdrCB (identical)	dead in every game; the runtime is the sound RPC: libsdr is replaced (sceSdRemoteInit, sceSdRemote and sceSdTransToIOP are its stubs)
+0x001E8418	libgcc	__moddi3	__moddi3 (identical)	the runtime replaces its callers
+0x001ED8B8	libc	memcmp	memcmp (identical)	the runtime replaces its callers
+0x001EE1B8	libc	_sbrk_r	_sbrk_r (identical)	the runtime replaces its callers

@@ -1,0 +1,27 @@
+/bin/
+/intermediate/
+.vs/
+out
+.vscode
+build
+
+*.exe
+*.ilk
+*.exp
+*.log
+*.tlog
+*.ipch
+
+# Now we can place the dump code here and test while expand the Runtime
+runtime/include/ps2_recompiled_functions.h
+runtime/include/ps2_recompiled_stubs.h
+runtime/src/runner/ps2_recompiled_functions.cpp
+runtime/src/runner/register_functions.cpp
+runtime/output
+runtime/src/runner
+.idea/
+__pycache__/
+
+# z-axis layout: lanes' worktrees (tooling/paths.env ZAXIS_WORKTREES) and the agents' rules, linked from the workshop by tooling/setup.sh
+/wt/
+/CLAUDE.md

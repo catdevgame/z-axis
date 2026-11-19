@@ -1,0 +1,17 @@
+# Reference run, segment 5: Fakie. R2 while rolling = cess slide to fakie, then
+# the same four banners going backwards (no sharp turns: they spin you round).
+# Start: checkpoint ref10-slalom-done (slot 39).
+# Checkpoints: 40 ref11-fakie-go, 41 ref12-fakie-done.
+tips 240                                            # Fakie + 2 tips
+checkpoint 40 ref11-fakie-go                        # standing at (-31.98, 10.21)
+down UP
+waitval 0x2A76F0 f32 > -30.5 300
+press R2                                            # cess slide: now skating fakie
+wait 20
+goto -17.11 10.21 1.5 900                           # "Good job, that's one."
+goto 4.33 -10.63 1.5 900                            # "That's two."
+goto 17.11 1.33 1.5 900
+goto 32.59 -18.62 1.5 900                           # "Good work. You made it through."
+waitval 0x276FE4 u32 == 3 3600
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 41 ref12-fakie-done                      # HINT: can't go as fast or jump as high fakie

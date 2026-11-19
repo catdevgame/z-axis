@@ -1,0 +1,14 @@
+# Reference run, segment 7: Manuals, ride a manual (DOWN then UP) over the funbox.
+# Start: checkpoint ref15-jump-done (slot 44).
+# Checkpoints: 45 ref16-manual-go, 46 ref17-manual-done.
+tips 240                                            # 2 HINTs + Manuals + 4 tips
+checkpoint 45 ref16-manual-go                       # standing at (-20.48, -4.53)
+down UP
+waitval 0x2A76F0 f32 > -15.1 300
+up UP
+wait 2
+press DOWN 4                                        # DOWN, UP: Single Toe Manual
+press UP 4
+waitval 0x276FE4 u32 == 3 3600                      # over the funbox: "Good job"
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 46 ref17-manual-done                     # HINT: use the manual to connect tricks

@@ -1,0 +1,119 @@
+# Words career_ab.py gate counts apart, each with its proof. ADDR[+BYTES] [OPTION ...] reason; options in career_ab.py's
+# text. Pinned: a line here is the orchestrator's to accept. A dead word of a thread's stack needs no line: below its
+# sp in both runs it is counted apart by the dump's .sp file.
+#
+# Clock words: `off` at clock 5000 against `off` at 4096 moves these and nothing else (gate2's ab/k5000), and nothing
+# reads them but the code that keeps them: the cycle count's wrap test, and the profiler's overlay (displayMode 0).
+0x002826C8+0x10 CycleTimers cycles and lastCount: COP0 COUNT as last read
+0x00793EEC+0x08 within=1 the VU ProfileBar's cycles and lastFrameCycles
+0x00793F08+0x08 the VU ProfileBar's startCount: COUNT when started
+0x00793F2C+0x08 within=0x1000 the TotalCPU ProfileBar's cycles and lastFrameCycles
+0x00793F48+0x08 the TotalCPU ProfileBar's startCount
+0x00793F6C+0x08 within=0x1000 the ZGL CPU ProfileBar's cycles and lastFrameCycles
+0x00793F88+0x08 the ZGL CPU ProfileBar's startCount
+0x0027AA44 within=1 Renderer.frameDmaTime: stopProfileTimer's result, kept and never read
+#
+# Stacks no thread's sp is in at the dump, and the main thread's, under the values SetupThread's record holds.
+0x0023E490+0x1000 stack the memory card job thread's stack: the thread ends with its job (endMemoryCardJob)
+0x01FF0000+0x10000 stack the interrupt handlers' stack (from 0x01FFFFF0): nothing on it between vsyncs
+0x01E00000+0x100000 stack-of=1 the main thread's stack: below its sp
+#
+# Stack residue kept in records: the same value is read by nothing, and each of these differs at every dump of its
+# input while every state field, stream and every other word stays equal.
+0x0059D010+0x1E00 every=0x60 at=0x3C,0x4C QueryHit.clipped w: clipSegmentToPlane's cut point has the w the stack held, vec3Lerp writes x, y and z
+0x00734C2C+0x04 a camera's down.w: quaternionToMatrix does not write the rows' w (kDeadWords)
+0x00734C3C+0x04 a camera's forward.w: the same, read by no microprogram (VU1 0x3F3)
+0x00734E3C+0x04 the second camera's forward.w: the same
+0x00970ABC+0x04 messages: a camera's forward.w: the same
+0x0037DF84+0x04 the frame packet's copy of forward.w (VU1 0x3F3)
+0x0039DF84+0x04 the other frame packet's copy
+# (allow2) Upper 20 bits of UiAsset.textureFlags, of a live material or font asset: the original inserts the 12 bit-fields of an HMTL
+# chunk into whatever s2 or s3 holds. The only reader in the ELF is readHmtlChunk's lw +0xB0 at 17E778 and 17E788, handed to setupUiMaterial,
+# and every use is masked to bits 0-11; no record of a library is copied whole. Owner: the walk of g_uiLibraries; anything else at such an address is compared.
+owner=UiAsset.textureFlags bits=0xFFFFF000 textureFlags above bit 11
+# (allow2) A freed UiAsset's textureFlags: unloading a library gives its records back, and until the block is reused the word lies in free memory, read by nothing but a later
+# owner's uninitialised read, and no such read shows at any dump. It has no live owner: the rule tests a free block of a game heap and the record still there (kind 0 or 1, a printable name).
+owner=UiAsset.freedTextureFlags bits=0xFFFFF000 a freed UiAsset's textureFlags above bit 11
+# (allow2) Bytes past a block's allocation, free or not: nothing the block's owner holds reaches them. They are what was there: a freed record's textureFlags (HeapBlock.bytes 3 at 0x8883B0, 0x8ACE40: the
+# top byte; bytes 6 to 0x1C: the word). Only the bits past the allocation pass. Owner: the walk of the heaps' block lists.
+owner=HeapBlock.pastAllocation bits=0xFFFFF000 past a block's allocation: a freed textureFlags
+# (allow2) screenPosition.x of a zgui Node never drawn: heapTake does not clear, so the x is the freed record's textureFlags and y its object. drawWidget sets it before any class's draw reads it (draw.cpp:86),
+# so the first reader sees the set value. Owner: g_uiRoot's tree.
+owner=Node.screenPositionX bits=0xFFFFF000 a node not drawn yet: a freed textureFlags in its screenPosition.x
+# (allow2) x, y, z of row 3 of a live body's worldInertia and worldInverseInertia. matrixMultiply: out[i<3] = B[i].xyz by A's rows 0-2, out[3] = A3 + B3.xyz by A:
+# updateWorldInertia_'s `inverse` keeps the row 3 matrixTranspose3 never writes, what the stack held, and it reaches out[3] only. Every `addiu r, body, 0x120` site loads
+# rows 0-2; the solver takes i < 3; saveBodyState and restoreBodyState copy four rows and nothing reads the fourth. Owner: dynamicsObjects' records to their bodies.
+owner=RigidBody.inertiaRow3 row 3 of a body's world inertia
+# (allow2) The same row of a body left behind by its level (messages from t12000): no list reaches it, the rule tests the record itself (all four w lanes 1, the 3 by 3 symmetric).
+owner=RigidBody.deadInertiaRow3 row 3 of a dead body's world inertia
+# (playfix) w of rows 0-2 of a live body's worldInertia, worldInverseInertia and lastInverseInertia, and of pushedPosition. matrixMultiply's out[i].w is B[i].w (0x118048: every op .xyz),
+# so those rows' w are updateWorldInertia_'s `inverse` rows' w, which matrixTranspose3 never writes: what the stack held. Readers: every `addiu r, body, 0x120` site hands the rows to
+# vu.rotate (LQC2, then VMULA*.xyz: w in no lane read) and the solver's mass matrix takes j < 3; saveBodyState and restoreBodyState copy the rows whole. pushedPosition is only copied from
+# position and added to by pairTouched: no other site reads it, in the ELF or the C++. Owner: dynamicsObjects' records to their bodies.
+owner=RigidBody.wLanes w of a live body's inertia rows and pushedPosition
+# (playfix) w of rows 0-2 of a node's local and world. out[i].w of matrixMultiply is B[i].w again: the rows' w quaternionToMatrix leaves (stack residue, the cameras' lines above) go down the
+# tree. No VU0 op reads a matrix row's w (stale1's whole-ELF scan: the box test, one that sets w first, quaternions, the SDK's); no C++ site reads one; the row X's w drawTerrain keeps
+# is written before it is read. What goes to VU1 of them is kDeadWords' (the program at 0x1FD0 loads qwords 7 to 10 LQ.xyz). Owner: g_geometryNodePool's used records.
+owner=Node.matrixW w of rows 0-2 of a node's local and world
+# (playfix) w of the scale skaterSway hands setBoneScale for its two bob bones: a Vec4 local whose x, y and z it sets. The channel's scale goes only through vu.scale, vu.sum (lane by lane)
+# and matrixScale, which takes Vec3. Owner: each follow camera's player, its two bob channels.
+owner=Player.bobScaleW w of the skater's bob channels' scale
+# (playfix) w of a splash ring's points: spawnSplashRing writes the rings in its frame by vec3RotateY and vu.sum, x, y and z, and hands them on whole; drawSplashRings copies a point to a
+# quad's corner and drawPrimitives (matrix 0) reads the corner's x, y, z. Rings live in memory no list reaches: the rule tests the record (career_ab.py).
+owner=SplashRing.pointW w of a splash ring's point, alive or freed
+# (draft1) What the job thread's frames hold between their register saves. Each `unused` word is one the function's own
+# code never loads or stores (draft1/allow/pads.py on the ELF: every $sp-relative access of the function) and outside
+# every object it hands a callee: the sp-derived pointers in its code are the message at +0 (16 bytes: postSaveMessage
+# copies it, takeSaveMessage fills it), sceMcChdir's and sceMcOpen's path (+0, 0x40), sceMcGetInfo's format word and
+# sceMcRead's result (+0x40, +0x44), the chosen name (+0x10, 0x40) and the found count (+0x50); no callee takes a stack
+# argument. Readable bodies keep their ee::Locals at those same offsets (readable_locals.tsv, declaration order), so no
+# readable function reads one either. The words are what deeper calls left (the original's __udivdi3 and strlen leave
+# their working registers, which later prologues spill there; the readable ports leave the caller's): b130 tested A/B,
+# frontend, messages and editor. +0x8 and +0xC where a frame's message sits at +0 are its listBuffer and choice: the
+# function never loads them, and of the kinds it posts only SaveFound reads a listBuffer and only ShowChoice a choice
+# (saveSystemTask's switch; kind 13 hands the message to a client hook AI never sets), which these posts are not.
+# (allow2) Frames of the job thread while it waits and of the main thread at the vsync. Each function's saves, from its prologue, each read by its epilogue alone
+# (allow2/tools/frameproof.py on the ELF; `sq`-free, every slot is an sd). Readable functions have no epilogue, so a slot holds what it held; renderFrame and finishRenderFrame run
+# as compiled, and save what their readable caller left in s0-s2, which their epilogue hands back to it unread. renderFrame's ra (+0x30) never differs and is not listed.
+frame waitMilliseconds 0x11D550+0x50 stack=0x23E490 size=0x30 ra=0x20 saves=0,0x10,0x20 unused=0x8,0xC,0x18,0x1C,0x28,0x2C s0, s1, ra
+frame takeSaveMessage 0x1666A0+0xDC stack=0x23E490 size=0x40 ra=0x30 saves=0,0x10,0x20,0x30 unused=0x8,0xC,0x18,0x1C,0x28,0x2C,0x38,0x3C s0-s2, ra
+frame askMemoryCardSlot 0x11E078+0xA0 stack=0x23E490 size=0x50 ra=0x40 saves=0x10,0x20,0x30,0x40 unused=0x8,0xC,0x18,0x1C,0x28,0x2C,0x38,0x3C,0x48,0x4C s0-s2, ra; +0x8, +0xC: its message's listBuffer and choice (SlotMenu and Answer carry neither)
+frame askSaveQuestion 0x166840+0xE8 stack=0x23E490 size=0x60 ra=0x50 saves=0x10,0x20,0x30,0x40,0x50 unused=0x18,0x1C,0x28,0x2C,0x38,0x3C,0x48,0x4C,0x58,0x5C s0-s3, ra; +0x48: no instruction addresses it, sp is handed out only for the two-word message at +0
+frame chooseSaveFile 0x11E4E0+0x164 stack=0x23E490 size=0x60 ra=0x50 saves=0x10,0x20,0x30,0x40,0x50 unused=0x8,0xC,0x18,0x1C,0x28,0x2C,0x38,0x3C,0x48,0x4C,0x58,0x5C s0-s3, ra; +0x8, +0xC: its message's listBuffer and choice (FileMenu, FileChosen and Answer carry neither)
+frame readMemoryCardSave 0x11EB90+0x3BC stack=0x23E490 size=0xC0 ra=0xB0 saves=0x50,0x60,0x70,0x80,0x90,0xA0,0xB0 unused=0x48,0x4C,0x58,0x5C,0x68,0x6C,0x78,0x7C,0x88,0x8C,0x98,0x9C,0xA8,0xAC,0xB8,0xBC string=0+0x40 s0-s5, ra; +0: the path sceMcChdir returns, read as a C string by sceMcOpen (sp + 1)
+frame runMemoryCardTransfer 0x120228+0x620 stack=0x23E490 size=0xF0 ra=0xE0 saves=0x50,0x60,0x70,0x80,0x90,0xA0,0xB0,0xC0,0xD0,0xE0 unused=0x48,0x4C,0x58,0x5C,0x68,0x6C,0x78,0x7C,0x88,0x8C,0x98,0x9C,0xA8,0xAC,0xB8,0xBC,0xC8,0xCC,0xD8,0xDC,0xE8,0xEC s0-s7, fp, ra
+frame memoryCardSaveJob 0x11D928+0x124 stack=0x23E490 size=0xA0 ra=0x90 saves=0x10,0x20,0x30,0x40,0x50,0x60,0x70,0x80,0x90 last s0-s7, ra
+frame memoryCardLoadJob 0x11DC38+0xF0 stack=0x23E490 size=0x80 ra=0x70 saves=0x10,0x20,0x30,0x40,0x50,0x60,0x70 last s0-s5, ra
+frame memoryCardSaveChoiceJob 0x11DA50+0x1E4 stack=0x23E490 size=0xF0 ra=0xE0 saves=0x50,0x60,0x70,0x80,0x90,0xA0,0xB0,0xC0,0xD0,0xE0 unused=0 last s0-s7, fp, ra; +0: its one write is 11DBF8, the delay slot of the jal that hands sp out, so what it held before is read by no one
+frame memoryCardLoadChoiceJob 0x11DE20+0x218 stack=0x23E490 size=0x100 ra=0xF0 saves=0x60,0x70,0x80,0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0 unused=0x8,0xC,0x54,0x58,0x5C,0x68,0x6C,0x78,0x7C,0x88,0x8C,0x98,0x9C,0xA8,0xAC,0xB8,0xBC,0xC8,0xCC,0xD8,0xDC,0xE8,0xEC,0xF8,0xFC last s0-s7, fp, ra; +0x8, +0xC: its message's listBuffer and choice (posted once, its kind the job's result)
+frame finishRenderFrame 0x100730+0x144 stack=0x1F00000 size=0x30 ra=0x20 saves=0x10 unused=0x8,0xC,0x18,0x1C,0x28,0x2C s0; +0: the profile bar's 4-byte colour (newProfileBar)
+frame renderFrame 0x100968+0x1B0 stack=0x1F00000 size=0x40 ra=0x30 saves=0,0x10,0x20 s0-s2
+frame renderCountedFrame 0x122C88+0x40 stack=0x1F00000 size=0x20 ra=0x10 saves=0 s0
+frame engineMain 0x1176C8+0x254 stack=0x1F00000 size=0x60 ra=0x50 saves=0,0x10,0x20,0x30,0x40 last s0-s4
+owner=frames saved registers and unread words in the frames of a thread's walked chain
+# (draft1) value, listBuffer and choice of a free slot (kind 0) of a save message queue. postSaveMessage writes all 16 bytes
+# of the first free slot (memcpy) and takeSaveMessage copies out only the slot at oldest once its kind is set, so a free
+# slot's words are read by no one before they are written again; the queue pointers (g_saveMessageQueue 0x273DC0,
+# g_saveReplyQueue 0x273DC4) go only to those two, newSaveMessageQueue and stopSaveSystem's free (ELF scan: no other
+# load through them), and the host's saves (game_overrides/zge_saves.cpp, off under PS2X_SAVES=card) read a slot only
+# once its kind is set. A queue stopSaveSystem freed is pointed to by nothing. The rule tests the record's shape: limit
+# 20, oldest below it, every kind 0..16, the slot free in both dumps. (b130 tested A/B: frontend, messages, editor.)
+owner=SaveMessageQueue.freeSlot a free save message slot's value, listBuffer and choice
+
+# (allow2) g_listeners.object[3]: the slot is updateCamera's sp+0x10: cameraMoved memcpys 0x14 bytes from updateCamera's frame, whose only write is {1, node}, so this is stale stack
+# (0x230000, listBufferBytes' value). Readers loop i < count, and count is 1 here.
+0x002AA6F0 g_listeners.object[3] with count below 4
+# (allow2) A flat widget's S texcoord in the two frame packets: drawBoxWidget's quad vertices lie on its frame, and a piece with no picture never sets their u: stale stack (0x821560 in `off`, a UI heap pointer a deeper call saved there, not a register). TME is on with the 8x8 white T4 (newUiDefaultMaterial), every texel index 0, so no S changes a pixel; the vif1 live hash leaves these words out the same way (UniformTexcoords).
+0x005FCE24 a flat widget's S
+0x005FD548 a flat widget's S
+0x005FD5A8 a flat widget's S
+0x005FD624 a flat widget's S
+0x0060CE24 a flat widget's S
+0x0060D548 a flat widget's S
+0x0060D5A8 a flat widget's S
+0x0060D624 a flat widget's S
+# (allow2) Clock words: ticks a level's load took, measured off the clock. g_levelLoadTicks lies in the saved block (g_unlockedSkaters + 0xF74, memoryCopy at game_save.cpp:294 and
+# :600), so a save file differs by this tick; no logic reads it. g_lastLevelLoadTicks: the bar's fraction and the next average only (load_level.cpp:231, :551).
+0x0024CBD8 within=2 g_levelLoadTicks
+0x002752B0 within=2 g_lastLevelLoadTicks
+0x0028239C within=2 ports[0].vibrationStart: the game clock in milliseconds at the rumble's start: updatePadVibration_ reads it every frame for motor strength, pad output only

@@ -1,0 +1,21 @@
+# Boot (fresh launch) -> main menu, by frames of the game's vsync counter.
+# Run from tools/:  python3 pcsx2pad.py launch && python3 pcsx2pad.py run scripts/boot-to-main-menu.txt
+# Savestate slot 1 = front-end memory-card check box, slot 2 = main menu.
+# START is harmless on the card-check box and the main menu, so the timing
+# margins can be generous.
+waitpolls 1                 # game is polling the pad (AKA/Acclaim movie starts)
+wait 120
+screenshot pcsx2-test-data/evidence/01-aka-movie.png
+press START                 # skip AKA/Acclaim movie
+wait 150
+screenshot pcsx2-test-data/evidence/02-zaxis-movie.png
+press START                 # skip Z-Axis movie
+wait 150
+screenshot pcsx2-test-data/evidence/03-intro-movie.png
+press START                 # skip INTRO.PSS
+wait 90
+screenshot pcsx2-test-data/evidence/04-memcard-check.png
+savestate 1 pcsx2-test-data/evidence/memcard-check.p2s
+wait 400
+screenshot pcsx2-test-data/evidence/05-main-menu.png
+savestate 2 pcsx2-test-data/evidence/main-menu.p2s

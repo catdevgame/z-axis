@@ -1,0 +1,25 @@
+# Dave Mirra BMX 2's (SLUS-20159) libraries and their pinned versions (libraries are never rewritten,
+# each is ported from its pinned version's source; docs/READABLE.md "Layout", sce/). Counts over the ELF's
+# 909 library functions (work database layer sdk, by the SCE scan's library, else the AI counterpart's) against
+# AI's pinned code: identical (masked words equal), differ (close, drifted, weak), no AI counterpart, and AI's
+# functions of that library this ELF does not link. Sony's libraries have no source on disk. Made by d1data
+# from the work database (tooling/dm2/tools/workdb.py; its script and per-function table were scratch, not kept).
+# library	version	evidence	functions	identical to AI's	differ from AI's	no AI counterpart	AI's not linked here	port from
+libkernl	Sony runtime library release 2.2 (2200)	version string PsIIlibkernl 2200 in the ELF	166	139	21	6	55	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libmpeg	Sony runtime library release 2.2 (2200)	version string PsIIlibmpeg 2200 in the ELF	139	57	68	14	16	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libcdvd	Sony runtime library release 2.2 (2200)	version string PsIIlibcdvd 2200 in the ELF	52	11	9	32	0	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libmc	Sony runtime library release 2.2 (2200)	version string PsIIlibmc 2200 in the ELF	26	8	17	1	3	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libgraph	Sony runtime library release 2.2 (2200)	version string PsIIlibgraph 2200 in the ELF	18	14	4	0	3	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libpad	Sony runtime library release 2.2 (2200)	version string PsIIlibpad 2200 in the ELF	30	27	3	0	0	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libdma	Sony runtime library release 2.2 (2200)	version string PsIIlibdma 2200 in the ELF	15	14	1	0	1	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libipu	Sony runtime library release 2.2 (2200)	version string PsIIlibipu 2200 in the ELF	9	9	0	0	0	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libpkt	Sony runtime library release 2.2 (2200)	version string PsIIlibpkt 2200 in the ELF	36	36	0	0	3	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libsdr	Sony runtime library release 2.2 (2200)	version string PsIIlibsdr 2200 in the ELF	7	3	4	0	0	no source: AI's 2.4 code where identical (not_ported.tsv, the runtime), the recompiled original where it differs
+libdev	Sony runtime library release 2.2 (the release the others name)	no version string; the library match: as AI's	45	44	1	0	0	no source: the runtime is the kernel; AI's code where identical
+libvu0	Sony runtime library release 2.2 (the release the others name)	no version string; the library match: as AI's	42	41	1	0	0	no source: the runtime is the kernel; AI's code where identical
+kernel	Sony runtime library release 2.2 (the release the others name)	syscall wrappers: no version string	137	131	1	5	2	no source: the runtime is the kernel; AI's code where identical
+libc	newlib 1.8.2	the same code as AI's pinned 1.8.2: 117 identical, _vfprintf_r and _vfiprintf_r close only for unmasked addresses (same size); atoi linked here, not in AI	120	117	2	1	0	newlib 1.8.2 source (sce/libc*.cpp, mprec.cpp)
+libm	newlib 1.8.2	the same code as AI's pinned 1.8.2: every one identical; 7 of AI's not linked	18	18	0	0	7	newlib 1.8.2 source (sce/libm.cpp)
+libgcc	GCC 2.95 libgcc2.c and config/fp-bit.c (the EE's no-denormals unpack_d)	the same code as AI's: 39 identical, __do_global_dtors close (same size, its list's address); __fixunssfdi and __floatdisf linked here, not in AI	42	39	1	2	0	GCC 2.95.2 source (sce/libgcc.cpp)
+crt0	Sony runtime library release 2.2	start differs from AI's (close)	2	1	1	0	0	no source: the recompiled original
+other	-	the rest: no library name 4, libkernl_1 1	5	2	0	3	0	as their AI counterparts, else the recompiled original

@@ -1,0 +1,11 @@
+# Reference run 2, segment 11: Exit Pipes and Bowls (L11 bowl).
+# Goal: jump out of the bowl: hold UP while riding up the face.
+# Start: ref26-air-done (slot 55). Checkpoints: 56 ref27-bowl-go, 57 ref28-bowl-done
+# ("Bail Off A Pipe" title).
+tips 240                                            # 4 boxes in run 2: HINT, title "Exit Pipes and Bowls", tips
+checkpoint 56 ref27-bowl-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                      # in the bowl at (3.42, -0.16, -9.12)
+down UP
+waitval 0x276FE4 u32 == 3 1800                      # out over the lip, goal done
+release
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 57 ref28-bowl-done ../recomp/dumps/ref2 ../reference/pcsx2-run2

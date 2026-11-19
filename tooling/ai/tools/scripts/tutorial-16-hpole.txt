@@ -1,0 +1,18 @@
+# Reference run 2, segment 16: Horizontal Poles (L16 bar at x -4.48, hang height y -4.47).
+# Goal: jump and grab the bar (CIRCLE held), then let go.
+# Start: ref36-vpole-done (slot 65). Checkpoints: 66 ref37-hpole-go, 67 ref38-hpole-hang,
+# 68 ref39-hpole-done (HINT: jump left or right off the pole).
+tips 240                                            # 3 boxes in run 2: title "Horizontal Poles", tip
+checkpoint 66 ref37-hpole-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                     # standing at (-25.86, -0.05)
+down UP+CROSS
+waitval 0x2A76F0 f32 > -10 600
+up CROSS                                            # jump late, peak at the bar
+down CIRCLE
+waitval 0x2A76F4 f32 < -4.4 600                     # hanging on the bar
+up UP
+checkpoint 67 ref38-hpole-hang ../recomp/dumps/ref2 ../reference/pcsx2-run2
+wait 30
+release                                             # let go
+waitval 0x276FE4 u32 == 3 1800
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 68 ref39-hpole-done ../recomp/dumps/ref2 ../reference/pcsx2-run2

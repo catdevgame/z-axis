@@ -1,0 +1,72 @@
+name: Bug
+description: Something in a game or the app works differently from the PlayStation 2 original, or not at all.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please attach no game files or anything made from them (disc files, saves,
+        screenshots or videos of the games, generated code): describe what you see instead.
+  - type: dropdown
+    id: game
+    attributes:
+      label: Game
+      options:
+        - Aggressive Inline
+        - Dave Mirra Freestyle BMX 2
+        - BMX XXX
+        - The collection (menu, settings, setup, mods)
+    validations:
+      required: true
+  - type: input
+    id: serial
+    attributes:
+      label: Disc serial
+      description: The USA PlayStation 2 release's serial on your disc (SLUS-20327, SLUS-20159 or SLUS-20415), and the image kind (ISO or BIN/CUE).
+      placeholder: SLUS-20327, BIN/CUE
+    validations:
+      required: true
+  - type: textarea
+    id: disc-check
+    attributes:
+      label: Disc check
+      description: What Settings > Games says about the game's files, or the output of the app run with `--check-games --full`.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: System
+      description: macOS or Windows, its version, and the machine (Apple silicon model, or the PC's CPU and GPU).
+      placeholder: macOS 15.4, MacBook Air M2
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: The release you downloaded, or the commit you built (`git rev-parse --short HEAD`). The log's first line names it too.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected (what the PS2 original does), and what the app did instead. Steps to get there from the title screen help most.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The newest log of the run, from `~/Library/Logs/Z-Axis Collection` on a Mac or `%APPDATA%\Z-Axis Collection\Logs` on Windows. Check it names no folder of yours you would rather keep private.
+      render: text
+  - type: checkboxes
+    id: own-disc
+    attributes:
+      label: Your disc
+      options:
+        - label: The game comes from my own disc, and this report has no game files in it.
+          required: true

@@ -1,0 +1,15 @@
+# Reference run 2, segment 10: Air Tricks (L10, kicker at x -13.6, z -2.26).
+# Goal: a grab off the kicker (LEFT+SQUARE in the air): "Good job".
+# Start: ref23-modgrind-done (slot 52). Checkpoints: 53 ref24-air-go, 54 ref25-air-grab,
+# 55 ref26-air-done (HINT: R1 or L1 to rotate in the air).
+tips 240                                            # 5 boxes in run 2: title "Air Tricks" and its tips
+checkpoint 53 ref24-air-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                       # standing at (-25.86, -2.26)
+down UP
+waitval 0x2A76F0 f32 > -10.5 600                    # airborne off the kicker (y -3.3)
+press LEFT+SQUARE 10                                # grab
+checkpoint 54 ref25-air-grab ../recomp/dumps/ref2 ../reference/pcsx2-run2
+waitval 0x2A76F0 f32 > 3 600
+release
+waitval 0x276FE4 u32 == 3 1800
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 55 ref26-air-done ../recomp/dumps/ref2 ../reference/pcsx2-run2

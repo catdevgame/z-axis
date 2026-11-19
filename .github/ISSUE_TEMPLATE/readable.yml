@@ -1,0 +1,49 @@
+name: Readable code
+description: A function, name or file that a reader or modder trips over (a wrong or vague name, an address left in, scaffolding in game logic, code in the wrong place).
+labels: [readable]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The rules the readable code follows are in `docs/READABLE.md`. A wrong name is worse than none, so a
+        report that a name is wrong helps even without a better one.
+  - type: dropdown
+    id: game
+    attributes:
+      label: Game
+      options:
+        - The engine (runtime/src/game/zge, shared)
+        - Aggressive Inline (runtime/src/game/aggressive)
+        - Dave Mirra Freestyle BMX 2 (runtime/src/game/dm2)
+        - BMX XXX (runtime/src/game/bmx)
+        - The system libraries (runtime/src/game/sce)
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The file and the function, type or field.
+      placeholder: runtime/src/game/<folder>/<file>.cpp, <function>
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong
+      options:
+        - A name says something the code does not do
+        - A name or type says too little (a placeholder, a register, an offset)
+        - An address or raw number where a symbol belongs
+        - Proof scaffolding in game logic
+        - In the wrong file or layer (engine, game, collection)
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: What the code does, as you read it, and what would say it better. Evidence helps (the other releases' symbols or strings, how the value is used).
+    validations:
+      required: true

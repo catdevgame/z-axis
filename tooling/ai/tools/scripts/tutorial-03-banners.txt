@@ -1,0 +1,12 @@
+# Reference run, segment 3: Basic Skating, skate between the three banners.
+# Start: checkpoint ref06-talk-done (slot 35).
+# Banner gates (from the render list at 0x37E8C0): (-12.3, 8.37), (4.75, 1.83), (22.39, 9.06).
+# Checkpoints: 36 ref07-banners-go, 37 ref08-banners-done.
+tips 240                                            # Basic Skating + 4 tips
+checkpoint 36 ref07-banners-go                      # standing at (-27.38, 8.37)
+goto -12.3 8.37 1.5 900
+goto 4.75 1.83 1.5 900
+goto 22.39 9.06 1.5 900                             # "Nice work."
+waitval 0x276FE4 u32 == 3 3600
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 37 ref08-banners-done                    # "Sharp Turns" title box

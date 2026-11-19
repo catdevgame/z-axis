@@ -1,0 +1,152 @@
+# Plain sources: folders (or files) under src/game whose functions are defined and called by their plain
+# names, `moveObjectBox(box, delta)`, with no trailing underscore and no GAME_CALL. The build compiles each
+# from a copy with every registered function's entry (tools/readable_entries.py, game.cmake), so a plain
+# call does what a call of a game function does. A folder is listed once all of its sources are plain;
+# tools/readable_plaincalls.py counts what is left elsewhere.
+sce/
+zge/math/
+zge/container/
+zge/memory/
+zge/text/
+zge/input/
+zge/assets/
+zge/platform/
+zge/sound/
+zge/movie/
+zge/collision/
+zge/render/
+zge/scene/
+zge/zgui/
+zge/debug/
+# zge/editor: the park editor (../GameTools/ParkEditor) both AI and BMX XXX link, one body.
+zge/editor/
+zge/utilities.cpp
+aggressive/skater/
+# Moved into game folders as plain sources (layer2: the layering's lanes 6 and 7).
+aggressive/camera_far_clip.cpp
+aggressive/matrix_rows.cpp
+aggressive/zgui_icon_roll.cpp
+aggressive/zfile_library.cpp
+aggressive/game_main.cpp
+# aggressive: fx, hud, script, sound and the root files.
+aggressive/fx/
+aggressive/hud/
+aggressive/script/
+aggressive/sound/
+aggressive/camera.cpp
+aggressive/camera_modes.cpp
+aggressive/card_game.cpp
+aggressive/effects.cpp
+aggressive/front_end.cpp
+aggressive/game_frame.cpp
+aggressive/game_save.cpp
+aggressive/game_start.cpp
+aggressive/globals_file.cpp
+aggressive/objects.cpp
+aggressive/pads.cpp
+aggressive/pickups.cpp
+aggressive/play_modes.cpp
+aggressive/replay.cpp
+aggressive/save_menus.cpp
+aggressive/session.cpp
+aggressive/timers.cpp
+aggressive/tuning_menu.cpp
+aggressive/zone_memory.cpp
+# aggressive/level, file by file.
+aggressive/level/animal_rescue.cpp
+aggressive/level/animated_objects.cpp
+aggressive/level/bodies.cpp
+aggressive/level/breakables.cpp
+aggressive/level/closers.cpp
+aggressive/level/collision_setup.cpp
+aggressive/level/competition.cpp
+aggressive/level/debug_menu.cpp
+aggressive/level/dynamics_objects.cpp
+aggressive/level/edit_core.cpp
+aggressive/level/edit_object.cpp
+aggressive/level/edit_tool_crane.cpp
+aggressive/level/edit_tool_object.cpp
+aggressive/level/edit_tool_pisser.cpp
+aggressive/level/edit_tool_rail.cpp
+aggressive/level/edit_tool_start.cpp
+aggressive/level/edit_tool_terrain.cpp
+aggressive/level/edit_tool_test_run.cpp
+aggressive/level/edit_tool_vacuum.cpp
+aggressive/level/edit_tools.cpp
+aggressive/level/edit_tower.cpp
+aggressive/level/glass.cpp
+aggressive/level/level_collision.cpp
+aggressive/level/load.cpp
+aggressive/level/load_level.cpp
+aggressive/level/movable_sound.cpp
+aggressive/level/npc_types.cpp
+aggressive/level/object_box.cpp
+aggressive/level/object_components.cpp
+aggressive/level/objectives.cpp
+aggressive/level/park_anchors.cpp
+aggressive/level/park_buffer.cpp
+aggressive/level/park_camera.cpp
+aggressive/level/park_catalog.cpp
+aggressive/level/park_cells.cpp
+aggressive/level/park_classes.cpp
+aggressive/level/park_display.cpp
+aggressive/level/park_editor.cpp
+aggressive/level/park_messages.cpp
+aggressive/level/park_save.cpp
+aggressive/level/park_selection.cpp
+aggressive/level/park_ui.cpp
+aggressive/level/pause.cpp
+aggressive/level/pause_loot.cpp
+aggressive/level/pause_menus.cpp
+aggressive/level/pause_pages.cpp
+aggressive/level/props.cpp
+aggressive/level/rails_setup.cpp
+aggressive/level/scene_objects.cpp
+aggressive/level/traffic_cars.cpp
+aggressive/level/traffic_light_state.cpp
+aggressive/level/traffic_lights.cpp
+aggressive/level/zones.cpp
+# game/bmx/editor: BMX XXX's park editor (../GameTools/ParkEditor, Aggressive Inline's copied), calling BMX XXX's engine by name in its instance.
+bmx/editor/
+# game/bmx/save: BMX XXX's park and game saves (bmx.c's side of the editor's saves), the same way.
+bmx/save/
+# game/dm2: DM2's own code (the rider, its copies of game functions), calling DM2's engine by name in its instance.
+dm2/
+# game/bmx/rider: BMX XXX's rider (DM2's line, its own copy), calling BMX XXX's engine by name in its instance.
+bmx/rider/
+# game/bmx's game modules (BMX XXX's own code and its copies of game functions), the same way.
+bmx/level/
+bmx/fx/
+bmx/camera/
+bmx/game/
+bmx/replay/
+bmx/overlay/
+bmx/weapon/
+bmx/sound/
+# game/bmx's app modules (bmx.c: the engine's side of the game, the game states, the players and characters), the same way.
+bmx/game_main.cpp
+bmx/game_start.cpp
+bmx/states/
+bmx/profile/
+bmx/ui/
+bmx/sound/
+bmx/attach/
+bmx/pathman/
+# game/bmx's game modules (BMX XXX's own code and its copies of game functions), the same way.
+bmx/level/
+bmx/fx/
+bmx/camera/
+bmx/game/
+bmx/objectives/
+# game/bmx/scene: BMX XXX's own forms of the engine's scene functions that are far from ZGE3's (ZGE4's
+# objectComponent cache, its animation libraries), the same way.
+bmx/scene/
+# game/bmx/debug: BMX XXX's own forms of the engine's debug strings and profiler rows (ZGE4's zdebug.c and
+# zprofile.c, far from ZGE3's), the same way.
+bmx/debug/
+# game/bmx/collision: BMX XXX's own forms of the engine's collision functions that are far from ZGE3's (ZGE4's
+# segment face-tree search), the same way.
+bmx/collision/
+bmx/input/
+bmx/action/
+bmx/create/

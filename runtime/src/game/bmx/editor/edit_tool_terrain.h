@@ -1,0 +1,11 @@
+#pragma once
+
+// The park editor's terrain tool (edit_tool_terrain.cpp): its class.
+// BMX XXX's own part of it; what both games have is zge/editor/edit_tool_terrain.h.
+
+#include "ee/plain.h"
+#include "zge/editor/edit_tool_terrain.h"
+#include "ee/readable.h"
+
+#include <cstdint>
+

@@ -1,0 +1,146 @@
+Z-Axis Collection: notices
+==========================
+
+The Z-Axis Collection is distributed under the GNU General Public License,
+version 3 (LICENSE): everything in this repository is under it, apart from
+the third-party work below. Each third-party part keeps its own licence
+and notices; where a licence asks for its notice to travel with the code,
+the notice is at the top of the file too.
+
+
+1. Upstream: PS2Recomp
+----------------------
+
+This repository is a fork of PS2Recomp, https://github.com/ran-j/PS2Recomp,
+GPL-3.0, by Ran-j and its contributors. The runtime's host layer (runtime/,
+iop/, tests/) and the recompiler (tooling/recompiler/) descend from it; the
+fork point is upstream commit eb8688b2f ("Emulate PS2 float semantics for EE
+FPU results and DIV.S/RSQRT.S (#272)", 2026-10-14). Upstream's history is
+kept in this repository's history, with its authors.
+
+
+2. PCSX2's SPU2
+---------------
+
+iop/src/emulator/spu2/ is a port of PCSX2's SPU2 emulation,
+https://github.com/PCSX2/pcsx2, at commit
+091ab68708a555198d80a7216965481c7ddd0d98, copyright 2002-2026 PCSX2 Dev Team,
+GPL-3.0-or-later; iop/src/emulator/spu2/README.md lists each file's source
+and what changed. runtime/src/lib/ps2_spu_voice.cpp and
+runtime/src/lib/sound/spu_gauss_table.h follow the same code (Mixer.cpp,
+ADSR.cpp, interpolate_table.h at that commit). Thanks to the PCSX2 team and to
+the people its sources credit (Dr. Hell, nocash, Near, Ryphecha and others).
+
+
+3. newlib 1.8.2 (the C library and libm the games link)
+-------------------------------------------------------
+
+runtime/src/game/sce/libc.cpp, libc_stdio.cpp, libc_malloc.cpp,
+libc_printf.cpp, libc_scanf.cpp, libc_strtod.cpp, mprec.cpp, libm.cpp and the
+records in newlib.h are ported from newlib 1.8.2,
+https://sourceware.org/pub/newlib/newlib-1.8.2.tar.gz (SHA-256
+e52667ed78595dd1919f4a303f8b658b1d57b926e085e8021851b279143cf3ef), the
+version the games link. newlib is a collection of software from several
+sources, each file with its own notice (newlib's COPYING.NEWLIB). The files
+ported here carry these, reproduced in full at the top of each port:
+
+- University of California, Berkeley, 1990: stdio/ (fflush.c, findfp.c,
+  fread.c, fvwrite.c, fwalk.c, makebuf.c, refill.c, sprintf.c, sscanf.c,
+  stdio.c, ungetc.c, vfscanf.c, vsprintf.c, wsetup.c, local.h), in the short
+  form ("Redistribution and use in source and binary forms are permitted
+  provided that the above copyright notice and this paragraph are duplicated
+  in all such forms ...").
+- University of California, Berkeley, 1990, the four-clause form:
+  stdio/vfprintf.c (derived from software contributed to Berkeley by Chris
+  Torek) and stdlib/strtol.c. Clause 3, the advertising clause, was
+  rescinded by the University for all its BSD software on 22 July 1999
+  (ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change); the
+  notices are kept as written.
+- David M. Gay, copyright 1991 by AT&T: stdlib/strtod.c, dtoa.c, mprec.c and
+  mprec.h ("Permission to use, copy, modify, and distribute this software for
+  any purpose without fee is hereby granted, provided that this entire notice
+  is included in all copies ...").
+- Sun Microsystems, 1993 (fdlibm): libm/math/ and libm/common/ ("Permission
+  to use, copy, modify, and distribute this software is freely granted,
+  provided that this notice is preserved").
+- Doug Lea: stdlib/mallocr.c, malloc 2.6.4, released to the public domain.
+- No notice: the string/, stdlib/ (atoi.c, calloc.c, malign.c, malloc.c,
+  mbtowc_r.c, mlock.c, mstats.c, realloc.c), errno/, reent/ files and
+  stdio/printf.c and fiprintf.c ported here (Cygnus Support's).
+
+The Cygnus/SCE quadword steps of the EE build's string functions have no
+published source; they are reproduced from the machine code (libc.cpp says
+where).
+
+
+4. GCC 2.95.2's libgcc
+----------------------
+
+runtime/src/game/sce/libgcc.cpp is ported from GCC 2.95.2,
+https://ftp.gnu.org/gnu/gcc/gcc-2.95.2/: libgcc2.c and config/fp-bit.c,
+copyright the Free Software Foundation, under the GNU General Public License
+version 2 or (at your option) any later version, with the libgcc runtime
+exception. This port takes GPL-3.0. The notices are at the top of the file.
+
+
+5. Sony's libraries
+-------------------
+
+No Sony code is in this repository. runtime/src/game/sce/kernel.h and
+eeregs.h name records and registers by the field names of Sony's headers;
+libmc.h uses ps2sdk's public libmc.h names. The SDK functions the games link
+(runtime/src/game/sce/not_ported.tsv) run as the recompiled originals, made
+from the player's own disc and never in this repository. The recompiler's
+SDK signature table (tooling/recompiler/ps2xAnalyzer/include/ps2recomp/
+sce_symbol_database_data.h: hashes and sizes) is upstream PS2Recomp's.
+
+
+6. Fetched at build time (not in this repository)
+-------------------------------------------------
+
+CMake downloads each one as a release or tag archive checked by SHA-256 (the
+hashes are in the CMake files):
+
+- SDL 3.4.18, zlib licence: runtime/cmake/ps2x_sdl3.cmake
+- Dear ImGui v1.92.7-docking, MIT: runtime/CMakeLists.txt (debug UI builds)
+- sse2neon v1.9.1, MIT: CMakeLists.txt (ARM builds)
+- FFmpeg n7.1 (Windows: the LGPL shared prebuilt of
+  github.com/System233/ffmpeg-msvc-prebuilt; elsewhere the system's or a
+  static minimal build), LGPL-2.1-or-later: runtime/CMakeLists.txt
+- ELFIO Release_3.12, MIT; toml11 v4.4.0, MIT; fmt 12.1.0, MIT; libdwarf
+  v2.2.0, LGPL-2.1 (libdwarf) and BSD; rabbitizer 1.14.3, MIT:
+  tooling/recompiler/ps2xRecomp/CMakeLists.txt
+- nlohmann/json v3.11.3, MIT: tooling/recompiler/ps2xAnalyzer/CMakeLists.txt
+- miniz 3.0.2, MIT: runtime/CMakeLists.txt (zip mods read in place)
+- xxHash 0.8.3, BSD-2-Clause: runtime/CMakeLists.txt (texture packs' names)
+- zstd 1.5.7, BSD-3-Clause (dual-licensed BSD or GPL-2.0; used under BSD):
+  runtime/cmake/ps2x_zstd.cmake (compressed recordings in developer builds;
+  CHD disc images' zstd hunks in every build)
+- libchdr at commit 47d794151b2b64f6aba60304e6480f4f5a2bc24b (2026-10-11),
+  BSD-3-Clause, copyright Romain Tisserand, with what it bundles: the LZMA
+  SDK 26.02 (public domain), miniz 3.1.2 (MIT) and dr_flac (public domain or
+  MIT-0): iop/cmake/ps2x_chdr.cmake (CHD disc images)
+- LZ4 1.10.0, BSD-2-Clause (its lib/), copyright Yann Collet:
+  iop/cmake/ps2x_lz4.cmake (ZSO and CSO disc images)
+- stb_truetype v1.28 (github.com/nothings/stb at commit
+  9600522de53973336fa033a289858a4354cbb04c), by Sean Barrett, public domain
+  or MIT (the header's own choice of the two): runtime/cmake/ps2x_stb.cmake
+  (the shipped font drawn for the collection's menu)
+
+
+7. Michroma (the collection menu's font)
+----------------------------------------
+
+runtime/resources/fonts/Michroma-Regular.ttf is Michroma, copyright 2011 The
+Michroma Project Authors (https://github.com/googlefonts/Michroma-font),
+under the SIL Open Font License 1.1, unchanged; the licence is beside it
+(Michroma-OFL.txt) and goes with the font into every app built (the Mac
+app's and the Windows folder's fonts/, the APK's assets/fonts/).
+
+
+8. This project's own code
+--------------------------
+
+Everything else in this repository, the readable games and engine
+(runtime/src/game) included, is this project's own work under the
+repository's GPL-3.0 (LICENSE).

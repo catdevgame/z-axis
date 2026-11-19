@@ -1,0 +1,702 @@
+# Shared functions whose words differ in BMX XXX and which are the same logic: read in the machine code, then replayed.
+# function, what differs. readable_symbols.py gives them level 2 (docs/READABLE.md "Symbols").
+vsyncHandler	the display's layout (display.h)
+setupDisplayBuffers	the display's layout
+swapDisplayBuffers	the display's layout
+initDisplayState	the display's layout (its size)
+waitForFrameReady	the display's layout
+clearDisplayRectangle	the display's layout
+finishRenderFrame	the display's layout, and BMX XXX keeps the parity of the frame just finished (lastFrameParity)
+beginScriptFromFile	the token reader's layout (token_reader.h: 0x800-byte lines)
+closeTokenFile	the token reader's layout
+defineTokenSymbol	the token reader's layout
+lookUpTokenSymbol	the token reader's layout
+nextToken	the token reader's layout (readFileLine's 0x7FF)
+openTokenFile	the token reader's layout
+popIncludeFile	the token reader's layout
+pushIncludeFile	the token reader's layout
+restOfTokenLine	the token reader's layout
+restoreTokenReader	the token reader's layout (its size)
+saveTokenReader	the token reader's layout (its size)
+clearFramePackets	the renderer's layout (renderer.h)
+initUploadBuffers	the renderer's layout
+onFramePacketSent	the renderer's and the display's layouts
+registerSaveClient	the save client's layout (save_system.h: a word more in front)
+selectSaveClient	the save client's layout
+renderCountedFrame	relocations only
+chunkDataSize	the chunk reader's layout (chunk_reader.h: a word more at +0x08)
+chunkBytesRead	the chunk reader's layout
+currentChunkId	the chunk reader's layout
+chunkAtEnd	the chunk reader's layout
+readChunkHeader	the chunk reader's layout
+readChunk	the chunk reader's layout
+nextChunk	the chunk reader's layout
+leaveChunk	the chunk reader's layout
+readChunkFile	the chunk reader's layout
+loadObjectChunks	the chunk reader's layout
+initChunkParser	the chunk reader's and parser's sizes (0x158, 0x2C) and 0x60 handlers a pool block
+closeChunkFile	the chunk reader's layout, and BMX XXX's progress hook takes the parser's progressContext
+initCarriedAnimals	the pools: BMX XXX's engine calls createPool itself where AI's game calls its newPool (zge/game.h newRecordPool), its carried animal record is 40 bytes (carried_objects.h kCarriedAnimalBytes), and it keeps no parrot call count (layer3, coll4: the recompiled code read side by side)
+pauseAnimation	the animator's layout (animator.h: no mirror map, so paused at +0x28)
+resumeAnimation	the animator's layout (animator.h: paused at +0x28)
+updateFrustum	registers, a vnop
+collisionQuery	registers, scheduling
+posedFaceNormals	a vnop
+lookAtMatrix	vnops, a data address (gp-relative)
+closestPointOnSegment	a vnop
+quaternionNormalize	a vnop
+followerOrientation	vnops
+sumObjectSaveSize	scheduling
+readTgaImage	constants made with ori, not addiu
+isTgaImage	constants made with ori, not addiu
+pointInTriangle	float constants loaded from data, not made in registers
+materialHasAlpha	a 16-bit mask before the bit's mask (the same bit)
+materialIsBlended	a 16-bit mask before the bit's mask (the same bit)
+materialFlagBit39	a 16-bit mask before the bit's mask (the same bit)
+setImagePaletteEntry	a tail call
+imagePaletteEntry	a tail call
+setFaceEntry	a tail call
+faceEntry	a tail call
+vertexWeightEntry	a tail call
+setVertexWeightEntry	a tail call
+cloneFrameCollision	a tail call (its kIsDm2 step is DM2's only)
+drawScreenPrimitives	data addresses (the builders' globals), registers
+drawWorldPrimitives	data addresses (the builders' globals), registers
+beginFramePacket	data addresses, registers
+newImageRecord	data addresses (g_imageRecordPool four bytes further from g_imagesReady)
+saveFileExists	the save client's layout (save_system.h: a word more in front)
+saveClientFits	the save client's layout (save_system.h)
+saveBlocksMissing	the save client's layout (save_system.h)
+saveBlocksNeeded	the save client's layout (save_system.h)
+runMemoryCardTransfer	the save client's layout (save_system.h), data addresses
+loadMaterial	the material's layout (material.h: no colours, the tag table its own object made only for a non-empty record, one layer's texture id)
+materialAt	the table's layout (materials from +0x40)
+materialTags	the material's layout (the tag table a pointer at +0x10)
+materialTextureSlot	the material's layout (textures at +0x1C)
+materialTableIsBlended	the dirty flag looked at before refreshMaterialTableFlags is asked
+newMaterialTable	the table's layout (materials from +0x40)
+releaseMaterialTable	the table's layout
+replaceTableMaterial	the table's layout
+initTextures	the material's size 0x110 and a pool block of 1800
+newMaterial	no colours or unread values to set (the material's layout)
+copyMaterial	the material's size 0x110; the copy gets one user and a copy of the tag table
+freeMaterial	the material's layout; its tag table released
+addMaterialTexture	the material's layout (textureCount a halfword at +0x06, textures at +0x1C)
+setMaterialTexture	the material's layout (textures at +0x1C)
+updateMaterialAlphaFlag	the material's layout (textures at +0x1C)
+setMaterialPicture	the material's layout (textures at +0x1C)
+pictureLevelCount	the material's layout (textureCount a halfword at +0x06)
+pictureLevel	the material's layout
+initParts	a pool block of 512 parts
+beginMaterialPacket	the material's layout (one layer from +0x20: its routines at +0xB0)
+setTextureMatrix	the material's layout (the matrix rows in the layer's routines)
+hasTextureMatrix	the material's layout (its type at +0x14, read as a halfword)
+buildMaterialLayers	the material's layout (its type at +0x14)
+collectTextureMaterials	the table's layout (materials from +0x40)
+primitiveTextures	kMaxBoundMaterials 128 (a set's list 0x200 bytes)
+closeScreenPrimitivePackets	kMaxBoundMaterials 128 (the words after the lists 0x200 further on)
+drawScreenLineLists	kMaxBoundMaterials 128 (the packets 0x200 further on)
+setMaterialPacketSize	the material's layout (one layer from +0x20; the quadword count a halfword in the header)
+setMaterialState	the material's layout (one layer from +0x20; its type the upper half of the doubleword at +0x10)
+buildMaterialChain	the material's layout (textureCount a halfword at +0x06)
+addGeometryChild	field offsets only: the node's BMX XXX layout (node.h)
+findInstanceById	field offsets only: the node's BMX XXX layout (node.h)
+freeGeometryNode	field offsets only: the node's BMX XXX layout (node.h)
+loadGeometryInstance	field offsets only: the node's BMX XXX layout (node.h)
+releaseNode	field offsets only: the node's BMX XXX layout (node.h)
+setNodeTags	field offsets only: the node's BMX XXX layout (node.h)
+setNodeLevelObject	field offsets only: the node's BMX XXX layout (node.h)
+setNodeCastsShadow	field offsets only: the node's BMX XXX layout (node.h)
+setSceneRootColour	field offsets only: the node's BMX XXX layout (node.h)
+setSceneShadowViewTest	field offsets only: the node's BMX XXX layout (node.h)
+shapeQueryVisit	field offsets only: the node's BMX XXX layout (node.h)
+sphereQueryVisit	field offsets only: the node's BMX XXX layout (node.h)
+updateNodeBox	field offsets only: the node's BMX XXX layout (node.h)
+setNodeNameHash	field offsets only: the node's BMX XXX layout (node.h)
+updateNodeBounds	field offsets only: the node's BMX XXX layout (node.h)
+addModelBone	field offsets only: the node's BMX XXX layout (node.h)
+forEachChild	field offsets only: the node's BMX XXX layout (node.h)
+rootNode	field offsets only: the node's BMX XXX layout (node.h)
+refreshNodeBounds	field offsets only: the node's BMX XXX layout (node.h)
+retainNode	field offsets only: the node's BMX XXX layout (node.h)
+boneId	field offsets only: the scene's BMX XXX layout (scene.h: boneCapacity before the count)
+matchSceneId	field offsets only: the scene's BMX XXX layout (scene.h)
+rootBone	field offsets only: the scene's BMX XXX layout (scene.h)
+sceneBoneCount	field offsets only: the scene's BMX XXX layout (scene.h)
+sceneWorldMatrix	field offsets only: the scene's BMX XXX layout (scene.h)
+copySceneBoneIds	field offsets only: the scene's BMX XXX layout (scene.h)
+releaseScene	field offsets only: the scene's BMX XXX layout (scene.h)
+sceneBoneIds	field offsets only: the scene's BMX XXX layout (scene.h)
+sceneRootNode	field offsets only: the scene's BMX XXX layout (scene.h)
+updateBoneModelMatrices	field offsets only: the scene's BMX XXX layout (scene.h)
+boneName	field offsets only: the scene's BMX XXX layout (scene.h)
+dropPoseChanges	field offsets only: the scene's BMX XXX layout (scene.h)
+bindSceneAnimator	the scene's and its bone lists' BMX XXX layout (scene.h BoneList: the capacity first)
+copyBoneList	the bone list's BMX XXX layout, and ZGE4 copies the capacity and sets up that many bones (BoneList::takeCountsOf, allocated)
+freeModelPose	field offsets only: the scene's BMX XXX layout (scene.h)
+updateProjection	the display's layout (display.h)
+forEachObjectOfKind	the object kind mask's BMX XXX width (scene.h kObjectKindMask)
+markPoseStale	the pose-stale flag's BMX XXX bit (scene.h kObjectPoseStale)
+updatePose	the pose-stale flag's BMX XXX bit (scene.h kObjectPoseStale)
+updateParticleEmitters	the pose-stale flag's BMX XXX bit (scene.h kObjectPoseStale)
+attachObject	the no-hooks flag's BMX XXX bit (scene.h kObjectNoHooks)
+initMessages	the subscription pool's BMX XXX block
+newEvent	the event pool's BMX XXX block
+newRotationTrack	the rotation track pool's BMX XXX block
+newTranslationTrack	the translation track pool's BMX XXX block
+registerMoboChunkHandler	the model pose pool's BMX XXX block (kModelPosesABlock)
+initSceneObjects	the object pool's BMX XXX block and the stale-objects task's source line (kSceneObjectsABlock, kZobjTaskLine)
+findLocators	the locator pool's BMX XXX block (kLocatorsABlock)
+resetScenePoints	the scene point pools' BMX XXX block (kScenePointsABlock)
+newFollowerRecord	the follower pool's BMX XXX block (kFollowersABlock)
+initGeometryNodes	the node record's and the node pool's BMX XXX sizes (node.h kNodeBytes, kNodesABlock)
+nodeSceneObject	the node's BMX XXX layout; ZGE4 has the scene kind (with a test for no scene) and the level object's node inline (objectSceneKindOrNone, nodeOfLevelObject)
+deliverMessage	ZGE4 skips a handler link without a handler (kIsBmx)
+deleteSceneObject	ZGE4 tests for an object without a class (hasObjectClass) and frees the attachment record its detachObject leaves (kIsBmx)
+placeOnParent	ZGE4 tests for an object without a class before each hook (hasObjectClass)
+placeAttached	ZGE4 places every attached object (no moved test) and tests for an object without a class (hasObjectClass)
+setupGeometrySceneModel	ZGE4's setupSceneModel takes options (setupSceneModelWithOptions: none; retainNodes tested, no node retained)
+freeAnimateSystem	field offsets only: the animate system's BMX XXX layout (animate_system.h)
+newAnimateSystem	the animate system's BMX XXX layout; ZGE4 sets its unit word to 1.0 (AnimateSystem::setUnit)
+addAnimatePlaneGroup	field offsets only: the animate system's BMX XXX layout (animate_system.h)
+newAnimatePull	field offsets only: the animate system's BMX XXX layout (animate_system.h)
+newDistanceConstraint	field offsets only: the animate system's, point's and constraint's BMX XXX layouts (animate_system.h)
+newBoneAttachedPoint	the point's and system's BMX XXX layouts; ZGE4 keeps the system's object in the point (AnimatePoint::setObject)
+newBoneConstraint	the constraint's BMX XXX layout; ZGE4 keeps the first point's object in the constraint (AnimateConstraint::setObjectOf)
+freeAnimateConstraints	field offsets only: the constraint's BMX XXX layout (animate_system.h)
+freeAnimatePivots	field offsets only: the pivot's BMX XXX layout (animate_system.h)
+freeAnimatePlanes	field offsets only: the plane's BMX XXX layout (animate_system.h)
+freeAnimatePoints	field offsets only: the point's BMX XXX layout (animate_system.h)
+startPointSolve	field offsets only: the point's BMX XXX layout (animate_system.h)
+averagePointSolve	field offsets only: the point's BMX XXX layout (animate_system.h)
+finishPointSolve	field offsets only: the point's BMX XXX layout (animate_system.h)
+solveAnchor	field offsets only: the point's BMX XXX layout (animate_system.h)
+solveBoneOffset	field offsets only: the point's and system's BMX XXX layouts (animate_system.h)
+applyPullToPoint	field offsets only: the point's BMX XXX layout (animate_system.h)
+pushPointOutOfPlanes	field offsets only: the point's, plane's and system's BMX XXX layouts (animate_system.h)
+placeAnimateSphere	field offsets only: the animate system's BMX XXX layout (animate_system.h)
+updateAnimatePlane	the plane's BMX XXX layout; ZGE4 keeps the object in the plane, taking the system's the first time (AnimatePlane::objectOrTake)
+queuePartDraw	the node's layout (node.h: drawFlags +0x170, colour +0x1E0, shadowViewSphere +0x1C0)
+submitNodeDraw	the node's layout (the view's part at views +0x10, views from +0x180)
+freeNodeLights	the node's layout (lights +0x158)
+setNodeDrawCheck	the node's layout (drawCheck +0x1E4, drawCheckData +0x1E8)
+buildShadowVolume	the node's layout (colour +0x1E0, bonePoses +0x1EC)
+registerDynamicsChunkHandlers	kIsBmx: no pool made here (loadDynamicsDefinition makes it)
+loadDynamicsDefinition	kIsBmx: the definitions' pool made at the first definition; registers
+resetDynamicsDefinitions	kIsBmx: shutdownDynamicsPool alone
+saveBodyState	kIsBmx: nothing (ZGE4's bodies keep no last state)
+updateWorldInertia	kIsBmx: the two work matrices made the identity first; registers
+initCollisionFrames	records a block (perGame)
+initFrameParts	records a block (perGame)
+initQueries	the lists' capacities and the hits a block (perGame)
+newCollisionTable	records a block (perGame)
+startTerrainRenderTask	the newTask call's source line (kThisLine)
+contactImpulse	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+applyBodyOrientation	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+boxHalfExtents	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+setBoxHalfExtents	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+projectBoxOnAxis	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+readConstraint	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+readDynamicsConstraint	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+readDynamicsBodyPair	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+readDynamicsHinge	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+drawDynamicsObject	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+driveBodyFromBone	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+applyBodyToBone	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+integrateBodyRotation	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+sweepUpdateBody	field offsets only: the rigid body's BMX layout (PS2X_GAME_BMX)
+freeDynamicsBodies	kIsBmx: no spheres freed, no body blocks (the nodes freed as the tail call); the rigid body's BMX layout
+bindDynamicsToBones	kIsBmx: restBodyAtBone keeps no last state; the rigid body's BMX layout; registers
+wakeDynamics	kIsBmx: no last state kept, updateWorldInertia after each body is placed; the rigid body's BMX layout; registers
+bodyFromBone	kIsBmx: the quaternion from the matrix (matrixToQuaternion), not through Euler angles; the rigid body's BMX layout; registers
+buildBodyHierarchy	kIsBmx: no body blocks; the rigid body's BMX layout
+integrateBody	kIsBmx: the velocity scaled by the step first, half the change scaled and added after (ZGE3 scales the sum); the rigid body's BMX layout
+newCollisionWorld	kIsBmx: the cell counts rounded to the nearest (ZGE3 truncates); registers
+enableContact	ZGE4 accepts no contact (kIsBmx)
+disableContact	ZGE4 accepts no contact (kIsBmx)
+applyBodiesToObjects	kIsBmx: no last state kept; the rigid body's BMX layout; registers; its locals at the original's frame offsets (readable_locals_bmx.tsv)
+pairTouched	kIsBmx: no pushed position (ZGE4's bodies keep no last state); the rigid body's BMX layout; its locals at the original's frame offsets (readable_locals_bmx.tsv)
+boxesContact	scheduling only (a vnop); the rigid body's BMX layout; its locals at the original's frame offsets (readable_locals_bmx.tsv)
+orientedBoxContact	scheduling only (a vnop); the rigid body's BMX layout; its locals at the original's frame offsets (readable_locals_bmx.tsv)
+testNodeFaces	data addresses only (g_queryState)
+copyDynamicsDefinition	kIsBmx: the copy taken from the definitions' pool, made at the first (ZGE3 copies onto the heap); the rigid body's BMX layout; registers
+nodeCollisionFrame	field offsets only: the node's BMX layout (PS2X_GAME_BMX)
+setNodeMaterialSet	field offsets only: the node's BMX layout (PS2X_GAME_BMX)
+setLodTable	field offsets only: the node's BMX layout (PS2X_GAME_BMX)
+setTreeLevelOfDetail	the view's level bits 28-31 (kViewLevelShift); the node's BMX layout
+handleDefiChunk	ZGE4 takes the bone names from allocateMemory, not heapAllocate (allocateMotionMemory)
+handleAtraChunk	ZGE4 takes the keys from allocateMemory, not heapAllocate (allocateMotionMemory)
+handleAtrwChunk	ZGE4 takes the keys from allocateMemory, not heapAllocate (allocateMotionMemory)
+handleAscaChunk	ZGE4 takes the keys from allocateMemory, not heapAllocate (allocateMotionMemory)
+handleAcbdChunk	ZGE4 takes the event record from allocateSized, not heapAllocate (allocateEventRecord)
+loadLibraryModelEntry	ZGE4 rounds the allocation up to the asset alignment (currentAssetAlignment)
+setObjectCastsShadow	the model kind is 1 in ZGE4 (kObjectModelKind), the flag bits one higher
+nodeDrawBucket	kIsBmx: the table is the view's (NodeView::materials at node + view * 0x20 + 0x194); Node::drawFlags and Material::type by the BMX layouts
+initPrimitiveRenderer	ZGE4's resetPrimitiveBuffers takes the packet to open the textures block in; this caller hands it 0 (the own body resetPrimitiveBuffersIntoPacket); kMaxBoundMaterials 128
+findNodeMaterialByHash	the BMX layouts: Node::drawFlags +0x170 and Node::model +0x00C, MaterialTable::materials +0x40
+readDbdyChunk	ZGE4 keeps no spheres: the count on the stack, every body's records read past (kIsBmx); a box's inertia scaled by 4, not 20 (kBoxInertiaScale)
+setNodeLevelOfDetail	ZGE4 keeps the node's material table a view (NodeView::materials)
+cloneModelPose	the copy made by ZGE4's newModelPose with the source's room (newModelPoseWithCapacity); the scene's BMX XXX layout
+readMoboChunk	ZGE4's newModelPose with room for kMoboBoneCapacity bones, every one of them set up (initPoseBones); the scene's BMX XXX layout
+setupNodeSceneModel	ZGE4's setupSceneModel takes options (setupSceneModelWithOptions: kSetupMakeBones, no node retained)
+cloneScene	ZGE4's setupSceneModel takes the source scene (setupSceneModelWithOptions: kSetupFromSource); Node::nameHash's BMX XXX offset
+setupWorldMeshModel	ZGE4's setupSceneModel takes options (setupSceneModelWithOptions: none, no node retained)
+matchNthNodeByHash	ZGE4's Node layout (nameHash at +0x08)
+releaseCollisionWorld	kIsBmx: ZGE4 resets the frame packets before the frame-ready wait as well as at the end
+finishCollisionWorld	kIsBmx: ZGE4 brings every world mesh's moved node up to date (forEachWorldMesh with updateMovedNodeVisitor) between the orphan parts' release and the display idle
+leaveModelScenes	kIsBmx: ZGE4 gives each pool's empty blocks back (releaseEmptyPoolBlocks) and destroys the locator pool (findLocators makes it again)
+nodeName	Node::name's BMX XXX offset (+0x128)
+objectLevelNode	ZGE4 reads the record's node itself (nodeOfLevelObject: LevelObject::node)
+forEachNodeInSubtree	ZGE4 visits the root first and walks on from its first child, where ZGE3 skips the root's siblings by a test in the loop; the node's BMX XXX layout
+updateBoneLocalMatrices	the scene's BMX XXX layout (bones, boneCount, changes)
+newAnimatePlane	AnimatePlane's BMX XXX layout (0xA0 bytes, the object word first, which ZGE4 also stores as 0 after the fill)
+resetAnimatePoints	kIsBmx: ZGE4 resets every system on the chain from the one given (AnimateSystem::next), each point from its own object (AnimatePoint::object); the BMX XXX layouts
+setCameraFieldOfView	kIsBmx: ZGE4 returns early when the field of view is unchanged (no far-plane change marked)
+modelBoneParent	kIsBmx: ZGE4 calls rootBone (BMX 0x12B6C0) where ZGE3 calls boneParent, so it answers the scene's root bone
+updateMovedNode	kIsBmx: ZGE4 hands findRegion the node's box itself (no nodeBox call); the node's BMX XXX layout
+setSceneObjectShown	kIsBmx: ZGE4 tests the class, drops the method's result and shows or hides the attached objects (showAttachedObjects, BMX 0x139C88); kObjectShown one bit higher
+copyScenePose	kIsBmx: ZGE4 sets kScenePoseCopied on the scene at the end; the scene's BMX XXX layout
+sceneFirstMesh	kIsBmx: ZGE4 reads the node's model itself where ZGE3 asks objectClass (nodeClass)
+solveDistance	kIsBmx: ZGE4 returns first when the two points are nearly at one place (squared distance under 0.001); the points' BMX layout
+freeSceneRecord	kIsBmx: ZGE4 takes a view camera off its count of view cameras (g_viewCameraCount) first
+createPool	the pool's BMX XXX layout (ZGE4's 0x3C-byte record: mostInUse +0x2C zeroed, the block size and allocators a word on)
+poolGrow	the pool's BMX XXX layout (ZGE4's recordsPerBlock +0x30, memoryFlags +0x32, allocate +0x34)
+poolAlloc	kIsBmx: ZGE4 keeps the most records in use at once (Pool::mostInUse)
+destroyPool	the pool's BMX XXX layout (ZGE4's freeBlock +0x38)
+releaseEmptyPoolBlocks	the pool's BMX XXX layout (ZGE4's recordsPerBlock +0x30, freeBlock +0x38)
+cloneDynamicsDefinition	kIsBmx step already in the body (nameHashOfNode reads Node::nameHash, no nodeNameHash call); the rigid body's BMX record size and layout
+resolveBodyContactList	kIsBmx: ZGE4's slack holds (kind 6) go to resolveSlackHoldContact; the body's BMX layout
+takeHeapSlot	the heap's BMX XXX layout (ZGE4's searchFrom +0x08: Heap 0x18 bytes, inUse +0x14)
+releaseHeapSlot	the heap's BMX XXX layout (inUse +0x14)
+newHeap	kIsBmx through searchFromFirst: ZGE4 zeroes the heap's search start; the heap's BMX XXX layout (allocators +0x0C)
+heapTake	kIsBmx through searchStart and searchOnAfter: ZGE4 searches from the block after the last one taken
+heapGive	kIsBmx through searchFromFirst: ZGE4 starts the next search at the first block
+reportMemoryStats	kIsBmx: ZGE4's is empty (no malloc_stats)
+clearCursorArray	kIsBmx: ZGE4 walks the items only with a visit and zeroes only the first item
+searchTreeFind	kIsBmx: ZGE4 walks a tree of lessWord's itself (findWordValue), no comparison called
+randomPointInBox	kIsBmx: ZGE4 takes each random number's low 31 bits over 2^31 (randomForShare, kRandomScale)
+randomPointInSphere	kIsBmx: ZGE4 takes the distance's random number's low 31 bits over 2^31 (randomForShare, kRandomScale)
+loadGeoHeaderChunk	the GeoObject's BMX XXX layout (ZGE4: id +0x30, name +0x34, nameHash +0x54)
+copyGeoObject	the GeoObject's BMX XXX layout (name +0x34, nameHash +0x54, tags +0x0C)
+findGeometryById	the GeoObject's BMX XXX layout (id +0x30)
+releaseGeoObject	the GeoObject's BMX XXX layout (tags +0x0C)
+releaseObjectGeometry	kIsBmx: ZGE4 reads the node's class itself (nodeClass: Node::model), no objectClass call
+setGeometryTags	kIsBmx: ZGE4 releases the old table (ZGE2 and ZGE3 the new one); the GeoObject's BMX XXX layout (tags +0x0C)
+seekChunk	the reader's BMX XXX layout: ZGE4 seeks from where the file stood when the reader was opened (ChunkReader::openPosition, chunkFileOrigin)
+dispatchChunk	kIsBmx: ZGE4 steps past a child no handler is registered for when the parser's flag 4 is set (nextChunk)
+parseChunks	the progress hook's BMX XXX context argument (callProgressHook: ChunkParser::progressContext)
+findImageReader	kImageReaderKinds: ZGE4 asks 5 kinds
+shutdownImageReaders	the images state's BMX XXX layout: the record pool 8 past the ready word (bound g_imageRecordPool), the same steps
+loadMaterialChunk	the nop pause after reading the chunk runs once where AI's runs twice (no state)
+openFile	kIsBmx: ZGE4's open error names the file (formatScratch with "Error opening file:%s")
+storeMaterial	kMaterialTextureNames: ZGE4's material names one texture
+tagRecordAt	kIsBmx: ZGE4 keeps the records' address in the table's header (TagTableHeader::records)
+tagWord	kIsBmx: ZGE4 reads the record's unaligned word in place (lwl/lwr), no memcpy to the frame
+tagFloat	kIsBmx: ZGE4 reads the record's unaligned float in place (lwl/lwr), no memcpy to the frame
+makeBuffer	kIsBmx: ZGE4 stores the records' address in the header where ZGE3 stores the block's size
+releaseTagTable	kIsBmx: ZGE4 frees the table with its size from the descriptor (tagDescriptorBytes)
+currentAssetLength	kIsBmx: ZGE4 answers the length rounded up to the entry's alignment (alignedAssetLength)
+forEachAsset	kIsBmx: ZGE4 hands the visitor the length rounded up to the entry's alignment (alignedAssetLength)
+terrainNormalWord	ZGE4 takes the colour shift (a3, srav) where ZGE3 halves (srl 1): READABLE_PARAM_ONLY(bmx, colourShift)
+addTerrainNormals	ZGE4 takes the colour shift (t3) and hands it to terrainNormalWord: READABLE_PARAM_ONLY(bmx, colourShift)
+skinnedColourWord	ZGE4 takes the colour shift (a3, srav) where ZGE3 halves (srl 1): READABLE_PARAM_ONLY(bmx, colourShift)
+addSkinnedColours	ZGE4 takes the colour shift (t3) and hands it to skinnedColourWord: READABLE_PARAM_ONLY(bmx, colourShift)
+addRigidColours	ZGE4 takes the colour shift (t3, srav per channel) where ZGE3 halves: READABLE_PARAM_ONLY(bmx, colourShift)
+buildTerrain	ZGE4 hands addTerrainNormals the colour shift 1 (addiu t3, zero, 1): kBuilderColourShift
+buildRigid	ZGE4 hands addRigidColours the colour shift 1 (addiu t3, zero, 1) and sends a part with normals (+0x10) its normals in the colours' place: kIsBmx step calling addRigidNormals (0x10C338, ZGE4 only, with rigidNormalWord 0x10C268)
+buildSkinned	ZGE4 first calls limitSkinWeights(part, 3) (0x10AC30, ZGE4 only: three bones a vertex, weights scaled to 255) and hands addSkinnedColours the colour shift 1: kIsBmx step
+resetCameraViewports	kIsBmx: ZGE4 (BMX 0x1011B8) reads each camera's viewport out first (0x129B48, ZGE4 only: camera +0x28 copied out), sets the screen as ZGE3, then sets the old viewport back with its width and height cut to the screen's (min.s) through swapCameraViewport
+setupFireTextureEffect	kIsBmx: ZGE4 (BMX 0x1760F0) gives a flipbook picture from its tags 0 when findTextureByHash finds no texture, where ZGE3 hands the 0 to pictureLevel (the fire frames as ZGE3's); the rest is ZGE3's with its globals rebased
+updateMovedNodeVisitor	the same words as ZGE3's (BMX 0x12C110: jal, return 1); its callee updateMovedNode is BMX 0x131F10 (the close pair of AI 0x1323A8)
+resetGraphics	kIsBmx: ZGE4 (BMX 0x100328) calls installVsyncHandler (no tail jump), then keeps 50 (videoMode 3, PAL) or 60 at display +0x14 (vsyncsPerSecond) and returns it
+installVsyncHandler	the same 9 words as AI's 0x100308 with its callee and the handler rebased (sceGsSyncVCallback BMX 0x220F50, vsyncHandler BMX 0x100260)
+setObjectPosition	kIsBmx: ZGE4 tests the object has a class before its hook (hasObjectClass); the flag bits one higher
+newSceneObject	kIsBmx: ZGE4's newSceneObject is its initSceneObject (newObjectOfKind, the own body) with kind 0
+newModelObject	kIsBmx: the object made by ZGE4's initSceneObject (newObjectOfKind) with the model kind 1 (kObjectModelKind)
+newParticleEmitterObject	kIsBmx: the object made by ZGE4's initSceneObject (newObjectOfKind) with the emitter kind 3; its task's source line 282
+freeSubscriberRecord	kIsBmx: ZGE4 unsubscribes the box's own clean-up handler first (kHandlersUnsubscribedMessage, dropUnsubscribedHandlers 0x14AE98)
+objectSubscriptions	kIsBmx: ZGE4 subscribes the new box to its own clean-up (kHandlersUnsubscribedMessage, dropUnsubscribedHandlers 0x14AE98; the tail call)
+unsubscribe	kIsBmx: ZGE4 clears a listed handler's word and sends the object kHandlersUnsubscribedMessage (sendNewMessage) instead of freeing the link
+draw2DPass	kIsBmx: ZGE4 gives the 2D camera the first view camera's far and near clip (firstCameraOfKind 0)
+animalCarrier	the attachment key's BMX XXX frame record (40-byte carried-animal record: the lookup at +0x30)
+setTagWord	ZGE4 stores the unaligned word in place (swl/swr) and answers nothing (READABLE_RESULT_EXCEPT(bmx, uint32_t))
+setChunkProgressHook	ZGE4's takes the hook's context too (READABLE_PARAM_ONLY(bmx, context), ChunkParser::progressContext)
+setTagFloat	kIsBmx: ZGE4 stores the float in place (an unaligned store, no memoryCopy) and returns nothing (READABLE_RESULT_EXCEPT(bmx, uint32_t))
+setNodeGeometry	the node's and the GeoObject's BMX XXX layouts (Node::model +0x0C, GeoObject::id +0x30)
+levelObjectClassTag	kIsBmx: ZGE4 reads the level object's node, its model and the model's tags inline (nodeClassTags)
+nodeEntityType	kIsBmx: ZGE4 reads the node's model and the model's tags inline (nodeClassTags)
+registerAnimationChunks	kIsBmx: ZGE4 registers an AFLR handler after DEFI (handleAflrChunk 0x13FDC0)
+createObjectAnimator	ZGE4's object kinds (model 1, the one-channel kind 5: kObjectModelKind, kObjectKindSingleChannel) and kind mask
+nodeNotDrawn	kIsBmx: ZGE4 asks the views of every view camera (g_viewCameraCount), the NodeView BMX layout
+findSceneObject	kIsBmx: ZGE4 lets an object without a class match id 0 (hasObjectClass)
+readImageChunk	ZGE4 makes a TZMP texture's smaller levels (READABLE_PARAM_ONLY(bmx, mipmaps): newHalfSizeImage, g_imageMipmapsOn)
+readTbmpChunk	ZGE4 passes readImageChunk's mipmaps word (READABLE_PARAM_ONLY(bmx))
+readTzmpChunk	ZGE4 passes readImageChunk's mipmaps word (READABLE_PARAM_ONLY(bmx))
+readTtgaChunk	ZGE4 passes readImageChunk's mipmaps word (READABLE_PARAM_ONLY(bmx))
+readTerrChunk	ZGE4 turns the image mipmaps on for the level (setImageMipmaps)
+pollPads	kIsBmx: ZGE4 records and plays the stick levels too (two bytes of nibbles after the buttons; bug kept: the right stick's in both)
+soundtrackTrackLocation	ZGE4's Soundtrack: the bank at +0x04
+soundtrackTrackCount	ZGE4's Soundtrack: the track count at +0x0C
+initSoundBankPool	ZGE4's soundtrack record (0x14 bytes, one a block)
+unloadSoundBank	ZGE4's SoundBankSlot is 0x4C bytes (the waves' sound-memory handle at +0x08)
+startSource	kIsBmx: ZGE4 converts the squared distance as signed
+closePadRecording	kIsBmx: ZGE4 sets the mode back to live
+readPadRecording	kIsBmx: ZGE4 ends the recording at its file's end (closePadRecording; no zeros, the frame not counted)
+loadBank	ZGE4's SoundBank head (0x64 bytes) and SoundBankSlot (path at +0x0C); kIsBmx: no cache write-back before fileSize
+uploadSoundBank	kIsBmx: ZGE4 makes its six name tables addresses too and sends all of a bank's waves as one block (one room asked, the slot keeping its handle), each reference then the block's sound address plus its wave's place in it
+setVoicePitch	ZGE4's Voice: the pitch at +0x06
+startVoice	ZGE4's Voice: the state a byte at +0x04
+initSoundChannels	ZGE4's Voice: the state a byte at +0x04; ps2Chan.c's line 237
+copyVoiceStateCodes	ZGE4's Voice: the state a byte at +0x04
+queueMaterialTexture	ZGE4 calls markedTableNoop (0x104358, an empty ZGE4-only function) with the material's table after markMaterialTableDirty: kIsBmx step
+initGsTextures	ZGE4 sets its two texture settings at start: g_dropLargeTextureLevels (gp+0x115C) 0, g_lastTextureLevel (gp+0x1160) 3, 1 in GS mode 3: kIsBmx step
+buildGsTextureUpload	ZGE4 has room for a level while levelCount <= g_lastTextureLevel (sltu against gp+0x1160) where ZGE3 tests < 4 (< 2 in GS mode 3): kIsBmx step
+buildTextureUploadPacket	ZGE4: an image without alpha (flags bit 0) drops the texture's first level when its second arrives with g_dropLargeTextureLevels set and the first 64 or more wide (freeIn, levelCount 0, the base size again); a 32-bit picture's texels copied word by word with each alpha halved (no memoryCopy): kIsBmx steps
+requestTextures	ZGE4's draw list (Renderer at BMX's offsets: marker +0x74, queue end +0x5C, marker needed +0x7C), its MaterialTable (textureEpoch +0x3C), its node views (+0x180), the request flags one bit higher (0x100000, 0x200000), and the node's material table queued in place of the node
+setLayerTextureRegisters	ZGE4's material layout (one layer of 0xF0 from +0x20) and MaterialTable::textureEpoch at +0x3C, both in material.h
+newStream	ZGE4 appends a new bone with pointerArrayPushBack (0x148650) where ZGE3 calls pointerArrayAdd: kIsBmx step
+posePart	ZGE4's bone record (skeleton.h Bone: the offset at +0x00, the pose index at +0x14)
+collectObjectOfClass	ZGE4 reads the node's model (+0x0C) itself where ZGE3 calls objectClass: kIsBmx step
+matchScroller	ZGE4's node layout (nameHash at +0x08, node.h)
+clipLine	g_viewPlanes bound (BMX display + 0x3F8)
+drawTerrain	ZGE4's view material table (NodeView::materials, node + view * 0x20 + 0x194) through drawnMaterials
+refreshMaterialTableFlags	ZGE4 ends by tail-calling refreshedTableNoop (0x109D98, an empty ZGE4-only function returning 1) with the table: kIsBmx step
+buildPartPackets	ZGE4 keeps the strip groups: no releaseStream after buildMaterialChain (kIsBmx step)
+initDisplay	ZGE4's display: its frame parity (+0x64) set to 0 and the parity kept before the flip (+0x68, BMX's own word) to -1 (startFrameParities, display.h); the rest at BMX's offsets
+removePartMaterialTable	ZGE4 releases the table (releaseMaterialTable, 0x1292F8) before taking it off the list: kIsBmx step
+closeFramePacket	ZGE4 calls closingFrameNoop (0x10FC40, an empty ZGE4-only function) first and adds the FLUSHA before aligning and closing the tag: kIsBmx steps
+copyMaterialsInto	ZGE4 puts a copy of each material in the table (copyMaterial 0x128E70, then releaseMaterial 0x128B60 on the copy): kIsBmx step
+copyStream	ZGE4's bone record (part.h BoneRecord: the size at +0x10); its points at AI's offsets (bound.tsv)
+initDeferredPools	ZGE4 grows the deferred pools 640 requests a block (kDeferredBlockRecords)
+addDebugLine	kIsBmx: ZGE4 gives a line with no colour g_defaultDebugLineColour
+addDebugPoint	kIsBmx: ZGE4 gives a point with no colour g_defaultDebugPointColour
+drawTriangle	kIsBmx: ZGE4 gives a triangle with no colour g_defaultDebugTriangleColour
+scanArguments	g_sceneDatabasePath bound (BMX 0x2C24F8, ZGE4's engine state a word longer before it); the same logic
+checkMemoryCardSpace	the ZGE4 SaveClient layout (a word more in front) and needSpaceText bound; the same logic
+stopSaveSystem	kIsBmx: ZGE4 stops only a started save system (g_saveJobsReady)
+memoryFill	kIsBmx: ZGE4 fills word-aligned memory a word at a time (memset otherwise)
+initTokenPool	ZGE4 grows the search-tree pool 4096 records at a time
+freeFont	kIsBmx: ZGE4 releases the looked-up textures and frees the font alone
+allocateIn	kIsBmx: ZGE4's seven kinds (kMemoryKinds), only packets and movie memory rounded
+freeIn	ZGE4's seven kinds (kMemoryKinds)
+reallocateIn	ZGE4's seven kinds (kMemoryKinds)
+startSaveSystem	kIsBmx: ZGE4 undoes the start (task, queues) when the saves do not start; source line 211
+setFrameCallback	g_frameCallback bound (BMX 0x2C24FC); the same logic
+setObjectOrientation	kIsBmx: ZGE4 tests the object has a class before its hook (hasObjectClass); the flag bits one higher; the quaternion read as bytes (callers pass unaligned ones)
+enterScene	kIsBmx: ZGE4 counts the next frame as the first again after the world is finished (restartFrameRate, BMX 0x136E48)
+leaveScene	kIsBmx: ZGE4 frees the particle emitters' definitions with the scene (clearEmitterList)
+objectNameHash	kIsBmx: ZGE4 names an object whose scene has no type otherwise: a particle emitter object (kind 4) by its class's id, any other by its address; the node's BMX layout
+placeScene	kIsBmx: ZGE4 keeps an unkeyed top bone's local matrix when the pose was copied and clears kScenePoseCopied after placing; it reads the root's local matrix itself; the scene's BMX layout
+instanceGeometryNode	kIsBmx: ZGE4 can copy the tag table (kInstanceCopyTags, bit 19) and copies the second word's low 13 bits (kInstancedSecondWord); the node's BMX layout
+integratePointMotion	kIsBmx: ZGE4 leaves the last position to animate (its own body copies it for every point first); the point's BMX layout
+newAnimateBoneSpace	kIsBmx: ZGE4 takes the bone on the point's own object (AnimatePoint::objectOr), starts the inverse from matrixIdentity and keeps the point's object in the record (AnimateConstraint::setObjectOf); the BMX XXX layouts
+solveBonePoint	the constraint's own object in ZGE4 (AnimateConstraint::objectOr: it does not read g_animateSystem); the point's and constraint's BMX XXX layouts
+sortAnimatePivots	kIsBmx: ZGE4 swaps the whole 0x60-byte records and puts each one's link back; the pivot's and system's BMX XXX layouts
+pushPointsOutOfSphere	field offsets only: the point's and system's BMX XXX layouts (animate_system.h)
+sampleRotationKey	kRotationTracksKeepForm: ZGE4's rotation track keeps its keys' form in the count word (keys << 2 | form): packed keys (int8 in 1/128ths, 6 bytes) or full ones (int16 in 1/32768ths, kRotationKeyUnit)
+sampleRotation	ZGE4's two rotation key forms (as sampleRotationKey), and the keys blended by quaternionNlerp where ZGE3 slerps
+handleArotChunk	ZGE4 packs the keys into the form g_rotationKeyForm gives (packed unless an AFLR chunk asked for full ones; full ones in 1/32768ths), kept in the count word, each component clamped to 0.99999 either way first
+startAnimation	ZGE4: an object with no class takes no set by its id (hasObjectClass); the rotation tracks' last key of either form; the kind mask and single-channel kind (kObjectKindMask, kObjectKindSingleChannel)
+crossfadeAnimation	as startAnimation: hasObjectClass, the rotation tracks' last key of either form, the kind mask and single-channel kind
+freeAnimationPools	kIsBmx: ZGE4 destroys the rotation, translation and scale track pools and the motion record pool in freeMotionTrackPools (BMX 0x13E918)
+motionLength	the rotation track's last key of either ZGE4 form
+updateAnimator	kIsBmx: ZGE4 sets the first pose (a time within kFirstPoseTime of 0) of an animator not drawn, blends each layer with its own hooks through onTrackBlend (no mirror), frees the layers and tracks through its own freeLayers/freeQueue (the animator), and restarts a looping track keeping neither the new track nor its record; the animator's and track's BMX XXX layouts (animator.h)
+freeAnimator2	kIsBmx: ZGE4's freeQueue and freeLayers take the animator (freeAnimatorTracks, freeAnimatorLayers), no mirror map to free
+updateAnimators	kIsBmx: ZGE4 times the update with the animators' profile bar (startProfileBar first, stopProfileBar last, its result the function's); BMX XXX's is 0x164D88 (pair result d6scene-anim: the table's 0x1EC878 is game code)
+boxClosestPoint	ZGE4 two-sided faces (RigidBody::twoSidedFaces, +0x2DC): the corners past the plane, the nearest when none; no divide by no corners
+openChunkFile	ZGE4: the reader keeps where its file stood (filePosition into openPosition, locals in readable_locals_bmx.tsv), a ZLZO file taken as any form, the trace on flag bit 0 (chunkTraceOn)
+enterChunk	ZGE4 traces on parser flag bit 0 (chunkTraceOn)
+tagString	kIsBmx: ZGE4 copies at most 0x40 bytes (stringCopyN) and ends the copy with a 0
+loadBufferStreamChunk	kIsBmx: ZGE4 asks tagDescriptorBytes after newBuffer and drops the answer (its empty count loop dropped)
+readWsmoChunk	kIsBmx: ZGE4 scales the kind 1 vector by 9.81 (on VU0)
+beginFramePackets	kIsBmx: ZGE4 starts the frame's mesh packet here, in the buffer of the display's frame parity, with its request queue (Renderer::frameRequestQueue) and the primitives' buffers (resetPrimitiveBuffersIntoPacket), then beginningFrameNoop
+finishFrame	kIsBmx: ZGE4 leaves the request queue's end, takes the frame's queue from frameRequestQueue, and neither flips the mesh packet nor resets the primitives' buffers (its beginFramePackets does)
+sendFramePacket	kIsBmx: the frame being built is the display's frame parity (frameBeingBuilt); g_sentFrame and g_frameSent bound at the display's BMX words
+applyFrameFixups	kIsBmx: ZGE4's fix-up kind kFixupDrawFrame (FRAME_1's FBP from the drawing environment), its other kinds one higher (display.h)
+renderFrame	kIsBmx: ZGE4 walks the cameras in a local (no g_renderCamera) and divides its display's vsyncs a second (vsyncsPerSecond), unsigned
+drawSkinned	layout: the view's material table (drawnMaterials: NodeView::materials, node + view * 0x20 + 0x194) where ZGE3 reads Node::materials; registers otherwise (34 calls in the same order)
+initMaterialLayers	layout: ZGE4's state-changed mark is the type's bit 0, the upper half of the doubleword from the tag table pointer (markMaterialStateChanged)
+updateNodeLights	kIsBmx: a node of the first draw bucket (kNodeSecondBucket clear) starts from ZGE4's second pair of default light matrices (Renderer +0xB0, +0xF0), the others from the default lights' (+0x130, +0x170)
+drawNodeInView	kIsBmx: a node whose lights changed and that has none of its own gets them when its part is lit by normals; the view's material table (viewMaterials: NodeView::materials)
+buildFogPlanes	kIsBmx: ZGE4's planes end a pixel above the viewport's bottom (its two lower corners' y less 1)
+nodeVisibleInView	kIsBmx: the bounds clipped with the world matrix moved by the node's origin (Node::origin, +0x110), a copy in the frame
+drawNodeTree	layout: ZGE4's frame stamp packed in NodeView::lodAndFlags (setViewFrameStamp) and its drawn bit 27 (kViewDrawn); registers otherwise
+copyMaterialTable	kIsBmx: ZGE4 releases each material copy once the new table holds it (releaseMaterial)
+loadMaterialRest	kIsBmx: ZGE4's material has one layer: only the MATI's first layer's states are set
+allocateMeshStreams	kIsBmx: ZGE4 releases each stream the part had before it makes it new (releaseStream)
+mirrorPose	kIsBmx: ZGE4 leaves a pair alone when the object lacks either bone; its locals at the original frame offsets (readable_locals_bmx.tsv)
+createEntityObject	kIsBmx: ZGE4 takes the node's model object from nodeModelObject (ZGE4 only: found or made) and leaves an object that belongs to something unplaced; its locals at the original frame offsets (readable_locals_bmx.tsv)
+newAppInstanceNode	kIsBmx: ZGE4 takes the next count until no geometry node has the name (geometryNodeNamed, ZGE4 only), keeps the flags' 13-bit field at bit 32 and the views' level of detail at bits 28-31
+addLevelObject	kIsBmx: ZGE4 has the scene kind inline, with a test for no scene (objectSceneKindOrNone)
+findBodyFaceContacts	ZGE4 two-sided faces: a face turned to the body before its test; a normal long enough made length 1 (w 0); its frame 0x20 bigger (vertexIndices at 0xF0: readable_locals_bmx.tsv)
+loadBoneChunk	kIsBmx: ZGE4 keeps a 0x20-byte record whatever the chunk's size (BoneRecord's BMX layout, part.h)
+newTextureFromPixels	kIsBmx: ZGE4 marks the image as having alpha (kImageHasAlpha) before its texels
+expandPalettedImage	kIsBmx: ZGE4 reads 4-bit pixels two a byte and looks an 8-bit run of one index up once (the longest run so far copied when its index comes again)
+resolveBodyContact	a VU0 vnop more and the step length's word (g_dynamicsStepSeconds, bound); read, no recording
+findWorldObjectByHash	GeoObject's BMX layout (nameHash +0x54, geo.h); read, no recording
+newProfileBar	ZGE4's ProfileBar (0xE0 bytes: peakCycles +0x10, scale +0x14, colour +0x20, displayMask +0x24) and Profiler (displayFlags +0x7C), the display task's source line 670
+startProfileBar	ZGE4's ProfileBar layout (displayMask +0x24)
+stopProfileBar	ZGE4's ProfileBar layout (displayMask +0x24)
+endProfileBarFrame	ZGE4's ProfileBar layout and its colour changes kept as the last frame's (endFrameColourChanges: memoryCopy of 0x50 bytes, its result the function's)
+initProfiler	ZGE4's Profiler (0x80 bytes: the label offset +0x74/+0x78 cleared, displayFlags +0x7C) and its 0xE0-byte bars
+setProfileBarScale	ZGE4's ProfileBar layout (scale +0x14)
+resetProfilePeaks	ZGE4's ProfileBar layout (peakCycles +0x10)
+freeProfileBar	ZGE4's ProfileBar layout (displayMask +0x24) and Profiler (displayFlags +0x7C)
+drawProfileLabel	ZGE4 adds the profiler's label offset (+0x74, +0x78) to the label's position
+textEscape	READABLE_PARAM_ONLY(bmx, apply): ZGE4's third word, 0 reads the escape and leaves the style
+initPlatform	kIsBmx: ZGE4 loads VU0's microprogram last (loadVu0Microprogram, BMX 0x10F2B0)
+soundTask	kIsBmx: ZGE4's held voice states (stepHeldVoice: keyed on, finished and stopped 30 frames each, Voice::stateFrames +0x05)
+stopVoice	kIsBmx: ZGE4 keys off only a voice keyed on, playing or in state 6, and holds it finished 30 frames
+allocateVoice	kIsBmx: ZGE4 gives up after a lap of the channel table (the voice lock kept held: bug kept) and unlinks a stolen voice's channel only when it was to be freed with it
+measureText	ZGE4's TextStyle (0x40 bytes: lineSpacing +0x24, letterSpacing +0x28, align +0x2C, monospaced bit 4 of +0x30)
+drawTextQuads	ZGE4's TextStyle (angle +0x34, width/height +0x38/+0x3C) and 0x70-byte TextQuadRecord (corners first, texture +0x40)
+debugDrawFlags	kIsBmx: ZGE4 hands on the primitive's bit 1 inverted, in place of the caller's
+shutdownDebugSystem	the same logic: the shutdown hook read by its address (BMX 0x244A1C), the geometry and text tasks bound (bound.tsv)
+saveScratchpad	the same logic: ZGE4 tail-calls memoryCopy (its result the function's either way)
+restoreScratchpad	the same logic: ZGE4 tail-calls memoryCopy
+shutdownEngine	kIsBmx: ZGE4 has no engineStopHook (shutDownGraphicsSystems after destroyDeferredPools)
+startEngine	kIsBmx: ZGE4 has no engineStartHook (initGraphicsSystems first)
+aimBoneChain	the same logic: ZGE4's inline unit() has a second vnop before its vdiv, and placeJoint's loop no leading nop
+initRenderer	kIsBmx: ZGE4 makes its billboard queue after the screen overlay (initBillboardQueue), takes no mesh packet (beginFramePackets does) and sets up its lights in setUpLightMatrices
+shutDownRenderer	kIsBmx: ZGE4 frees its billboard queue first (freeBillboardQueue)
+beginViewPacket	kIsBmx: ZGE4 draws its queued billboards after the texture cache's hook (drawQueuedBillboards)
+sampleCount	kIsBmx: ZGE4 asks bankTables for the slot's bank (its word at +0x10 is bank.h's BMX sampleCount)
+bankWaveCount	kIsBmx: ZGE4 asks bankTables for the slot's bank (ZGE3 reads it inline)
+sample	kIsBmx: ZGE4 asks bankTables for the slot's bank
+waveRef	kIsBmx: ZGE4 asks bankTables for the slot's bank
+bankSampleInfo	kIsBmx: ZGE4 asks bankTables for the slot's bank
+bankSoundSet	kIsBmx: ZGE4 asks bankTables for the slot's bank
+bankPlaylistCount	kIsBmx: ZGE4 asks bankTables for the slot's bank
+groupCount	kIsBmx: ZGE4 asks bankTables for the slot's bank
+bankPlaylist	kIsBmx: ZGE4 asks bankTables for the slot's bank
+group	kIsBmx: ZGE4 asks bankTables for the slot's bank
+unloadSoundBankAt	kIsBmx: ZGE4 frees its waves' one block of sound memory (the slot's handle) in one request
+shutdownEngineSystems	kIsBmx: ZGE4 first calls an empty shut-down (engineSystemsShutdownNoop) and freeCarriedAnimals
+freeCarriedAnimals	kIsBmx: ZGE4 frees the animal attachments' pool before the carriers' (the pools made in ZGE3's order)
+initEngine	kIsBmx: ZGE4 shows no start-up picture (no legalScreen, showRawImage) and sets up the carried animals and an empty system (engineSystemsInitNoop) before the frame callback
+initTextureFx	kIsBmx: ZGE4 makes a second task that runs animateTextures (stage 7) and returns it; its newTask lines
+freeTextureEffects	kIsBmx: ZGE4 deletes its animateTextures task too
+initEffectArrays	kIsBmx: ZGE4 registers the spark, billboard and poly particle kinds here
+saveApiLoad	ZGE4 takes a third word and hands it on in the register startLoadJob does not read (READABLE_PARAM_ONLY)
+saveApiLoadChoice	ZGE4 takes a third word and hands it on in the register startLoadChoiceJob does not read (READABLE_PARAM_ONLY)
+engineMain	kIsBmx: ZGE4 prints a fourth start-up line (the program's sizes), has its own version numbers and takes a vsync's time from the display's rate (vsyncsPerSecond) where ZGE3 has the constant
+tagVector	kIsBmx: ZGE4 copies the three words in place (unaligned loads and stores) where ZGE3 calls memoryCopy
+setTagVector	kIsBmx: ZGE4 copies the 12 bytes in place (no memoryCopy) and answers nothing
+newCamera	kIsBmx: the object made by ZGE4's initSceneObject (newObjectOfKind) with its camera kind 5
+destroyCameraObject	kIsBmx: ZGE4 frees the object's animator (freeObjectAnimator) before the camera
+initEffectTables	the same stores (AI's file is compiled unoptimised: the words differ throughout); ZGE4 answers nothing
+freeNamedEffectClasses	kIsBmx: ZGE4 has the registries' walk in place (no arrayFirst)
+registerEffectClassName	ZGE4 asks the heap itself (no effectNameAllocate) and leaves through pointerArrayAdd (kRegistryWithoutHelpers)
+unregisterEffectClassName	kIsBmx: ZGE4 has the registry's walk in place (no arrayFirst, arrayNext)
+findEffectClassByName	kIsBmx: ZGE4 has the registry's walk in place (no arrayFirst, arrayNext)
+registerEffectTypeName	ZGE4 asks the heap itself (no effectNameAllocate) and leaves through pointerArrayAdd (kRegistryWithoutHelpers)
+registerNamedEffectClass	ZGE4 asks the heap itself (no effectNameAllocate) and leaves through pointerArrayAdd (kRegistryWithoutHelpers)
+initEffectClass	ZGE4 leaves through initList (kRegistryWithoutHelpers)
+findNode	ZGE4's node word (widget.h Node): the kind in 4 bits
+countChildrenOfKind	ZGE4's node word (widget.h Node): the kind in 4 bits
+nthChildOfKind	ZGE4's node word (widget.h Node): the kind in 4 bits
+variableToText	ZGE4's node word (widget.h Node): the kind in 4 bits
+variableIntValue	ZGE4's node word (widget.h Node): the kind in 4 bits
+variableFloatValue	ZGE4's node word (widget.h Node): the kind in 4 bits
+variableIntValueAgain	ZGE4's node word (widget.h Node): the kind in 4 bits
+destroyNode	ZGE4's node word (widget.h Node): the kind in 4 bits, the ownership flags bits 4 and 5
+initNode	ZGE4's node word (widget.h setNodeKind): the kind in 4 bits, the ownership flags bits 4 and 5, the anchor cleared, the message bits 14..29
+sendMessage	ZGE4's node word (widget.h Node): the kind in 4 bits, the message bits 14..29
+fireGuiEventHandlers	ZGE4's node word (widget.h Node): the kind in 4 bits, the message bits 14..29
+setVariableValue	ZGE4's node word (widget.h Node): the kind in 4 bits, the message bits 14..29
+setVariable	ZGE4's node word (widget.h Node): the message bits 14..29
+freeNodeData	ZGE4's node word (widget.h Node): the message bits 14..29
+addListener	ZGE4's node word (widget.h Node): the message bits 14..29 (read, changed, written back)
+declareVariable	ZGE4's node word (widget.h Node): the message bits 14..29 (read, changed, written back)
+addVariableNode	ZGE4's node word (widget.h Node): the message bits 14..29 (read, changed, written back)
+defineProperty	ZGE4's node word (widget.h Node): the message bits 14..29 (read, changed, written back)
+defineTypedProperty	ZGE4's node word (widget.h Node): the message bits 14..29 (read, changed, written back)
+commandLockInput	ZGE4's message numbers (widget.h Message: LockInput 1)
+commandUnlockInput	ZGE4's message numbers (widget.h Message: UnlockInput 2)
+commandSetFocus	ZGE4's message numbers (widget.h Message: SetFocus 4)
+commandKillFocus	ZGE4's message numbers (widget.h Message: SetFocus 4)
+commandRefresh	ZGE4's message numbers (widget.h Message: Refresh 9)
+assetIdSet	ZGE4's message numbers (widget.h Message: Refresh 9)
+assetIdDestroy	ZGE4's message numbers (widget.h Message: Refresh 9)
+commandDestroy	ZGE4's message numbers (widget.h Message: Destroy 10)
+commandCall	ZGE4's host function entry (script.h HostFunction: no copy of the name, the function at +0x0C)
+playWidget	g_playing 0x2E0 after g_heap in ZGE4 (0x2DC in ZGE3): the same globals, each bound
+defineGuiButtonProperties	ZGE4's message numbers (widget.h Message: Input 3, LostFocus 5, GetFocus 6)
+defineGuiIdleFuncProperties	ZGE4's message numbers (widget.h Message: Draw 7)
+defineGuiModelProperties	ZGE4's message numbers (widget.h Message: Draw 7, Refresh 9)
+drawGuiInputGroup	ZGE4's message numbers (widget.h Message: LostFocus 5, GetFocus 6)
+defineGuiInputGroupProperties	ZGE4's message numbers (widget.h Message: Input 3, Draw 7, LostFocus 5, GetFocus 6)
+defineGuiTogglerProperties	ZGE4's message numbers (widget.h Message: Input 3, LostFocus 5, GetFocus 6)
+defineGuiTreeViewProperties	ZGE4's message numbers (widget.h Message: Input 3, Draw 7, Refresh 9, LostFocus 5, GetFocus 6)
+resolvePath	ZGE4's node word (widget.h Node): the kind in 4 bits
+updatePlaying	g_playing 0x2E0 after g_heap in ZGE4 (0x2DC in ZGE3): the same globals, each bound
+commandDebugPrint	ZGE4 asks valueText for no report (perGame)
+newZguiWidget	kIsBmx: ZGE4's widget keeps no kind name (+0x1C not written)
+setTopPanel	kIsBmx: ZGE4 sends nothing when the focus is the widget already
+handleGuiButtonInput	ZGE4's global record (widget.h Zgui: the sound hooks +4, the masks start +0x314, accept +0x318, cancel +0x324)
+handleGuiInputGroupInput	ZGE4's global record (widget.h Zgui: the sound hooks +4, accept +0x318, cancel +0x324) and message numbers (Input 3)
+handleGuiKeyboardInput	ZGE4's global record (widget.h Zgui: the sound hooks +4, accept +0x318, option +0x31C, cancel +0x324)
+handleGuiTogglerInput	ZGE4's global record (widget.h Zgui: the sound hooks +4, accept +0x318, option +0x31C, cancel +0x324)
+handleGuiTreeViewInput	ZGE4's global record (widget.h Zgui: the sound hooks +4, accept +0x318, cancel +0x324) and node word (the kind in 4 bits)
+guiModelNodeShown	kIsBmx: ZGE4's widgets keep no class name (no "guiModel" check); the node word's kind in 4 bits
+initZgui	kIsBmx: ZGE4 clears PlatformID before defining it and gives the root ScreenWidth, ScreenHeight and FileOperationCount; the tasks' lines (perGame 228, 233); the global record's layout (widget.h Zgui); the flags word in s3
+findUiLibrary	ZGE4's pending load (library.cpp PendingLoad: the library's name 0x40 characters, the fields after it 0x20 further on)
+finishUiLibraryLoad	ZGE4's pending load (library.cpp PendingLoad: the library's name 0x40 characters, the fields after it 0x20 further on)
+finishUiAssetLibraryLoad	ZGE4's pending load (library.cpp PendingLoad: the library's name 0x40 characters, the fields after it 0x20 further on)
+finishUiImageLoad	ZGE4's pending load (library.cpp PendingLoad: the library's name 0x40 characters, the fields after it 0x20 further on)
+defineWidgetProperties	kIsBmx: ZGE4 clears the widget's size (widget_parts.h Widget: width +0x48, height +0x4C) and its alignment (Node::alignment +0x1C; no kind name)
+defineGuiLineProperties	ZGE4's line (widget_kinds.h GuiLine: its width the widget's, Widget::width +0x48; material +0x128, properties +0x12C) and message numbers
+refreshGuiLine	ZGE4's line (widget_kinds.h GuiLine: its width the widget's, Widget::width +0x48; material +0x128, properties +0x12C) and message numbers
+drawGuiLine	ZGE4's line (widget_kinds.h GuiLine: its width the widget's, Widget::width +0x48; material +0x128, properties +0x12C) and message numbers
+setGuiModelCallbacks	the scene node's child links in ZGE4 (zge/scene/node.h: firstChild +0x15C, nextSibling +0x160)
+answerSaveFileChoice	ZGE4 copies the name into its own buffer (g_chosenSaveFileName) and posts that
+removeBodyContact	ZGE4 returns at once with no point, and frees the point itself where ZGE3 frees the one before it
+destroyRigidModel	ZGE4 frees the object's animator (freeObjectAnimator) before releasing its scene
+modelPoseHook	ZGE3 empty; ZGE4 walks each model pose (poolForEach of g_modelPosePool with modelPoseVisit)
+startStreamSample	ZGE4 resets the bank's playlists by resetStreamChannelPlaylists (ZGE3 inline)
+registerGeometryChunkHandlers	ZGE4 registers ZLZO (after MODL) and TGFV (after TGFE) too
+addRigidPositions	ZGE4 takes a part with bones's positions from the start (no second set past its vertices)
+newSceneRecord	ZGE4 sets its flag 0x20 (setCameraFlag20) after the clears and counts view cameras (g_viewCameraCount)
+drawBlur	ZGE4 calls the GS state program at 0x26 (ZGE3 0x24), reads ZBUF from the scratchpad's first word and FRAME / XYOFFSET from drawEnvironment0() (ZGE3: scratchpad +0x8 .. +0x18)
+beginShadowPass	kIsBmx: ZGE4 builds the volume's FRAME_2 from 0 (FBW and FBMSK from drawEnvironment0()), takes ZBUF from the scratchpad's first word (kSceneZbuf) and puts FRAME_2 back as the volume's with a kFixupDrawFrame fix-up (addSceneTargets)
+buildShadowVolumePacket	kIsBmx: FRAME_2 / ZBUF_2 back as beginShadowPass's (addSceneTargets); its near clip and far scale at the frame's +0xB0 / +0xB4 (readable_locals_bmx.tsv)
+buildDiscShadowPacket	kIsBmx: FRAME_2 / ZBUF_2 back as beginShadowPass's (addSceneTargets)
+drawRigid	kIsBmx: after the node's matrix ZGE4 sends the rigid lights (addRigidLights: for a node with kNodeOwnLights the first bucket's light matrices, the directions' by the world, and no unfogged program; else a zero quadword)
+spawnLevelObjects	kIsBmx: then every particle emitter object (kind 4) with tags spawned as a "ZPE" level object (spawnZpeLevelObject), and objectComponent's cache emptied
+removeLevelObjects	kIsBmx: objectComponent's cache emptied after
+sourceHeard	kIsBmx: ZGE4 keeps the scaled range a float (no sound: the range read as signed), and with one listener gives the pan and a third output (aheadOut) from the side and the depth squared, no x == 0 test
+updateEffects	kIsBmx: ZGE4 keeps the scaled range a float (an emitter with no sound scaled by class 64's factor), and with one listener pans by the side squared and keeps the depth squared (SoundEmitter::ahead)
+ps2MoviePlay	kIsBmx: ZGE4 flushes the texture cache through requestTextureCacheFlushThunk (0x107830; flushTextureCache)
+ps2MovieStop	kIsBmx: ZGE4 flushes the texture cache through requestTextureCacheFlushThunk (0x107830; flushTextureCache)
+detachAnimal	ZGE4 calls the carried record's let-go call (+0x24: the object, carriedObjectsStep()) where AI sends ParrotAttached to both sides
+drawBlur	ZGE4 reads ZBUF from the scratchpad's first word and FRAME / XYOFFSET from drawEnvironment0() (ZGE3: scratchpad +0x8 .. +0x18)
+defineGuiTextBoxProperties	ZGE4's text kinds (widget_parts.h GuiText: alignment, width and height the widget's, the node's +0x1C and +0x48/+0x4C (WidgetLayout); monospace +0x128, lineOffset +0x12C, lineCount +0x130, properties +0x134) and message numbers
+defineGuiLabelProperties	ZGE4's text kinds (widget_parts.h GuiText: alignment, width and height the widget's, the node's +0x1C and +0x48/+0x4C (WidgetLayout); monospace +0x128, lineOffset +0x12C, lineCount +0x130, properties +0x134) (a label's properties +0x12C) and message numbers
+refreshGuiTextBox	ZGE4's text kinds (widget_parts.h GuiText: alignment, width and height the widget's, the node's +0x1C and +0x48/+0x4C (WidgetLayout); monospace +0x128, lineOffset +0x12C, lineCount +0x130, properties +0x134) and ZGE4's text style (text.cpp TextStyle, font.h: 0x40 bytes, lineSpacing +0x24, letterSpacing +0x28, align +0x2C, monospaced bit 4 of +0x30, its low four bits cleared)
+refreshGuiLabel	ZGE4's text kinds (widget_parts.h GuiText: alignment, width and height the widget's, the node's +0x1C and +0x48/+0x4C (WidgetLayout); monospace +0x128, lineOffset +0x12C, lineCount +0x130, properties +0x134) and ZGE4's text style (text.cpp TextStyle, font.h: 0x40 bytes, lineSpacing +0x24, letterSpacing +0x28, align +0x2C, monospaced bit 4 of +0x30, its low four bits cleared)
+drawTextWidget	ZGE4's text kinds (widget_parts.h GuiText: alignment, width and height the widget's, the node's +0x1C and +0x48/+0x4C (WidgetLayout); monospace +0x128, lineOffset +0x12C, lineCount +0x130, properties +0x134) and ZGE4's text style (text.cpp TextStyle, font.h: 0x40 bytes, lineSpacing +0x24, letterSpacing +0x28, align +0x2C, monospaced bit 4 of +0x30, its low four bits cleared)
+measureTextWidget	ZGE4's text kinds (widget_parts.h GuiText: alignment, width and height the widget's, the node's +0x1C and +0x48/+0x4C (WidgetLayout); monospace +0x128, lineOffset +0x12C, lineCount +0x130, properties +0x134) and ZGE4's text style (text.cpp TextStyle, font.h: 0x40 bytes, lineSpacing +0x24, letterSpacing +0x28, align +0x2C, monospaced bit 4 of +0x30, its low four bits cleared)
+defineGuiImageProperties	ZGE4's image (widget_kinds.h GuiImage: alignment the node's +0x1C, width and height the widget's; unused +0x14C, uScale +0x150, vScale +0x154, properties +0x158) and message numbers
+drawQuadWidget	ZGE4's image (quad.cpp QuadWidget: alignment the node's +0x1C, width and height the widget's, u +0x150, v +0x154); kIsBmx: the matrix's translation row's fourth word cleared
+defineGuiFrameProperties	ZGE4's frame (widget_kinds.h GuiFrame: alignment the node's +0x1C, width and height the widget's; materials +0x138, properties +0x15C) and message numbers
+refreshGuiFrame	ZGE4's frame (widget_kinds.h GuiFrame: materials +0x138)
+defineGuiClipperProperties	ZGE4's clipper (widget_kinds.h GuiClipper: Width and Height the widget's ZFloats, previousViewport +0xF0, property +0x100) and message numbers
+drawGuiClipper	ZGE4's clipper (widget_kinds.h GuiClipper: Width and Height the widget's ZFloats, previousViewport +0xF0)
+drawAfterGuiClipper	ZGE4's clipper (widget_kinds.h GuiClipper: previousViewport +0xF0)
+registerWidgetKinds	ZGE4's kinds' sizes (perGame: clipper, frame, image, keyboard, key sniffer, label, menu, scroll view) and its guiGroup's own definition (defineGuiGroupProperties)
+defineGuiTapeProperties	ZGE4's tape (widget_kinds.h GuiTape: Width and Height the widget's ZFloats where ZGE3's are Sint32s; textFormat +0x16C, charset +0x170) and message numbers
+refreshGuiTape	ZGE4's tape (widget_kinds.h GuiTape: Width and Height the widget's ZFloats where ZGE3's are Sint32s; textFormat +0x16C, charset +0x170)
+drawGuiTape	ZGE4's tape (widget_kinds.h GuiTape: Width and Height the widget's ZFloats where ZGE3's are Sint32s; textFormat +0x16C, charset +0x170) and ZGE4's text style (font.h: lineSpacing +0x24, letterSpacing +0x28, align +0x2C, the low four bits of +0x30 cleared, angle +0x34)
+defineGuiScrollViewProperties	ZGE4's scroll view (widget_kinds.h GuiScrollView: Width and Height the widget's, offset +0x148, endReached +0x14C, properties +0x150; an Alignment property over the node's +0x1C and the EndReached variable, kIsBmx) and message numbers
+drawGuiScrollView	ZGE4's scroll view (widget_kinds.h GuiScrollView) and text style; its lines aligned by its Alignment (ZGE3 centres them, lineAlignment), and kIsBmx: EndReached set after the lines (the next line's y above the window's top)
+defineGuiScreenSpaceProperties	kIsBmx: ZGE4's screen space is the screen's size (g_screenWidth by g_screenHeight as unsigned, in the widget's Width/Height) with Width and Height variables (its own texts); message numbers
+defineGuiMenuProperties	ZGE4's menu (widget_kinds.h GuiMenu: two arrow fades +0x110/+0x114, so asset +0x118 .. onChange 8 further; Alignment, Width and Height the widget's; StartArrow/EndArrow +0x1A4/+0x1A8 and their properties; properties +0x1AC); VisibleCount 5 (perGame), the widget's size cleared (kIsBmx); message numbers
+refreshGuiMenu	ZGE4's menu (widget_kinds.h GuiMenu: asset +0x118, colours +0x148..)
+defineGuiKeyboardProperties	ZGE4's keyboard (widget_kinds.h GuiKeyboard: Width and Height the widget's, properties +0x190) and message numbers
+drawGuiKeyboard	ZGE4's keyboard (Width and Height the widget's) and text style (font.h; its frame 0x10 smaller: readable_locals_bmx rows)
+defineGuiKeySnifferProperties	ZGE4's key sniffer (widget_kinds.h GuiKeySniffer: four words at +0xFC set to 1, the rest 0x10 further; OnOption2, OnLTrig3, OnRTrig3, OnSpecial; the Fire events' properties last; properties +0x188); kIsBmx: clearZge4SnifferFields; message numbers
+drawGuiKeySniffer	ZGE4's key sniffer (widget_kinds.h GuiKeySniffer and kKeyEvents: option2 runs OnOption2, 0x1000 OnLTrig3, 0x2000 OnRTrig2 again); AutoRepeat repeats the d-pad alone, every 0.064 s (perGame; ZGE3 every button but Fire1-4, 0.05 s)
+drawWidget	kIsBmx: ZGE4 places a widget at its anchor in its container (widget_parts.h placeAtAnchor: the container's Width/Height, the screen position's w kept) and calls DrawAfter (no tail jump); the node word's kind bits
+unloadUiLibrary	kIsBmx: ZGE4 calls requestTextureCacheFlush through its thunk (requestTextureCacheFlushThunk 0x107830, a word 0 it ignores); message numbers
+zguiScript_Load	ZGE4's pending load (PendingLoad: its name 0x40 bytes, the rest 0x20 further, 0x160 bytes) and the global record's list +0x2F4; the same calls in the same order (the onLoaded test moved by the compiler); frame rows (readable_locals_bmx)
+operateVariables	ZGE4's operations (script.h Operation: ROUND 5, the comparisons after it); kIsBmx: each type's ROUND (ints and colours the source as it is, floats and the vector's four lanes rounded half away from zero), the texts' source read first; frame rows (readable_locals_bmx)
+commandIf	ZGE4's comparison numbers (script.h Operation: Equal 6 .. NotEqual 11); frame rows (readable_locals_bmx)
+startGuiModelAnimation	kIsBmx: ZGE4 keeps no kind name: no "guiModel" check, the scene object alone (its result, then dead in startPlaying, 0 without one)
+updateGuiModelAnimation	kIsBmx: ZGE4 keeps no kind name: no "guiModel" check, the scene object alone
+drawBoxWidget	ZGE4's frame (widget_kinds.h BoxWidget: Alignment, Width, Height the widget's, texture names +0x138); kIsBmx: the span ratios answer 0 for a picture of no size (spanRatio; its compiler computes each twice)
+updateZgui	kIsBmx: ZGE4 sets the root FileOperationCount from fileRequestsInFlight each frame, repeats the d-pad alone, and drains the destroy queue in its own function (destroyQueuedNodes 0x17B3B8); its global record's layout (widget.h Zgui) and message numbers
+updateInterpolate	kIsBmx: ZGE4's linear ratio is 0 for an interval of 0 (no division)
+drawGuiTreeView	ZGE4's text style (font.h: 0x40 bytes, its low four bits of +0x30 cleared)
+removeLevelObject	kIsBmx: the object's scene asked first; one with none is deleted (its tags released first) unless a particle emitter (kind 4); locals row nameKey 0x20
+bindTexture	field offsets only: the material's and the primitive words' BMX XXX layouts (material.h, primitives.h; the two-sided bit read through a 16-bit mask first)
+updateBoxes2	field offsets only: the node's BMX XXX layout (node.h)
+updateWorldMatrices2	its own address as the child walk's visitor (by symbol)
+splitColourBox	ZGE4's median cut: its boxes 0x2C bytes (images.h ColourBox), each linked into its parent as the half it is (a seventh word) and keeping the channel and middle it was split at
+paletteFromColourBoxes	ZGE4's boxes (images.h ColourBox): a merged box taken out of its parent's halves, palette entry 0 kept for a clear pixel (the leaves fill from entry 1, so one fewer may stay), and each leaf given its entry's number
+quantizeImage	ZGE4's boxes (0x800 of 0x2C bytes, each copied from the blank box), the pixels' copy from the heap, and the texels found by walking the boxes (texelsFromColourBoxes) before they are freed
+readHfntChunk	the chunk's data from main memory (allocateMemory, freeMemory), and the font made from it by ZGE4's readFontHeader (newFontFromData) where ZGE3 makes an empty font first
+findParticleType	the particle type's layout (particle_types.h: ZGE4's copySettings method at +0x14, every field after it 4 bytes on)
+registerParticleType	the particle type's layout (its size, 0x48)
+unregisterParticleType	the particle type's layout
+bindParticleBehaviour	the particle type's layout
+spawnParticleEffect	the particle type's layout
+updateParticleEffect	the particle type's layout
+drawParticleEffect	the particle type's layout
+shutdownParticleTypes	ZGE4 takes the three kinds' pools down first (unregisterSparkParticles, unregisterBillboardParticles, unregisterPolyParticles), then the particle type's layout
+bodyBox	the rigid body's layout (dynamics.h: shape at +0x2D4)
+pushBodyFromPoint	one vnop more in the VU0 sequence (timing only); the length threshold is the same constant at BMX XXX's address
+particleSpawnPoint	the emitter data's layout (particle_types.h: ZGE4's spawnShape +0x70, spawnSize +0x80)
+addEmitterEffect	the emitter data's layout (settings +0x18) and the particle type's (nameHash +0x2C, typeIndex +0x34)
+setupEmitterEffects	the ZPED record's layout (definitionCount +0xC0, definitions +0xC4)
+setEmitterMaterialTextures	the emitter data's and the particle type's layout; perGame: ZGE4 fills the material's first texture slot only
+drawProfileDisplay	kIsBmx: ZGE4 takes the display's inside width as a signed int and keeps the bar length's fraction (ZGE3 converts it unsigned and truncates)
+saveSystemTask	kIsBmx: ZGE4's kMessageShowChoiceNoCancel (13; ZGE3's kMessage13, slot and file menus are ZGE4's 14, 15, 16: save_system.h perGame) shows a choice with showChoice's third word 0, kMessageShowChoice with 1 (save_system.h: the client's showChoice takes it); the client's layout
+particleSpawnVelocity	kIsBmx: ZGE4 varies the speed by params.speedSpread at random and turns the direction by the matrices' rotations alone; the emitter data's layout
+updateParticleEmitterObject	kIsBmx: ZGE4 hangs the object from the model object of the parent's name (namedModelObject when findSceneObject gives none or no model) and places it relative to the bone from its matrix (emitterMatrixOf, bone inverse, matrixMultiply, setObjectPosition, matrixToQuaternion), counts a start message's burst down, marks the pose stale every frame, keeps the object always updated while particles live, and spawns by the data's live rate (EmitterBurst); the emitter data's layout
+destroyParticleEmitterObject	kIsBmx: ZGE4 takes the object off g_particleEmitterObjects first, frees the bindings only when releaseArrayReference gives 0, does not clear the emitter list (leaveScene does) and gives the data back to g_particleEmitterDataPool (poolGiveDestroying); the type's layout (releaseSettings +0x18)
+registerParticleEmitterChunkHandlers	kIsBmx: ZGE4 clears g_particlesOff, makes g_particleEmitterObjects (0xC8) before registerWsmChunkHandlers and the task over them (updateParticleEmitterObjects, priority 7, line 450) after it
+shutdownParticleEmitterObjects	kIsBmx: ZGE4 deletes the objects' task (when made) and frees g_particleEmitterObjects before freeEmitterList
+newParticleEmitterSceneObject	kIsBmx: ZGE4's newObjectOfKind(4), the data from g_particleEmitterDataPool (poolTakeCreating, 0x150), the data's object set, and the burst started when the record's burst time is over 0; the task's source line 635
+emitterStartMessage	kIsBmx: ZGE4 sets emitting from the live rate, starts the burst (bursting 1, burstLeft from burstSeconds) and marks the pose stale (markPoseStale); the emitter data's and the type's layout
+emitterRateMessage	kIsBmx: ZGE4 writes the live rate (EmitterBurst::rate), ends the burst and marks the pose stale (markPoseStale); the emitter data's layout
+readZpeoChunk	kIsBmx: ZGE4 puts the object on g_particleEmitterObjects after registerLoadedAsset
+readZpedChunk	kIsBmx: ZGE4's record (recordBytes first, the billboard words, burstSeconds): the words copied, the placement written into the data's matrix (quaternionToMatrix, the position its last row) with markPoseStale in place of setObjectPosition and setObjectOrientation, the live rate from params.rate, and the chunk's trailing data read into the data (chunkDataSize less recordBytes)
+freeBillboardSettings	kIsBmx: ZGE4 frees nothing when the settings have no look (settings->look 0); the type's layout
+rwfopen	kIsBmx: ZGE4 answers 0 for a file that would not open without registerFileError (ZGE3 registers "rwfopen() failed")
+pcfsReadFile	the same words in another order: the copy's source address is added as s1 + (offset + 0xC) where ZGE3 adds (offset + s1) + 0xC
+anchorHoldsPiece	the anchor's layout (park_anchors.h: reserved at +0x80, 0x90 bytes)
+anchorReserved	the anchor's layout (park_anchors.h: reserved at +0x80, 0x90 bytes)
+attachToAnchor	the anchor's layout (park_anchors.h: reserved at +0x80, 0x90 bytes)
+editAnchorMessage	the anchor's layout (park_anchors.h: reserved at +0x80, 0x90 bytes)
+reserveAnchor	the anchor's layout (park_anchors.h: reserved at +0x80, 0x90 bytes)
+registerEditAnchorClass	the anchor's layout (park_anchors.h: reserved at +0x80, 0x90 bytes)
+clearUiButton	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+clearUiButtonPage	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+fireUiButton	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+newEditUi	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them); delay slots
+newUiButtonPage	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+popUiButtonPage	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+pushUiButtonPage	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them); delay slots
+setEditUiPadLostHandler	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+setUiButton	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+setUiButtonRepeat	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+watchEditUiPad	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them); delay slots
+updateEditUi	the interface's 28 inputs (park_ui.h kButtonCount: EditUi's and UiButtonPage's arrays and what follows them)
+clearEditCoreCallbacks	the core's events (edit_core.h: one more, so the quit callback is at +0x90 of 0x94 bytes); delay slots
+editCoreExitEdit	the core's events (edit_core.h: one more, so the quit callback is at +0x90 of 0x94 bytes); delay slots
+endEditCore	the core's events (edit_core.h: one more, so the quit callback is at +0x90 of 0x94 bytes); delay slots
+startEditCore	the core's events (edit_core.h: one more, so the quit callback is at +0x90 of 0x94 bytes); delay slots
+constructEditTerrainTool	its tool bar icon, 'F' (kTerrainToolIcon)
+newEditToolSet	editToolSet.c's line it gives newTask, 164 (kEditToolSetSourceLine); delay slots
+readCategoryDef	the instructions AI's; only its strings' addresses
+readObjectDef	the instructions AI's; only its strings' addresses
+readObjectList	the instructions AI's; only its strings' addresses
+readParkMap	a delay slot filled at its end
+readPieceFile	a delay slot filled at its end
+saveEditObject	the loop's count increment scheduled after its store
+stretchTowerDisplay	a node's levels of detail at +0x16C (node.h's ZGE4 layout); delay slots
+setEditObjectPosition	its tail jump to updateEditObjectMatrix (0x214BF8, bound.tsv), which BMX XXX's map holds inside this function
+updateEditObjectMatrix	its delay slot filled (bound.tsv row)
+editCameraHeading	word for word AI's (two words; paired by call site)
+saveEditCamera	word for word AI's (the match had it crossed with loadEditCamera: editor1's pair results)
+loadEditCamera	word for word AI's (the match had it crossed with saveEditCamera: editor1's pair results)
+parkCostAllowsMore	its cost ceiling, 200 (kParkCostLimit)
+addParkCost	the power bar's scale, 1/200 (showParkCost)
+removeParkCost	the power bar's scale, 1/200 (showParkCost)
+updateFrameRate	kIsBmx: ZGE4 brings every world mesh's moved node up to date on the first frame (forEachWorldMesh with the engine's own visitor, engineMovedNodeVisitor); its state's words (g_frameRateFirstCall among them) bound
+releaseDeferred	kIsBmx: ZGE4's third kind, a billboard effect still in use as its pool went (kDeferredBillboardEffect: freeBillboardEffect)
+destroyEmitterObject	kIsBmx: ZGE4 deletes the emitters through deleteEffectEmitters (each taken off the list before its class deletes it)
+drawAnimateSystem	kIsBmx: ZGE4 draws nothing for no system, marks the points of ids 1 and 5 again (cyan, radius 0.07), gives its points, spheres and squares flags 1 (not 3), takes each plane's object from it (objectOrTake) and builds a square from the y axis when the normal's dot with x is above 0.9 in size (ZGE3: below 0.01); frame rows (readable_locals_bmx)
+beginCameraFrame	kIsBmx: ZGE4 flushes the texture cache through its thunk, works the frustum out before the projections, and keeps only the ZBUF in the scratchpad (g_scratchZbuf bound at its first doubleword); the display's view words 0x10 later (display.h)
+beginViewDraws	kIsBmx: beginViewBillboardsNoop before the frame's VU1 set-up; the scratchpad's ZBUF and the renderer's camera word bound (g_scratchZbuf, viewCamera)
+vif1Interrupt	kIsBmx: the request queue holds the node's material table, not the node (requestTextures); the renderer's statistics bound (g_materialsSeen, g_interrupts, g_clutBytes, g_texelBytes)
+resetDisplayMode	kIsBmx: ZGE4 keeps the height it is given in PAL (no 512 lines) and only sets g_gsResetPending when field rendering changed (never clears it); the display's layout (display.h)
+initDebug	kIsBmx: ZGE4 ends with resetDebugText (the colour too) in place of the cursor's and the count's stores; its tasks made at lines 676 and 680; the hooks and the text state bound
+drawProfilePeak	kIsBmx: ZGE4 works out the width with profileBarWidth (a function of its own) where ZGE3 does it inline; peakColour bound
+findSceneModelBone	the scene's layout (boneCount +0x44, bones +0x48: ZGE4's bone capacity in front); BMX XXX's is 0x12B4C8 (port1's pair), 0x12B508 its thunk (findSceneModelBoneThunk, ZGE4 only)
+findModelBone	kIsBmx: ZGE4 asks through findSceneModelBoneThunk
+mergeSceneMeshes	kIsBmx: ZGE4 drops the copy's mesh's packets, gives the copy every bone of the joined scenes it has not got (mergeSceneBone), each one's part bone record moved by how far its scene's top bone sits from the copy's bone of the same id, and marks the joined mesh (kPartMerged); frame rows (readable_locals_bmx)
+newBillboardEffect	kIsBmx: ZGE4's billboard effect is a record of the billboard queue's (takeBillboardEffect, no look) at +0x30 where ZGE3 starts an empty particle list
+freeBillboardEmitter	kIsBmx: ZGE4 hands the effect's billboard queue record to deferBillboardEffectRelease before the heapFree
+readBillboardSettings	kIsBmx: ZGE4 marks the new look changed (lookChanged) for the type's update (the ZPED record's ZGE4 layout: particle_types.h)
+searchTreeForEachDescending	AI's 8 words, the tail jump to searchTreeWalkDescending at its BMX XXX address (bound.tsv): the same logic

@@ -1,0 +1,55 @@
+# Reference run 2, Career part, segment 2: start MOVIE LOT, loading screen, fly-thru,
+# player placed on the footbridge; then the pause menu, the CHALLENGES list and a save
+# to the memory card in slot 1 from the pause menu.
+# Start: car02-level-select-movielot (slot 77).
+# Waits: 0x24C860 player object pointer (0 in the front end, set during loading),
+# 0x231CAC level frame (0 from when the object pointer is set until loading ends, then counts;
+# the fly-thru runs to about level frame 500), 0x2A76F0 player position (y = 20000 until
+# the player is placed at (302.18, -10.85, -153.86)).
+# zgui list cursors are at panel+0x114 (pause menu: 0x839E14, 0 RESUME GAME, 1 CHALLENGES,
+# 2 ATTRIBUTES, 3 SAVE, 4 VIEW LOOT, 5 TRICK LIST, ...).
+# zgui panels (PCSX2 heap): 0x839D00 pause menu, 0x863E70 challenges, 0x83FAA0 save game
+# dialogs (one panel for slot select and confirm, 0 while writing; its address depends on
+# what was opened before, so the script only waits for it to replace the pause menu).
+# Juice (zgui script variable CartonSize, f32 at 0x838F70) drains 2 per second while the
+# skater stands still and not at all while paused, so the menus are opened right away.
+# Checkpoints: 78 car03-loading, 79 car04-flythru, 80 car05-level-start, 81 car06-pause,
+# 82 car07-challenges, 83 car08-save-slot, 84 car09-save-confirm, 86 car11-save-done
+# (plus a window capture car10-saving-window.png of the "Saving" dialog).
+pressuntil CROSS 0x276FE4 u32 == 0 600 120          # start MOVIE LOT
+waitval 0x24C860 u32 != 0 1800                      # level objects created
+wait 300
+checkpoint 78 car03-loading ../recomp/dumps/ref2 ../reference/pcsx2-run2                      # "Loading..." bar
+waitval 0x231CAC u32 >= 200 3600                    # level frames count (0 while loading): fly-thru
+checkpoint 79 car04-flythru ../recomp/dumps/ref2 ../reference/pcsx2-run2
+waitval 0x2A76F4 f32 < 1000 1200                    # player placed
+wait 20
+checkpoint 80 car05-level-start ../recomp/dumps/ref2 ../reference/pcsx2-run2                  # score 0, juice full
+pressuntil START 0x240A20 u32 == 0x839D00 300 30    # PAUSE: Resume Game, Challenges, ...
+wait 20
+checkpoint 81 car06-pause ../recomp/dumps/ref2 ../reference/pcsx2-run2
+pressuntil DOWN 0x839E14 u32 == 1 300 20           # cursor on CHALLENGES
+pressuntil CROSS 0x240A20 u32 == 0x863E70 300 30    # CHALLENGES
+wait 30
+checkpoint 82 car07-challenges ../recomp/dumps/ref2 ../reference/pcsx2-run2
+pressuntil TRIANGLE 0x240A20 u32 == 0x839D00 300 30 # back to PAUSE
+wait 10
+pressuntil DOWN 0x839E14 u32 == 3 300 20           # cursor on SAVE
+pressuntil CROSS 0x240A20 u32 != 0x839D00 300 30    # SAVE GAME: select memory card slot
+wait 90                                             # (the slot list is drawn after about 60 frames)
+checkpoint 83 car08-save-slot ../recomp/dumps/ref2 ../reference/pcsx2-run2
+press CROSS                                         # MEMORY CARD SLOT 1
+wait 60
+checkpoint 84 car09-save-confirm ../recomp/dumps/ref2 ../reference/pcsx2-run2 # "Are you sure ...?" YES / NO (NO selected);
+                                                    # with a save already on the card: "Overwrite old data?" OVERWRITE / CANCEL
+press UP                                            # YES (or OVERWRITE)
+wait 10
+press CROSS
+waitval 0x240A20 u32 == 0 120                       # writing
+wait 20
+# PCSX2 refuses savestates while the memory card is busy (during the write and for a few
+# seconds after it), so this dialog only gets a window capture, no checkpoint.
+screenshot ../reference/pcsx2-run2/car10-saving-window.png   # "Saving ... Do not remove the memory card"
+waitval 0x240A20 u32 == 0x839D00 900                # "Saving complete.", then back to PAUSE
+wait 10
+checkpoint 86 car11-save-done ../recomp/dumps/ref2 ../reference/pcsx2-run2   # (taken once the card is idle)

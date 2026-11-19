@@ -1,0 +1,349 @@
+#include "MiniTest.h"
+#include "collection/extras/disc_image.h"
+#include "collection/extras/gamecube_disc.h"
+#include "collection/extras/panel_maps.h"
+#include "collection/extras/setup.h"
+#include "collection/extras/source_files.h"
+#include "collection/extras/xbox_disc.h"
+#include "collection/settings.h"
+#include "../../runtime/src/collection/extras/sequence_matcher.h"
+
+#include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <vector>
+
+// The extras' readers (collection/extras): hand-made Xbox and GameCube
+// images, and a tiny RVZ made by the tooling's gc_disc.py reference (its
+// bytes below: a 64 KiB GameCube disc in two zstd groups, the second packed:
+// five bytes of data, then junk regenerated from a seed).
+
+namespace
+{
+    namespace fs = std::filesystem;
+    namespace ex = ps2x::app::extras;
+
+    struct TempDir
+    {
+        fs::path path;
+        TempDir()
+        {
+            const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+            path = fs::temp_directory_path() / ("ps2x-extras-" + std::to_string(now));
+            fs::create_directories(path);
+        }
+        ~TempDir()
+        {
+            std::error_code ec;
+            fs::remove_all(path, ec);
+        }
+    };
+
+    void write(const fs::path &path, const std::vector<uint8_t> &bytes)
+    {
+        fs::create_directories(path.parent_path());
+        std::ofstream out(path, std::ios::binary);
+        out.write(reinterpret_cast<const char *>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    }
+
+    void le16(std::vector<uint8_t> &d, size_t at, uint16_t v)
+    {
+        d[at] = uint8_t(v);
+        d[at + 1] = uint8_t(v >> 8);
+    }
+    void le32(std::vector<uint8_t> &d, size_t at, uint32_t v)
+    {
+        for (int i = 0; i < 4; ++i)
+            d[at + size_t(i)] = uint8_t(v >> (8 * i));
+    }
+    void be32(std::vector<uint8_t> &d, size_t at, uint32_t v)
+    {
+        for (int i = 0; i < 4; ++i)
+            d[at + size_t(i)] = uint8_t(v >> (24 - 8 * i));
+    }
+
+    // An XDVDFS entry: u16 left, u16 right (4-byte units), u32 sector, u32
+    // size, u8 attributes, u8 name length, the name.
+    void entry(std::vector<uint8_t> &d, size_t at, uint16_t left, uint16_t right, uint32_t sector, uint32_t size,
+               uint8_t attributes, const std::string &name)
+    {
+        le16(d, at, left);
+        le16(d, at + 2, right);
+        le32(d, at + 4, sector);
+        le32(d, at + 8, size);
+        d[at + 12] = attributes;
+        d[at + 13] = uint8_t(name.size());
+        std::memcpy(d.data() + at + 14, name.data(), name.size());
+    }
+
+    // An XISO: default.xbe and media/a.txt.
+    std::vector<uint8_t> xiso()
+    {
+        std::vector<uint8_t> d(37 * 2048, 0);
+        std::memcpy(d.data() + 0x10000, "MICROSOFT*XBOX*MEDIA", 20);
+        le32(d, 0x10000 + 20, 33); // the root table's sector
+        le32(d, 0x10000 + 24, 64); // and size
+        entry(d, 33 * 2048, 0, 7, 35, 4, 0, "default.xbe");
+        entry(d, 33 * 2048 + 28, 0, 0, 34, 32, 0x10, "media");
+        entry(d, 34 * 2048, 0, 0, 36, 3, 0, "a.txt");
+        std::memcpy(d.data() + 35 * 2048, "XBEH", 4);
+        std::memcpy(d.data() + 36 * 2048, "abc", 3);
+        return d;
+    }
+
+    // A GCM: sub/f.bin and top.bin.
+    std::vector<uint8_t> gcm()
+    {
+        std::vector<uint8_t> d(0x800, 0);
+        std::memcpy(d.data(), "GTST01", 6);
+        be32(d, 0x1C, 0xC2339F3D);
+        std::memcpy(d.data() + 0x20, "Test", 4);
+        const std::string names("sub\0f.bin\0top.bin\0", 18);
+        be32(d, 0x420, 0x780); // main.dol
+        be32(d, 0x424, 0x500); // the FST
+        be32(d, 0x428, uint32_t(4 * 12 + names.size()));
+        be32(d, 0x500, 0x01000000); // the root
+        be32(d, 0x508, 4);
+        be32(d, 0x50C, 0x01000000 | 0); // sub: parent 0, its entries end at 3
+        be32(d, 0x514, 3);
+        be32(d, 0x518, 4); // f.bin
+        be32(d, 0x51C, 0x600);
+        be32(d, 0x520, 4);
+        be32(d, 0x524, 10); // top.bin
+        be32(d, 0x528, 0x700);
+        be32(d, 0x52C, 2);
+        std::memcpy(d.data() + 0x530, names.data(), names.size());
+        std::memcpy(d.data() + 0x600, "four", 4);
+        std::memcpy(d.data() + 0x700, "hi", 2);
+        return d;
+    }
+
+    const std::vector<uint8_t> kTestRvz = {
+            0x52, 0x56, 0x5a, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0xdc,
+            0xa5, 0x1b, 0xd4, 0x29, 0xa6, 0x67, 0x2e, 0x3e, 0x65, 0x25, 0x19, 0x95, 0x40, 0xf8, 0x8a, 0xef,
+            0xf9, 0x77, 0xed, 0x52, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x02, 0xd3, 0x12, 0x28, 0x08, 0x96, 0x8e, 0x31, 0x42, 0x4f, 0x34, 0xe8, 0x47, 0xe9,
+            0xd7, 0x6a, 0x2a, 0x6a, 0x22, 0x75, 0x9a, 0x15, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05,
+            0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x80, 0x00, 0x47, 0x54, 0x53, 0x54, 0x30, 0x31, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0xc2, 0x33, 0x9f, 0x3d, 0x54, 0x65, 0x73, 0x74, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x94, 0x00, 0x00, 0x00, 0x1e, 0x00, 0x00, 0x00, 0x02,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xb2, 0x00, 0x00, 0x00, 0x21, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x28, 0xb5, 0x2f, 0xfd, 0x60, 0x00, 0x7f, 0x55, 0x08, 0x00, 0x04, 0x10,
+            0x00, 0x07, 0x0e, 0x15, 0x1c, 0x23, 0x2a, 0x31, 0x38, 0x3f, 0x46, 0x4d, 0x54, 0x5b, 0x62, 0x69,
+            0x70, 0x77, 0x7e, 0x85, 0x8c, 0x93, 0x9a, 0xa1, 0xa8, 0xaf, 0xb6, 0xbd, 0xc4, 0xcb, 0xd2, 0xd9,
+            0xe0, 0xe7, 0xee, 0xf5, 0xfc, 0x03, 0x0a, 0x11, 0x18, 0x1f, 0x26, 0x2d, 0x34, 0x3b, 0x42, 0x49,
+            0x50, 0x57, 0x5e, 0x65, 0x6c, 0x73, 0x7a, 0x81, 0x88, 0x8f, 0x96, 0x9d, 0xa4, 0xab, 0xb2, 0xb9,
+            0xc0, 0xc7, 0xce, 0xd5, 0xdc, 0xe3, 0xea, 0xf1, 0xf8, 0xff, 0x06, 0x0d, 0x14, 0x1b, 0x22, 0x29,
+            0x30, 0x37, 0x3e, 0x45, 0x4c, 0x53, 0x5a, 0x61, 0x68, 0x6f, 0x76, 0x7d, 0x84, 0x8b, 0x92, 0x99,
+            0xa0, 0xa7, 0xae, 0xb5, 0xbc, 0xc3, 0xca, 0xd1, 0xd8, 0xdf, 0xe6, 0xed, 0xf4, 0xfb, 0x02, 0x09,
+            0x10, 0x17, 0x1e, 0x25, 0x2c, 0x33, 0x3a, 0x41, 0x48, 0x4f, 0x56, 0x5d, 0x64, 0x6b, 0x72, 0x79,
+            0x80, 0x87, 0x8e, 0x95, 0x9c, 0xa3, 0xaa, 0xb1, 0xb8, 0xbf, 0xc6, 0xcd, 0xd4, 0xdb, 0xe2, 0xe9,
+            0xf0, 0xf7, 0xfe, 0x05, 0x0c, 0x13, 0x1a, 0x21, 0x28, 0x2f, 0x36, 0x3d, 0x44, 0x4b, 0x52, 0x59,
+            0x60, 0x67, 0x6e, 0x75, 0x7c, 0x83, 0x8a, 0x91, 0x98, 0x9f, 0xa6, 0xad, 0xb4, 0xbb, 0xc2, 0xc9,
+            0xd0, 0xd7, 0xde, 0xe5, 0xec, 0xf3, 0xfa, 0x01, 0x08, 0x0f, 0x16, 0x1d, 0x24, 0x2b, 0x32, 0x39,
+            0x40, 0x47, 0x4e, 0x55, 0x5c, 0x63, 0x6a, 0x71, 0x78, 0x7f, 0x86, 0x8d, 0x94, 0x9b, 0xa2, 0xa9,
+            0xb0, 0xb7, 0xbe, 0xc5, 0xcc, 0xd3, 0xda, 0xe1, 0xe8, 0xef, 0xf6, 0xfd, 0x04, 0x0b, 0x12, 0x19,
+            0x20, 0x27, 0x2e, 0x35, 0x3c, 0x43, 0x4a, 0x51, 0x58, 0x5f, 0x66, 0x6d, 0x74, 0x7b, 0x82, 0x89,
+            0x90, 0x97, 0x9e, 0xa5, 0xac, 0xb3, 0xba, 0xc1, 0xc8, 0xcf, 0xd6, 0xdd, 0xe4, 0xeb, 0xf2, 0xf9,
+            0x01, 0x00, 0x00, 0xfd, 0xfe, 0xc0, 0xbe, 0xa6, 0x28, 0xb5, 0x2f, 0xfd, 0x20, 0x51, 0x89, 0x02,
+            0x00, 0x00, 0x00, 0x00, 0x05, 0x48, 0x45, 0x4c, 0x4c, 0x4f, 0x80, 0x00, 0x7f, 0xfb, 0x00, 0x01,
+            0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11,
+            0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21,
+            0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31,
+            0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x41,
+            0x42, 0x43, 0x00, 0x00, 0x28, 0xb5, 0x2f, 0xfd, 0x20, 0x18, 0xad, 0x00, 0x00, 0x70, 0x00, 0x00,
+            0x80, 0x00, 0xff, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x00, 0x40, 0xf0,
+            0x05, 0xb0, 0x28, 0xb5, 0x2f, 0xfd, 0x20, 0x18, 0xc1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x49, 0x80,
+            0x00, 0x01, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8e, 0x80, 0x00, 0x00, 0x5a, 0x00,
+            0x00, 0x00, 0x51,
+    };
+
+    std::string text(const std::vector<uint8_t> &bytes) { return std::string(bytes.begin(), bytes.end()); }
+}
+
+void register_ps2_extras_tests()
+{
+    MiniTest::Case("Extras", [](TestCase &tc)
+    {
+        tc.Run("an XISO's files", [](TestCase &t)
+        {
+            TempDir dir;
+            write(dir.path / "x.iso", xiso());
+            ex::XboxDisc disc;
+            std::string error;
+            t.IsTrue(disc.open(dir.path / "x.iso", &error), "opens: " + error);
+            t.Equals(disc.files().size(), size_t(2), "two files");
+            t.Equals(disc.files()[0].path, std::string("default.xbe"), "the root's file first");
+            t.Equals(disc.files()[1].path, std::string("media/a.txt"), "then the folder's");
+            std::vector<uint8_t> out;
+            t.IsTrue(disc.readFile(*disc.find("MEDIA/A.TXT"), out), "found in any case");
+            t.Equals(text(out), std::string("abc"), "its bytes");
+        });
+
+        tc.Run("not an Xbox image", [](TestCase &t)
+        {
+            TempDir dir;
+            write(dir.path / "x.iso", std::vector<uint8_t>(0x20000, 0));
+            ex::XboxDisc disc;
+            std::string error;
+            t.IsFalse(disc.open(dir.path / "x.iso", &error), "refused");
+            t.IsTrue(error.find("not an Xbox disc image") != std::string::npos, "says so: " + error);
+        });
+
+        tc.Run("a GCM's files", [](TestCase &t)
+        {
+            TempDir dir;
+            write(dir.path / "g.iso", gcm());
+            ex::GameCubeDisc disc;
+            std::string error;
+            t.IsTrue(disc.open(dir.path / "g.iso", &error), "opens: " + error);
+            t.Equals(disc.gameId(), std::string("GTST01"), "game id");
+            t.Equals(disc.title(), std::string("Test"), "title");
+            t.Equals(disc.files().size(), size_t(2), "two files");
+            t.Equals(disc.files()[0].path, std::string("sub/f.bin"), "the folder's file");
+            t.Equals(disc.files()[1].path, std::string("top.bin"), "the root's");
+            std::vector<uint8_t> out;
+            t.IsTrue(disc.readFile(disc.files()[0], out) && text(out) == "four", "its bytes");
+        });
+
+        tc.Run("an RVZ: zstd groups, packed junk, from a FILE*", [](TestCase &t)
+        {
+            TempDir dir;
+            write(dir.path / "t.rvz", kTestRvz);
+            std::string error;
+            std::FILE *file = std::fopen((dir.path / "t.rvz").string().c_str(), "rb");
+            std::unique_ptr<ex::ImageFile> image = ex::ImageFile::adopt(file, "t.rvz", &error);
+            t.IsNotNull(image.get(), "adopted: " + error);
+            std::unique_ptr<ex::DiscImage> disc = ex::openDiscImage(std::move(image), &error);
+            t.IsNotNull(disc.get(), "opens: " + error);
+            if (!disc)
+                return;
+            t.Equals(disc->size(), uint64_t(0x10000), "the disc's size");
+            uint8_t head[6], plain[4], data[5], junk[8];
+            t.IsTrue(disc->read(0, 6, head) && std::memcmp(head, "GTST01", 6) == 0, "the header from header 2");
+            t.IsTrue(disc->read(0x80, 4, plain), "group 0");
+            t.IsTrue(plain[0] == 0x80 && plain[1] == 0x87 && plain[2] == 0x8E && plain[3] == 0x95, "its bytes (i * 7)");
+            t.IsTrue(disc->read(0x8000, 5, data) && std::memcmp(data, "HELLO", 5) == 0, "group 1's data");
+            const uint8_t expected[8] = {0x34, 0x64, 0x56, 0xb7, 0xf9, 0x5f, 0x37, 0xb1}; // gc_disc.py's junk
+            t.IsTrue(disc->read(0x8005, 8, junk) && std::memcmp(junk, expected, 8) == 0, "its junk regenerated");
+            t.IsFalse(disc->read(0xFFFF, 2, junk), "nothing past the end");
+        });
+
+        tc.Run("a damaged RVZ", [](TestCase &t)
+        {
+            TempDir dir;
+            std::vector<uint8_t> bad = kTestRvz;
+            bad[0x20] ^= 1; // inside header 1, under its hash
+            write(dir.path / "t.rvz", bad);
+            std::string error;
+            t.IsNull(ex::openDiscImage(dir.path / "t.rvz", &error).get(), "refused");
+            t.IsTrue(error.find("damaged") != std::string::npos, "says so: " + error);
+        });
+
+        tc.Run("patterns as gc_disc.py's", [](TestCase &t)
+        {
+            t.IsTrue(ex::pathMatches("assets/levels/TUT/Estate/tut.GEO", "assets/levels/tut/estate"), "a folder");
+            t.IsTrue(ex::pathMatches("assets/string.zal", "ASSETS/STRING.ZAL"), "any case");
+            t.IsTrue(ex::pathMatches("assets/levels/CHL_DAM/objctv.txt", "assets/levels/*/objctv.txt"), "a glob");
+            t.IsTrue(ex::globMatches("levels/a/b/x.bni", "levels/*/*.bni"), "* crosses /");
+            t.IsTrue(ex::globMatches("loading/tut/tut3.raw", "loading/tut/tut?.raw"), "?");
+            t.IsTrue(ex::globMatches("a5", "a[0-9]") && !ex::globMatches("a5", "a[!0-9]"), "sets");
+            t.IsFalse(ex::globMatches("levels/a.bin", "levels/*/*.bin"), "no folder, no match");
+        });
+
+        tc.Run("the walk order of the tooling", [](TestCase &t)
+        {
+            t.IsTrue(ex::sourceOrderLess("b.txt", "a/z.txt"), "a folder's files before its folders");
+            t.IsTrue(ex::sourceOrderLess("a/z.txt", "b/a.txt"), "folders by name");
+            t.IsTrue(ex::sourceOrderLess("B.txt", "a.txt"), "names as bytes (upper case first)");
+        });
+
+        tc.Run("difflib's opcodes", [](TestCase &t)
+        {
+            using Tag = ex::DiffOpcode::Tag;
+            const std::vector<std::string> a = {"q", "a", "b", "c", "x", "y", "z", "a", "b"};
+            const std::vector<std::string> b = {"a", "b", "c", "q", "x", "y", "a", "b", "z"};
+            // SequenceMatcher(None, a, b, autojunk=False).get_opcodes() (CPython 3.15)
+            const std::vector<ex::DiffOpcode> want = {{Tag::Delete, 0, 1, 0, 0}, {Tag::Equal, 1, 4, 0, 3},
+                                                      {Tag::Insert, 4, 4, 3, 4}, {Tag::Equal, 4, 6, 4, 6},
+                                                      {Tag::Delete, 6, 7, 6, 6}, {Tag::Equal, 7, 9, 6, 8},
+                                                      {Tag::Insert, 9, 9, 8, 9}};
+            const std::vector<ex::DiffOpcode> got = ex::diffOpcodes(a, b);
+            bool same = got.size() == want.size();
+            for (size_t i = 0; same && i < got.size(); ++i)
+                same = got[i].tag == want[i].tag && got[i].aBegin == want[i].aBegin && got[i].aEnd == want[i].aEnd &&
+                       got[i].bBegin == want[i].bBegin && got[i].bEnd == want[i].bEnd;
+            t.IsTrue(same, "the Python's opcodes");
+        });
+
+        tc.Run("an extras disc checked by its executable", [](TestCase &t)
+        {
+            TempDir dir;
+            write(dir.path / "x.iso", xiso());
+            write(dir.path / "n.bin", std::vector<uint8_t>(4096, 7));
+            ex::ExtrasSource other = ex::checkExtrasSource((dir.path / "x.iso").string(), "ai", ex::pathOpener());
+            t.IsNull(other.disc, "an Xbox disc the app has no extras for");
+            t.IsTrue(other.message.find("not a release of Aggressive Inline") != std::string::npos, "says so: " + other.message);
+            ex::ExtrasSource none = ex::checkExtrasSource((dir.path / "n.bin").string(), "", ex::pathOpener());
+            t.IsNull(none.disc, "not a disc");
+            t.IsTrue(none.message.find("not an Xbox or GameCube") != std::string::npos, "says so: " + none.message);
+            t.Equals(ex::extrasDiscsOf("bmx").size(), size_t(2), "BMX XXX: the Xbox and GameCube discs");
+            t.Equals(ex::extrasDiscsOf("dm2").size(), size_t(1), "DM2: the Xbox disc");
+        });
+
+        tc.Run("the boot reads the made extras before the bundled ones", [](TestCase &t)
+        {
+            TempDir dir;
+            fs::create_directories(dir.path / "extras" / "xbox");
+            fs::create_directories(dir.path / "bundle" / "xbox");
+            fs::create_directories(dir.path / "bundle" / "estate");
+            ps2x::app::Settings settings;
+            ps2x::app::AppPaths paths;
+            paths.supportDir = dir.path;
+            ps2x::app::BootFolders folders;
+            folders.resources = dir.path / "bundle";
+            folders.extras = dir.path / "extras";
+            auto noEnv = [](const char *) -> const char * { return nullptr; };
+            const ps2x::BootConfig boot =
+                ps2x::app::gameBootConfig("ai", settings, paths, ps2x::app::gameSettingsProfile("ai"), folders, noEnv);
+            const std::string *xbox = boot.find("PS2X_XBOX_DIR"), *estate = boot.find("PS2X_ESTATE_DIR");
+            t.IsTrue(xbox && *xbox == (dir.path / "extras" / "xbox").string(), "the setup's Xbox files");
+            t.IsTrue(estate && *estate == (dir.path / "bundle" / "estate").string(), "a bundled one it did not make");
+            t.IsNull(boot.find("PS2X_XBOX_PACK"), "none of either: not set");
+        });
+
+        tc.Run("no panel maps from a disc with no levels", [](TestCase &t)
+        {
+            TempDir dir;
+            fs::create_directories(dir.path / "disc" / "ASSETS" / "LEVELS");
+            ex::FolderFiles disc;
+            t.IsTrue(disc.open(dir.path / "disc", {"ASSETS"}), "the disc folder");
+            std::vector<std::string> log;
+            std::string error;
+            t.IsFalse(ex::makePanelMaps(ex::PanelGame::AggressiveInline, disc, {}, dir.path / "panel", log, &error),
+                      "refused");
+            t.IsFalse(error.empty(), "says why: " + error);
+        });
+
+        tc.Run("no extras without the PS2 disc", [](TestCase &t)
+        {
+            TempDir dir;
+            std::vector<ex::ExtrasSource> sources;
+            const ex::ExtrasResult r = ex::makeExtras("ai", dir.path, sources, {});
+            t.IsFalse(r.ok, "refused");
+            t.IsTrue(r.message.find("PS2 disc") != std::string::npos, "says why: " + r.message);
+        });
+    });
+}

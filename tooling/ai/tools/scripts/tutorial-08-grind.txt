@@ -1,0 +1,20 @@
+# Reference run, segment 8: Grinding, jump onto the rail and grind it (TRIANGLE).
+# The rail runs along +x at z = -0.02, top at y = -1.29, from about x = -12.5 to 25.
+# Start: checkpoint ref17-manual-done (slot 46).
+# Checkpoints: 47 ref18-grind-go, 48 ref19-grind-on-rail, 49 ref20-grind-done,
+# 50 ref21-modgrind-go (start of the next goal, "Modifying Grinds"; end of the run).
+tips 240                                            # 2 HINTs + Grinding + 2 tips
+checkpoint 47 ref18-grind-go                        # standing at (-27.38, -3.07)
+goto 0 -0.3 x>-16 900                               # line up with the rail
+down UP+CROSS
+wait 3
+up CROSS                                            # jump
+down TRIANGLE                                       # grind
+waitval 0x2A76F0 f32 > 0 600                        # on the rail: y = -1.29, z = -0.02
+checkpoint 48 ref19-grind-on-rail
+waitval 0x276FE4 u32 == 3 3600                      # "Good job"
+release
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 49 ref20-grind-done                      # HINT: to jump out of a grind, tap X
+tips 240                                            # 3 HINTs + Modifying Grinds + 3 tips
+checkpoint 50 ref21-modgrind-go

@@ -1,0 +1,42 @@
+# Calls of printf-style functions (readable_args.py formats) whose format is not a literal, or that pass words the literal format does not read: function, callee, format (the text, or the expression when it is not a literal), words passed, why.
+# A row whose call changed (another number of words, another format) or is gone fails the check.
+appendClientRequiredSpace	formatString	kRequiredEntryText	2	a buffer in RAM: expandStringKeys fills it from the $ key just before (a draft)
+checkMemoryCardSpace	formatLocalizedText	kNeedSpaceText	1	a RAM buffer the function builds from the space-needed key at run time
+commandFormat	formatString	format	1	script-supplied: the zgui format command's own format string
+confirmSaveOverwrite	formatLocalizedText	$MEMCARD_SAVING_FAILED	1	the original sets a1 (the card port) before the call; 'Saving failed.' reads no word
+drawGuiTape	formatString	tape->textFormat	1	table-driven: the tape widget's format, from the level data
+drawProfileLabel	debugPrint	label	0	data: the profile bar's label is printed as the format, no words
+engineMain	formatScratch	ZGE LIBRARY  VERSION:%02x.%02x.%02x\n	6	the engine's version line passes its three numbers, then what debugWrite's strcpy and strlen of the line before leave in the next three argument registers (the C library's zero-byte test masks, kZeroByteTestOnes and kZeroByteTestHighBits): formatScratch stores every argument word in its frame, and those stack words stay above engineMain's for the rest of the game
+inlineMenuPopulateSkaterStats	formatScratch	format	1	the appendCount lambda's parameter: its callers pass constants; the words past the format are the original's leftover registers
+inlineMenuPopulateSkaterStats	formatString	format	3	the addLine lambda's parameter: its callers pass constants; the words past the format are the original's leftover registers
+autoLoadJob	formatLocalizedText	kNoCardText	0	a RAM buffer the function fills with the no-card message at run time
+readMemoryCardSave	formatLocalizedText	$MEMCARD_LOADING_FAILED	1	the original sets a1 (the card port) before the call; 'Loading failed.' reads no word
+readMemoryCardSave	formatLocalizedText	$MEMCARD_LOADING_FAILED_CORRUPT	1	the same
+animation	formatString	notFoundFormat	1	table-driven: each trick table's own not-found format
+runMemoryCardTransfer	formatLocalizedText	$MEMCARD_LOADING_FAILED	1	the original sets a1 (the card port) before the call; the text reads no word
+runMemoryCardTransfer	formatLocalizedText	$MEMCARD_SAVING_FAILED	1	the same
+saveToChosenFile	formatLocalizedText	$MEMCARD_SAVING_FAILED	1	the original sets a1 (the card port) before the call; the text reads no word
+saveToChosenFile	formatLocalizedText	needSpaceText	1	a frame buffer the function builds from the space-needed key at run time
+saveToChosenFile	formatString	directoryFormat	2	a frame buffer the function builds (the directory name's format, digits counted at run time)
+showLoadingScreen	formatString	layout	4	the format lambda's parameter: its callers pass the picture layouts as constants
+updateMotionViewMode	debugPrint	name	0	a frame buffer formatString just filled; printed as the format, no words
+writeMemoryCardSave	formatLocalizedText	$MEMCARD_SAVING_FAILED	1	the original sets a1 (the card port) before the call; 'Saving failed.' reads no word
+writeSaveFiles	formatLocalizedText	$MEMCARD_SAVING_FAILED	1	the same
+parkSaveTitle	formatString	Inline Park %s	2	the original passes the park name's address as one more word (strlen leaves it there); formatString spills it for vsprintf and the card's save message copies that stack word to the heap (parktitle 2120f506, $ZAXIS_SCRATCH/parktitle/progress.md: editor A/B 0 RAM words differ)
+parkSaveTitle	formatString	Inline Park	2	no name: the original still passes two more words, its caller's leftover (0 in every recorded save) and the name's address, which the save message copies to the heap as above (parktitle 2120f506, $ZAXIS_SCRATCH/parktitle/progress.md)
+rewardText	formatString	format	1	the string table's text for the reward's key (the name formatted just before from its kind and value), found at run time: the original passes one word, the reward's value or the trick's name (BMX XXX 0x1ED368, 0x1ED3AC, 0x1ED3E8)
+nprScreenMessage	formatString	zge::stringTableText(zge::nameHash(key))	1	the string table's KSTRSP_NPR_DISMISS_GREETING_<n> text, found at run time ("HEY %S."): the original passes one word, the character's first or last name (BMX XXX 0x1BDFF8)
+nprScreenMessage	formatString	zge::stringTableText(zge::nameHash(key))	0	the string table's KSTRSP_NPR_RESPECT_<n> text, found at run time and appended (no conversion in any language): the original sets only a0 and a1 (BMX XXX 0x1BE048)
+gameScreensInput	formatString	text	1	a frame buffer expandStringKeys fills from $KSTR_CONTROLER_YANK just before ("in controller port %d" in every language): the original passes the port (BMX XXX 0x1B87E4)
+commandFormatAtPath	formatString	format	1	script-supplied: ZGE2's FORMAT command's own format string (valueText fills it): the original passes one word, the value or its double (DM2 0x1616BC, 0x1616F8)
+drawListedTape	formatString	tape->textFormat	1	table-driven: ZGE2's tape widget's TextFormat, from the level data: the original passes the label's value as one double (DM2 0x15C614)
+trickDisplayMessage	formatString	#RGB{192 192 192}TO#RGB{255 153 0} 	1	the original still passes one more word, the newest line's slot (state.line: lbu a2 at BMX XXX 0x1BFEE4), which the grey TO joiner does not read; formatString spills it for vsprintf as the original does
+collectStatusText	formatString	format	2	the string table's "<STRINGID>_STATUS" text, found at run time: the collected count and the required count
+pointsStatusText	formatString	format	2	the string table's "<STRINGID>_STATUS" text, found at run time: the points scored and MIN_POINTS
+recordStatusText	formatString	format	2	the string table's "<STRINGID>_STATUS" text, found at run time: the record's latest value and VALUE, as doubles
+trickStatusText	formatString	format	2	the string table's "<STRINGID>_STATUS" text, found at run time: what the rider reached and VALUE, as doubles
+grindStatusText	formatString	format	2	the string table's "<STRINGID>_STATUS" text, found at run time: the tags done and NUMEDGES
+setStatusText	formatString	format	2	the string table's "<STRINGID>_STATUS" text, found at run time: the members done and NUMREQUIRED
+loadParkScene	formatString	scenes[*g_parkTheme].name	0	table-driven: the park theme's scene name ("PEMullaly" .. "PEZAxis", g_parkScenes), copied as it is; none has a format mark
+rewardDisplayMessage	formatString	ee::Address(stringTableText(kStringGoalsCount))	2	the game string table's "<done> of <goals>" text, found at run time by its name's hash: the goals done and the goals
+rewardDisplayMessage	formatString	ee::Address(stringTableText(nameHash(text)))	2	the string table's KSTR_REWARD<kind> text, found at run time by the name just formatted: the gaps done and the gaps

@@ -1,0 +1,56 @@
+# DM2 reference run 2 (PCSX2): fresh boot (`launch --card unformatted`), ProQuest, Dave Mirra, Woodward Camp,
+# a played ride (grinds, tricks, manuals, bails, a goal, the pause menu): all input from the hook schedule
+# (dm2-ref-run2-schedule.txt: the front end by VBlank count, the level by level frame), so PINE only reads.
+#
+#   python3 -I tools/dm2pcsx2.py quit ; python3 -I tools/dm2pcsx2.py launch --card unformatted
+#   python3 -I tools/dm2pcsx2.py run tools/scripts/dm2-ref-run2.txt | tee tools/scripts/dm2-ref-run2-commands.txt
+#
+# Checkpoints: savestate slot 8 + RAM image (DM2PCSX2_RAM_DIR: recomp/dumps/ref2/<name>.ram, not committed).
+schedule tools/scripts/dm2-ref-run2-schedule.txt
+# front-end music starts with the main menu: sound mode 0 -> 1
+waitval 0x259770 u32 == 1 3600
+waitvsync 3100
+checkpoint 8 ck01-main-menu
+waitvsync 3400
+checkpoint 8 ck02-rider-select
+waitvsync 4290
+checkpoint 8 ck03-level-select
+waitframe 130 7200
+checkpoint 8 ck04-instructions
+waitframe 320 7200
+checkpoint 8 ck05-challenge-given
+waitframe 520 7200
+checkpoint 8 ck06-ride-start
+waitframe 600 7200
+checkpoint 8 ck07-manual
+waitframe 700 7200
+checkpoint 8 ck08-manual-banked
+waitframe 900 7200
+checkpoint 8 ck09-air-trick
+waitframe 960 7200
+checkpoint 8 ck10-bail
+waitframe 1300 7200
+checkpoint 8 ck11-ride
+waitframe 1700 7200
+checkpoint 8 ck12-bail-2
+waitframe 2140 7200
+checkpoint 8 ck13-landed-score
+waitframe 2340 7200
+checkpoint 8 ck14-line-banked
+waitframe 2640 7200
+checkpoint 8 ck15-paused
+waitframe 2780 7200
+checkpoint 8 ck16-pause-cursor
+waitframe 2980 7200
+checkpoint 8 ck17-resumed
+waitframe 3060 7200
+checkpoint 8 ck18-grind
+waitframe 3240 7200
+checkpoint 8 ck19-grind-banked
+waitframe 3320 7200
+checkpoint 8 ck20-trick-air
+waitframe 3420 7200
+checkpoint 8 ck21-goal-done
+waitframe 3480
+seenlog tools/scripts/dm2-ref-run2-seen.txt
+state

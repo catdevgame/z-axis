@@ -1,0 +1,42 @@
+# Reference run 2, Career part, segment 3: back to play in MOVIE LOT and skate: a rail grind
+# down the footbridge ramp (right-hand rail, z -148.34, Frontside Grind ~345 points), along
+# the boulevard median, a manual held with `balance manual`, an ollie out of it with a grab
+# (LEFT+SQUARE), then pause.
+# Start: car11-save-done (slot 86, pause menu with the cursor on SAVE).
+# Player object pointer 0x24C860 -> 0x972FF0 here (Tutorial: 0x971990); score u32 at +0x7AC,
+# grind balance f32 at +0x280, manual balance f32 at +0x284, combo points f32 at +0x8D8.
+# Checkpoints: 87 car12-grind, 88 car13-manual, 89 car14-air-grab, 90 car15-landed,
+# 91 car16-pause-end.
+pressuntil UP 0x839E14 u32 == 0 300 20              # RESUME GAME
+pressuntil CROSS 0x240A20 u32 == 0 300 30
+waitval 0x276FE4 u32 == 2 120
+wait 10
+down UP                                             # down the ramp ...
+wait 10
+down RIGHT                                          # ... bearing right
+wait 12
+up RIGHT
+wait 8
+down CROSS
+wait 6
+up UP+CROSS                                         # jump
+down TRIANGLE                                       # grind
+waitval 0x2A76F4 f32 > -9.5 300                     # on the rail (y -8.9, z -148.34)
+checkpoint 87 car12-grind ../recomp/dumps/ref2 ../reference/pcsx2-run2
+balance grind 300                                   # until it ends at the foot of the ramp
+up TRIANGLE
+goto 215 -153.9 x<225 600                           # back onto the median line, heading -x
+press DOWN 4                                        # manual
+press UP 4
+checkpoint 88 car13-manual ../recomp/dumps/ref2 ../reference/pcsx2-run2
+balance manual 150
+press CROSS 6                                       # ollie out of the manual
+wait 2
+press LEFT+SQUARE 10                                # grab
+checkpoint 89 car14-air-grab ../recomp/dumps/ref2 ../reference/pcsx2-run2
+waitval 0x2A76F4 f32 > -0.4 120                     # landed
+wait 60
+checkpoint 90 car15-landed ../recomp/dumps/ref2 ../reference/pcsx2-run2
+pressuntil START 0x240A20 u32 == 0x839D00 300 30
+wait 20
+checkpoint 91 car16-pause-end ../recomp/dumps/ref2 ../reference/pcsx2-run2

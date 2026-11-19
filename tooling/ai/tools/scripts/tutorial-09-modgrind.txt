@@ -1,0 +1,22 @@
+# Reference run 2, segment 9: Modifying Grinds (tutorial lesson 8 in the level script, L8).
+# Goal: switch grinds while on the rail (TRIANGLE with a direction): Frontside Grind +
+# Pornstar Grind, "Nice Job", GRIND XP +3. The rail is the one from segment 8.
+# Start: checkpoint ref21-modgrind-go (slot 50, end of run 1). Run from tools/.
+# Checkpoints (slot, name): 51 ref22-modgrind-rail, 52 ref23-modgrind-done.
+# Balance on the rail: `balance grind` (PD rule on the meter at player obj+0x280).
+# RAM images go to recomp/dumps/ref2, frame thumbnails to reference/pcsx2-run2.
+goto 0 -0.3 x>-16 900                               # line up with the rail
+down UP+CROSS
+wait 3
+up CROSS                                            # jump
+down TRIANGLE                                       # Frontside Grind
+waitval 0x2A76F0 f32 > 0 600                        # on the rail (y -1.29)
+up UP+TRIANGLE                                      # the grind goes on without TRIANGLE
+checkpoint 51 ref22-modgrind-rail ../recomp/dumps/ref2 ../reference/pcsx2-run2
+balance grind 10
+press LEFT+TRIANGLE 8                               # switch grinds: Frontside + Soul Grind, 2x
+balance grind 600                                   # balance (obj+0x280) until off the rail
+waitval 0x276FE4 u32 == 3 1800                      # "Air Tricks" title (goal done)
+release
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 52 ref23-modgrind-done ../recomp/dumps/ref2 ../reference/pcsx2-run2

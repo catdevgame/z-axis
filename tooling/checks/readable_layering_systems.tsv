@@ -1,0 +1,7 @@
+# Engine by decision: game code both games link, kept in zge as one body (readable_layering.py reads it).
+# A registration in FOLDER counts as engine when every game of GAMES runs the body: AI's build, and each other
+# game's instance (a row of game/<game>/symbols_status.tsv). A function there only one game runs is game_in_zge,
+# as anywhere in zge. ENTRIES: the header that declares what the system calls in each game (each game defines it
+# in the engine's namespace, as zge/game.h's): its names are not up_ref.
+# folder	games	entries	decided	reason
+zge/editor	ai,bmx	zge/editor/game.h	2026-11-15	the park editor, ../GameTools/ParkEditor (editToolSet.c's file anchor in both ELFs), linked into AI and BMX XXX after each game's own sources: one body in zge by the user's decision (editor1's brief; main, 11-15)

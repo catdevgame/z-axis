@@ -1,0 +1,37 @@
+name: Feature
+description: An idea for the collection or the games (new behaviour goes behind a setting; the defaults stay the original's).
+labels: [feature]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Gameplay
+        - Graphics and display
+        - Sound
+        - Controls
+        - Settings
+        - The collection (menu, game picker, bottom screen)
+        - Mods and custom content
+        - Building and tools
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: games
+    attributes:
+      label: Games
+      multiple: true
+      options:
+        - Aggressive Inline
+        - Dave Mirra Freestyle BMX 2
+        - BMX XXX
+        - The collection
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What it would do, and why. If another port or release does it, say which.
+    validations:
+      required: true

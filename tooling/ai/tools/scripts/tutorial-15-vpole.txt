@@ -1,0 +1,11 @@
+# Reference run 2, segment 15: Vertical Poles (L15 pole at x -4.48, z -0.05).
+# Goal: grab the pole (CIRCLE) for a quick turn around.
+# Start: ref34-vault-done (slot 63). Checkpoints: 64 ref35-vpole-go, 65 ref36-vpole-done
+# ("Horizontal Poles" title).
+tips 240                                            # 4 boxes in run 2: HINT, title "Vertical Poles", tip
+checkpoint 64 ref35-vpole-go ../recomp/dumps/ref2 ../reference/pcsx2-run2                     # standing at (-27.38, -3.10)
+down UP+CIRCLE
+waitval 0x276FE4 u32 == 3 1800
+release
+waitval 0x240A20 u32 == 0x831BB0 300
+checkpoint 65 ref36-vpole-done ../recomp/dumps/ref2 ../reference/pcsx2-run2
