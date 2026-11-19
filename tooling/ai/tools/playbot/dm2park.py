@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dave Mirra BMX 2: the custom-levels test park (docs/CUSTOM-LEVELS.md section 3, step 0) built in DM2's own park
+"""Dave Mirra BMX 2: the park players' test park built in DM2's own park
 editor, saved to the card the game's way, and ridden.
 
     dm2park.py probe NAME                 orientation pictures: pieces at each turn, the camera tilted down
@@ -372,7 +372,7 @@ def probe3(name):
     bot, run = session(name, program)
 
 
-# ---- the park: docs/CUSTOM-LEVELS.md section 3's six zones, the AI park's layout (aipark.LAYOUT) on Warehouse's floor --
+# ---- the park: six zones, the AI park's layout (aipark.LAYOUT) on Warehouse's floor --
 # AI's cell (x, z) is DM2's (row x + 2, column z + 2) on the 20 x 20 floor (rows and columns 2 .. 21; 5 m cells); the
 # d-pad and the camera agree (UP row-1 as AI's x-1, LEFT column+1 as AI's z+1). What a piece faces at each quarter
 # turn (probe3's pictures, the camera on +row): 0 +row, 1 -column, 2 -row, 3 +column; AI's turn t is DM2's (1 - t) % 4.

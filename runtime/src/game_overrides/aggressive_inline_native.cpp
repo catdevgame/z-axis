@@ -967,9 +967,10 @@ namespace aggressive_inline
         s.booted = modeFromText(ps2x::boot::text("PS2X_RENDER_PATH"));
         s.mode.store(static_cast<int>(s.booted));
         // The rigid clipping program's form: VU1 0x06 at 0xF70; the skinned builder sends the stream's four bones
-        // and puts a submesh's strips at its own material entry.
+        // and puts a submesh's strips at its own material entry; the Xbox release's character lights replace the
+        // default ones with Character Lighting: Xbox.
         game::host::native_draws::attach(runtime, s.booted == Mode::Records, {.clipped = GSNativeClip::NearSplit},
-                                         ps2x::zaxis::SkinnedDrawForm{});
+                                         {.xboxLights = true});
         ps2x::gs_shots::install(runtime); // (PS2X_GS_SHOT_VSYNC, developers)
         if (const char *v = std::getenv("PS2X_NATIVE_MESHES"))
             s.fileMeshes = std::strcmp(v, "packet") != 0;

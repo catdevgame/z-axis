@@ -325,12 +325,12 @@ function	0x00113B60	openSoundStream	medium	names4: (&stream, name, ..): a free s
 function	0x00113DC0	closeSoundStream	medium	names4: (stream): an open stream's file record released (findFreeStream) and the IOP's stream closed
 function	0x00113E38	soundStreamStubZeroE	low	names4: returns 0; dead
 function	0x00113E40	openStream	high	constant: hand-written callee constant kOpenStream "(stream, file name, 34)"
-function	0x00113F28	setSoundStreamPosition	low	names4: (stream, position): +0xC and IOP command 2 with the stream's id (0x111C70); 0x16EE88
+function	0x00113F28	setSoundStreamLoops	high	hand-written (was setSoundStreamPosition)
 function	0x00113F78	updateSoundStream	high	hand-written: zge/sound/streams.cpp (was soundStreamStubZeroF)
 function	0x00113F80	streamStatus	high	constant: hand-written callee constant kStreamStatus "(stream, int *status) 1 and 4 done, 2 playing"
 function	0x00114008	playStream	medium	manual: kPlayStream "(stream)"; the other kPlayStream (0x16CBD8) takes a channel
 function	0x00114040	stopStream	high	constant: hand-written callee constant kStopStream "(stream, ...)"
-function	0x00114078	setSoundStreamVolume	low	names4: (stream, value): IOP command 13 with the stream's id and the value (0x111C70)
+function	0x00114078	pauseSoundStream	high	hand-written (was setSoundStreamVolume)
 function	0x001140B0	playSoundStreamSample	medium	names4: (sample, .., volume, pan): a stream opened for the sample (openSoundStream), its volume set (setStreamVolume) and played (playStream); dead
 function	0x00114128	setStreamVolume	medium	constant: hand-written callee constants disagree: kSetStreamVolume "(stream, volume)"; kStreamVolume "(stream, volume, 0)"
 function	0x00114180	rampStreamVolume	high	hand-written: zge/sound/streams.cpp (was sendStreamCommand16)
@@ -2095,8 +2095,8 @@ function	0x0016C520	registerLensFlareEffect	medium	names3: initEffectManager's: 
 function	0x0016C5C0	resetStreamChannels	low	names3: fn_1C1720's: the two stream channels (0x2A6688, 12 bytes each) and the stream state (0x2794D8..0x2794E0) cleared
 function	0x0016C638	closeStreamChannels	low	names3: fn_1C1720's: each stream channel's stream (0x2A6688) closed (0x113DC0)
 function	0x0016C698	soundFrame	medium	constant: hand-written callee constant kSoundFrame
-function	0x0016C768	resumeStreamVoice	low	names4: (voice): setSoundStreamVolume(the voice's stream, 1); fn_1C1720
-function	0x0016C7A0	pauseStreamVoice	low	names4: (voice): setSoundStreamVolume(the voice's stream, 0); fn_1C1720
+function	0x0016C768	pauseChannelStream	high	hand-written (was resumeStreamVoice)
+function	0x0016C7A0	resumeChannelStream	high	hand-written (was pauseStreamVoice)
 function	0x0016C7D8	playStreamSample	low	names3: (sample, a, b): 0x16C800(sample, 0, a, b)
 function	0x0016C800	startStreamSample	medium	names4: (bank, sample, ..): a sample played as a stream: its stream (openSoundStream) at the sample's bank offset (bankSampleInfo, soundBankField28); playStreamSample
 function	0x0016CB18	stopStreamChannel	low	names3: (channel): the channel's stream (0x2A6680 + channel*12 + 8) closed (0x113DC0) and cleared
@@ -7150,7 +7150,7 @@ param	0x0016ED38:3	sampleOut	medium	names7: the function's uses in its draft
 param	0x0016ED38:4	pitchOut	medium	names7: the function's uses in its draft
 param	0x0016EE18:1	musicTrackBufferSize	medium	inferred: its own draft names it so (readable_names.py infer)
 param	0x0016EE88:1	location	high	hand-written (was sample)
-param	0x0016EE88:3	position	medium	inferred: its own draft names it so (readable_names.py infer)
+param	0x0016EE88:3	loops	high	hand-written (was position)
 param	0x0016EF30:1	status	medium	inferred: its own draft names it so (readable_names.py infer)
 param	0x0016F038:1	milliseconds	medium	inferred: its own draft names it so (readable_names.py infer)
 param	0x0016F038:3	how	medium	inferred: its own draft names it so (readable_names.py infer)
@@ -11240,7 +11240,7 @@ global	0x002726D8	g_textNull2	medium	names9: the address of a string with these 
 global	0x002726E0	g_text0123456789abcdef4	medium	names9: the address of a string with these words; its text is the name
 global	0x002726F8	g_textBugInVfprintfBadBase2	medium	names9: the address of a string with these words; its text is the name
 global	0x00272888	g_doubleInfinity	high	names9: the double's value, _strtod_r
-global	0x00273430	g_shadowColourRed	high	names9: buildShadowVolume: node colour byte 0 >> 1
+global	0x00273430	g_shadowColour	high	hand-written (was g_shadowColourRed)
 global	0x00273434	g_shadowColourGreen	high	names9: buildShadowVolume: node colour byte 1 >> 1
 global	0x00273438	g_shadowColourBlue	high	names9: buildShadowVolume: node colour byte 2 >> 1
 global	0x0027343C	g_shadowColourAlpha	high	names9: buildShadowVolume: node colour byte 3 >> 1

@@ -5,7 +5,7 @@ CRC 67DB3ED8) with no OS input events: no Accessibility permission, no
 keyboard focus, no osascript. A pnach hook makes the game merge a mailbox in
 EE RAM into its own pad reads, and `pcsx2pad.py` writes that mailbox over
 PINE. The same PINE connection gives memory peek/poke/dump, savestates and
-frame-accurate waits, so agents can drive PCSX2 to a screen and then inspect
+frame-accurate waits, so a script can drive PCSX2 to a screen and then inspect
 RAM for differential debugging against the native recompiled build.
 
 ## Files
@@ -20,12 +20,11 @@ RAM for differential debugging against the native recompiled build.
 | `scripts/boot-to-main-menu.txt` | command script: fresh boot to main menu, with savestates and screenshots |
 | `scripts/boot-to-main-menu.padscript` | the same in `PS2X_PAD_SCRIPT` syntax (`7:START,11:START,15:START`) |
 | `scripts/tutorial-*.txt`, `scripts/native/` | Tutorial reference run and its native pad scripts (`REFERENCE-RUN.md`) |
-| `pcsx2-test-data/` | private copy of `baseline/pcsx2-data` (git ignores all but `PCSX2/inis/PCSX2.ini` and `PCSX2/patches/`) |
+| `pcsx2-test-data/` | private copy of `baseline/pcsx2-data` (a link into the data folder, `tooling/data-links.txt`; never committed) |
 
 The test data dir is a copy of the baseline with `PINESlot = 28012` (the baseline
 uses 28011), the pnach in `PCSX2/patches/SLUS-20327_67DB3ED8.pnach`, and
-`Slot1_Filename` set by `launch` (default `Mcd001.ps2`). PCSX2 itself has
-since saved its window geometry and `OutputMuted = true` into this copy.
+`Slot1_Filename` set by `launch` (default `Mcd001.ps2`), `OutputMuted = true`.
 Never point the tool at the baseline dir.
 
 ## How it works
@@ -195,24 +194,17 @@ PCSX2PAD_RECORD=/tmp/run.log pcsx2pad.py run scripts/tutorial-all.txt
 pcsx2pad.py padscript /tmp/run.log              # the recorded inputs as a PS2X_PAD_SCRIPT
 ```
 
-## Test results (2026-10-18)
+## Verified
 
-From a fresh `launch`, `run scripts/boot-to-main-menu.txt` reached the main
-menu by script alone, in 27 s wall time. It did this in two separate fresh boots, with the
-same result each time. Evidence is in `pcsx2-test-data/evidence/` (not committed):
-
-- `01-aka-movie.png`, `02-zaxis-movie.png`, `03-intro-movie.png`: the movies, each skipped by a scripted START
-- `04-memcard-check.png` + `memcard-check.p2s` (also slot 1): the front-end card-check box shown before the menu
-- `05-main-menu.png` + `main-menu.p2s` (also slot 2): MAIN MENU banner, FMV window, icon row, CAREER, matching `reference/pcsx2-main-menu.png`
-- `06-main-menu-from-state1.png`: after loading slot 1, the game continues to the menu by itself
-- `07-state2-then-right.png`: after loading slot 2 and pressing RIGHT, FREESKATE is selected
-
-Also verified:
-
-- The native script string `7:START,11:START,15:START` (`script @scripts/boot-to-main-menu.padscript`) reaches the main menu.
-- D-pad RIGHT/LEFT and the left stick move the menu cursor.
-- CROSS opens Player Select and Level Select and starts the Tutorial level.
-- In the level, CROSS dismisses the tutorial text and `stick L 0 -1 150` skates the character forward.
+- From a fresh `launch`, `run scripts/boot-to-main-menu.txt` reaches the main
+  menu by script alone (about 27 s wall), the same in every fresh boot: the
+  three movies each skipped by a scripted START, the front end's card-check
+  box, then MAIN MENU with CAREER selected.
+- The native script string `7:START,11:START,15:START`
+  (`script @scripts/boot-to-main-menu.padscript`) reaches the main menu.
+- D-pad RIGHT/LEFT and the left stick move the menu cursor; CROSS opens
+  Player Select and Level Select and starts the Tutorial level; in the level
+  CROSS dismisses the tutorial text and `stick L 0 -1 150` skates forward.
 - `down L1` shows `game sees fbff (L1 held)` in `status`.
 - After `loadstate`, input is cleared and the game keeps running.
 
@@ -225,7 +217,7 @@ Also verified:
   either. So it is triggered somewhere else (probably the first save/load),
   and no savestate of the real dialog was made. When it does appear, it
   takes UP/DOWN and CROSS (TRIANGLE cancels).
-- **No "screen" detector**: I did not find a clean RAM variable for "main
+- **No "screen" detector**: there is no clean RAM variable for "main
   menu active". `0x002732FC` (8 at the menu) is a load counter, not a
   screen ID. The boot script therefore uses frame timing with generous
   margins. PCSX2 timing is deterministic, and START does nothing on the
@@ -243,6 +235,5 @@ Also verified:
   asynchronous and gives no completion event.
 - Screenshots need the PCSX2 window on screen (not minimised). The capture
   retries if the window is being recreated.
-- Wall-clock speed: PCSX2 ran at 100% (60 VPS) in these tests, apart from one
-  short slowdown to about 16%. Since everything is counted in frames, this
+- Wall-clock speed: everything is counted in frames, so a PCSX2 slowdown
   only costs time.

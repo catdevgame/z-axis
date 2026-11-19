@@ -17,6 +17,12 @@
 //                   generator (runtime/ps2_vu1_aot_generator.h) its code, and the module carries it
 //   games/<id>/     each game's recompiler config (config.toml) and function list (ghidra-functions.csv)
 //   toolchain.txt   the compiler's version (llvm.lock's)
+//
+// On Android an app may run no program it has written or unpacked itself: the programs are the APK's native libraries
+// (lib/arm64-v8a/libclang.so, liblld.so, libps2_recomp.so; Android unpacks them into the app's native library folder,
+// the one place it runs an app's files from), and the rest of the folder comes from the APK's assets
+// (android_app.cpp unpacks it into the internal storage). The modules are kept in the internal storage too: Android
+// loads no code from the external files folder.
 
 #include "collection/game_setup.h"
 
@@ -30,6 +36,7 @@ namespace ps2x::app
     struct GameCodeTools
     {
         std::filesystem::path root;
+        std::filesystem::path programs; // the compiler's, linker's and recompiler's folder: root/bin (Android: above)
         // The tools of `root` when they are all there; else false with what is missing in *error.
         bool open(const std::filesystem::path &folder, std::string *error);
     };
@@ -87,6 +94,7 @@ namespace ps2x::app
         std::filesystem::path m_tools;
     };
 
-    // Where a game's modules are kept: <the game's folder>/code (the setup's and the boot's).
-    inline std::filesystem::path gameCodeCache(const std::filesystem::path &gameDir) { return gameDir / "code"; }
+    // Where a game's modules are kept: <the game's folder>/code (the setup's and the boot's); on Android
+    // <internal storage>/game-code/<the game's folder's name>.
+    std::filesystem::path gameCodeCache(const std::filesystem::path &gameDir);
 }

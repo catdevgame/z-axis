@@ -244,6 +244,17 @@ namespace ps2x::app::extras
         if (game == "bmx" && (xbox || gc))
             steps.push_back({"Making the Xbox and GameCube content",
                              [&](std::string *e) { return makeBmxReleases(ps2, xbox, gc, staging / "releases", log, e); }});
+        // DM2's and BMX XXX's Xbox textures: their levels' mostly at twice
+        // the PS2's size (their riders and menus are mostly the PS2's own
+        // size on the Xbox); no movies.
+        if ((game == "dm2" || game == "bmx") && xbox)
+            steps.push_back({"Making the Xbox textures", [&](std::string *e)
+                             {
+                                 XboxTexturePackOptions options;
+                                 options.movies = false;
+                                 options.archives = game == "bmx"; // its levels' props
+                                 return makeXboxTexturePack(ps2, *xbox, staging / "xbox-pack", options, log, e);
+                             }});
         // The bottom screen's maps and goals, from the PS2 disc and what was
         // made above (the Zoo, Estate, the Xbox scripts, DM2's Xbox levels).
         steps.push_back({"Making the bottom screen's maps", [&](std::string *e)

@@ -2,7 +2,7 @@
 
 This directory emulates the PS2 SPU2 for the IOP (iop/). The sound code is a port of
 the SPU2 emulation from [PCSX2](https://github.com/PCSX2/pcsx2), copyright
-2002-2026 PCSX2 Dev Team, licensed GPL-3.0+ like PS2Recomp. Thanks to the
+2002-2026 PCSX2 Dev Team, licensed GPL-3.0+ (the collection is GPL-3.0). Thanks to the
 PCSX2 team and to the people credited in the original sources (Dr. Hell,
 nocash, Near, Ryphecha and others).
 

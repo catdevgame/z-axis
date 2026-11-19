@@ -6,9 +6,10 @@
 //   ps2xExtras list <image> [PATTERN ...]    each file's size and path
 //   ps2xExtras extract <image> --out <dir> [PATTERN ...]
 //                                            the files into <dir>/<disc path>
-//   ps2xExtras xbox-pack --ps2 <dir> --xbox <image|dir> --out <dir> [--no-movies]
-//                                            Aggressive Inline's Xbox texture pack
-//                                            (tools/xbox_pack.py's)
+//   ps2xExtras xbox-pack --ps2 <dir> --xbox <image|dir> --out <dir> [--no-movies] [--archives]
+//                                            a game's Xbox texture pack (Aggressive Inline's:
+//                                            tools/xbox_pack.py's; DM2's --no-movies, BMX XXX's
+//                                            --no-movies --archives, as the extras' setup makes them)
 //   ps2xExtras bmx-releases --ps2 <dir> [--xbox <image|dir>] [--gc <image|dir>] --out <dir>
 //                                            BMX XXX's Xbox and GameCube content
 //                                            (tools/bmx_releases.py's)
@@ -152,6 +153,7 @@ namespace
         {
             XboxTexturePackOptions options;
             options.movies = !flags.count("--no-movies");
+            options.archives = flags.count("--archives") != 0;
             ok = makeXboxTexturePack(*ps2, *xbox, args["--out"], options, log, &error);
         }
         else if (command == "ai-xbox" && ps2 && xbox)

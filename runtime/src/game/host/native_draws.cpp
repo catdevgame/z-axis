@@ -106,7 +106,8 @@ namespace game::host::native_draws
     bool xboxCharacterLighting()
     {
         PS2Runtime *runtime = g_runtime.load();
-        return ps2x::gs_quality::xboxLighting() && runtime && runtime->gs().nativeDrawsOnBackend();
+        return boot().skinnedDraw.xboxLights && ps2x::gs_quality::xboxLighting() && runtime &&
+               runtime->gs().nativeDrawsOnBackend();
     }
 
     void count(Count what)

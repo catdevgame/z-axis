@@ -19,8 +19,10 @@
 //   distance, as a share of the game's;
 // - Camera Height: their offset up, and g_followAirHeights, the height they
 //   take while the rider is in the air or on a grind's approach;
-// - Field of View: every row's field of view, scaled by the setting over
-//   the game's 62 (the one-view behind type's).
+// - Field of View: drawn, not played: the tables keep the game's, and a
+//   level's view cameras are drawn with theirs scaled by the setting over
+//   the game's 62 (the one-view behind type's; drawnFieldOfView,
+//   zge_view.h), so what the game decides by its view stays the PS2's.
 // The rider's-eyes type keeps its place. The camera code itself is not
 // touched (the follow mode is not Verified), only the data it reads.
 //
@@ -219,8 +221,7 @@ namespace bmx_xxx::gameplay
         void applyCamera(uint8_t *rdram)
         {
             State &s = state();
-            for (gp::GameFloat &fov : s.fov)
-                gp::apply(rdram, fov, scaled(fov, option(kFov), kGameFov));
+            // (Field of View is drawn, not played: drawnFieldOfView below.)
             for (uint32_t n = 0; n < kBehindRows; ++n)
             {
                 gp::apply(rdram, s.forward[n], scaled(s.forward[n], option(kDistanceShare), 100));
@@ -589,5 +590,12 @@ namespace bmx_xxx
     void installGameplay(PS2Runtime &runtime)
     {
         gameplay::install(runtime);
+    }
+
+    float drawnFieldOfView(const uint8_t *, float gameDegrees)
+    {
+        const int setting = gameplay::option(gameplay::kFov);
+        return setting == gameplay::kGameFov ? gameDegrees
+                                             : gameDegrees * static_cast<float>(setting) / static_cast<float>(gameplay::kGameFov);
     }
 }

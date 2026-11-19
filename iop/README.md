@@ -2,7 +2,16 @@
 
 `iop` runs original IRX modules on an R3000A interpreter, with a virtual
 IOP kernel providing imports without a PS2 BIOS. The C++20 static library
-`ps2_iop` / `ps2x::iop` is linked into the runtime (`runtime/`).
+`ps2_iop` / `ps2x::iop` is linked into the runtime (`runtime/`). The games run
+with the IOP stopped by default: their disc, movie, sound and save modules are
+replaced by native code (`docs/NATIVE.md`), and this path is the fallback and
+the reference for comparisons (`PS2X_IOP=1`, `PS2X_SOUND=spu2`, ...).
+
+It also holds the disc image reader, `ps2_disc` / `ps2x::disc` (ISO 9660 over
+an ISO, a BIN/CUE dump, a CHD, a CSO or a ZSO), which the app uses to set a
+game up from the player's disc, and its command line, `ps2x_disc list | extract
+| to-iso` (`tools/ps2x_disc.cpp`; `-DPS2X_IOP_DISC_ONLY=ON` builds it alone,
+as `tooling/recompile.sh` does).
 
 ## Execution policy
 
@@ -20,8 +29,8 @@ Generic HLE services remain available when no loaded IRX provides an endpoint:
 
 These services are dormant before module load and after reset or the final
 module stop. Unknown modules fail to load; unknown RPC SIDs remain unhandled.
-Games previously using TSNDDRV, CRI DTX, CLFILE, SOUND or SDRDRV profiles now
-require their IRX modules and support for the imports and hardware they use.
+A game needs its own IRX modules and support for the imports and hardware they
+use.
 
 ## SPU2
 

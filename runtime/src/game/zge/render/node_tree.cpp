@@ -30,9 +30,12 @@
 #include "zge/scene/node.h"
 #include "zge/scene/query.h"
 #include "zge/scene/visibility_regions.h"
+#include "zge/host/game_view.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <optional>
 #include "sym/zge/render/node_tree.cpp.h"
 
 namespace zge
@@ -74,6 +77,10 @@ namespace zge
         class ViewCulling
         {
         public:
+            ViewCulling() = default;
+            // On VU0 registers of its own (the game's view beside the drawn one).
+            explicit ViewCulling(vu0::Registers::Beside beside) : m_vu(beside) {}
+
             void load(const PlaneColumns &columns, const Matrix &fromWorld)
             {
                 for (int column = 0; column < 8; ++column)
@@ -156,7 +163,7 @@ namespace zge
         // The box of the node's model against the camera's world planes, its eight
         // corners into the world first: kCullOutside when every corner is outside one
         // plane; kCullInFrontOfFirst when the first of six has them all in front.
-        uint32_t boxAgainstPlanes(const Node &node, const Camera &camera, BoxCorners &box)
+        uint32_t boxAgainstPlanes(const Node &node, const Plane *planes, uint32_t planeCount, BoxCorners &box)
         {
             const ModelBox &model = *node.model.cast<ModelBox>();
             box.corner.w = 1.0f;
@@ -171,9 +178,9 @@ namespace zge
             const auto inFront = [&](const Plane &plane, uint32_t corner) { return ee::Float(0.0f) <= dot(box.world[corner], plane) - plane.w; };
             uint32_t result = 0;
             uint32_t index = 0;
-            for (uint32_t planesLeft = camera.planeCount; planesLeft != 0; --planesLeft, ++index)
+            for (uint32_t planesLeft = planeCount; planesLeft != 0; --planesLeft, ++index)
             {
-                const Plane &plane = camera.planes[index];
+                const Plane &plane = planes[index];
                 uint32_t corner = 0;
                 while (corner < 8 && !inFront(plane, corner))
                     ++corner;
@@ -194,7 +201,10 @@ namespace zge
 
         // A node culled: its CullFlags; its sphere's centre in view space recorded
         // unless it is outside the view.
-        uint32_t cullNode(ViewCulling &culling, const Node &node, NodeView &view, const Camera &camera, BoxCorners &box)
+        // `planes`: the frustum's world planes for the box test, null for the camera's own (read only when the
+        // sphere crosses a side, as the original reads them).
+        uint32_t cullNode(ViewCulling &culling, const Node &node, Vec4 &viewCentre, const Camera &camera, const Plane *planes,
+                          uint32_t planeCount, BoxCorners &box, bool *centreTaken = nullptr)
         {
             culling.takeNodeSphere(node.sphereCentre);
             uint32_t result = kCullOutside;
@@ -202,14 +212,16 @@ namespace zge
             {
                 // Inside every plane with the radius taken off: wholly in the view.
                 const bool across = culling.behindAPlane(true);
-                culling.storeViewCentre(view.viewCentre);
+                culling.storeViewCentre(viewCentre);
+                if (centreTaken)
+                    *centreTaken = true;
                 if (!across)
                     result = 0;
                 else
                 {
                     // Across a plane: the near (as well), the far, else a side.
                     const ee::Float radius = node.radius;
-                    const ee::Float depth = view.viewCentre.z;
+                    const ee::Float depth = viewCentre.z;
                     result = kCullSide | kCullNear;
                     if (!(depth - radius < camera.nearClip))
                     {
@@ -220,8 +232,147 @@ namespace zge
                 }
             }
             if (result & kCullSide)
-                result |= boxAgainstPlanes(node, camera, box);
+                result |= planes ? boxAgainstPlanes(node, planes, planeCount, box)
+                                 : boxAgainstPlanes(node, camera.planes, camera.planeCount, box);
             return result;
+        }
+        uint32_t cullNode(ViewCulling &culling, const Node &node, NodeView &view, const Camera &camera, BoxCorners &box,
+                          bool *centreTaken = nullptr)
+        {
+            return cullNode(culling, node, view.viewCentre, camera, nullptr, 0u, box, centreTaken);
+        }
+
+        // The game's own view (zge/host/game_view.h), culled beside the drawn
+        // one when the view settings widened the drawn frustum: on VU0
+        // registers of its own, the guest's kept as the drawn culling leaves
+        // them, and with boxes and view centres of its own. A node is marked
+        // drawn (kViewDrawn) by this culling and queued by the drawn one.
+        class GameCulling
+        {
+        public:
+            explicit GameCulling(const Camera &camera, const host::GameFrustum &frustum)
+                : m_camera(camera), m_frustum(frustum), m_culling(vu0::Registers::Beside{})
+            {
+                PlaneColumns columns{};
+                for (int plane = 0; plane < 4; ++plane)
+                {
+                    columns.lane[0][plane] = frustum.planes[plane].x;
+                    columns.lane[1][plane] = frustum.planes[plane].y;
+                    columns.lane[2][plane] = frustum.planes[plane].z;
+                    columns.lane[3][plane] = -frustum.planes[plane].w;
+                }
+                for (int plane = 0; plane < 2; ++plane)
+                {
+                    columns.lane[4][plane] = frustum.planes[4 + plane].x;
+                    columns.lane[5][plane] = frustum.planes[4 + plane].y;
+                    columns.lane[6][plane] = frustum.planes[4 + plane].z;
+                    columns.lane[7][plane] = -frustum.planes[4 + plane].w;
+                }
+                m_culling.load(columns, frustum.fromWorld);
+            }
+
+            // The node's cull flags in the game's view. A node the drawn view
+            // left out (its view centre not taken: a drawn view narrower than
+            // the game's somewhere) gets its view centre as the game's view
+            // takes it, for its level of detail.
+            uint32_t cull(const Node &node, NodeView &view, bool drawnCentreTaken)
+            {
+                vu0::KeptRegisters kept; // (the box test's corners go through the running context's VU0)
+                bool taken = false;
+                m_centre.z = 0.0f;
+                const uint32_t flags = cullNode(m_culling, node, m_centre, m_camera, m_frustum.planes, m_frustum.planeCount, m_box, &taken);
+                if (taken && !drawnCentreTaken)
+                    view.viewCentre = m_centre;
+                return flags;
+            }
+            // The last culled node's depth in the game's view (its level of detail there).
+            ee::Float depth() const { return m_centre.z; }
+            // A sector's sphere wholly outside the game's view.
+            bool sectorOutside(const Vec4 &sphere)
+            {
+                m_culling.takeWorldSphere(sphere);
+                return m_culling.behindAPlane(false);
+            }
+
+        private:
+            const Camera &m_camera;
+            const host::GameFrustum &m_frustum;
+            ViewCulling m_culling;
+            BoxCorners m_box;
+            Vec4 m_centre;
+        };
+
+        // ZGE4's view tests (partInView's, through nodeVisibleInView and sectorInView; zge/scene/camera.cpp) in the
+        // game's own view: the same steps on the game frustum's tangents, sphere scales and planes, worked out here
+        // (no guest call, so no EE time) with VU0's registers kept as the drawn test left them. Only the outside bit
+        // (kCullOutside) is used.
+        uint32_t sphereInGameView(const Camera &camera, const host::GameFrustum &game, const Vec4 &sphereCentre, ee::Float radius)
+        {
+            const Vec4 centre = transformed(game.fromWorld, sphereCentre);
+            const ee::Float depth = centre.z;
+            const ee::Float front = depth + radius;
+            if (front < camera.nearClip)
+                return kSphereOutOfView;
+            const ee::Float back = depth - radius;
+            if (camera.farClip < back)
+                return kSphereOutOfView;
+            const ee::Float radiusAcross = game.sphereScaleX * radius;
+            const ee::Float limitAcross = game.tanHalfWidth * depth + radiusAcross;
+            if (limitAcross < ee::abs(centre.x))
+                return kSphereOutOfView;
+            const ee::Float radiusUp = game.sphereScaleY * radius;
+            const ee::Float limitUp = game.tanHalfHeight * depth + radiusUp;
+            if (limitUp < ee::abs(centre.y))
+                return kSphereOutOfView;
+            if (back < camera.nearClip)
+                return kSphereCrossesNear | kSphereCrossesSide;
+            if (camera.farClip < front)
+                return kSphereCrossesFar;
+            if (!(limitAcross - (radiusAcross + radius) < ee::abs(centre.x)) && !(limitUp - (radiusUp + radius) < ee::abs(centre.y)))
+                return 0;
+            return kSphereCrossesSide; // (the near-plane margin bit left out: only the outside bit is read)
+        }
+        uint32_t boxInGameView(const host::GameFrustum &game, const Box &box, const Matrix &world)
+        {
+            Vec4 corners[8];
+            Vec4 corner;
+            corner.w = 1.0f;
+            for (uint32_t bits = 8, slot = 0; bits != 0; --bits, ++slot)
+            {
+                corner.x = (bits & 1u) ? box.low.x : box.high.x;
+                corner.y = (bits & 2u) ? box.low.y : box.high.y;
+                corner.z = (bits & 4u) ? box.low.z : box.high.z;
+                corners[slot] = transformed(world, corner);
+            }
+            for (uint32_t plane = 0; plane < game.planeCount; ++plane)
+            {
+                uint32_t inside = 0;
+                while (inside < 8 && !(ee::Float(0.0f) <= dot(corners[inside], game.planes[plane]) - game.planes[plane].w))
+                    ++inside;
+                if (inside == 8)
+                    return kCullOutside;
+            }
+            return 0;
+        }
+        // ZGE4's nodeVisibleInView's outside bit in the game's view (drawListedNodeTree's: the bounds where the
+        // node's origin moves them).
+        uint32_t nodeInGameView(const Camera &camera, const host::GameFrustum &game, const Node &node)
+        {
+            vu0::KeptRegisters kept;
+            const uint32_t flags = sphereInGameView(camera, game, node.sphereCentre, node.radius);
+            if ((flags & kSphereOutOfView) || !(flags & kSphereCrossesSide))
+                return flags & kCullOutside;
+            Matrix world = node.world;
+            world.translation() = world.translation() + node.origin;
+            return boxInGameView(game, const_cast<Node &>(node).modelBounds(), world);
+        }
+        // sectorInView's outside bit in the game's view.
+        uint32_t sectorInGameView(const Camera &camera, const host::GameFrustum &game, const Sector &sector)
+        {
+            vu0::KeptRegisters kept;
+            // (the sphere's radius is the word after its centre: partInView's ViewSphere)
+            return sphereInGameView(camera, game, sector.sphere, ee::Ptr<const Vec4>(&sector.sphere).cast<const ViewSphere>()->radius) &
+                   kCullOutside;
         }
 
         // The stack a tree's walk keeps its nodes on, in the caller's frame: a bounded
@@ -247,6 +398,7 @@ namespace zge
         {
             ee::Ptr<Node> root;
             uint32_t cullFlags; // the root's, kept for it
+            uint32_t gameCullFlags; // the same in the game's view (GameCulling; the drawn's without one)
             bool noCulling;
             int32_t frameStamp;
         };
@@ -257,7 +409,8 @@ namespace zge
         // the walk has noCulling, or it is the root: the root keeps walk.cullFlags),
         // its view centre and frame stamp recorded; a shadow caster's shadow part
         // queued (bucket 5).
-        void queueTree(const TreeWalk &walk, ViewCulling &culling, const Camera &camera, ee::Ptr<TreeStack> stack, BoxCorners &box)
+        void queueTree(const TreeWalk &walk, ViewCulling &culling, GameCulling *game, const Camera &camera, ee::Ptr<TreeStack> stack,
+                       BoxCorners &box)
         {
             const ee::Ptr<ee::Ptr<Node>> first = &stack->nodes[0];
             stack->base = first;
@@ -271,6 +424,7 @@ namespace zge
             };
 
             uint32_t cullFlags = walk.cullFlags;
+            uint32_t gameCullFlags = walk.gameCullFlags;
             ee::Ptr<Node> nodeAddress = walk.root;
             if (!nodeAddress)
                 return;
@@ -285,7 +439,11 @@ namespace zge
                 if (!same(nodeAddress, walk.root))
                 {
                     if (!walk.noCulling)
-                        cullFlags = cullNode(culling, node, view, camera, box);
+                    {
+                        bool centreTaken = false;
+                        cullFlags = cullNode(culling, node, view, camera, box, &centreTaken);
+                        gameCullFlags = game ? game->cull(node, view, centreTaken) : cullFlags;
+                    }
                     else
                         culling.viewCentreOf(node.sphereCentre, view.viewCentre);
                     setViewFrameStamp(view, static_cast<uint32_t>(walk.frameStamp));
@@ -315,8 +473,12 @@ namespace zge
                         draw.draw = 0;
                         target.end = target.end + 1;
                     }
-                    view.lodAndFlags |= kViewDrawn;
+                    if (!game)
+                        view.lodAndFlags |= kViewDrawn;
                 }
+                // With the game's own view beside: drawn as the game sees it.
+                if (game && view.part && (gameCullFlags & kCullOutside) == 0 && (node.flags & kNodeShown) != 0)
+                    view.lodAndFlags |= kViewDrawn;
                 stack->top = popTop - 1;
                 nodeAddress = *stack->top;
             } while (nodeAddress);
@@ -376,20 +538,39 @@ namespace zge
     }
     READABLE_FUNCTION(loadViewCulling, Verified);
 
+    namespace
+    {
+        // The root's flags in the game's view for the next drawNodeTree (ZGE4's listed node gives them; else its
+        // flags are the drawn view's).
+        std::optional<uint32_t> t_nextRootGameCullFlags;
+
+        // drawNodeTree's walk, with the root's flags in the game's view.
+        void queueNodeTreeAs(ee::Ptr<Node> root, uint32_t cullFlags, uint32_t gameCullFlags)
+        {
+            ee::Local<TreeStack> stack;
+            ee::Local<BoxCorners> box;
+            const ee::Ptr<Camera> camera(*g_currentCamera);
+            TreeWalk walk{};
+            walk.root = root;
+            walk.cullFlags = cullFlags;
+            walk.frameStamp = static_cast<int32_t>((*g_collisionWorld)->frameStamp);
+            walk.noCulling = (root->flags & kNodeTreeIsOneUnit) != 0;
+            walk.gameCullFlags = gameCullFlags;
+            ViewCulling culling;
+            std::optional<GameCulling> game;
+            if (const host::GameFrustum *frustum = host::gameFrustum(camera))
+                game.emplace(*camera, *frustum);
+            queueTree(walk, culling, game ? &*game : nullptr, *camera, stack, box);
+        }
+    }
+
     // drawNodeTree (drawSky): the tree under `root` queued (queueTree). The
     // second argument is not read (the sky passes -1).
     void drawNodeTree(ee::Ptr<Node> root, uint32_t, uint32_t cullFlags)
     {
-        ee::Local<TreeStack> stack;
-        ee::Local<BoxCorners> box;
-        const ee::Ptr<Camera> camera(*g_currentCamera);
-        TreeWalk walk{};
-        walk.root = root;
-        walk.cullFlags = cullFlags;
-        walk.frameStamp = static_cast<int32_t>((*g_collisionWorld)->frameStamp);
-        walk.noCulling = (root->flags & kNodeTreeIsOneUnit) != 0;
-        ViewCulling culling;
-        queueTree(walk, culling, *camera, stack, box);
+        const uint32_t gameCullFlags = t_nextRootGameCullFlags.value_or(cullFlags);
+        t_nextRootGameCullFlags.reset();
+        queueNodeTreeAs(root, cullFlags, gameCullFlags);
     }
     READABLE_FUNCTION_WAITS(drawNodeTree, Verified);
 
@@ -397,6 +578,19 @@ namespace zge
     {
         // The area record a position is in (markRegionsOutOfView: the visibility regions out of view from it marked).
         uint32_t areaAt(const Vec4 &position) { return ee::Address(markRegionsOutOfView(&position.xyz())); }
+        // The same for the game's own camera when a hidden one stands elsewhere (zge/host/game_view.h): its position
+        // put in the camera's for the call (the regions out of view from where the game's camera is), the drawn one's
+        // back after.
+        uint32_t areaAtGameCamera(ee::Ptr<Camera> camera, const Vec4 &drawnPosition)
+        {
+            if (!gameCameraElsewhere(camera))
+                return areaAt(drawnPosition);
+            const Vec4 drawn = camera->position;
+            camera->position = gameCameraPosition(camera);
+            const uint32_t area = areaAt(camera->position);
+            camera->position = drawn;
+            return area;
+        }
         // A node's drawCheck: (node, &level of detail, its data), 0 leaves the tree undrawn.
         int32_t askDrawCheck(uint32_t check, ee::Ptr<Node> node, ee::Address level, uint32_t data) { return ee::call<int32_t>(check, node, level, data); }
 
@@ -421,7 +615,8 @@ namespace zge
 
         // A listed node of a sector drawn, unless this view has seen it this frame: culled,
         // given the level of detail for its depth, and its tree queued.
-        void drawListedNode(ee::Ptr<SceneFrame> frame, ViewCulling &culling, const Camera &camera, ee::Ptr<Node> nodeAddress)
+        void drawListedNode(ee::Ptr<SceneFrame> frame, ViewCulling &culling, GameCulling *game, const Camera &camera,
+                            ee::Ptr<Node> nodeAddress)
         {
             Node &node = *nodeAddress;
             NodeView &view = viewOf(node);
@@ -432,6 +627,12 @@ namespace zge
             const int32_t currentLevel = (view.lodAndFlags >> 1) & 0xFu;
 
             uint32_t cullFlags;
+            uint32_t gameCullFlags; // (the game's view beside: in it or not)
+            const auto cull = [&] {
+                bool centreTaken = false;
+                cullFlags = cullNode(culling, node, view, camera, frame->listedBox, &centreTaken);
+                gameCullFlags = game ? game->cull(node, view, centreTaken) : cullFlags;
+            };
             const bool oneUnit = (node.flags & kNodeTreeIsOneUnit) != 0;
             if (oneUnit)
             {
@@ -439,22 +640,26 @@ namespace zge
                 // in view. (Hidden, it is not even tested.)
                 if ((node.flags & kNodeShown) == 0 || !regionInView(frame->area, node.region))
                     return;
-                cullFlags = cullNode(culling, node, view, camera, frame->listedBox);
-                if (cullFlags & kCullOutside)
+                cull();
+                if (cullFlags & gameCullFlags & kCullOutside)
                     return;
             }
             else
             {
                 if (!regionInView(frame->area, node.region))
                     return;
-                cullFlags = cullNode(culling, node, view, camera, frame->listedBox);
+                cull();
                 if ((node.flags & kNodeShown) == 0)
-                    cullFlags = kCullOutside;
+                    cullFlags = gameCullFlags = kCullOutside;
             }
             frame->chosenLevel = levelForDepth(node.lods, view.viewCentre.z);
+            // (past its last level of detail in the game's view: not drawn there)
+            const int32_t gameLevel = game ? levelForDepth(node.lods, game->depth()) : frame->chosenLevel;
+            if (gameLevel < 0)
+                gameCullFlags = kCullOutside;
             if (frame->chosenLevel < 0)
             {
-                if (oneUnit)
+                if (oneUnit && gameLevel < 0)
                     return;
                 cullFlags = kCullOutside;
             }
@@ -468,7 +673,8 @@ namespace zge
             walk.frameStamp = static_cast<int32_t>((*g_collisionWorld)->frameStamp);
             walk.noCulling = oneUnit;
             walk.cullFlags = cullFlags;
-            queueTree(walk, culling, camera, frame->stackPlace, frame->treeBox);
+            walk.gameCullFlags = gameCullFlags;
+            queueTree(walk, culling, game, camera, frame->stackPlace, frame->treeBox);
         }
 
         // The list's next node, 0 at its end (the list's own cursor).
@@ -504,7 +710,7 @@ namespace zge
         frame->frameStamp = world->frameStamp + 1;
         world->frameStamp = frame->frameStamp;
         resetDrawBuckets();
-        frame->area = areaAt(camera->position);
+        frame->area = areaAtGameCamera(camera, camera->position);
         flushTexturesOnAreaExit(frame->area);
         setCameraArea(ee::Ptr<Camera>(*g_currentCamera), frame->area);
         if (*g_sceneDrawOff != 0)
@@ -515,6 +721,9 @@ namespace zge
             forEachWorldMesh(sym::updateMovedNodeVisitor, 0);
 
         ViewCulling culling;
+        std::optional<GameCulling> game;
+        if (const host::GameFrustum *frustum = host::gameFrustum(camera))
+            game.emplace(*camera, *frustum);
         ee::Ptr<Sector> sector = world->cell;
         frame->stackPlace = &frame->stack;
         int32_t left = world->cells;
@@ -538,9 +747,10 @@ namespace zge
                 if (node)
                 {
                     culling.takeWorldSphere(sector->sphere);
-                    if (!culling.behindAPlane(false))
+                    // (in the drawn view, or with the game's beside in that)
+                    if (!culling.behindAPlane(false) || (game && !game->sectorOutside(sector->sphere)))
                         for (; node; node = nextListedNode(*sector->nodes))
-                            drawListedNode(frame, culling, *camera, node);
+                            drawListedNode(frame, culling, game ? &*game : nullptr, *camera, node);
                 }
                 sector = frame->nextSector;
             }
@@ -593,6 +803,12 @@ namespace zge
         void drawListedNodeTree(ee::Ptr<Node> nodeAddress, uint32_t frameStamp, uint32_t area, const Matrix &fromWorld,
                                 ee::Local<int32_t> &level, ee::Local<ee::Float> &distancePast)
         {
+            // The game's own view beside the drawn one (zge/host/game_view.h): the node in it or not.
+            const ee::Ptr<Camera> camera(*g_currentCamera);
+            const host::GameFrustum *game = host::gameFrustum(camera);
+            const auto inGame = [&](uint32_t drawnFlags) {
+                return game ? nodeInGameView(*camera, *game, *nodeAddress) : drawnFlags;
+            };
             Node &node = *nodeAddress;
             NodeView &view = viewOf(node);
             if (viewFrameStamp(view) == frameStamp)
@@ -600,13 +816,14 @@ namespace zge
             setViewFrameStamp(view, frameStamp);
             view.lodAndFlags &= ~kViewDrawn;
 
-            uint32_t cullFlags;
+            uint32_t cullFlags, gameCullFlags;
             if ((node.flags & kNodeTreeIsOneUnit) != 0)
             {
                 if ((node.flags & kNodeShown) == 0 || !regionInView(area, node.region))
                     return;
                 cullFlags = updatedNodeVisibleInView(nodeAddress);
-                if (cullFlags & kCullOutside)
+                gameCullFlags = inGame(cullFlags);
+                if (cullFlags & gameCullFlags & kCullOutside)
                     return;
                 view.viewCentre = transformed(fromWorld, node.world.translation());
                 *level = frameLevelForDistance(node.lods, &view.viewCentre.xyz(), distancePast);
@@ -620,17 +837,19 @@ namespace zge
                 if (!regionInView(area, node.region))
                     return;
                 cullFlags = updatedNodeVisibleInView(nodeAddress);
+                gameCullFlags = inGame(cullFlags);
                 if ((node.flags & kNodeShown) == 0)
-                    cullFlags = kCullOutside;
+                    cullFlags = gameCullFlags = kCullOutside;
                 view.viewCentre = transformed(fromWorld, node.world.translation());
                 *level = frameLevelForDistance(node.lods, &view.viewCentre.xyz(), distancePast);
                 if (*level < 0)
-                    cullFlags = kCullOutside;
+                    cullFlags = gameCullFlags = kCullOutside;
                 else if (*level != zge4ViewLevel(view))
                     setTreeLevelOfDetail(nodeAddress, static_cast<uint8_t>(*level));
             }
             if (node.drawCheck != 0 && askDrawCheck(node.drawCheck, nodeAddress, level, node.drawCheckData) == 0)
                 return;
+            t_nextRootGameCullFlags = gameCullFlags;
             drawNodeTree(nodeAddress, ~0u, cullFlags); // (its second argument is not read: -1, as the sky's)
         }
     }
@@ -659,7 +878,8 @@ namespace zge
             *sceneProfileTimer = newProfileBar(kSceneBarDisplay, 0, sym::bmx::sceneTimerColour, sym::bmx::sceneTimerName);
         startProfileBar(*sceneProfileTimer);
         resetDrawBuckets();
-        const uint32_t area = areaAt(cachedMatrix(ee::Ptr<Camera>(*g_currentCamera), 1)->translation());
+        const ee::Ptr<Camera> currentCamera(*g_currentCamera);
+        const uint32_t area = areaAtGameCamera(currentCamera, cachedMatrix(currentCamera, 1)->translation());
         flushTexturesOnAreaExit(area);
         setCameraArea(ee::Ptr<Camera>(*g_currentCamera), area);
         if (*g_sceneDrawOff == 0)
@@ -680,7 +900,15 @@ namespace zge
                 }
                 else
                     list.cursor = -1;
-                if (node && regionInView(area, sector->region) && (sectorInView(sector) & kCullOutside) == 0)
+                // (in the drawn view, or with the game's beside in that)
+                const auto inView = [&] {
+                    if ((sectorInView(sector) & kCullOutside) == 0)
+                        return true;
+                    const ee::Ptr<Camera> camera(*g_currentCamera);
+                    const host::GameFrustum *game = host::gameFrustum(camera);
+                    return game && sectorInGameView(*camera, *game, *sector) == 0;
+                };
+                if (node && regionInView(area, sector->region) && inView())
                     for (; node; node = nextListedNode(*sector->nodes))
                         drawListedNodeTree(node, frameStamp, area, *fromWorld, level, distancePast);
                 sector = sector + 1;

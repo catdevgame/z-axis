@@ -30,10 +30,14 @@ option(PS2X_BUILD_TEST "Build the unit tests (ps2x_tests)" ON)
 # is OFF (the app build and the workers' builds never run it).
 option(PS2X_BUILD_RECOMPILER "Build tooling/recompiler (when it is there)" ON)
 
+# On Android the recompiler is built only for the APK that makes each game's code on the device (android/README.md).
+option(PS2X_ANDROID_RECOMPILER "Android: build the recompiler too (the APK's, for the game code made on the device)" OFF)
 if(ANDROID)
     message(STATUS "Android target detected, building runtime only")
     set(PS2X_BUILD_TEST OFF)
-    set(PS2X_BUILD_RECOMPILER OFF)
+    if(NOT PS2X_ANDROID_RECOMPILER)
+        set(PS2X_BUILD_RECOMPILER OFF)
+    endif()
 endif()
 
 set(PS2X_IS_ARM_TARGET OFF)

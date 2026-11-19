@@ -9,11 +9,11 @@
 // - Camera: Distance (Distance, Grind Distance, Distance HPole) and Height
 //   (Height, Grind Height) as percentages of the game's, read live by the
 //   follow camera; Camera PS2 / Xbox (the Xbox release's field of view, see
-//   xboxFov). FOV is not read live: the getter 0x18C828 (Camera FOV,
-//   or the level's MP FOV in split screen) is wrapped to scale its result,
-//   and 0x18FCA0 (camera+0x30 = FOV, called with the getter's value when a
-//   camera mode is set) is wrapped to know the camera, whose +0x30 is
-//   rewritten when the setting changes in a level.
+//   xboxFov). Field of View and Camera Xbox are drawn, not played: the game
+//   keeps its own field of view (Camera FOV, or the level's MP FOV in split
+//   screen) and the view settings draw a level's view cameras with the one
+//   drawnFieldOfView gives (zge_view.h), so what the game decides by its
+//   view stays the PS2's.
 // - Assists: Death by Juice (an empty juice meter ends the run), Max Juice
 //   Degradation/sec, Juice Lost/Level on crash.
 // - Cheats: the game's own list (0x2541F0, names as the game shows them),
@@ -84,9 +84,6 @@ namespace aggressive_inline::gameplay
         constexpr uint32_t kLevelFrame = 0x00231CACu;
         constexpr uint32_t kPlayUpdate = 0x001ACA68u;
 
-        constexpr uint32_t kFovGetter = 0x0018C828u;
-        constexpr uint32_t kFovSetter = 0x0018FCA0u;
-        constexpr uint32_t kCameraFov = 0x30u;
         constexpr int kDefaultFov = 75; // the table's Camera FOV
         constexpr uint32_t kGameType = 0x0024C9B3u; // byte: 4 split screen
         constexpr uint8_t kGameTypeSplitScreen = 4u;
@@ -107,8 +104,6 @@ namespace aggressive_inline::gameplay
         {
             PS2Runtime *runtime = nullptr;
             PS2Runtime::RecompiledFunction playUpdate = nullptr;
-            PS2Runtime::RecompiledFunction fovGetter = nullptr;
-            PS2Runtime::RecompiledFunction fovSetter = nullptr;
             PS2Runtime::RecompiledFunction guiDraw = nullptr;
         };
         Hooks &hooks() { return ps2x::session::state<Hooks>(); }
@@ -287,16 +282,44 @@ namespace aggressive_inline::gameplay
                 zge_host::gameplay::apply(rdram, tuning().tunes[id].value, wanted(id));
         }
 
-        // ---- field of view --------------------------------------------------
-
-        struct Fov
+        // The camera's entries (Distance .. Grind Height): the game's own
+        // values in the table while `game`, else the settings' as they were.
+        bool cameraTuningChanged()
         {
-            std::atomic<uint32_t> fovCamera{0}; // what 0x18FCA0 was last given (a camera)
-            std::atomic<float> fovGame{0.0f}; // the getter's own result, last call
-            std::atomic<float> fovGiven{0.0f}; // what the hook returned for it
-            float fovApplied = static_cast<float>(kDefaultFov); // fovKey when the camera last got its FOV
+            return option(kDistance) != 100 || option(kHeight) != 100;
+        }
+        struct KeptCameraTuning
+        {
+            float values[kTHeight - kTDistance + 2] = {};
         };
-        Fov &fovState() { return ps2x::session::state<Fov>(); }
+        KeptCameraTuning &keptCameraTuning() { return ps2x::session::state<KeptCameraTuning>(); }
+        void holdGameCameraTuning(uint8_t *rdram, bool game)
+        {
+            for (int id = kTDistance; id <= kTGrindHeight; ++id)
+            {
+                const zge_host::gameplay::GameFloat &value = tuning().tunes[id].value;
+                if (!value.address)
+                    continue;
+                float &kept = keptCameraTuning().values[id - kTDistance];
+                if (game)
+                {
+                    kept = readFloat(rdram, value.address);
+                    writeFloat(rdram, value.address, value.game);
+                }
+                else
+                    writeFloat(rdram, value.address, kept);
+            }
+        }
+
+        // Camera / Distance: the game's own and the table's now (0, 0 when not found).
+        void cameraDistance(const uint8_t *rdram, float &game, float &now)
+        {
+            const zge_host::gameplay::GameFloat &value = tuning().tunes[kTDistance].value;
+            game = value.address ? value.game : 0.0f;
+            now = value.address ? readFloat(rdram, value.address) : 0.0f;
+        }
+
+        // ---- field of view --------------------------------------------------
 
         float scaledFov(float game, int setting)
         {
@@ -341,57 +364,14 @@ namespace aggressive_inline::gameplay
             return type && *type == kGameTypeSplitScreen;
         }
 
-        // What the getter's result becomes: the Xbox's projection, then the
-        // FOV setting's scale.
+        // The field of view the game's own is drawn with: the Xbox's
+        // projection, then the FOV setting's scale.
         float wantedFov(const uint8_t *rdram, float game)
         {
             float fov = game;
             if (option(kCameraStyle) != 0 && !splitScreen(rdram) && game > 0.0f)
                 fov = xboxFov(game, pictureAspect());
             return scaledFov(fov, option(kFov));
-        }
-
-        // Changes when the camera's FOV should be redone in a level.
-        float fovKey(const uint8_t *rdram)
-        {
-            return static_cast<float>(option(kFov)) +
-                   (option(kCameraStyle) != 0 && !splitScreen(rdram) ? 1000.0f * pictureAspect() : 0.0f);
-        }
-
-        void fovGetterHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
-        {
-            hooks().fovGetter(rdram, ctx, runtime);
-            const float game = ctx->f[0];
-            ctx->f[0] = wantedFov(rdram, game);
-            fovState().fovGame = game;
-            fovState().fovGiven = ctx->f[0];
-        }
-
-        void fovSetterHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
-        {
-            fovState().fovCamera = getRegU32(ctx, 4);
-            hooks().fovSetter(rdram, ctx, runtime);
-        }
-
-        // VBlank: the FOV setting, the Camera style or (with Xbox) the
-        // picture's aspect changed in a level. The camera holds what the
-        // getter gave it when its mode was set; unless it has another one
-        // now (the R1 camera), it gets the new value.
-        void refreshFov(uint8_t *rdram, uint32_t mode)
-        {
-            const float key = fovKey(rdram);
-            if (sameFloat(key, fovState().fovApplied))
-                return;
-            fovState().fovApplied = key;
-            const uint32_t camera = fovState().fovCamera.load();
-            if (!camera || (mode != kModePlay && mode != kModePaused))
-                return;
-            const float given = fovState().fovGiven.load();
-            if (!sameFloat(readFloat(rdram, camera + kCameraFov), given))
-                return;
-            const float now = wantedFov(rdram, fovState().fovGame.load());
-            writeFloat(rdram, camera + kCameraFov, now);
-            fovState().fovGiven = now;
         }
 
         // ---- unlock everything ----------------------------------------------
@@ -518,10 +498,8 @@ namespace aggressive_inline::gameplay
             }
             if (mode == kModeFrontEnd && hotkeys().lastMode != kModeFrontEnd)
             {
-                // Out of the level: the HUD shows again next time, and the
-                // camera the FOV hook knew is gone.
+                // Out of the level: the HUD shows again next time.
                 hud().hidden = false;
-                fovState().fovCamera = 0u;
             }
             hotkeys().lastMode = mode;
             if (unlocking().unlockRequest.exchange(false))
@@ -530,7 +508,6 @@ namespace aggressive_inline::gameplay
                 unlocking().unlocked = true;
             }
             applyTunes(rdram);
-            refreshFov(rdram, mode);
         }
 
         // ---- registration -----------------------------------------------------
@@ -664,13 +641,9 @@ namespace aggressive_inline::gameplay
         }
 
         hooks().playUpdate = runtime.lookupFunction(kPlayUpdate);
-        hooks().fovGetter = runtime.lookupFunction(kFovGetter);
-        hooks().fovSetter = runtime.lookupFunction(kFovSetter);
         hooks().guiDraw = runtime.lookupFunction(kGuiDraw);
-        if (!hooks().playUpdate || !hooks().fovGetter || !hooks().fovSetter || !hooks().guiDraw || !restart::install(runtime) ||
+        if (!hooks().playUpdate || !hooks().guiDraw || !restart::install(runtime) ||
             !runtime.replaceFunction(kPlayUpdate, &playUpdateHook) ||
-            !runtime.replaceFunction(kFovGetter, &fovGetterHook) ||
-            !runtime.replaceFunction(kFovSetter, &fovSetterHook) ||
             !runtime.replaceFunction(kGuiDraw, &guiDrawHook))
         {
             std::cerr << "[gameplay] hooks not installed" << std::endl;
@@ -691,5 +664,25 @@ namespace aggressive_inline
     void installGameplay(PS2Runtime &runtime)
     {
         gameplay::install(runtime);
+    }
+
+    float drawnFieldOfView(const uint8_t *rdram, float gameDegrees)
+    {
+        return gameplay::wantedFov(rdram, gameDegrees);
+    }
+
+    bool cameraTuningChanged()
+    {
+        return gameplay::cameraTuningChanged();
+    }
+
+    void holdGameCameraTuning(uint8_t *rdram, bool game)
+    {
+        gameplay::holdGameCameraTuning(rdram, game);
+    }
+
+    void cameraDistance(const uint8_t *rdram, float &game, float &now)
+    {
+        gameplay::cameraDistance(rdram, game, now);
     }
 }

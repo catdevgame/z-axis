@@ -1,6 +1,6 @@
 # Z-Axis Collection
 
-Three Z-Axis games in one app for Mac and Windows, on one engine, as source:
+Three Z-Axis games in one app for Mac, Windows and Android, on one engine, as source:
 
 | Game | Engine | Its own code |
 |---|---|---|
@@ -10,17 +10,19 @@ Three Z-Axis games in one app for Mac and Windows, on one engine, as source:
 
 The goal is each game as readable C++ that a person can understand and mod: the engine (`game/zge`) written
 once, with each game's version differences inside it, and each game's own code in its own folder. Your own copies
-of the games supply their assets (levels, models, textures, sound, movies) when the app is built; the app never
-reads a disc.
+of the games supply their assets (levels, models, textures, sound, movies): the app copies them from your discs once,
+when it sets a game up, and never plays from a disc.
 
 The app opens on the collection menu. Pick a game; each game's own menus have Exit to Collection, which brings
 the menu back without restarting. Closing the window quits.
 
+The guides, for playing, modding and contributing, are listed in `docs/README.md`.
+
 ## Playing
 
-The releases page has the app for Mac (Apple silicon, macOS 15 or later) and Windows (x64), with no game files
-in it, and `SHA256SUMS` to check the downloads against. The apps are not signed by Apple or Microsoft, so each
-system asks once before the first start.
+The releases page has the app for Mac (Apple silicon, macOS 15 or later), Windows (x64) and Android (arm64,
+Android 13 or later), with no game files in it, and `SHA256SUMS` to check the downloads against. The Mac and Windows
+apps are not signed by Apple or Microsoft, so each system asks once before the first start.
 
 **Mac**
 
@@ -40,16 +42,32 @@ system asks once before the first start.
 2. Open `Z-Axis Collection.exe`. Windows says "Windows protected your PC" (Microsoft Defender SmartScreen):
    click More info, then Run anyway. It asks only this once.
 
+**Android**
+
+1. Download `Z-Axis-Collection-<version>-android.apk` on the device and open it; Android asks once to allow
+   installs from that app (the browser or file manager). It is made for dual-screen handhelds: the game on the top
+   screen, the level's map, goals and tricks on the bottom one.
+2. Play with a gamepad, the handheld's own or a connected one. The first start opens Settings > Games, as below:
+   Find Discs picks the folder your discs are in through Android's own file picker. `android/README.md` has the
+   rest.
+
 **Your discs**
 
 The games come from your own discs, the USA PlayStation 2 releases (Aggressive Inline SLUS-20327, Dave Mirra
 Freestyle BMX 2 SLUS-20159, BMX XXX SLUS-20415), as a disc image in any of the usual formats (ISO, BIN/CUE such as
 Redump's, CHD, CSO or ZSO) or a folder of the disc's files; the European releases, demos and prereleases are other
-programs and do not run. The first time, click a game and pick its disc image, or drop the image or a folder of
-images on the window: the app checks the disc and copies that game's files into its support folder
-(`~/Library/Application Support/Z-Axis Collection` on a Mac, `%APPDATA%\Z-Axis Collection` on Windows), so the disc
-image is not needed after that. Settings > Games checks, repairs or removes a game's files. Your settings and saves
-live in the same folder: deleting the app leaves them, and a new version finds them.
+programs and do not run. The first time, the app opens on Settings > Games: choose Find Discs and pick the folder
+your discs are in (or drop it on the window). The app finds each game's disc in it and its folders, and the Xbox and
+GameCube discs of the games for their extras, lists them with a tick for each game, and Set Up Games checks each disc
+and copies that game's files into its support folder (`~/Library/Application Support/Z-Axis Collection` on a Mac,
+`%APPDATA%\Z-Axis Collection` on Windows), so the disc image is not needed after that. A game it did not find has its
+own Set Up From Image. Setting up takes a few minutes a game: the app also builds the game's code for your machine
+(on Android, on the device). A game's Xbox or GameCube disc can be added later (Settings > Games: Add Xbox Disc, Add
+GameCube Disc). Settings > Games checks, repairs or removes a game's files. Your settings and saves live in the same
+folder: deleting the app leaves them, and a new version finds them.
+
+Keys, mouse and gamepads are `CONTROLS.md`; the Settings pages in each game's menus are `SETTINGS.md`; mods,
+texture packs and custom maps are `docs/MODS.md`.
 
 ## How the source is made
 
@@ -82,9 +100,9 @@ rebuilt at each push: each game's functions by what runs for them, the plan's st
 | `iop` | the I/O side the games' sound and file modules run on |
 | `tests` | unit tests |
 | `android/` | the Android build (dual-screen handhelds: the game made for two screens) |
-| `docs/` | how it works: `READABLE.md` (writing a readable function), `SCAFFOLDING.md`, `BRINGUP.md` (build and run), `NATIVE.md`, `DEAD-CODE.md` |
+| `docs/` | the guides: `docs/README.md` lists them for players, modders and contributors |
 | `tooling/` | each game's workspace (`ai/`, `dm2/`), the recompiler that makes the generated code (`recompiler/`), the checks (`checks/`), the Xbox tools |
-| `CONTROLS.md`, `SETTINGS.md` | keyboard, mouse and gamepad; the PC settings in each game's own menus |
+| `CONTROLS.md`, `SETTINGS.md` | keyboard, mouse and gamepad; the settings in each game's own menus |
 
 ## Building
 
@@ -116,9 +134,10 @@ NO_GAME_DATA=1 GAMES="ai dm2 bmx" tooling/ai/tools/make-app.sh    # tooling/ai/d
 `recompile.sh` takes each game's program from your disc image (read by the app's own reader, `ps2x_disc`, which it
 builds with the recompiler) and turns it into the C++ the app is built from (a few seconds a game).
 `make-app.sh` builds the app (about ten minutes the first time).
-With `NO_GAME_DATA=1` the app holds no game data: the first time it starts, click a game, or drop its disc image or
-folder on the window, and it checks the disc and copies the game's files into its support folder (Settings > Games
-checks, repairs or removes them; `--setup <image>` does the same from a terminal). Without it, make-app.sh puts your
+With `NO_GAME_DATA=1` the app holds no game data: the first time it starts it opens on Settings > Games, where Find
+Discs (or a drop on the window) finds every game's disc in a folder and Set Up Games checks each and copies the game's
+files into its support folder (Settings > Games checks, repairs or removes them; `--setup <folder or image>` does the
+same from a terminal). Without it, make-app.sh puts your
 discs' files into the app itself; the script's header lists those inputs (where your disc images are, the optional
 Xbox and GameCube releases, the build directory).
 
@@ -135,7 +154,8 @@ An app built with your discs' files in it is for your own use, so do not share i
 
 ## Contributing
 
-`CONTRIBUTING.md` says how to build, test and send a change, and what never goes into the repository (game data).
+`CONTRIBUTING.md` says how to build, test and send a change, and what never goes into the repository (game data);
+`docs/README.md` lists the guides to the source.
 Bugs, readable-code reports and ideas go through the issue forms.
 
 ## License and thanks

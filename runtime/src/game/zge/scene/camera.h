@@ -16,6 +16,7 @@
 #include "ee/readable.h"
 #include "ee/plain.h"
 #include "zge/math/types.h"
+#include "zge/host/game_view.h"
 
 #include <cstddef>
 #include "sym/zge/scene/camera.h.h"
@@ -294,6 +295,13 @@ namespace zge
     uint32_t setCameraFieldOfView(ee::Ptr<Camera> camera, uint32_t fieldOfView);
     uint64_t setCameraFarPlane(ee::Ptr<Camera> camera, ee::Float farClip);
     void setCameraMatrix(ee::Ptr<Camera> camera, ee::Ptr<Matrix> matrix);
+
+    // The game's own camera stands elsewhere than the drawn one this frame (a hidden camera's pose,
+    // zge/host/game_view.h; from the camera's frustum on).
+    bool gameCameraElsewhere(ee::Ptr<const Camera> camera);
+    // Where the game's own camera is: what the game measures from its eye (the area the scene walk stamps the
+    // regions out of view from, the placed effects' range).
+    Vec4 gameCameraPosition(ee::Ptr<const Camera> camera);
     uint32_t setCameraViewport(ee::Ptr<Camera> camera, ee::Address rectangle);
     void sceneViewport(ee::Ptr<Camera> camera, ee::Address rectangle);
     // cameraViewport (ZGE4 only, camera_records.cpp): the camera's viewport rectangle copied out.

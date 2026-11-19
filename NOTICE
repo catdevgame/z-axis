@@ -128,7 +128,19 @@ hashes are in the CMake files):
   (the shipped font drawn for the collection's menu)
 
 
-7. Michroma (the collection menu's font)
+7. LZO 2.10's LZO1X decompressor
+--------------------------------
+
+runtime/src/collection/extras/lzo1x.cpp is a port of LZO 2.10's
+lzo1x_decompress_safe (lzo-2.10/src/lzo1x_d.ch, from
+https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz, SHA-256
+c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072),
+copyright 1996-2017 Markus Franz Xaver Johannes Oberhumer, GPL-2.0-or-later;
+its notice is at the top of the port. The extras read BMX XXX's Xbox texture
+libraries with it.
+
+
+8. Michroma (the collection menu's font)
 ----------------------------------------
 
 runtime/resources/fonts/Michroma-Regular.ttf is Michroma, copyright 2011 The
@@ -138,7 +150,7 @@ under the SIL Open Font License 1.1, unchanged; the licence is beside it
 app's and the Windows folder's fonts/, the APK's assets/fonts/).
 
 
-8. This project's own code
+9. This project's own code
 --------------------------
 
 Everything else in this repository, the readable games and engine

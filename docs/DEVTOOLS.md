@@ -2,7 +2,7 @@
 
 A short guide to the developer tools: the game's hidden debug menu, its tuning table (every entry and how the
 game reads it: docs/TUNING.md) and the language setting, then the developer runner's switches for test runs, routes, the A/B,
-tracing and the remote workers. Each tool's own `--help` or header comment has the details. Code of the game's tools:
+tracing and where the tools may run. Each tool's own `--help` or header comment has the details. Code of the game's tools:
 z-axis `runtime/src/game_overrides/aggressive_inline_devtools.cpp`, the tuning.ini parser
 `runtime/include/runtime/ps2_tuning_ini.h`. [V] = verified in the running game or the code,
 [I] = inferred from a name.
@@ -156,7 +156,7 @@ Example, unattended on any machine:
 - `tools/playbot/`: closed-loop players (testing gameplay means playing): the game stops
   at every pad read (`PS2X_PLAY_LINK`), the player reads its state and chooses the pad. `ai.py` (a
   career session, split screen, the Park Editor), `dm2.py`, `bmx.py`; each reports the game's own
-  numbers. The custom-levels test park (CUSTOM-LEVELS.md, step 0): `aipark.py`, `dm2park.py`,
+  numbers. A park built in each game's own editor, the park players' test bed: `aipark.py`, `dm2park.py`,
   `bmxpark.py` build it in each game's park editor and save it; `aipark.py ride` and `bikepark.py`
   ride the saved park: a tour of its features from `parkmap.py`'s map, made from the save and the
   pieces' own models (`RIDE=circuit`: the zone circuit in cells), and `memuse.py` reads the heap's
@@ -199,7 +199,7 @@ end (`RUNNER --game GAME`, this machine's disc folder), which boots differently 
 the ELF: replayed by a bare runner, every checksum differs. `run` turns on the readable functions the
 recording's build ran (its commit's Verified rows, by address; `--readable runner` keeps the runner's): the
 readable code does not charge the original's loop cycles, so a function promoted since moves the vsync a
-read falls in (b131's strcpy moved the boot's first prompt read from vsync 4 to 3). A setting changed from the app's menus reaches the game at a host frame, not at a read of
+read falls in (a readable strcpy moved the boot's first prompt read from vsync 4 to 3). A setting changed from the app's menus reaches the game at a host frame, not at a read of
 its own: the replay applies it at the recorded vsync and says the state may differ from there.
 
 ## The career A/B
@@ -226,13 +226,12 @@ constant nulls, so a call pays nothing for them; the runner's text is about 40% 
 the same in both. The app's flavour is proven against the dev build by `tooling/checks/flavour_ab.py` (every
 game's A/B input on both binaries, the defaults on both, compared with no allow list; a side that stops short of the
 input's end fails, as in the gate) and each game's logic route,
-a step of every batch (`rcheck.sh COMMIT --flavour-ab`, the Mac's gate slot). The binary it proves is the one that
-ships: the collection app's release build, made by `make-app.sh BUILD_ONLY=1` in the gate slot, and the app is packed
+a step of every batch. The binary it proves is the one that
+ships: the collection app's release build, made by `make-app.sh BUILD_ONLY=1`, and the app is packed
 from it (`make-app.sh FROM_BUILD=<the job's app-build>`, which takes it when its stamp, the tree of CMakeLists.txt,
 runtime and iop, the configure arguments with every path cut to its last part and the data folders they name by
 content (a folder the recompiler made by its .ps2recomp-manifest, when its files are the ones it lists: a listing,
-not a read of every file), is the one make-app.sh would build; it names no path, so a build from the gate slot's checkout and a
-lane's tooling copy packs from main's; `STAMP_CHECK=1 FROM_BUILD=DIR make-app.sh` says which, building nothing;
+not a read of every file), is the one make-app.sh would build; it names no path, so a build from one checkout packs from another's; `STAMP_CHECK=1 FROM_BUILD=DIR make-app.sh` says which, building nothing;
 `make-windows.ps1 -FromBuild` the same on Windows), not built again. `ZAXIS_GUEST_MAP_CHECK=ON` is a tool
 build that checks every readable access against the resolution before the guest map and says where the special
 addresses occur (ee/guest_map_check.cpp).
@@ -257,13 +256,15 @@ undo a provider or patch, `session::addShutdownHook`), so the next boot in the p
 
 The collection app itself (several games: it opens on its menu, collection/menu.h) is driven
 headless by `PS2X_MENU_SCRIPT=game:dm2,Enter,...` (one step every 20 menu frames, across visits: key
-names, `pad:cross` and the other pad buttons, `wait`, and `game:ID`, Left or Right to that game's card
-by its id, wherever the menu shows it; the cards are in release order, DM2, AI, BMX XXX; a script
-or a headless run skips the intro) and, inside a game, by `PS2X_CONTROL`'s
+names, `pad:cross` and the other pad buttons, `wait`, `game:ID`, Left or Right to that game's card
+by its id, wherever the menu shows it, and `drop:PATH`, a file or folder dropped on the window, as the Games
+page's Find Discs takes it; the cards are in release order, DM2, AI, BMX XXX; a script or a headless run
+skips the intro; the script waits while a setup job runs) and, inside a game, by `PS2X_CONTROL`'s
 `set hotkey.switch_game 1` (the switch_game key's press: back to the menu; host input scripts do not
 reach the [hotkeys]); `PS2X_MENU_SHOT_DIR=DIR` writes the menu's picture as a PNG at every change it shows (not
 its movie's pictures; the menu's own settings page too: `Up,Enter` opens it). `[app] menu: first
-picture N ms after the start` is the launch's time to a usable menu. `PS2X_MAP_WINDOW_SHOT=FILE.png` writes the map
+picture N ms after the start` is the launch's time to a usable menu. `tooling/ai/tools/settings_shots.py` pictures a
+game's Settings page with no extras discs and with every one (the rows `collection/offered.h` hides). `PS2X_MAP_WINDOW_SHOT=FILE.png` writes the map
 window's picture (the bottom screen, 1240x1080) painted ten seconds after a level is in it, headless
 too: the painter runs without the window. The log's
 `[app] menu: boot ID`, `[app] ID: running`, `[app] ID: left for the menu` and `[app] menu (visit N)`
@@ -321,7 +322,7 @@ per instruction its count, its addresses, directions or targets and its values, 
 that input when control flow, addresses and calls are the same in every run, nothing observable differs and the
 repeat is identical; the loads whose values differ (where the lane is read) head the lanes file.
 
-## The Thor's bottom screen
+## The bottom screen (dual-screen devices)
 
 `runtime/include/collection/panel*.h`, `src/collection/panel*.cpp` (the collection layer): plain C++, no platform or game dependency; a game fills its snapshot (`runtime/panel_snapshot.h`) from its own override.
 `captureSnapshot` reads guest RAM read-only once a game frame; `Panel::touch` and
@@ -333,16 +334,17 @@ table) that a pause brings and a line takes away, unless held.
       [--zoo <dir>] [--estate <dir>]
 
 makes `<LEVEL>.pmap` per level and `UI.pmap` at build time (make-app.sh, Resources/panel;
-AI's eight levels, the Zoo and Estate): the map from the collidable faces seen from above, the
-goals from the level script (`panel_goals.py`), the trick tables from the executable.
+AI's eight levels, the Zoo and Estate; `--game dm2` and `--game bmx` the other games' levels): the map from
+the collidable faces seen from above, the goals from the level script (`panel_goals.py`), the trick tables from
+the executable.
 `ps2xPanelShot --data <dir> --ram <dump> --out <png> [--touch "ram <dump>; tap X Y; ..."]`
-draws a real moment on the Mac from `nctl.py NAME "dump FILE"` dumps (DM2's: `--game dm2`, and
+draws a real moment on the Mac from `nctl.py NAME "dump FILE"` dumps (BMX XXX's: `--game bmx`; DM2's: `--game dm2`, and
 `--dm2-xbox-levels VENICE,GREENVIL` for its Xbox levels' values; their files from `build --game dm2
 --dm2-xbox <dm2_xbox.py's folder>`). Shots are game
 derived: scratch only.
 
 
-## The remote workers
+## Where the tools run
 
 The shared tools stop with a message (exit 2) when started from the main checkout or told to write into it
 (`tooling/zguard.py`: rcheck, lanecheck, `career_ab.py`, `run-game.sh`, the playbot, `replay.py`, round-merge's

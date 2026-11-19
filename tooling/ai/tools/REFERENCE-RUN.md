@@ -25,8 +25,7 @@ python3 pcsx2pad.py padscript /tmp/ref-run.log               # the run as a PS2X
 python3 pcsx2pad.py quit
 ```
 
-The whole run takes 3 min 22 s wall (run 1) and 3 min 16 s (run 2), at 100%
-emulation speed. To start mid-way, load the checkpoint a segment starts from
+The whole run takes about 3 min 20 s wall at 100% emulation speed. To start mid-way, load the checkpoint a segment starts from
 and run only that segment, e.g.
 
 ```sh
@@ -126,18 +125,16 @@ Camera eye 0x24C9E0 is (pos.x - 3.99, -1.97, pos.z) at every "go" checkpoint
 (standing, facing +x). In-level frame = vsync - 2474 throughout: in PCSX2 the
 level runs one main-loop frame per vsync (60 fps).
 
-### Reproducibility (run 2, fresh boot, same scripts)
+### Reproducibility
 
-All 21 checkpoints reached again, with every goal completed. Game mode, zgui
-panel pointer, 0x277488 and 0x2732FC are identical at every checkpoint. The
-standing positions at all "go" checkpoints and the camera eye are identical. The
-front end and the first two goals land within 1-3 vsyncs of run 1
-(ref03-first-tip at 2828 vs 2826). From the fakie goal on, the closed-loop
-skating took a different number of frames (fakie-done at vsync 7178 vs 7573,
-end at 11618 vs 11979), and where the skater coasted to before a HINT differs
-(e.g. ref12 at (-34.06, -19.29) vs (45.13, -17.62)). Mid-motion checkpoints
-match closely: jump-air is identical; on the rail the x differs by 0.14
-(0.18 vs 0.32, y -1.29, z -0.02 in both).
+A second run of the same scripts from a fresh boot reaches all 21 checkpoints
+with every goal completed. Game mode, zgui panel pointer, 0x277488 and
+0x2732FC are identical at every checkpoint, and so are the standing positions
+at all "go" checkpoints and the camera eye. The front end and the first two
+goals land within 1-3 vsyncs. From the fakie goal on the closed-loop skating
+takes a different number of frames, and where the skater coasts to before a
+HINT differs; mid-motion checkpoints match closely. The recorded run 1 is the
+reference.
 
 ## Game-state addresses
 
@@ -161,18 +158,16 @@ ELF). Heap addresses differ natively by a constant per area, as noted.
 | 0x0027E0C4 | u32 | not game state: word 1 of D_0027E0C0, the buffer func_00117EE8 (sceSifCallRpc wrapper) copies unaligned RPC send buffers into, i.e. the last such IOP request (sound driver calls). Earlier read as a player control state | asm of func_00117EE8 (memcpy 0x223ACC, sceSifCallRpc 0x217800) |
 | 0x37E8C0+ / 0x39E940+ | VIF list | double-buffered render list: per object `13000000 07000000 01000404 6C048000` (VIF codes) then a 4x4 world matrix. Used to find the banner and rail positions | banner positions found here worked as `goto` targets |
 
-What is not found yet: a level ID (only the Tutorial was played), a true
-tutorial goal index (0x2732FC is the best proxy), and the score (the HUD value
-only appears as a float in the double-buffered draw data at 0x5FEFE4 /
-0x60F0E4).
+The level id, the score, the juice and the balance meters are in
+`REFERENCE-RUN-2.md` "Game-state addresses (new)". Not found: a true tutorial
+goal index (0x2732FC is the best proxy).
 
-Two earlier guesses that turned out wrong:
+Two traps:
 - 0x002ABC40 looks like a tip counter (it rises with tips), but it is libpad
   internal state (`D_002ABC40 + port*32 + slot*128`, written in the
   scePadPortOpen code at 0x211840) that moves on pad-related events. Do not use it.
-- Native showing fps target 20.0 "in the level" (`recomp/dumps/cmp/native-*`) is
-  not a divergence: those dumps are at level frame 5-6, and PCSX2 also has 20.0
-  until level frame 10.
+- The fps target reading 20.0 natively in a level's first frames is not a
+  divergence: PCSX2 also has 20.0 until level frame 10.
 
 ## Native build: pad scripts
 

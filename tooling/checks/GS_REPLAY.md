@@ -20,8 +20,9 @@ Any change to the GS CPU backend must keep the output identical. Before the
 change, record a reference with the old build; after it, check:
 
 ```sh
-T=$ZAXIS_MAIN/tooling/ai/recomp/traces
-REF=$ZAXIS_MAIN/tooling/ai/recomp/logs/gs-reference
+source tooling/paths.sh   # AI_WORKSPACE
+T=$AI_WORKSPACE/recomp/traces
+REF=$AI_WORKSPACE/recomp/logs/gs-reference
 tooling/checks/gs_replay_check.sh record <old build>/ps2xRuntime/ps2xGsReplay $T $REF
 tooling/checks/gs_replay_check.sh check  <new build>/ps2xRuntime/ps2xGsReplay $T $REF
 ```

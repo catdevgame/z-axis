@@ -69,7 +69,8 @@
 
 namespace game::readable
 {
-    bool runsInGame(uint32_t address, game::Game game); // src/game/ee/readable.h
+    bool runsInGame(uint32_t address, game::Game game);       // src/game/ee/readable.h
+    bool switchedOnAtBoot(uint32_t address, game::Game game); // src/game/ee/readable.h
 }
 
 namespace dave_mirra::creator
@@ -1595,4 +1596,5 @@ namespace dave_mirra::cheats
 namespace dave_mirra
 {
     bool installCreatePlayer(PS2Runtime &runtime) { return creator::install(runtime); }
+    bool createPlayerCanRun() { return game::readable::switchedOnAtBoot(sym::dm2::newRider, game::Game::Dm2); }
 }

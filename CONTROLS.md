@@ -1,12 +1,15 @@
-# Controls (native build)
+# Controls
 
-Keyboard and mouse are mapped onto the DualShock 2 the game expects, through a
-plain config file. A gamepad keeps working alongside (see below). All of this
+Keyboard and mouse are mapped onto the DualShock 2 each game expects, through a
+plain config file per game. A gamepad keeps working alongside (see below). All of this
 is host-side (z-axis `runtime/src/lib/ps2_host_input.cpp`); the game
 code is unchanged, except for one hook on the camera's stick reads that
-does mouse-look (below).
+does mouse-look (below). On Android the app expects a gamepad (the handheld's own or a connected one); touches go
+to the bottom screen (the collection menu's there, or the game's panel).
 
 ## Default bindings
+
+Aggressive Inline's; Dave Mirra BMX 2's and BMX XXX's are the same layout under their own action names (below).
 
 | Game action (PS2 button) | Keyboard / mouse |
 |---|---|
@@ -27,8 +30,9 @@ does mouse-look (below).
 | D-pad (menus; in a level same as the left stick) | arrow keys |
 | Restart (PC shortcut: the level again, or the Timed Run) | Backspace; gamepad: L3+R3 (both sticks pressed in) |
 | Hide HUD (PC shortcut, on and off) | F9 |
-| Screenshot (PC shortcut, PNG to Pictures/Aggressive Inline) | F12 |
+| Screenshot (PC shortcut, PNG to Pictures/Z-Axis Collection/<game>) | F12 |
 | Photo mode (PC shortcut: the game stops, a free camera; again to leave) | P |
+| Switch game (PC shortcut: back to the collection menu) | F8 |
 
 The left stick also moves the menu cursors, so WASD works in menus too.
 I/J/K/L form the PS face-button diamond for keyboard-only play.
@@ -41,12 +45,11 @@ working.
 
 ## Rebinding in the game
 
-The game's Settings screen (Options > Settings, or Settings in the pause
-menu; README) has a Controls section: mouse sensitivity, invert mouse Y,
-mouse camera (mouse-look or stick), stick dead zone, gamepad on/off,
-Button Prompts, a row per action with its keys (also Restart Level, Hide
-HUD and Screenshot), a row per game button with its gamepad button, and
-Reset Controls to Defaults. Cross on an action row waits for a key or
+The game's Settings screen (SETTINGS.md "Where it is") has a Controls section: Button Prompts, Gamepad,
+Stick Dead Zone, Connected Gamepads, Test Rumble, Swap Pads 1 and 2, Mouse Look (Free Look or Right Stick),
+Mouse Sensitivity, Invert Mouse Y, a row per action with its keys (also Restart, Hide HUD, Screenshot and Photo
+Mode; Switch Game has no row: change it in `controls.ini`), a row per game button with its gamepad button, and
+Reset Controls. Cross on an action row waits for a key or
 mouse button (Esc cancels, Backspace or Delete unbinds; a gamepad's Circle
 or Start cancels): it becomes the action's first binding and is taken off
 any other action. Cross on a "Pad:" row waits for a gamepad button and
@@ -66,7 +69,7 @@ picture of the button that presses each game button). While the game is not in p
 pause menu, tip and message boxes) the mouse wheel presses up/down, a left
 click presses Cross (select) and the right button is Triangle (back) as
 usual. Enter on the main menu selects; Escape there asks "Quit to
-Desktop?". `PS2X_PROMPTS=keyboard|playstation|xbox|nintendo` fixes the
+Desktop?" (in the collection: "Exit to Collection?"). `PS2X_PROMPTS=keyboard|playstation|xbox|nintendo` fixes the
 prompts (testing). Settings > Controls > Button Prompts (`[gamepad]
 prompts = auto|keyboard|xbox|playstation|nintendo`) shows one style always,
 whatever is used: for Steam Input, which presents every controller as an
@@ -116,7 +119,9 @@ keeps the part of the level near you).
 Window keys (not game buttons): Alt+Enter toggles full screen everywhere,
 F11 too on Windows (Cmd+Ctrl+F and Cmd+F are the macOS menu shortcuts);
 Cmd+, opens the settings on macOS (on Windows: the game's own Settings
-item). F1 shows the debug overlay. Do not bind these to game buttons.
+item). F1 shows the debug panel on Mac and Windows (with Settings > Game > Developer Menu on, the same press
+opens the game's own debug menu too). Do not bind these to game buttons. Android has none of these: the app is
+always full screen.
 
 ## The config file
 
@@ -127,7 +132,10 @@ game leaves the others alone. The defaults keep one layout for the whole
 collection (Cross on Space, Square and Triangle on the mouse buttons, WASD
 on the left stick); Dave Mirra BMX 2 and BMX XXX get their Normal /
 Configuration A captions (Start / Jump, Trick, Grind / Stall, Modifier,
-Spin / Slide, ...) and only the PC shortcuts they act on.
+Spin / Slide, ...) and the same PC shortcuts. Where they differ from Aggressive Inline's: Dave Mirra BMX 2's
+right stick has no keys and its d-pad is Pedal, Brake and Steer; BMX XXX's R3 is the middle mouse button and V
+(Camera), and its mouse-look is off by default (`mode = stick`, `motion = none`: Settings > Controls > Mouse Look >
+Free Look turns it on).
 
 - The collection: `<support>/games/<id>/controls.ini` (`ai`, `dm2`, `bmx`);
   the user's `gamecontrollerdb.txt` stays at `<support>` for every game. A
@@ -135,8 +143,7 @@ Spin / Slide, ...) and only the PC shortcuts they act on.
   Inline's once; the other games started from their own defaults.
 - The runner and a single-game app, macOS:
   `~/Library/Application Support/<game>/controls.ini` (Windows
-  `%APPDATA%\<game>\controls.ini`, Linux `$XDG_CONFIG_HOME/<game>/controls.ini`,
-  default `~/.config/...`), `<game>` the game's title.
+  `%APPDATA%\<game>\controls.ini`), `<game>` the game's title.
 - `PS2X_CONTROLS_INI=<file>` overrides the path (automated runs use this, so
   they never touch the real file); `PS2X_GAMEPAD_MAPPINGS=<file>` the
   gamepad mappings'.
@@ -150,7 +157,7 @@ the old behaviour.
 A line you delete keeps its default, an empty value (`l3 =`) unbinds.
 A file written before the right stick had default keys has `right_up =`
 ... `right_right =` empty, so they stay unbound: delete those four lines
-(or Reset Controls to Defaults in the Settings screen) to get them. Bad
+(or Reset Controls in the Settings screen) to get them. Bad
 names and values are reported in the log (`[input] ...`) and skipped.
 
 ```ini
@@ -193,10 +200,12 @@ restart    = BACKSPACE    # Career, Freeskate: the level again; Timed Run: the r
 hide_hud   = F9
 screenshot = F12
 photo_mode = P
+switch_game = F8         # back to the collection menu
 restart_pad    = L3+R3    # gamepad buttons held together (by position, joined with +)
 hide_hud_pad   =
 screenshot_pad =
 photo_mode_pad =
+switch_game_pad =
 ```
 
 A file written before these existed gets them with their defaults (a
@@ -231,7 +240,7 @@ screen. A pad keeps its player while connected; if a player's pad goes
 away, a spare pad takes its place, or the pads after it move up, so the
 last remaining pad is always player 1; a pad plugged in later becomes the
 next player. Player lights show the number. Settings > Controls has
-Gamepads (the pads in player order; Cross writes their details to the log),
+Connected Gamepads (the pads in player order; Cross writes their details to the log),
 Test Rumble (each pad's large motor, then its small one, through the
 game's vibration path) and Swap Pads 1 and 2. Extra controller mappings: a
 `gamecontrollerdb.txt` (the community format) next to controls.ini or next
@@ -242,8 +251,7 @@ right = Circle, left = Square, top = Triangle), shoulders, triggers (past
 the window is in the background. Its buttons add to
 the keyboard's (at full pressure); a gamepad stick pushed past
 `stick_threshold` replaces the keyboard/mouse value for that stick. So
-keyboard, mouse and gamepad can be mixed. A checklist for a real pad is in
-`docs/MANUAL-TESTS.md` ("A real gamepad, step by step").
+keyboard, mouse and gamepad can be mixed.
 
 ## The sticks and the camera
 
@@ -264,7 +272,7 @@ easing). It works as a quick glance, not as free mouse-look; with
 mouse right swings the camera to the skater's right, so the view turns
 left (that is what the game's stick does).
 
-## Mouse-look (`mode = look`, the default)
+## Mouse-look (`mode = look`, the default in AI and DM2)
 
 Moving the mouse turns the view around the skater, like a PC third-person
 game: all the way round left and right (no 60 degree limit), up and down
@@ -302,7 +310,10 @@ with the mouse angle on top.
   is centred.
 
 With no mouse motion the game runs bit for bit as without mouse-look
-(logiccheck). How it is done: `runtime/src/game_overrides/aggressive_inline_slus20327.cpp`; where the
+(logiccheck). In Aggressive Inline mouse motion does not change play either:
+the game decides what is in view by a hidden follow camera without it, and
+only the picture follows the mouse (docs/ENHANCEMENTS.md). How it is done: `runtime/src/game_overrides/aggressive_inline_slus20327.cpp`
+(`dave_mirra_mouselook.cpp`, `bmx_xxx_mouselook.cpp` the same way in the other games); where the
 game's camera reads the stick: its follow camera's update each frame (`runtime/src/game/aggressive/camera.h`,
 `updateFollowCamera`); scripted host input for
 tests: docs/DEVTOOLS.md ("Test runs").

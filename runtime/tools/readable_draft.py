@@ -614,8 +614,11 @@ def read_known_names(game_src):
         # (readable_names agent) dm2/ names DM2's own addresses (physics.h's kRandom = 0x0012A020u
         # is DM2's, not the AI's function there): the drafts are the AI's, so there only DM2's host
         # side's names of AI addresses are read: dm2/**/ai_*.cpp|h whole, and elsewhere the kAi*
-        # constants (hosted.cpp's kAiFindLocators = 0x0015D408u).
-        in_dm2 = include_path(root, game_src).split('/')[0] == 'dm2'
+        # constants (hosted.cpp's kAiFindLocators = 0x0015D408u). bmx/ the same: its sym:: names
+        # read as BMX XXX's own addresses (literal_view: a game folder's rows), so its globals
+        # (weapon/hits.cpp's g_largestFloat at BMX's 0x0029FF64, its g_gravity at 0x002730E8,
+        # where AI has g_screenGravityStep) are no AI names.
+        in_dm2 = include_path(root, game_src).split('/')[0] in ('dm2', 'bmx')
         for name in files:
             if not name.endswith(('.cpp', '.h')):
                 continue

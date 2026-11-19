@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BMX XXX: the custom-levels test park (docs/CUSTOM-LEVELS.md section 3, step 0) built in its park editor (AI's
+"""BMX XXX: the park players' test park built in its park editor (AI's
 editor, copied: zge/editor and game/bmx/editor), saved as a native file, and ridden.
 
     bmxpark.py probe NAME                orientation pictures: pieces at each turn (as aipark.py probe3)

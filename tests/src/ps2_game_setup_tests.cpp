@@ -2,6 +2,7 @@
 // checked, installed, checked again and repaired, on small made-up discs.
 #include "MiniTest.h"
 #include "collection/disc_check.h"
+#include "collection/disc_finder.h"
 #include "collection/game_setup.h"
 #include "collection/save_transfer.h"
 #include "ps2x/iop/iso9660.h"

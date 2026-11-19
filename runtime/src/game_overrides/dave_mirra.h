@@ -56,6 +56,10 @@ namespace dave_mirra
     // (PS2X_DM2_CREATE_PLAYER=1; dave_mirra_creator.cpp). After the readable
     // install: not added unless the readable newRider runs.
     bool installCreatePlayer(PS2Runtime &runtime);
+    // Whether Create Player can be added at the next boot: the readable
+    // newRider switched on (game::readable::switchedOnAtBoot). Before the
+    // game starts (the app's Create Rider row).
+    bool createPlayerCanRun();
     // Button prompts for the device in use (dave_mirra_prompts.cpp).
     void installPrompts(PS2Runtime &runtime);
 

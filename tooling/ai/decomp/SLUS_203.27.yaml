@@ -68,14 +68,6 @@ segments:
     subalign: null
     subsegments:
       - [0x000000, asm, cod/000000]            # .text   0x00100000
-      - [0x04D310, c, cod/func_0014D310]       # decompiled (matching)
-      - [0x04D348, asm, cod/04D348]
-      - [0x04ED88, c, cod/func_0014ED88]       # decompiled (matching)
-      - [0x04EDC0, asm, cod/04EDC0]
-      - [0x08C588, c, cod/func_0018C588]       # decompiled (matching)
-      - [0x08C5C0, asm, cod/08C5C0]
-      - [0x0FC098, c, cod/func_001FC098]       # decompiled (matching)
-      - [0x0FC0E8, asm, cod/0FC0E8]
       - [0x12DB34, pad, cod/12DB34]            # gap
       - [0x12DB40, textbin, cod/vutext]        # .vutext 0x0022DB40 (VU1 microcode)
       - [0x1318B0, pad, cod/1318B0]            # gap (.reginfo slot)

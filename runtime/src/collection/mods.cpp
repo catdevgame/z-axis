@@ -29,6 +29,10 @@ namespace ps2x::app
         }
 
         const char *const kGameIds[] = {"ai", "dm2", "bmx"};
+        // The games that read a mod's tuning.ini: Aggressive Inline's developer
+        // tuning table (aggressive_inline_devtools.cpp). Dave Mirra BMX 2 has no
+        // tuning table; BMX XXX's is the GameCube release's only.
+        const char *const kTuningGames[] = {"ai"};
         bool knownGame(std::string_view id)
         {
             return std::find(std::begin(kGameIds), std::end(kGameIds), id) != std::end(kGameIds);
@@ -212,6 +216,13 @@ namespace ps2x::app
                         if (textures.folders.count(name))
                             mod.notes.push_back("Textures/" + name + " not read, the mod is not for " + gameTitle(game) + ".");
                 }
+            }
+            // tuning.ini for games none of which reads one: not tuning, and no logic changed by it.
+            if ((mod.contents & kModTuning) && (!mod.ownGame.empty() || !mod.games.empty()) &&
+                std::none_of(std::begin(kTuningGames), std::end(kTuningGames), [&](const char *game) { return mod.forGame(game); }))
+            {
+                mod.contents &= ~kModTuning;
+                mod.notes.push_back("tuning.ini not read, only Aggressive Inline has the tuning table.");
             }
         }
 

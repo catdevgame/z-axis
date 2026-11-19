@@ -5356,9 +5356,17 @@ struct GSGpuBackend::Impl
         }
 
         ps2x::ftrace::Scope traceMip(ps2x::ftrace::kMipCopy, ps2x::ftrace::kMipCopy + 100);
-        // The GS's levels: lowest .. MXL of a mipmapped texture, else 0.
+        // The GS's levels: the first outside a render target .. MXL of a
+        // mipmapped texture, else 0. A level in a render target is not the
+        // texture's texels: DM2's distant models (trees, signs, vehicles)
+        // keep level 0 at TBP 0, in the frame buffer, with only levels 1 and
+        // up uploaded. The GS's LOD (K) never reaches it; this copy's LOD
+        // comes from the screen, at the internal resolution, and would.
+        // `lowest` is 0 there when such levels are read from GS memory
+        // (PS2X_GS_MIP_TARGET_LEVELS=memory, DM2's boot), so the copy starts
+        // at the entry's first level outside the targets (mipSynced).
         const bool mipmapped = st.mip.maxLevel != 0u;
-        const uint32_t first = mipmapped ? lowest : 0u;
+        const uint32_t first = mipmapped ? std::max(lowest, e.mipSynced) : 0u;
         const uint32_t last = mipmapped ? st.mip.maxLevel : 0u;
         const uint32_t texW = std::max<uint32_t>(e.width, 1u), texH = std::max<uint32_t>(e.height, 1u);
         // The texels (indices or colours) as decodeTexture read them: still

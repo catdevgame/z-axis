@@ -37,6 +37,7 @@
 // game's own Mods folder (collection/mods.h).
 
 #include "collection/levels/convert.h"
+#include "collection/offered.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -105,6 +106,9 @@ namespace ps2x::app
         // outside the map's files: AI's Tutorial's are its scripts, DM2's
         // park has none).
         const char *slotNpcs;
+        // What the start needs of the player's setup (collection/offered.h):
+        // AI's entry is the Estate's, made from its GameCube disc.
+        Need need = Need::Nothing;
     };
     // Every slot lent; nullptr when the game lends none for that slot.
     const std::vector<MapSlot> &mapSlots();

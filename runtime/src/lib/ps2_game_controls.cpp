@@ -179,8 +179,7 @@ namespace ps2_host_input
                           "#   The view keeps its angle to the skater (it turns when they turn) until\n"
                           "#   you move it back, press a recentre key or auto_recentre runs out. A\n"
                           "#   gamepad's right stick still works the game's own way and recentres it.\n"
-                          "#   The turned view changes the random sequence (the game's effects draw\n"
-                          "#   random numbers as they come into view); the game is otherwise the same.\n"
+                          "#   Only the view turns: the game plays as without mouse-look.\n"
                           "# stick: the mouse pushes a stick instead (see motion and stick_mode): the\n"
                           "#   game's own look-around, which swings back behind the skater.\n"
                           "mode = look\n";

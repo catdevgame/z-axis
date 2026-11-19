@@ -58,13 +58,19 @@ beside the generated code), the app's own generator writes the code, and the
 module carries it. `ps2xVu1Check --module <path>` checks a module's code
 against the corpora.
 
+For a build from source, `tooling/recompile.sh` writes each game's image into its workspace's
+`recomp/generated-vu1`, and a build given that folder (`PS2X_VU1_AOT_DIR`, more games in
+`PS2X_VU1_AOT_EXTRA_DIRS`) makes the code from the images with its own `ps2xVu1Aot` into the build
+dir (`vu1-aot/<key>`, keyed by the generator's sources and the images; a folder that already holds
+code with that key, `vu1_aot.key`, is built as it is). A cross build that cannot run its own
+generator builds one for the build machine (`tools/vu1_aot_host`) or takes `PS2X_VU1_AOT_TOOL`.
+By hand:
+
 ```sh
-# 1. dump the micro memory images the game runs (one file per image)
+# the micro memory images a run meets (one file per image; ps2xVu1Aot accepts corpora, *.vu1r, too)
 PS2X_VU1_CODE_DUMP=$PWD/recomp/generated-vu1 recomp/run.sh 60 vu1codes
-#    (or use corpora: ps2xVu1Aot accepts *.vu1r too)
-# 2. generate (the runner logs "[vu1] micro memory <hash>: ahead-of-time code")
-ps2xVu1Aot recomp/generated-vu1 recomp/generated-vu1/*.vu1code
-# 3. build with it
+# generate (the runner logs "[vu1] micro memory <hash>: ahead-of-time code")
+ps2xVu1Aot OUT_DIR recomp/generated-vu1/*.vu1code
 cmake ... -DPS2X_VU1_AOT_DIR=$PWD/recomp/generated-vu1
 ```
 
@@ -122,14 +128,14 @@ heaviest scene, 134k runs, 179M VU cycles; `ps2xVu1Check --time`):
 
 | | Ryzen 9 5900X (clang-cl) | M5 Pro (Apple clang) |
 |---|---|---|
-| before (per-pair AOT) | 2953 ms | 779 ms |
-| blocks, lazy PATH1 | 1531 / 1328 ms | 539 / 475 ms |
-| inline max (MSVC's `std::max({...})` is a call) | 1112 ms | 445 ms |
-| flag rings, SSE4.1 FMAC path, constant data size | 944 ms | 411 ms |
-| batch flag apply, PATH1 bulk copy, deferred flags, tag-end waits | 817 ms | 355 ms |
-| MXCSR rounding switch, chunks split outside loops, inline Q commit | 737 ms | |
-| deferred bits folded into the last FMAC, quick block entry | 688 ms | 337 ms (busy machine) |
-| SSE4.1 MAX/MINI, ITOF, FTOI | 650 ms | |
+| per-pair code only | 2953 ms | 779 ms |
+| blocks, as now | 650 ms | about 340 ms |
+
+What the blocks' time came from, largest first: the blocks themselves with lazy PATH1, then the flag
+rings with the SSE4.1 FMAC path and a constant data size, batched flag results with PATH1 bulk copies,
+deferred flags and tag-end waits, inline `max` (MSVC's `std::max({...})` is a call), the MXCSR
+rounding switch with chunks split outside loops and inline Q commits, sticky bits folded into the
+last FMAC with a quick block entry, and SSE4.1 MAX/MINI, ITOF and FTOI.
 
 Chunks are about 128 pairs, split where the least (short, likely inner)
 loops cross (`PS2X_VU1_AOT_FIXED_CHUNKS=1`: every 128 pairs), so a hot

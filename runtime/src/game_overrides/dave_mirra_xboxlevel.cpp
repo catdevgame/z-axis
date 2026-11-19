@@ -60,6 +60,7 @@
 // runtime's chain guard used to stop).
 
 #include "dave_mirra.h"
+#include "zge_xbox_textures.h"
 
 #include "ps2_runtime.h"
 #include "runtime/ps2_disc_patch.h"
@@ -316,140 +317,6 @@ namespace dave_mirra::xboxlevel
             for (const std::string &source : st.pictureSources)
                 ps2x::texture_replace::removeSource(source);
             st.pictureSources.clear();
-        }
-
-        // The GPU renderer finds a picture by the texture object a draw
-        // shows (GSTextureObjectNote), not by what GS memory holds: DM2
-        // streams each node's textures into its GS texture cache and keeps
-        // level 0 inside the frame buffer while it draws (BRINGUP round 2),
-        // so a texture's indices are seldom in GS memory as a packed picture
-        // when they are drawn. The same note as Aggressive Inline's
-        // (aggressive_inline_xbox.cpp xbox_objects): DM2's cache allocator
-        // FUN_00106EA8 (a0 = texture object + 0x30, a1 = a level record) is
-        // AI's FUN_00107C88 instruction for instruction, and DM2's texture
-        // object (0x560 bytes: name +0x10, levels +0x40 of 0xA0 with the
-        // texels at +0, the GS word address at +8, the size at +0x0C,
-        // words at +0x14; level count +0x4A0, PSM +0x4A1) is AI's.
-        namespace notes
-        {
-            namespace tr = ps2x::texture_replace;
-            constexpr uint32_t kLevelAlloc = 0x00106EA8u;
-            constexpr uint32_t kObjName = 0x10u, kObjLevels = 0x40u, kLevelStride = 0xA0u;
-            constexpr uint32_t kObjLevelCount = 0x4A0u, kObjPsm = 0x4A1u;
-            struct Key
-            {
-                uint32_t texels = 0, width = 0, height = 0, psm = 0;
-                uint64_t sample = 0, hash = 0;
-            };
-            // One boot's original and notes (ps2x::boot::PerBoot).
-            struct NotesState
-            {
-                PS2Runtime::RecompiledFunction origAlloc = nullptr;
-                uint64_t notes = 0;
-                std::unordered_map<uint32_t, Key> keys; // by object
-            };
-
-            NotesState &notesState()
-            {
-                static ps2x::boot::PerBoot<NotesState> ofBoot([] { return NotesState{}; });
-                return ofBoot.get();
-            }
-
-            uint16_t readU16(const uint8_t *rdram, uint32_t address)
-            {
-                uint16_t v = 0;
-                if (const uint8_t *p = getConstMemPtr(rdram, address))
-                    std::memcpy(&v, p, 2);
-                return v;
-            }
-            uint8_t readU8(const uint8_t *rdram, uint32_t address)
-            {
-                const uint8_t *p = getConstMemPtr(rdram, address);
-                return p ? *p : 0u;
-            }
-            const uint8_t *bytesAt(const uint8_t *rdram, uint32_t address, size_t n)
-            {
-                const uint8_t *first = getConstMemPtr(rdram, address);
-                const uint8_t *last = n ? getConstMemPtr(rdram, address + static_cast<uint32_t>(n - 1u)) : first;
-                return first && last == first + (n ? n - 1u : 0u) ? first : nullptr;
-            }
-            // Size and index hash of the object's level 0, kept while its
-            // texels look the same (16 slices sampled).
-            const Key *keyOf(const uint8_t *rdram, uint32_t object)
-            {
-                Key k;
-                k.texels = readU32(rdram, object + kObjLevels);
-                k.width = readU16(rdram, object + kObjLevels + 0x0Cu);
-                k.height = readU16(rdram, object + kObjLevels + 0x0Eu);
-                k.psm = readU8(rdram, object + kObjPsm);
-                if ((k.psm != 0x13u && k.psm != 0x14u) || k.width == 0u || k.height == 0u || k.width > 1024u ||
-                    k.height > 1024u)
-                    return nullptr;
-                const size_t bytes = static_cast<size_t>(k.width) * k.height / (k.psm == 0x14u ? 2u : 1u);
-                const uint8_t *p = bytesAt(rdram, k.texels, bytes);
-                if (!p)
-                    return nullptr;
-                uint64_t h = 0xCBF29CE484222325ull;
-                for (uint32_t i = 0; i < 16u; ++i)
-                {
-                    const size_t at = bytes > 8u ? (bytes - 8u) * i / 15u : 0u;
-                    for (size_t b = 0; b < 8u && at + b < bytes; ++b)
-                        h = (h ^ p[at + b]) * 0x100000001B3ull;
-                }
-                k.sample = h;
-                Key &cached = notesState().keys[object];
-                if (cached.hash != 0u && cached.texels == k.texels && cached.width == k.width &&
-                    cached.height == k.height && cached.psm == k.psm && cached.sample == k.sample)
-                    return &cached;
-                k.hash = tr::indexHashOfUpload(p, k.width, k.height, k.psm);
-                cached = k;
-                return &cached;
-            }
-            void levelAllocHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
-            {
-                const uint32_t object = getRegU32(ctx, 4) - 0x30u;
-                const uint32_t record = getRegU32(ctx, 5);
-                notesState().origAlloc(rdram, ctx, runtime);
-                if (!tr::enabled() || !tr::hasSources() || !active())
-                    return;
-                const uint32_t first = object + kObjLevels;
-                const uint32_t count = readU8(rdram, object + kObjLevelCount);
-                if (record < first || (record - first) % kLevelStride != 0u || (record - first) / kLevelStride >= count ||
-                    count > 7u)
-                    return;
-                const Key *key = keyOf(rdram, object);
-                if (!key)
-                    return;
-                GSTextureObjectNote n;
-                n.object = object;
-                n.level = static_cast<uint8_t>((record - first) / kLevelStride);
-                n.tbp = readU32(rdram, record + 8u) >> 6;
-                n.blocks = (readU32(rdram, record + 0x14u) + 63u) >> 6;
-                n.width = readU16(rdram, record + 0x0Cu);
-                n.height = readU16(rdram, record + 0x0Eu);
-                n.psm = static_cast<uint8_t>(key->psm);
-                n.keyWidth = static_cast<uint16_t>(key->width);
-                n.keyHeight = static_cast<uint16_t>(key->height);
-                n.keyHash = key->hash;
-                if (const uint8_t *name = bytesAt(rdram, object + kObjName, sizeof(n.name) - 1u))
-                    for (size_t i = 0; i + 1u < sizeof(n.name) && name[i]; ++i)
-                        n.name[i] = static_cast<char>(name[i]);
-                ++notesState().notes;
-                runtime->memory().postGsSideband([runtime, list = std::vector<GSTextureObjectNote>{n}]()
-                                                 { runtime->gs().noteTextureObjects(list); });
-            }
-            void install(PS2Runtime &runtime)
-            {
-                NotesState &ns = notesState();
-                if (ns.origAlloc || (std::getenv("PS2X_XBOX_OBJECTS") && std::getenv("PS2X_XBOX_OBJECTS")[0] == '0'))
-                    return;
-                ns.origAlloc = runtime.lookupFunction(kLevelAlloc);
-                if (!ns.origAlloc || !runtime.replaceFunction(kLevelAlloc, &levelAllocHook))
-                {
-                    ns.origAlloc = nullptr;
-                    std::cerr << "[xboxlevel] texture cache hook not installed: no Xbox pictures" << std::endl;
-                }
-            }
         }
 
         std::shared_ptr<const std::vector<uint8_t>> provide(const std::string &path)
@@ -2403,7 +2270,13 @@ namespace dave_mirra::xboxlevel
         // ([display] xbox_textures, which sets PS2X_XBOX_TEXTURES).
         const char *pictures = ps2x::boot::text("PS2X_XBOX_TEXTURES");
         ps2x::texture_replace::setEnabled(!(pictures && pictures[0] == '0'));
-        notes::install(runtime);
+        // The GPU renderer finds a picture by the texture object a draw
+        // shows, not by what GS memory holds: DM2 streams each node's
+        // textures into its GS texture cache and keeps level 0 inside the
+        // frame buffer while it draws (BRINGUP round 2), so a texture's
+        // indices are seldom in GS memory as a packed picture when they are
+        // drawn (zge_xbox_textures.h: the texture cache's notes).
+        zge_host::xbox_textures::installTextureNotes(runtime, game::Game::Dm2);
         if (st.levels.empty())
         {
             std::cerr << "[xboxlevel] no complete level: off" << std::endl;

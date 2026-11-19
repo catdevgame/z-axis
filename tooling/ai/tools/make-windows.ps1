@@ -44,7 +44,9 @@
 #   ... -Games ai,dm2 ... -Dm2XboxIso "D:\Dave Mirra Freestyle BMX 2 (USA)-xbox.iso"
 #                                     # DM2's Xbox-only levels Venice and Greenville in
 #                                     # games\dm2\xbox-levels (tools\dm2_xbox.py),
-#                                     # for its own Free Ride; the app never reads the image.
+#                                     # for its own Free Ride, and its levels' Xbox textures in
+#                                     # games\dm2\xbox-pack (ps2xExtras xbox-pack); the app never
+#                                     # reads the image.
 #                                     # Each game runs on its own riders and levels: none is
 #                                     # made into another's.
 #
@@ -88,7 +90,9 @@
 #                                     # German and Spanish, level-select previews and Z-Axis logo
 #                                     # movie (tools\bmx_releases.py; the movies need ffmpeg and
 #                                     # ffprobe on PATH) in games\bmx\releases, each behind its
-#                                     # setting; without either, BMX XXX as its PS2 release alone
+#                                     # setting, and from the Xbox image its levels' and props' Xbox
+#                                     # textures in games\bmx\xbox-pack (ps2xExtras xbox-pack);
+#                                     # without either, BMX XXX as its PS2 release alone
 param(
     # The set of generated code (the Mac's paths.env GENERATED_SET): each folder with -<set> after its name; empty: the
     # plain folders.
@@ -765,6 +769,18 @@ if ($Collection -and ($Games -contains "dm2")) {
         Copy-Item -Recurse $xboxLevels (Join-Path $AppDir "games\dm2\xbox-levels")
         Say "DM2's Xbox levels for its Free Ride in games\dm2\xbox-levels"
     } elseif ($python) { Say "no -Dm2XboxIso: no Venice and Greenville in DM2" }
+    # DM2's Xbox textures: its levels' from -Dm2XboxIso, made as the extras' setup makes them (ps2xExtras
+    # xbox-pack --no-movies; collection/extras/setup.cpp), into games\dm2\xbox-pack, where the app reads a
+    # bundled game's pack (Xbox Textures).
+    if ($Dm2XboxIso -and (Test-Path $Dm2XboxIso)) {
+        $ps2xExtrasExe = Tool ps2xExtras
+        $dm2Pack = Join-Path $Dist ".dm2-xbox-pack"
+        if (Test-Path $dm2Pack) { Remove-Item -Recurse -Force $dm2Pack }
+        & $ps2xExtrasExe xbox-pack --ps2 (Resolve-Path $Dm2DiscDir).Path --xbox $Dm2XboxIso --out $dm2Pack --no-movies | ForEach-Object { Say $_ }
+        if ($LASTEXITCODE -ne 0) { Die "ps2xExtras xbox-pack could not make DM2's Xbox textures from $Dm2XboxIso" }
+        Copy-Item -Recurse $dm2Pack (Join-Path $AppDir "games\dm2\xbox-pack")
+        Say "DM2's Xbox textures in games\dm2\xbox-pack"
+    }
 }
 if ($Collection -and ($Games -contains "bmx")) {
     $bmxOut = Join-Path $AppDir "games\bmx\disc"
@@ -816,6 +832,18 @@ if ($Collection -and ($Games -contains "bmx")) {
         Copy-Item -Recurse $bmxReleases (Join-Path $AppDir "games\bmx\releases")
         Say "BMX XXX's Xbox and GameCube content in games\bmx\releases"
     } else { Say "no -BmxXboxIso or -BmxGcImage: BMX XXX as its PS2 release alone" }
+    # BMX XXX's Xbox textures: its levels' and their props' (the ZAL archives) from -BmxXboxIso, made as the
+    # extras' setup makes them (ps2xExtras xbox-pack --no-movies --archives), into games\bmx\xbox-pack, where the
+    # app reads a bundled game's pack (Xbox Textures).
+    if ($BmxXboxIso -and (Test-Path $BmxXboxIso)) {
+        $ps2xExtrasExe = Tool ps2xExtras
+        $bmxPack = Join-Path $Dist ".bmx-xbox-pack"
+        if (Test-Path $bmxPack) { Remove-Item -Recurse -Force $bmxPack }
+        & $ps2xExtrasExe xbox-pack --ps2 (Resolve-Path $BmxDiscDir).Path --xbox $BmxXboxIso --out $bmxPack --no-movies --archives | ForEach-Object { Say $_ }
+        if ($LASTEXITCODE -ne 0) { Die "ps2xExtras xbox-pack could not make BMX XXX's Xbox textures from $BmxXboxIso" }
+        Copy-Item -Recurse $bmxPack (Join-Path $AppDir "games\bmx\xbox-pack")
+        Say "BMX XXX's Xbox textures in games\bmx\xbox-pack"
+    }
 }
 }  # (-NoGameData)
 $lgpl = Get-ChildItem -Path (Join-Path $Root "third_party-cache") -Filter "COPYING.LGPLv2.1" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1

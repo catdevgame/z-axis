@@ -140,6 +140,11 @@ namespace game::readable
     // (One-argument forms, AI's: the AI override declares them itself.)
     bool runsInGame(uint32_t address, Game game);
     bool runsInGame(uint32_t address);
+    // Whether install() will switch the readable version of the function at
+    // `address` in `game` on: its status's default, then PS2X_READABLE (as
+    // install() reads it). Asked before the game starts (a front end's row
+    // that needs the function); changes nothing.
+    bool switchedOnAtBoot(uint32_t address, Game game);
     // The game install() was called for (AI's until then).
     Game runningGame();
 

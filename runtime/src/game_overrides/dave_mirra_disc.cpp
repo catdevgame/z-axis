@@ -7,10 +7,13 @@
 // (every function an exact match). The init is the same as ZGE3's plus
 // sceCdDiskReady/sceFsReset, which only matter for the IOP's cdvdman.
 //
+// The Xbox textures follow the files the game opens (zge_xbox_textures.h).
+//
 // [host] disc = ps2 keeps ZCDDVD over the emulated IOP. PS2X_MODS_DIR and
 // PS2X_TRACE_DISC as for Aggressive Inline.
 #include "dave_mirra.h"
 #include "zge_host.h"
+#include "zge_xbox_textures.h"
 
 #include "../game/ee/game_id.h"
 
@@ -18,6 +21,8 @@ namespace dave_mirra
 {
     bool installNativeDisc(PS2Runtime &runtime)
     {
-        return zge_host::installNativeDisc(runtime, {.game = "Dave Mirra Freestyle BMX 2", .id = game::Game::Dm2});
+        return zge_host::installNativeDisc(runtime, {.game = "Dave Mirra Freestyle BMX 2",
+                                                     .id = game::Game::Dm2,
+                                                     .fileOpened = &zge_host::xbox_textures::noteFileOpened});
     }
 }

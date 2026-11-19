@@ -1,9 +1,10 @@
 # Android (dual-screen handhelds)
 
-The collection's runner cross-built for arm64 (`libps2EntryRunner.so`, the
-three games as the Mac app has them), started by SDL's `SDLActivity` through
-`GameActivity`, with the second screen's panel (`SecondScreenPanel`). No Gradle: the SDK's build tools alone. The full notes
-are in `docs/BRINGUP.md`, "Android".
+The collection's runner cross-built for arm64 (`libps2EntryRunner.so`, the three games as the Mac app has them),
+started by SDL's `SDLActivity` through `GameActivity`: the game on the top screen and a panel on the bottom one
+(`SecondScreenPanel`). The native side is `runtime/src/collection/android_app.cpp` and `android_documents.cpp`, behind
+`__ANDROID__`, so the Mac and Windows builds are unchanged. No Gradle: the SDK's build tools alone. Releases from 1.1.0
+carry an APK (with no game code: the app makes it on the device); or build it and put it on your own device.
 
 | File | What it is |
 |---|---|
@@ -13,10 +14,21 @@ are in `docs/BRINGUP.md`, "Android".
 | `build-apk.sh` | the APK from a cross-built `libps2EntryRunner.so`, SDL's Java and ours |
 | `push-game.sh` | the games' files onto the device (`files/games/<id>/`), and each game's panel `.pmap` files |
 
+## The game code, made on the device
+
+The APK carries no game code. As on Mac and Windows (`runtime/include/collection/game_code.h`), setting a game up
+recompiles the disc's boot ELF, compiles the result and links it into the game's module, with the pinned LLVM
+(`runtime/toolchain/llvm.lock`, `archive-android-arm64`: `build-llvm.sh android-arm64`, clang and lld for AArch64
+alone). Android runs no program an app wrote or unpacked itself, so the compiler, the linker and the recompiler are
+the APK's native libraries (`libclang.so`, `liblld.so`, `libps2_recomp.so`, run from the app's native library
+folder), and the rest of the tools (the module's headers, the compiler's, each game's recompiler inputs) are its
+`assets/game-code-tools`, unpacked into the internal storage at the first start of each APK. The modules are kept in
+the internal storage too (`game-code/<id>`): Android loads no code from the external files folder.
+
 ## Requirements
 
-The SDK in brew's `android-commandlinetools` (NDK 28.2, build-tools,
-platforms) as `ANDROID_HOME`, and a JDK 17 as `JAVA_HOME`.
+The SDK in brew's `android-commandlinetools` (NDK 28.2, build-tools, platforms) as `ANDROID_HOME`, and a JDK 17
+as `JAVA_HOME`.
 
 ## Building
 
@@ -25,29 +37,48 @@ android/build-ffmpeg.sh <ffmpeg-9.0.2.tar.xz> <work dir> <prefix>
 cmake -S . -B <build dir> -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/<version>/build/cmake/android.toolchain.cmake \
     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-33 -DANDROID_STL=c++_static \
-    -DPS2X_ENABLE_FFMPEG=ON -DPS2X_FFMPEG_PREFIX=<prefix> -DPS2X_ENABLE_DEBUG_UI=OFF
+    -DPS2X_ENABLE_FFMPEG=ON -DPS2X_FFMPEG_PREFIX=<prefix> -DPS2X_ENABLE_DEBUG_UI=OFF \
+    <the collection's arguments as tooling/ai/tools/make-app.sh gives them: PS2X_APP_GAMES, PS2X_BIND_DIR,
+     the three games' generated and VU1 folders>
 ninja -C <build dir> ps2EntryRunner
 android/build-apk.sh <build dir> <SDL3 source dir> <out.apk> [keystore] [icon]
 ```
 
+The shaders are the HLSL compiled through the NDK's glslc (`GS_SPIRV=1`). An Android build is the app's flavour
+(`ZAXIS_DEV_CHECKS` OFF by default there: no checkers' machinery, docs/DEVTOOLS.md "Two flavours").
+
+The app players install (no game code, the game code's tools in it) adds `-DPS2X_GAME_MODULES=shared
+-DPS2X_ANDROID_RECOMPILER=ON` to the configure and `ps2_recomp` to the build, then stages the tools from the unpacked
+Android LLVM archive and gives them to the APK:
+
+```sh
+ninja -C <build dir> ps2EntryRunner ps2_recomp
+python3 runtime/toolchain/stage_game_code_tools.py <tools dir> --llvm <unpacked 23.1.5-android-arm64 archive> \
+    --recompiler <build dir>/recompiler/ps2xRecomp/ps2_recomp --sse2neon <build dir>/_deps/sse2neon-src/sse2neon.h \
+    --tree-games tooling --android $ANDROID_HOME/ndk/<version>/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-readelf
+GAME_CODE_TOOLS=<tools dir> APP_VERSION=<x.y.z> android/build-apk.sh <build dir> <SDL3 source dir> <out.apk> ...
+```
+
+A release's APK is built so from a clone of the public repository (no game files, none of the workshop's), with
+`RELEASE=1 KS_PASS=file:<the key's password file> KS_ALIAS=zaxis-collection` and the collection's release keystore
+(kept apart from every repository) as the keystore: no profileable element, packed at zip's highest level.
+
 `APP_ID=<id>` gives the APK another application id (another app, with its own files folder; the classes keep
 their package), `APP_LABEL` another name under its icon, `EXTRA_LIBS` more files for its native library folder
-(`lib<name>.so` each: the one app folder Android runs programs from). The app's `PS2X_APP_*` options are as in `tooling/ai/tools/make-app.sh`. An Android build is the app's flavour
-(`ZAXIS_DEV_CHECKS` OFF by default there: no checkers' machinery, docs/DEVTOOLS.md "Two flavours").
-`[icon]` is a square PNG or the Mac app's `AppIcon.icns` (game art: never committed).
+(`lib<name>.so` each: the one app folder Android runs programs from). `[icon]` is a square PNG or the Mac app's
+`AppIcon.icns` (game art: never committed). Without `RELEASE=1`, a keystore that does not exist yet is made on
+first use as a debug key (the default one is in the build dir).
 
 ## Setting the games up
 
-On the device: Settings > Games, Set Up From Image (an ISO, a CHD, CSO or ZSO, or a BIN/CUE dump's BIN, or both its files) or From
-Folder (a folder of the disc's files, or of disc images: every game in it is set up). The system's documents UI
-gives the app the files it may read; the app keeps that permission, so Repair From reads the same disc later.
-
-## Moving the saves
-
-Settings > Games, Saves and Settings: Export to a File writes every game's saves and settings (not the disc files,
-logs or caches) into one zip where the player puts it; Import From a File takes such a zip into this app. The app of
-the earlier id (`rest.src.cat.aggressiveinline`) is another app to Android: an update of it built with
-`APP_ID=rest.src.cat.aggressiveinline` and its own key exports, the new app imports.
+On the device: the first start opens Settings > Games. Find Discs picks a folder (your ROMs folder: every game's PS2
+disc in it and its folders is found, and the games' Xbox and GameCube discs for the extras), and Set Up Games sets
+up the games ticked. A single game: Set Up From Image (an ISO, a CHD, CSO or ZSO, or a BIN/CUE dump's BIN, or both
+its files) or From Folder (a folder of the disc's files, or of disc images: every game in it is set up). The
+system's documents UI gives the app the files it may read (content:// URIs, read through the descriptors the
+content resolver opens: `game_setup.h` DocumentAccess); the app keeps that permission, so Repair From reads the
+same disc later. It can read no other path. Setting a game up takes a while on a handheld, 8 to 19 minutes a game in
+our runs, most of it compiling the game's code.
 
 ## Running a game from a computer
 
@@ -57,9 +88,44 @@ Install the APK and start it once (Android makes its files folder), then
 ANDROID_SERIAL=<serial> android/push-game.sh [--panel-only] <Resources folder> <work folder>
 ```
 
-sends the folders of the Mac app's `Contents/Resources` to
-`/sdcard/Android/data/<id>/files/` (`APP_ID`, the default id's otherwise): a collection's
-`games/<id>/{disc,...}` as they are, with each game's panel files made here
-(`games/<id>/panel`: Aggressive Inline's and Dave Mirra BMX 2's). The app opens
-on its menu; `PS2X_APP_GAME=<id>` in `files/ps2x-env.txt` boots one game.
-Settings, saves and logs are in `files/support` (`support/games/<id>/`).
+sends the folders of the Mac app's `Contents/Resources` to `/sdcard/Android/data/<id>/files/` (`APP_ID`, the default
+id's otherwise) as a tar stream (`adb push` cannot make subfolders there): a collection's `games/<id>/{disc,...}` as
+they are, with each game's panel files made here by `panel_map.py` (`games/<id>/panel`: the three games' maps,
+goals and trick lists). `--panel-only` does just the panels. The app opens on its menu; `PS2X_APP_GAME=<id>` in
+`files/ps2x-env.txt` boots one game. Settings, saves and logs are in `files/support` (`support/games/<id>/`).
+
+`files/ps2x-env.txt` takes the developer switches, one `NAME=value` a line. `PS2X_GS_SCALE` counts only with
+`PS2X_GS_BACKEND=gpu` set too (otherwise the settings win, as on Mac and Windows); here `PS2X_GS_SCALE=<x>x<y>`
+sets both. `PS2X_CONTROL=<absolute path under files>` works (the game's working directory is its support folder,
+so a relative one lands there), with `cmd` and `out` reached over `adb shell`; it serves the first game booted in
+the process only, and it reads `cmd` every vsync through the sdcard's FUSE, so leave it out of frame-time
+measurements. `PS2X_DEV_START_LEVEL` and `PS2X_DEV_START_SKATE` reach and skate a level without it.
+
+## Moving the saves
+
+Settings > Games, Saves and Settings: Export to a File writes every game's saves and settings (not the disc files,
+logs or caches) into one zip where the player puts it; Import From a File takes such a zip into this app
+(`collection/save_transfer`). The app of the earlier id (`rest.src.cat.aggressiveinline`) is another app to
+Android: an update of it built with `APP_ID=rest.src.cat.aggressiveinline` and its own key exports, the new app
+imports.
+
+## How it runs on the device
+
+- The second screen: `SecondScreenPanel` (a Presentation, not focusable, so the pad stays with the game and B cannot
+  cancel it), a native painter at about 20 Hz in the surface's CPU buffer, off the game's frames and GPU. The game
+  thread takes one snapshot a vsync while the panel is up. The panel follows the game that runs
+  (`panel::setGameFiles`, set by the app as a game boots). The pad drives the menus; a touch goes to the bottom
+  screen (the collection menu's there, or the game's panel).
+- In the background (from `onStop`: Home, the screen off) SDL blocks the window thread inside its event pump, so the
+  app's per-frame pause never runs; an SDL event watch (`pauseInBackground`) pauses the EE scheduler before the pump
+  blocks. Without it the game thread draws on with nothing presenting and GPU memory grows without limit.
+- Split screen stays left and right on the top screen.
+- A white home pill over the immersive game is SystemUI's `SecondaryHomeHandle`, not the navigation bar: after an
+  Overview gesture Launcher3 leaves a quick switch rotation set and SystemUI shows the handle over hidden bars. The
+  next swipe up to Home clears it.
+- A new pipeline costs about 130 ms on the GS thread (SDL's Vulkan backend passes no pipeline cache, so every run
+  pays again).
+- Profiling: the manifest is `profileable` from the shell, so `simpleperf record --app
+  io.github.catdevgame.zaxiscollection -f 4000 --duration 25` samples a stock device (no root; `-p PID` is
+  refused); `simpleperf report --symdir <build>/ps2xRuntime` symbolizes with the unstripped .so. The perf log's
+  `cpu ms/vsync` line gives the game, VIF1 and GS threads' CPU (the workers are named `vif1-stage` and `gs-stage`).

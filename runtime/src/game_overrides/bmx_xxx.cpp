@@ -15,6 +15,7 @@
 #include "ps2_runtime.h"
 #include "runtime/ps2_boot_config.h"
 #include "runtime/ps2_pad.h"
+#include "zge_xbox_textures.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -46,6 +47,7 @@ namespace bmx_xxx
         installMouseLook(runtime);
         installNativeSaves(runtime);
         installReleases(runtime);
+        zge_host::xbox_textures::install(runtime, game::Game::Bmx); // the extras' Xbox textures (Settings > Graphics)
         installGsTextureAudit(runtime); // developers, PS2X_GSMEM_AUDIT=1
         installDevStart(runtime); // PS2X_DEV_START_LEVEL: developers, Custom Freeplay
         installAllMultiplayerModes(runtime);

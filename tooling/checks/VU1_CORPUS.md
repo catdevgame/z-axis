@@ -40,28 +40,25 @@ run as `.code/.data-in/.data-out/.regs-in` (the `PS2X_VU1_DUMP` layout, for
 data qword by pc and lanes; `--poke` starts every run with a value in a lane of a
 data qword and expects it there at the end: a run that differs read it.
 
-`tools/vu1corpus.py` in the game repository reads corpora from Python
-(programs, runs, GIF vertices).
+`tooling/ai/tools/vu1corpus.py` reads corpora from Python (programs, runs,
+GIF vertices).
 
 ## The corpora
 
 Each game's corpora are in its workspace's `recomp/traces/vu1` (AI_WORKSPACE, DM2_WORKSPACE, BMX_DATA;
-data, never committed). `checks/vu1_corpus_check.sh CHECKER [DIR|FILE ...]` replays all of them (default: the
+data, never committed). `tooling/checks/vu1_corpus_check.sh CHECKER [DIR|FILE ...]` replays all of them (default: the
 three folders) with the ahead-of-time code and with `PS2X_VU1_AOT=0`; CHECKER is a ps2xVu1Check built with the
 three games' AOT folders, as the collection build has them. Exit 0 when every run matches on both sides; a
 corpus folder gone, or an image the checker has no AOT code for ("NO AOT"), fails it too.
 
-Where it runs: the batch (merge-check.sh's vu1check step, with build-coll's ps2xVu1Check: build-coll is configured
-with every game's generated-vu1; batchS.sh prints its verdict line; carried from the integration lane's gate job of
-the judged commit when it ran there and passed) and the Mac's gate jobs (gate.sh's vu1check part, exit 94, with the
-slot's out/coll checker) when the commit changes the VU1 paths since its merge base with main (`vu1_corpus_check.sh
---changed`), or with VU1CHECK=1 in rcheck's environment (VU1CHECK=0: never); a skip says why in status.txt.
+`vu1_corpus_check.sh --changed REPO BASE COMMIT` lists the VU1 files (the interpreter, the AOT generator and its
+build step, the checker) that differ between two commits: a change there is what needs the check.
 
 - Aggressive Inline: the level (four views), the menus, split-screen multiplayer.
 - Dave Mirra BMX 2 (one micro memory image, 836c2d1891f4ba03, in every session): the front end (vsync 2400 +
   2000), 60 vsyncs about 675 into play on Woodward, Trainyard, Airport (Free Ride), Swampy (Session), Galloon
   (ProQuest), the Xbox levels Venice and Greenville (PS2X_DM2_XBOX_LEVELS), 120 vsyncs of the park editor
-  (playbot/dm2park.py build) and two custom maps in the park slot (crossmap1's tut-dm2, root-dm2): playbot
+  (playbot/dm2park.py build) and two custom maps in the park slot (tut-dm2, root-dm2): playbot
   sessions, the CPU renderer, about 1,100 runs a vsync in play.
-- BMX XXX (vu1aot1's): the menus, the Secret Level, TST_FLAT, TST_GRND and TST_VERT (two windows each for GRND
-  and VERT), the Bronx, CMP_RMPG (two), crossmap1's tut-bmx and woodward-bmx.
+- BMX XXX: the menus, the Secret Level, TST_FLAT, TST_GRND and TST_VERT (two windows each for GRND
+  and VERT), the Bronx, CMP_RMPG (two), the custom maps tut-bmx and woodward-bmx.

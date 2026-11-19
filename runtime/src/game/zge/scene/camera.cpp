@@ -23,6 +23,8 @@
 #include "zge/render/texture.h"
 #include "sce/libgcc.h"
 #include "zge/math/angle.h"
+#include "zge/math/vu0_ops.h"
+#include "zge/host/game_view.h"
 
 #include <bit>
 #include <cstring>
@@ -182,6 +184,84 @@ namespace zge
         const Float *spannedRectangle(const Camera &c) { return game::readable::kIsDm2 ? c.screen : c.viewport; }
     }
 
+    namespace
+    {
+        // The game's own frustum (zge/host/game_view.h): the world planes the
+        // frustum below makes, with the game's half-angle tangents where the
+        // drawn view has its own (widescreen and a field of view setting
+        // change them). The same steps as
+        // the drawn one's, on the camera's position and axes, done between
+        // VU0's registers kept and put back, so the frustum leaves them as
+        // it does without this.
+        void keepGameFrustum(ee::Ptr<Camera> camera, Float tanX, Float tanY, const host::GamePose *pose)
+        {
+            Camera &c = *camera;
+            vu0::KeptRegisters kept;
+            // The game camera's axes and position (camera -> world).
+            Matrix toWorld = c.toWorld();
+            if (pose)
+                std::memcpy(&toWorld, pose->toWorld, sizeof(toWorld));
+            Vec4 viewCorners[kFrustumCorners];
+            {
+                const Float z = c.nearClip;
+                const Float x = z * tanX, y = z * tanY;
+                viewCorners[0].x = -x, viewCorners[0].y = -y, viewCorners[0].z = z;
+                viewCorners[1].x = x, viewCorners[1].y = -y, viewCorners[1].z = z;
+                viewCorners[2].x = x, viewCorners[2].y = y, viewCorners[2].z = z;
+                viewCorners[3].x = -x, viewCorners[3].y = y, viewCorners[3].z = z;
+            }
+            {
+                const Float z = c.farClip;
+                const Float x = z * tanX, y = z * tanY;
+                viewCorners[4].x = -x, viewCorners[4].y = -y, viewCorners[4].z = z;
+                viewCorners[5].x = x, viewCorners[5].y = -y, viewCorners[5].z = z;
+                viewCorners[6].x = x, viewCorners[6].y = y, viewCorners[6].z = z;
+                viewCorners[7].x = -x, viewCorners[7].y = y, viewCorners[7].z = z;
+            }
+            Vec4 corners[kFrustumCorners];
+            for (int i = 0; i < kFrustumCorners; ++i)
+            {
+                corners[i] = rotated(toWorld, viewCorners[i]);
+                corners[i] += toWorld.row(3);
+            }
+            static_assert(sizeof(host::GameFrustum::planes) == sizeof(Plane) * kFrustumPlanes);
+            host::GameFrustum frustum{};
+            frustum.fromWorld = c.fromWorld;
+            frustum.position = toWorld.row(3);
+            frustum.elsewhere = pose != nullptr;
+            if (pose)
+                std::memcpy(&frustum.fromWorld, pose->fromWorld, sizeof(frustum.fromWorld));
+            frustum.tanHalfWidth = tanX;
+            frustum.tanHalfHeight = tanY;
+            frustum.sphereScaleX = ee::sqrt(tanX * tanX) + 1.0f;
+            frustum.sphereScaleY = ee::sqrt(tanY * tanY) + 1.0f;
+            frustum.planeCount = c.viewPlaneCount;
+            const FrustumPlaneCorners *planeCorners = *g_frustumPlaneCorners;
+            for (uint32_t i = 0; i < frustum.planeCount; ++i)
+            {
+                const FrustumPlaneCorners &each = planeCorners[i];
+                const Vec4 &a = corners[each.corner[0]];
+                const Vec4 alongFirst = corners[each.corner[1]] - a;
+                const Vec4 alongSecond = corners[each.corner[2]] - corners[each.corner[1]];
+                frustum.planes[i] = unit(cross(alongFirst, alongSecond));
+                frustum.planes[i].w = dot(frustum.planes[i], a);
+            }
+            host::keepGameFrustum(camera, frustum);
+        }
+    }
+
+    bool gameCameraElsewhere(ee::Ptr<const Camera> camera)
+    {
+        const host::GameFrustum *frustum = host::gameFrustum(camera);
+        return frustum && frustum->elsewhere;
+    }
+
+    Vec4 gameCameraPosition(ee::Ptr<const Camera> camera)
+    {
+        const host::GameFrustum *frustum = host::gameFrustum(camera);
+        return frustum && frustum->elsewhere ? frustum->position : camera->position;
+    }
+
     void updateFrustum(ee::Ptr<Camera> camera)
     {
         Camera &c = *camera;
@@ -288,6 +368,18 @@ namespace zge
             c.planes[i] = unit(c.planes[i]);
             c.planes[i].w = dot(c.planes[i], a);
         }
+
+        // The drawn view is not the game's (the view settings' override changed
+        // the tangents or the focal length at the first sine: widescreen, a
+        // field of view setting): the game's own frustum kept for what the
+        // game decides by it.
+        const Float gameTanHalfHeight = halfHeight / focal;
+        host::GamePose pose;
+        const bool elsewhere = host::takeGamePose(camera, pose); // (a hidden camera's, kept this frame)
+        if (c.tanHalfWidth != tanHalfWidth || c.tanHalfHeight != gameTanHalfHeight || elsewhere)
+            keepGameFrustum(camera, tanHalfWidth, gameTanHalfHeight, elsewhere ? &pose : nullptr);
+        else
+            host::dropGameFrustum(camera);
     }
     READABLE_FUNCTION_VU0(updateFrustum, Verified);
 

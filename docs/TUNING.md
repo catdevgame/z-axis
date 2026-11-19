@@ -1,6 +1,6 @@
-# The tuning table: every entry
+# Aggressive Inline's tuning table: every entry
 
-The game's tuning table as the debug menu's editor and `tuning.ini` see it (how to use both:
+Aggressive Inline's tuning table (DM2 and BMX XXX have none) as the debug menu's editor and `tuning.ini` see it (how to use both:
 DEVTOOLS.md "How to use"). [V] = verified in the running game or the code, [I] = inferred from a name.
 
 ## Layout and how the game reads it [V]
@@ -76,14 +76,14 @@ name suggests [I].
 
 | Entry | Default | Range (step) | Read | Notes |
 |---|---|---|---|---|
-| `Distance` | 4 | 0.5 to 50 (0.5) | every frame | **tried**: 7 (tuning.ini) puts the camera clearly further back; player setting candidate |
+| `Distance` | 4 | 0.5 to 50 (0.5) | every frame | **tried**: 7 (tuning.ini) puts the camera clearly further back; Gameplay > Camera Distance scales it |
 | `Distance HPole` | 6 | 0.5 to 50 (0.5) | every frame |  |
-| `Height` | 0.45 | 0.05 to 50 (0.05) | every frame | **tried**: 1.2 raises the camera; player setting candidate |
+| `Height` | 0.45 | 0.05 to 50 (0.05) | every frame | **tried**: 1.2 raises the camera; Gameplay > Camera Height scales it |
 | `Char Offset` | 1.4 | 0.5 to 50 (0.05) | every frame | height of the look-at point above the skater [I]; candidate with Height |
 | `Char Offset Skcth` | 0.25 | 0.5 to 50 (0.05) | every frame |  |
 | `Falling Base` | 2.75 | 0 to 5 (0.01) | every frame |  |
 | `Falling Speed` | 0.12 | 0 to 5 (0.01) | every frame |  |
-| `FOV` | 75 | 1 to 80 (0.5) | camera mode set | **tried**: 50 in the debug menu narrows the view; copied into the camera when its mode is set (level fly-in, leaving the debug menu, R1 camera), so a setting must also re-set the camera; player setting candidate |
+| `FOV` | 75 | 1 to 80 (0.5) | camera mode set | **tried**: 50 in the debug menu narrows the view; copied into the camera when its mode is set (level fly-in, leaving the debug menu, R1 camera), so a setting must also re-set the camera; Gameplay > Field of View does |
 | `Type` | 0 | 0 to 4 (1) | camera mode set | camera mode the debug menu applies every frame (0x18FD68) |
 | `Far Clip` | 1000 | 5 to 9999 (10) | every frame | the game writes it at level start (from the level, or the MP entries); **tried**: 400 in tuning.ini (held by the vsync re-write); done as Draw Distance (imgq) |
 | `MP Boardwalk FOV` | 52 | 1 to 80 (0.5) | camera mode set | split screen FOV; candidate |
@@ -215,8 +215,8 @@ name suggests [I].
 |---|---|---|---|---|
 | `Juice:Score ratio` | 0.008 | 0 to 100 (0.0001) | while it applies |  |
 | `Award is Premultiplied` | 1 | 0 to 1 (1) | while it applies |  |
-| `Juice Lost/Level on crash` | 0.5 | 0.1 to 10 (0.1) | on the event | juice lost on a crash; assist candidate |
-| `Max Juice Degradation/sec` | 2 | 0 to 20 (0.1) | every frame | juice drain; candidate for an assist |
+| `Juice Lost/Level on crash` | 0.5 | 0.1 to 10 (0.1) | on the event | juice lost on a crash; Gameplay > Juice Lost on Crash scales it |
+| `Max Juice Degradation/sec` | 2 | 0 to 20 (0.1) | every frame | juice drain; Gameplay > Juice Drain scales it |
 | `Jizzed->Non-Jizzed Percent` | 0.6 | 0 to 1 (0.01) | every frame |  |
 | `Max Juice Time` | 7.5 | 0 to 200 (0.1) | every frame | juice duration [I] |
 

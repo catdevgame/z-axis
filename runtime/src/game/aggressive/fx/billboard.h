@@ -116,7 +116,9 @@ namespace aggressive::fx
     // camera's last frame, or (no node) its area is out of the camera's
     // view, or it is farther than its range from the camera (outside split
     // screen the distance is measured twice). The effect keeps whether it is
-    // hidden. Returns the draw's count, 0 when hidden.
+    // hidden. Returns the draw's count, 0 when hidden. The camera is the
+    // game's own (zge/host/game_view.h): with a hidden follow camera its
+    // eye, not the drawn one's.
     inline int32_t drawUnlessHidden(uint32_t effectClass, ee::Ptr<Emitter> emitter, EmitterDraw draw)
     {
         ee::Local<zge::Matrix> camera;
@@ -140,6 +142,9 @@ namespace aggressive::fx
             {
                 *firstCamera = currentCameraMatrix();
                 *eye = zge::matrixRow(*firstCamera, 3);
+                // (the game's own camera's eye, a hidden one's: zge/host/game_view.h)
+                if (zge::gameCameraElsewhere(ee::Ptr<zge::Camera>(*g_currentCamera)))
+                    *eye = zge::gameCameraPosition(ee::Ptr<zge::Camera>(*g_currentCamera));
                 *apart = effect->position - *eye;
                 if (effect->range < zge::vec3Length(asVec3(*apart)))
                     effect->hidden = 1;
@@ -148,6 +153,8 @@ namespace aggressive::fx
                 return 0;
             *camera = currentCameraMatrix();
             *apart = effect->position - zge::matrixRow(*camera, 3);
+            if (zge::gameCameraElsewhere(ee::Ptr<zge::Camera>(*g_currentCamera))) // (the draw advances the puffs: as the game's)
+                *apart = effect->position - zge::gameCameraPosition(ee::Ptr<zge::Camera>(*g_currentCamera));
             if (!(zge::vec3Length(asVec3(*apart)) <= effect->range))
                 return 0;
         }

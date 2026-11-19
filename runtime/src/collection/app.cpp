@@ -11,13 +11,16 @@
 #include "collection/vector_font.h"
 #include "collection/game_code.h"
 #include "collection/game_setup.h"
+#include "collection/disc_finder.h"
 #include "collection/extras/setup.h"
 #include "collection/save_transfer.h"
 #include "collection/card_import.h"
 #include "collection/maps.h"
 #include "collection/menu.h"
 #include "collection/mods.h"
+#include "collection/offered.h"
 #include "game_overrides.h"
+#include "../game_overrides/dave_mirra.h"
 #include "collection/panel.h"
 #include "runtime/ps2_save_store.h"
 #include "ps2_runtime.h"
@@ -285,6 +288,16 @@ namespace ps2x_app
         bool gameHas(GameOption option)
         {
             return g_profile && g_profile->has(option);
+        }
+
+        // What this boot's setup has (collection/offered.h): the folders the
+        // boot was given, the platform, and the readable code Dave Mirra BMX
+        // 2's created riders need (the game's own answer).
+        Installed setupInstalled()
+        {
+            Installed installed = findInstalled([](const char *name) { return ps2x::boot::text(name); });
+            installed.set(Need::Dm2ReadableRider, dave_mirra::createPlayerCanRun());
+            return installed;
         }
 
         // A collection keeps the app's own settings (display, graphics,
@@ -715,6 +728,8 @@ namespace ps2x_app
             return setting;
         }
 
+        // Offered where the platform has a window to switch (not Android);
+        // Borderless where it has one (macOS).
         ps2x::settings::Setting windowModeSetting(AppState &state)
         {
             namespace st = ps2x::settings;
@@ -722,8 +737,12 @@ namespace ps2x_app
             window.key = "display.window";
             window.label = "Display Mode";
             window.kind = st::Kind::Choice;
-            window.choices = {"Window", "Full Screen", "Borderless"};
-            window.help = "Borderless stays in the same Space.";
+            window.choices = {"Window", "Full Screen"};
+            if (offered(Need::Borderless, platformInstalled()))
+            {
+                window.choices.push_back("Borderless");
+                window.help = "Borderless stays in the same Space.";
+            }
             window.current = [&state]()
             {
                 if (!currentFullscreen())
@@ -921,14 +940,20 @@ namespace ps2x_app
                 out.apply = setting.apply;
                 return out;
             };
-            return {row(windowModeSetting(state)),       row(scalingSetting(state)),
-                    row(vsyncSetting(state)),            row(variableRefreshSetting(state)),
-                    row(frameInterpolationSetting(state)),
-                    row(showFpsSetting(state)),          row(pauseInBackgroundSetting(state)),
-                    row(volumeSetting(state)),           row(muteInBackgroundSetting(state)),
-                    row(introMovieSetting(state)),       row(menuMusicSetting(state)),
-                    row(mapWindowSetting(state)),        row(recordPlaySetting(state)),
-                    row(customFreeplaySetting(state))};
+            const Installed platform = platformInstalled();
+            std::vector<ps2x::collection::SettingsRow> rows;
+            if (offered(Need::WindowModes, platform))
+                rows.push_back(row(windowModeSetting(state)));
+            for (const st::Setting &setting :
+                 {scalingSetting(state), vsyncSetting(state), variableRefreshSetting(state), frameInterpolationSetting(state),
+                  showFpsSetting(state), pauseInBackgroundSetting(state), volumeSetting(state), muteInBackgroundSetting(state),
+                  introMovieSetting(state), menuMusicSetting(state)})
+                rows.push_back(row(setting));
+            if (offered(Need::SecondWindow, platform))
+                rows.push_back(row(mapWindowSetting(state)));
+            rows.push_back(row(recordPlaySetting(state)));
+            rows.push_back(row(customFreeplaySetting(state)));
+            return rows;
         }
 
         // The settings.ini settings in the shared settings model
@@ -941,8 +966,12 @@ namespace ps2x_app
             namespace st = ps2x::settings;
             auto toggle = [&state](const char *key, const char *label, bool Settings::*field, const char *help)
             { return toggleSetting(state, key, label, field, help); };
+            // A row shows only where it does something for this setup.
+            const Installed installed = setupInstalled();
+            auto offers = [&installed](GameOption option) { return g_profile && offered(*g_profile, option, installed); };
 
-            ps2x::session::addSetting(windowModeSetting(state));
+            if (offered(Need::WindowModes, installed))
+                ps2x::session::addSetting(windowModeSetting(state));
 
             st::Setting renderer;
             renderer.key = "display.renderer";
@@ -990,7 +1019,8 @@ namespace ps2x_app
             ps2x::session::addSetting(fullHeight);
 
             st::Setting widescreen = toggle("display.widescreen", "Widescreen", &Settings::widescreen,
-                                            "16:9 in levels, 4:3 menus and movies.");
+                                            "16:9 in levels, 4:3 menus and movies. "
+                                            "Plays as at 4:3: what is only at the sides stays still.");
             widescreen.current = [&runtime]() { return runtime.widescreen() ? 1 : 0; };
             widescreen.apply = [&state, &runtime](int value)
             {
@@ -998,7 +1028,7 @@ namespace ps2x_app
                 runtime.setWidescreen(state.settings.widescreen);
                 saveSettingsNow(state);
             };
-            if (gameHas(GameOption::Widescreen))
+            if (offers(GameOption::Widescreen))
                 ps2x::session::addSetting(widescreen);
 
             st::Setting aspect;
@@ -1015,7 +1045,7 @@ namespace ps2x_app
                     runtime.setWideAspect(wideAspectValue(state.settings.wideAspect));
                 saveSettingsNow(state);
             };
-            if (gameHas(GameOption::Widescreen))
+            if (offers(GameOption::Widescreen))
                 ps2x::session::addSetting(aspect);
 
             st::Setting blur;
@@ -1032,7 +1062,7 @@ namespace ps2x_app
                     runtime.setMotionBlur(state.settings.motionBlur);
                 saveSettingsNow(state);
             };
-            if (gameHas(GameOption::MotionBlur))
+            if (offers(GameOption::MotionBlur))
                 ps2x::session::addSetting(blur);
 
             st::Setting distance;
@@ -1040,24 +1070,18 @@ namespace ps2x_app
             distance.label = "Draw Distance";
             distance.kind = st::Kind::Choice;
             distance.choices = {"Original", "Far", "Farthest"};
-            distance.help = "Far in split screen, Farthest everywhere.";
-            // A game it changes takes it at boot only (gameBootConfig), so
-            // the whole run is one game.
-            const bool distanceChangesGame = g_profile && g_profile->drawDistanceChangesGame;
-            if (distanceChangesGame)
-            {
-                distance.help = "See further before the fog.";
-                distance.restart = true;
-            }
+            distance.help = "See further before the fog.";
+            // It changes the game (ps2_games.h drawDistanceChangesGame,
+            // every game's): taken at boot only (gameBootConfig), so the
+            // whole run is one game.
+            distance.restart = true;
             distance.current = [&state]() { return drawDistanceOf(state.settings, *g_profile); };
-            distance.apply = [&state, &runtime, distanceChangesGame](int value)
+            distance.apply = [&state](int value)
             {
                 state.settings.drawDistance = std::clamp(value, 0, 2);
-                if (!distanceChangesGame && !envSet("PS2X_DRAW_DISTANCE"))
-                    runtime.setDrawDistance(state.settings.drawDistance);
                 saveSettingsNow(state);
             };
-            if (gameHas(GameOption::DrawDistance))
+            if (offers(GameOption::DrawDistance))
                 ps2x::session::addSetting(distance);
 
             // Picture quality beyond the PS2 (GPU renderer): anti-aliasing,
@@ -1071,10 +1095,9 @@ namespace ps2x_app
                                           },
                                           true);
 
-            // Only when the app was built with them (PS2X_XBOX_PACK, set above).
-            const char *pack = ps2x::boot::text("PS2X_XBOX_PACK");
-            std::error_code ec;
-            if (pack && pack[0] && std::filesystem::is_directory(std::filesystem::path(pack) / "textures", ec))
+            // Only with the Xbox pack made from the player's Xbox disc
+            // (PS2X_XBOX_PACK, set above).
+            if (offered(Need::XboxTextures, installed))
             {
                 st::Setting xboxTextures = toggle("display.xbox_textures", "Xbox Textures", &Settings::xboxTextures,
                                                   "Sharper Xbox textures.");
@@ -1087,14 +1110,14 @@ namespace ps2x_app
                 };
                 ps2x::session::addSetting(xboxTextures);
             }
-            if (pack && pack[0] && std::filesystem::is_directory(std::filesystem::path(pack) / "models", ec))
+            if (offered(Need::XboxSkaters, installed))
             {
                 // Read when a skater is loaded (game_overrides/aggressive_inline_disc.cpp).
                 st::Setting xboxSkaters = toggle("display.xbox_skaters", "Xbox Skaters", &Settings::xboxSkaters,
                                                  "More detailed skaters, from the next level.");
                 ps2x::session::addSetting(xboxSkaters);
             }
-            if (pack && pack[0] && std::filesystem::is_directory(std::filesystem::path(pack) / "movies", ec))
+            if (offered(Need::XboxMovies, installed))
             {
                 st::Setting xboxMovies = toggle("display.xbox_movies", "Xbox Movies", &Settings::xboxMovies,
                                                 "Sharper movies.");
@@ -1118,7 +1141,8 @@ namespace ps2x_app
             ps2x::session::addSetting(frameInterpolationSetting(state));
             ps2x::session::addSetting(showFpsSetting(state));
             ps2x::session::addSetting(pauseInBackgroundSetting(state));
-            ps2x::session::addSetting(mapWindowSetting(state));
+            if (offered(Need::SecondWindow, installed))
+                ps2x::session::addSetting(mapWindowSetting(state));
             ps2x::session::addSetting(recordPlaySetting(state));
             ps2x::session::addSetting(recordingsSetting(state));
             if (kMenu)
@@ -1140,27 +1164,20 @@ namespace ps2x_app
                 ps2x::audio_mix::setGain(state.settings.movieVolume / 100.0f);
                 saveSettingsNow(state);
             };
-            if (gameHas(GameOption::MovieVolume))
+            if (offers(GameOption::MovieVolume))
                 ps2x::session::addSetting(movie);
 
             st::Setting intro = toggle("game.skip_intro_movies", "Skip Intro Movies", &Settings::skipIntroMovies,
                                        "Start at the title screen.");
             intro.restart = true;
-            if (gameHas(GameOption::SkipIntroMovies))
+            if (offers(GameOption::SkipIntroMovies))
                 ps2x::session::addSetting(intro);
 
-            // Language and French voices: only with the Xbox release's files
-            // (bundled at build time). The US disc's own other string tables
-            // only hold the memory card texts.
-            // BMX XXX: its own languages, with the other releases' translations
-            // when the app was built with them.
+            // Language and French voices: AI's with its Xbox release's files
+            // (the US disc's own other string tables only hold the memory
+            // card texts); BMX XXX's with its other releases' translations.
             const bool bmxGame = g_profile && std::string_view(g_profile->id) == "bmx";
-            const char *bmxReleases = ps2x::boot::text("PS2X_BMX_RELEASES_DIR");
-            std::error_code bmxError;
-            const bool bmxStrings = bmxGame && bmxReleases && bmxReleases[0] &&
-                                    std::filesystem::is_directory(std::filesystem::path(bmxReleases) / "strings", bmxError);
-            if (gameHas(GameOption::Language) &&
-                (bmxGame ? bmxStrings : ps2_xbox_disc::init() && ps2_xbox_disc::exists("string.fre")))
+            if (offers(GameOption::Language))
             {
                 st::Setting language;
                 language.key = "game.language";
@@ -1180,7 +1197,7 @@ namespace ps2x_app
                 };
                 ps2x::session::addSetting(language);
             }
-            if (gameHas(GameOption::FrenchVoices) && ps2_xbox_disc::init() && ps2_xbox_disc::exists("audio/speech01.zsd"))
+            if (offers(GameOption::FrenchVoices))
             {
                 // Read by the sound driver at each line (live).
                 st::Setting voices = toggle("audio.french_voices", "French Voices", nullptr,
@@ -1201,56 +1218,55 @@ namespace ps2x_app
             st::Setting developer = toggle("game.developer_menu", "Developer Menu", &Settings::developerMenu,
                                            "Press F1 in a level.");
             developer.restart = true;
-            if (gameHas(GameOption::DeveloperMenu))
+            if (offers(GameOption::DeveloperMenu))
                 ps2x::session::addSetting(developer);
 
             st::Setting zoo = toggle("game.zoo", "Zoo Level", &Settings::zoo,
                                      "The cut level, in Free Skate and Timed Run.");
             zoo.restart = true;
-            if (gameHas(GameOption::Zoo))
+            if (offers(GameOption::Zoo))
                 ps2x::session::addSetting(zoo);
-            // Only in an app built with the GameCube disc (the folder set at
-            // start, see below).
-            if (const char *estateDir = ps2x::boot::text("PS2X_ESTATE_DIR"); gameHas(GameOption::Estate) && estateDir && estateDir[0])
+            // With the Estate made from the GameCube disc.
+            if (offers(GameOption::Estate))
             {
                 st::Setting estate = toggle("game.estate", "Estate Level", &Settings::estate,
                                             "An early Tutorial, in Free Skate.");
                 estate.restart = true;
                 ps2x::session::addSetting(estate);
             }
-            // Dave Mirra BMX 2: in an app built with its Xbox disc.
-            if (const char *xboxDir = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS_DIR");
-                gameHas(GameOption::Dm2XboxLevels) && xboxDir && xboxDir[0])
+            // Dave Mirra BMX 2: with what its Xbox disc gave.
+            if (offers(GameOption::Dm2XboxLevels))
             {
                 st::Setting xbox = toggle("game.dm2_xbox_levels", "Xbox Levels", &Settings::dm2XboxLevels,
                                           "Venice and Greenville, with their goals.");
                 xbox.restart = true;
                 ps2x::session::addSetting(xbox);
-                if (gameHas(GameOption::Dm2XboxThemes))
-                {
-                    st::Setting themes = toggle("game.xbox_themes", "Desert and Highway Themes", &Settings::dm2XboxThemes,
-                                                "Two unused park editor themes.");
-                    themes.restart = true;
-                    ps2x::session::addSetting(themes);
-                }
-                if (gameHas(GameOption::Dm2RetroMovie))
-                {
-                    st::Setting retro = toggle("game.retro_movie", "Retro Movie", &Settings::dm2RetroMovie,
-                                               "Adds Retro to the movie gallery.");
-                    retro.restart = true;
-                    ps2x::session::addSetting(retro);
-                }
+            }
+            if (offers(GameOption::Dm2XboxThemes))
+            {
+                st::Setting themes = toggle("game.xbox_themes", "Desert and Highway Themes", &Settings::dm2XboxThemes,
+                                            "Two unused park editor themes.");
+                themes.restart = true;
+                ps2x::session::addSetting(themes);
+            }
+            if (offers(GameOption::Dm2RetroMovie))
+            {
+                st::Setting retro = toggle("game.retro_movie", "Retro Movie", &Settings::dm2RetroMovie,
+                                           "Adds Retro to the movie gallery.");
+                retro.restart = true;
+                ps2x::session::addSetting(retro);
             }
             // DM2: the attract demo at the title screen (the Xbox's and GameCube's).
-            if (gameHas(GameOption::Dm2AttractDemo))
+            if (offers(GameOption::Dm2AttractDemo))
             {
                 st::Setting demo = toggle("game.attract_demo", "Attract Demo", &Settings::dm2AttractDemo,
                                           "Replays play at an idle title screen.");
                 demo.restart = true;
                 ps2x::session::addSetting(demo);
             }
-            // DM2: its cut Create Player menu, from the main menu.
-            if (gameHas(GameOption::Dm2CreatePlayer))
+            // DM2: its cut Create Player menu, from the main menu (with the
+            // readable newRider, which makes a created rider's model).
+            if (offers(GameOption::Dm2CreatePlayer))
             {
                 st::Setting create = toggle("game.create_player", "Create Rider", &Settings::dm2CreatePlayer,
                                             "Adds CREATE RIDER to the main menu.");
@@ -1258,75 +1274,72 @@ namespace ps2x_app
                 ps2x::session::addSetting(create);
             }
             // BMX XXX: its park editor, from the main menu.
-            if (gameHas(GameOption::BmxParkEditor))
+            if (offers(GameOption::BmxParkEditor))
             {
                 st::Setting park = toggle("game.park_editor", "Park Editor", &Settings::bmxParkEditor,
                                           "Adds PARK EDITOR to the main menu.");
                 park.restart = true;
                 ps2x::session::addSetting(park);
             }
-            // BMX XXX: its Xbox and GameCube releases' content, in an app
-            // built with those discs (the intro movie is the PS2 disc's own).
-            const bool bmxReleasesBundled = bmxReleases && bmxReleases[0] &&
-                                            std::filesystem::is_directory(bmxReleases, bmxError);
-            if (gameHas(GameOption::BmxXboxChallenges) && bmxReleasesBundled)
+            // BMX XXX: its Xbox and GameCube releases' content, each with the
+            // disc that gave it (the intro movie is the PS2 disc's own).
+            if (offers(GameOption::BmxXboxChallenges))
             {
                 st::Setting challenges = toggle("game.xbox_challenges", "Xbox Challenges", &Settings::bmxXboxChallenges,
                                                 "Fixed challenges in four levels.");
                 challenges.restart = true;
                 ps2x::session::addSetting(challenges);
             }
-            if (gameHas(GameOption::BmxEditorPieces) && bmxReleasesBundled)
+            if (offers(GameOption::BmxEditorPieces))
             {
                 st::Setting pieces = toggle("game.editor_pieces", "Pool and Trash Can Pieces", &Settings::bmxEditorPieces,
                                             "Two more pieces, kept for parks using them.");
                 pieces.restart = true;
                 ps2x::session::addSetting(pieces);
             }
-            if (gameHas(GameOption::BmxLevelPreviews) && bmxReleasesBundled)
+            if (offers(GameOption::BmxLevelPreviews))
             {
                 st::Setting previews = toggle("game.level_previews", "Level Previews", &Settings::bmxLevelPreviews,
                                               "Preview movies in the level select.");
                 previews.restart = true;
                 ps2x::session::addSetting(previews);
             }
-            if (gameHas(GameOption::BmxLogoMovie) && bmxReleasesBundled)
+            if (offers(GameOption::BmxLogoMovie))
             {
                 st::Setting logo = toggle("game.logo_movie", "Z-Axis Logo Movie", &Settings::bmxLogoMovie,
                                           "Adds it to the movie gallery.");
                 logo.restart = true;
                 ps2x::session::addSetting(logo);
             }
-            if (gameHas(GameOption::BmxGcLevels) && bmxReleasesBundled &&
-                std::filesystem::is_directory(std::filesystem::path(bmxReleases) / "levels", bmxError))
+            if (offers(GameOption::BmxGcLevels))
             {
                 st::Setting levels = toggle("game.gc_levels", "GameCube Levels", &Settings::bmxGcLevels,
                                             "The Secret Level and three test levels.");
                 levels.restart = true;
                 ps2x::session::addSetting(levels);
             }
-            if (gameHas(GameOption::BmxMenuLines))
+            if (offers(GameOption::BmxMenuLines))
             {
                 st::Setting lines = toggle("game.menu_lines", "Unused Menu Lines", &Settings::bmxMenuLines,
                                            "Hidden lines back in the game's menus.");
                 lines.restart = true;
                 ps2x::session::addSetting(lines);
             }
-            if (gameHas(GameOption::BmxAllMpModes))
+            if (offers(GameOption::BmxAllMpModes))
             {
                 st::Setting modes = toggle("game.all_mp_modes", "All Multiplayer Modes", &Settings::bmxAllMpModes,
                                            "Every mode that works, in SELECT GAME.");
                 modes.restart = true;
                 ps2x::session::addSetting(modes);
             }
-            if (gameHas(GameOption::BmxIntroMovie))
+            if (offers(GameOption::BmxIntroMovie))
             {
                 st::Setting introMovie = toggle("game.intro_movie", "Intro Movie", &Settings::bmxIntroMovie,
                                                 "Plays the intro movie at start.");
                 introMovie.restart = true;
                 ps2x::session::addSetting(introMovie);
             }
-            if (gameHas(GameOption::ZooUnlock))
+            if (offers(GameOption::ZooUnlock))
             {
                 st::Setting unlock;
                 unlock.key = "game.zoo_unlock";
@@ -1344,7 +1357,7 @@ namespace ps2x_app
                 ps2x::session::addSetting(unlock);
             }
 
-            if (gameHas(GameOption::Tuning) && (!bmxGame || bmxReleasesBundled))
+            if (offers(GameOption::Tuning))
             {
                 st::Setting tuning;
                 tuning.key = "game.tuning";
@@ -1362,7 +1375,7 @@ namespace ps2x_app
                 };
                 ps2x::session::addSetting(tuning);
             }
-            if (gameHas(GameOption::CareerScripts))
+            if (offers(GameOption::CareerScripts))
             {
                 st::Setting scripts;
                 scripts.key = "game.career_scripts";
@@ -1383,13 +1396,13 @@ namespace ps2x_app
             st::Setting ape = toggle("game.ape", "Ape Skater", &Settings::ape,
                                      "Unlocked with the Mummy.");
             ape.restart = true;
-            if (gameHas(GameOption::Ape))
+            if (offers(GameOption::Ape))
                 ps2x::session::addSetting(ape);
 
             st::Setting freeSkate = toggle("game.xbox_free_skate", "Xbox Free Skate", &Settings::xboxFreeSkate,
                                            "Doors and rides in Boardwalk and Cannery.");
             freeSkate.restart = true;
-            if (gameHas(GameOption::XboxFreeSkate))
+            if (offers(GameOption::XboxFreeSkate))
                 ps2x::session::addSetting(freeSkate);
         }
 
@@ -2194,17 +2207,18 @@ namespace ps2x_app
         }
 
         // A game's extras made again: from the discs recorded for it (each
-        // read and checked again; one of `replacing`'s release left out) and
-        // `added` (none: no new one), with the bottom screen's maps. The
+        // read and checked again; one of an added disc's release left out)
+        // and `added` (none: no new one), with the bottom screen's maps. The
         // player's words for how it went.
-        std::string remakeExtras(const GameProfile &game, std::vector<ex::ExtrasSource> added, const char *replacing,
-                                 const SetupProgressFn &progress, bool &ok)
+        std::string remakeExtras(const GameProfile &game, std::vector<ex::ExtrasSource> added, const SetupProgressFn &progress,
+                                 bool &ok)
         {
             const std::filesystem::path dir = gameFolder(game);
             std::vector<ex::ExtrasSource> sources;
             for (const ex::RecordedDisc &recorded : ex::recordedExtras(dir))
             {
-                if (replacing && recorded.release == replacing)
+                if (std::any_of(added.begin(), added.end(), [&](const ex::ExtrasSource &source)
+                                { return source.disc && recorded.release == source.disc->release; }))
                     continue;
                 ex::ExtrasSource again = ex::checkExtrasSource(recorded.source, game.id, extrasOpener());
                 if (!again.disc)
@@ -2257,10 +2271,9 @@ namespace ps2x_app
                           checked.disc->title + ".";
                 return true;
             }
-            const char *release = checked.disc->release;
             std::vector<ex::ExtrasSource> added;
             added.push_back(std::move(checked));
-            message = remakeExtras(game, std::move(added), release, progress, ok);
+            message = remakeExtras(game, std::move(added), progress, ok);
             changed = index;
             return true;
         }
@@ -2298,13 +2311,93 @@ namespace ps2x_app
                 // The bottom screen's maps from the new files, and the extras
                 // from the discs recorded for the game, made again with them.
                 bool extrasOk = false;
-                const std::string extras = remakeExtras(game, {}, nullptr, progress, extrasOk);
+                const std::string extras = remakeExtras(game, {}, progress, extrasOk);
                 if (!extrasOk)
                     std::cout << "[setup] " << game.id << ": " << extras << std::endl;
             }
             std::cout << "[setup] " << game.id << ": " << result.message << " (" << result.files << " files, " << sizeText(result.bytes)
                       << ", " << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s)" << std::endl;
             return result.message;
+        }
+
+        // ---- the discs found in a folder (the Games page's Find Discs, a drop) ----
+
+        // What the discs found do for one game: its PS2 disc installed (none:
+        // the files installed before kept), then its extras made from the
+        // discs recorded for it and these.
+        struct FoundDiscs
+        {
+            int game = -1; // -1: nothing to do (no PS2 disc for it, or set up with no new extras)
+            std::filesystem::path ps2;
+            std::vector<std::filesystem::path> extras;
+        };
+
+        // The plan for game `index` from what the search found.
+        FoundDiscs plannedSetup(const DiscSearch &search, size_t index)
+        {
+            const GameProfile &game = kGamesInOrder[index];
+            const std::filesystem::path dir = gameFolder(game);
+            const std::unique_ptr<GameCodeStep> code = appGameCodeStep();
+            const InstalledCheck check = checkInstalled(dir, setupGame(game), false, code.get());
+            const bool installed = check.status == InstalledCheck::Status::Ok || check.status == InstalledCheck::Status::ByHand;
+            std::error_code ec;
+            FoundDiscs out;
+            if (const FoundDisc *ps2 = search.ps2Of(static_cast<int>(index)); ps2 && !installed)
+                out.ps2 = ps2->source;
+            const std::vector<ex::RecordedDisc> recorded = ex::recordedExtras(dir);
+            for (const FoundDisc *disc : search.extrasOf(game.id))
+                if (std::none_of(recorded.begin(), recorded.end(), [&](const ex::RecordedDisc &r)
+                                 { return r.release == disc->extras->release && r.source == utf8Of(disc->source); }))
+                    out.extras.push_back(disc->source);
+            const bool hasDisc = std::filesystem::is_directory(dir / "disc", ec);
+            if (out.ps2.empty() && (!hasDisc || out.extras.empty()))
+                return {};
+            out.game = static_cast<int>(index);
+            return out;
+        }
+
+        // One game set up from the discs found. The player's words for how
+        // it went; `ok` when its PS2 disc is in place (its extras may still
+        // have failed: their words then).
+        std::string setUpFound(const FoundDiscs &found, const SetupProgressFn &progress, bool &ok)
+        {
+            ok = false;
+            const GameProfile &game = kGamesInOrder[static_cast<size_t>(found.game)];
+            std::string said;
+            if (!found.ps2.empty())
+            {
+                DiscSource source;
+                std::string error;
+                if (!source.open(found.ps2, &error))
+                    return error;
+                const std::vector<SetupGame> games = setupGames();
+                const SourceCheck check = checkSource(source, games, found.game);
+                std::cout << "[setup] " << utf8Of(found.ps2) << ": " << check.message << std::endl;
+                if (check.status != SourceCheck::Status::Ok)
+                    return check.message;
+                const std::unique_ptr<GameCodeStep> code = appGameCodeStep();
+                const auto started = std::chrono::steady_clock::now();
+                const InstallResult result =
+                    installGame(source, games[static_cast<size_t>(found.game)], gameFolder(game), code.get(), progress);
+                std::cout << "[setup] " << game.id << ": " << result.message << " (" << result.files << " files, "
+                          << sizeText(result.bytes) << ", "
+                          << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s)" << std::endl;
+                if (!result.ok)
+                    return result.message;
+                said = result.message;
+            }
+            std::vector<ex::ExtrasSource> added;
+            for (const std::filesystem::path &disc : found.extras)
+            {
+                ex::ExtrasSource checked = ex::checkExtrasSource(utf8Of(disc), game.id, extrasOpener());
+                std::cout << "[extras] " << utf8Of(disc) << ": " << checked.message << std::endl;
+                if (checked.disc)
+                    added.push_back(std::move(checked));
+            }
+            ok = true;
+            bool extrasOk = false;
+            const std::string extras = remakeExtras(game, std::move(added), progress, extrasOk);
+            return extrasOk && !said.empty() ? said : extras;
         }
 
         // A setup off the menu's thread: its progress for the screen, its
@@ -2317,6 +2410,27 @@ namespace ps2x_app
             std::string title;      // what it does, for the screen
             std::vector<std::string> messages; // (mutex)
             std::vector<int> changed;          // (mutex) the games whose files changed
+            // A search for discs: what it found, where, and each game's plan.
+            std::optional<DiscSearch> found;   // (mutex)
+            std::string where;
+            std::vector<FoundDiscs> plans;     // (mutex) by game
+            // A setup of several games (the discs found): each game's part,
+            // for its row on the Games page; empty for any other job.
+            struct GamePart
+            {
+                enum State
+                {
+                    None,
+                    Waiting,
+                    Running,
+                    Done,
+                    Failed,
+                    Stopped,
+                } state = None;
+                std::string said;
+            };
+            std::vector<GamePart> parts; // (mutex) by game
+            bool settingUpFound = false; // (the menu's thread) it sets up the discs found: the Games page shows their progress
             std::atomic<bool> cancel{false};
             std::atomic<bool> finished{false};
 
@@ -2583,9 +2697,24 @@ namespace ps2x_app
                     CheckEveryFile,
                     Repair,
                     Remove,
+                    SetUpFound, // the games ticked among the discs found
                 } kind = None;
                 int game = -1;
             } request;
+            // The discs the last search found (Find Discs, a drop), where
+            // it looked, each game's plan and tick; why each game the last
+            // setup of them did not set up ("" none), until the next search.
+            struct Found
+            {
+                bool searched = false;
+                std::string where;
+                DiscSearch search;
+                std::vector<FoundDiscs> plans; // by game
+                std::vector<int> ticked;       // by game, 0 or 1
+            } found;
+            std::vector<std::string> failed = std::vector<std::string>(kGameCount);
+            std::vector<std::string> scriptDrops; // a menu script's drop: steps, taken as the window's drops
+            std::string gamesSubtitle; // under the Games page's title: what the search found ("" none)
             // The map about to be played, made into the player's files (a map
             // made in another game), held until its boot ends; and the maps
             // that did not convert this session, by "<folder>|<player>": why.
@@ -2787,6 +2916,10 @@ namespace ps2x_app
             menu.modShown = index;
         }
 
+        // What a game's Custom Freeplay start needs that the setup lacks, as
+        // the map page says it (the only such start: AI's, through the Estate).
+        constexpr const char *kStartNeeds = "Its custom maps start through the Estate: add its GameCube disc in Games.";
+
         // The custom maps of the collection's maps folder (collection/maps.h),
         // and the map page's rows for the player's game `game`: every map the
         // game can start (as it is, or converted from the game it was made in)
@@ -2830,7 +2963,15 @@ namespace ps2x_app
                               << std::endl;
                 choices.push_back(std::move(choice));
             }
-            menu.mapRows = col::freeplayMapRows(choices, player.name, kMapsFolder, mapSlotOf(player.id) != nullptr);
+            // The slot's start needs what the player's setup may lack (AI's: the
+            // Estate, made from its GameCube disc): without it no map is offered.
+            const MapSlot *slot = mapSlotOf(player.id);
+            BootFolders folders;
+            folders.resources = gameResources(g_argv0, player);
+            folders.extras = ex::extrasFolder(gameFolder(player));
+            const bool starts = slot && offered(slot->need, findInstalled(folders));
+            menu.mapRows = col::freeplayMapRows(choices, player.name, kMapsFolder, starts,
+                                                slot && !starts ? kStartNeeds : std::string());
             menu.mapsPage = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.mapRows.size(), true);
             menu.mapsFor = game;
             std::cout << "[app] custom freeplay: " << menu.maps.size() << " map(s) in " << sharedModsFolder(collection).string() << " and "
@@ -2992,10 +3133,12 @@ namespace ps2x_app
         // The setup rows' help: Android takes no drop. (The formats are the
         // picker's: ISO, BIN/CUE, CHD, CSO, ZSO.)
 #if defined(__ANDROID__)
+        constexpr const char *kFindHelp = "Choose the folder with your discs.";
         constexpr const char *kImageHelp = "Choose the disc image.";
         constexpr const char *kFolderHelp = "Choose the disc's folder.";
         constexpr const char *kBootImageHelp = " disc image.";
 #else
+        constexpr const char *kFindHelp = "Choose the folder with your discs, or drop it here.";
         constexpr const char *kImageHelp = "Choose the disc image, or drop it here.";
         constexpr const char *kFolderHelp = "Choose the disc's folder, or drop it here.";
         constexpr const char *kBootImageHelp = " disc image, or drop it here.";
@@ -3022,23 +3165,257 @@ namespace ps2x_app
 
         void startJob(MenuScreen &menu, std::string title, std::function<void(SetupJob &)> work);
 
-        // The Games page's rows for the games' state now.
+        // A game's part of a setup of the discs found, as its status row
+        // shows it while the setup runs ("Waiting", "Copying files 45%").
+        std::string gamePartText(MenuScreen &menu, int index, float *done, col::SettingsRow::Mark *mark)
+        {
+            using Part = SetupJob::GamePart;
+            *done = -1.0f;
+            *mark = col::SettingsRow::Mark::None;
+            if (!menu.job)
+                return {};
+            std::lock_guard lock(menu.job->mutex);
+            if (menu.job->parts.empty())
+                return {};
+            const Part &part = menu.job->parts[static_cast<size_t>(index)];
+            const SetupProgress &p = menu.job->progress;
+            switch (part.state)
+            {
+            case Part::Waiting:
+                *done = 0.0f;
+                *mark = col::SettingsRow::Mark::Box;
+                return "Waiting";
+            case Part::Running:
+                *mark = col::SettingsRow::Mark::Box;
+                if (menu.job->cancel)
+                    return "Stopping"; // (the step under way ends first: a compile, the recompiler)
+                *done = p.total ? static_cast<float>(static_cast<double>(p.done) / static_cast<double>(p.total)) : 0.0f;
+            {
+                // (the step in a word or two, to fit the line's column)
+                const std::string step = p.step.find("code") != std::string::npos   ? "Building code"
+                                         : p.step.find("Copy") != std::string::npos ? "Copying"
+                                         : p.step.find("Check") != std::string::npos ? "Checking"
+                                         : p.step.empty()                          ? "Starting"
+                                                                                   : "Making extras";
+                return p.total ? step + " " + std::to_string(static_cast<int>(p.done * 100u / p.total)) + "%" : step;
+            }
+            case Part::Done:
+                *done = 1.0f;
+                *mark = col::SettingsRow::Mark::Tick;
+                return "Done";
+            case Part::Failed:
+                *mark = col::SettingsRow::Mark::Cross;
+                return "Failed";
+            case Part::Stopped:
+                return "Stopped";
+            case Part::None:
+                break;
+            }
+            return {};
+        }
+
+        // What the search found for a game, as a block of the list: the
+        // game's own line (its name, its tick: set it up from these discs),
+        // then under it a line for each kind of disc it has (its PS2 disc,
+        // then the extras discs of its releases: none listed where it has
+        // none) and what was found of it, the disc's file the chosen line's
+        // help. A game with no PS2 disc found has "Choose a File" under it.
+        void foundRows(MenuScreen &menu, size_t index)
+        {
+            const DiscSearch &search = menu.found.search;
+            const GameProfile &game = kGamesInOrder[index];
+            const FoundDisc *ps2 = search.ps2Of(static_cast<int>(index));
+            const FoundDiscs &plan = menu.found.plans[index];
+            std::error_code ec;
+            const bool hasDisc = std::filesystem::is_directory(gameFolder(game) / "disc", ec);
+            const std::vector<ex::RecordedDisc> recorded = ex::recordedExtras(gameFolder(game));
+
+            col::SettingsRow own;
+            own.steady = true;
+            own.label = col::shortGameName(game.id);
+            if (plan.game >= 0)
+            {
+                own.kind = col::SettingsRow::Check;
+                own.help = "Set it up with these discs.";
+                own.current = [&menu, index]() { return menu.found.ticked[index]; };
+                own.apply = [&menu, index](int value) { menu.found.ticked[index] = value; };
+            }
+            else
+            {
+                own.kind = col::SettingsRow::Note;
+                own.selectable = true;
+                own.help = hasDisc ? "Set up already." : "Its PS2 disc is needed first.";
+                own.summary = [hasDisc]() { return std::string(hasDisc ? "Set up" : ""); };
+            }
+            menu.gameRows.push_back(std::move(own));
+
+            auto line = [&](const std::string &kind, const std::string &state, const std::string &help)
+            {
+                col::SettingsRow out;
+                out.kind = col::SettingsRow::Note;
+                out.steady = true;
+                out.selectable = true;
+                out.indent = 1;
+                out.label = kind;
+                out.summary = [state]() { return state; };
+                out.help = help;
+                menu.gameRows.push_back(std::move(out));
+            };
+            if (ps2)
+                line("PS2 disc", hasDisc && plan.ps2.empty() ? "Set up" : "Found", ps2->name + ", " + sizeText(ps2->bytes));
+            else if (const FoundDisc *other = search.otherReleaseOf(static_cast<int>(index)); other && !hasDisc)
+                line("PS2 disc", other->status == SourceCheck::Status::OtherRelease ? "Other release" : "Other version", other->message);
+            else
+                line("PS2 disc", hasDisc ? "Set up" : "Not found", hasDisc ? "" : "Not in " + menu.found.where + ".");
+            for (const ex::ExtrasDisc *kind : ex::extrasDiscsOf(game.id))
+            {
+                const bool xbox = std::string(kind->release) == "xbox";
+                const std::string label = xbox ? "Xbox extras" : "GameCube extras";
+                const FoundDisc *found = nullptr;
+                for (const FoundDisc *disc : search.extrasOf(game.id))
+                    if (disc->extras == kind)
+                        found = disc;
+                const bool made = std::any_of(recorded.begin(), recorded.end(),
+                                              [&](const ex::RecordedDisc &r) { return r.release == kind->release; });
+                if (found)
+                    line(label, made && std::find(plan.extras.begin(), plan.extras.end(), found->source) == plan.extras.end() ? "Made" : "Found",
+                         found->name);
+                else
+                    line(label, made ? "Made" : "Not found", made ? "" : "Not in " + menu.found.where + ".");
+            }
+            if (!ps2 && !hasDisc)
+            {
+                col::SettingsRow choose;
+                choose.kind = col::SettingsRow::Action;
+                choose.steady = true;
+                choose.indent = 1;
+                choose.label = "Choose a File";
+                choose.help = kImageHelp;
+                choose.activate = [&menu, index]()
+                {
+                    if (!askForDisc(static_cast<int>(index), false))
+                        menu.notice = "Drop the disc image on this window.";
+                    return col::MenuAction{};
+                };
+                menu.gameRows.push_back(std::move(choose));
+            }
+        }
+
+        // The Games page's rows for the games' state now: the search for
+        // every game's discs at the top (Find Discs; once it found some, Set
+        // Up Games for those ticked), then each game's own.
         void buildGameRows(MenuScreen &menu)
         {
             menu.gameRows.clear();
+            menu.gamesSubtitle.clear();
+            if (menu.job && menu.job->settingUpFound)
+                menu.gamesSubtitle = "Setting up...";
+            else if (menu.found.searched)
+            {
+                size_t found = 0;
+                for (size_t i = 0; i < kGameCount; ++i)
+                    found += menu.found.search.ps2Of(static_cast<int>(i)) ? 1u : 0u;
+                menu.gamesSubtitle = found == 0                                     ? std::string("No game found")
+                                     : found == kGameCount && kGameCount == 3u      ? std::string("All three games found")
+                                     : found == kGameCount                          ? std::string("Every game found")
+                                                                                    : std::to_string(found) + " of " + std::to_string(kGameCount) + " games found";
+            }
+            {
+                auto top = [&](col::SettingsRow::Kind kind, const std::string &label, const std::string &help,
+                               std::function<std::string()> summary, std::function<void()> act)
+                {
+                    col::SettingsRow row;
+                    row.kind = kind;
+                    row.label = label;
+                    row.help = help;
+                    row.summary = std::move(summary);
+                    if (act)
+                        row.activate = [act]()
+                        {
+                            act();
+                            return col::MenuAction{};
+                        };
+                    menu.gameRows.push_back(std::move(row));
+                };
+                const bool anyPlan = std::any_of(menu.found.plans.begin(), menu.found.plans.end(),
+                                                 [](const FoundDiscs &plan) { return plan.game >= 0; });
+                if (menu.job && menu.job->settingUpFound)
+                    top(col::SettingsRow::Action, "Stop", "Stops setting up. Games already done stay set up.", {},
+                        [&menu]() { menu.job->cancel = true; });
+                else if (menu.found.searched && anyPlan)
+                    top(col::SettingsRow::Action, "Set Up Games", "Copies each disc, then gets its game ready.", {},
+                        [&menu]() { menu.request = {MenuScreen::Request::SetUpFound, -1}; });
+                // (the list: its one action; a folder of nothing new: another folder)
+                if (!(menu.job && menu.job->settingUpFound) && (!menu.found.searched || !anyPlan))
+                    top(col::SettingsRow::Action, "Find Discs", kFindHelp, [&menu]() { return menu.found.where; },
+                        [&menu]()
+                        {
+                            if (!askForDisc(-1, true))
+                                menu.notice = "Drop the folder with your discs on this window.";
+                        });
+            }
             for (size_t i = 0; i < kGameCount; ++i)
             {
                 const GameProfile &game = kGamesInOrder[i];
                 const InstalledCheck &check = menu.gameStatus[i];
                 const int index = static_cast<int>(i);
+                // (the discs found listed: the game's own line stands for its heading)
+                const bool listing = menu.found.searched && i < menu.found.plans.size();
+                const bool settingUp = menu.job && menu.job->settingUpFound;
                 col::SettingsRow heading;
                 heading.kind = col::SettingsRow::Heading;
                 heading.label = game.title;
-                menu.gameRows.push_back(heading);
+                if (!listing && !settingUp)
+                    menu.gameRows.push_back(heading);
                 col::SettingsRow status;
                 status.kind = col::SettingsRow::Note;
                 status.label = gameStatusLine(game, check);
-                menu.gameRows.push_back(status);
+                // (while the discs found are set up: one line a game, its name,
+                // its part and a bar)
+                if (settingUp)
+                {
+                    status.summary = [&menu, index, line = status.label]()
+                    {
+                        float done;
+                        col::SettingsRow::Mark mark;
+                        const std::string part = gamePartText(menu, index, &done, &mark);
+                        return part.empty() ? line : part;
+                    };
+                    status.label = col::shortGameName(game.id);
+                    status.steady = true;
+                }
+                status.progress = [&menu, index]()
+                {
+                    float done;
+                    col::SettingsRow::Mark mark;
+                    gamePartText(menu, index, &done, &mark);
+                    return done;
+                };
+                status.mark = [&menu, index]()
+                {
+                    float done;
+                    col::SettingsRow::Mark mark;
+                    gamePartText(menu, index, &done, &mark);
+                    return mark;
+                };
+                // The discs found listed (a compact page: the list in one view):
+                // no status; while they are set up, each game's status alone
+                // (its progress).
+                const bool installed = check.status != InstalledCheck::Status::NotInstalled && check.status != InstalledCheck::Status::ByHand;
+                if (!listing || settingUp)
+                    menu.gameRows.push_back(status);
+                if (settingUp)
+                    continue;
+                if (!menu.failed[i].empty())
+                {
+                    col::SettingsRow failed;
+                    failed.kind = col::SettingsRow::Note;
+                    failed.label = menu.failed[i];
+                    failed.mark = []() { return col::SettingsRow::Mark::Cross; };
+                    menu.gameRows.push_back(std::move(failed));
+                }
+                if (listing)
+                    foundRows(menu, i);
                 auto action = [&](const std::string &label, const std::string &help, std::function<void()> act)
                 {
                     col::SettingsRow row;
@@ -3052,13 +3429,14 @@ namespace ps2x_app
                     };
                     menu.gameRows.push_back(std::move(row));
                 };
-                const bool installed = check.status != InstalledCheck::Status::NotInstalled && check.status != InstalledCheck::Status::ByHand;
+                if (listing)
+                    continue;
                 action("Set Up From Image", kImageHelp,
-                       [&menu, index]()
-                       {
-                           if (!askForDisc(index, false))
-                               menu.notice = "Drop the disc image on this window.";
-                       });
+                           [&menu, index]()
+                           {
+                               if (!askForDisc(index, false))
+                                   menu.notice = "Drop the disc image on this window.";
+                           });
                 action("Set Up From Folder", kFolderHelp,
                        [&menu, index]()
                        {
@@ -3117,6 +3495,11 @@ namespace ps2x_app
                                         });
                            });
             }
+            if (menu.found.searched || (menu.job && menu.job->settingUpFound))
+            {
+                menu.gamesPage = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.gameRows.size());
+                return;
+            }
             // Every game's saves and settings in one file: to another device,
             // or to this app from another copy of it.
             col::SettingsRow saves;
@@ -3140,6 +3523,12 @@ namespace ps2x_app
             transfer("Export to a File", "Every game's saves and settings in one file.", true);
             transfer("Import From a File", "Saves and settings from an export file.", false);
             menu.gamesPage = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.gameRows.size());
+        }
+
+        // Whether any game has its files (set up, or bundled with the app).
+        bool anyGameSetUp()
+        {
+            return std::any_of(kGamesInOrder.begin(), kGamesInOrder.end(), [](const GameProfile &game) { return gameHasFiles(g_argv0, game); });
         }
 
         // Each game's files checked again (quickly: sizes and the boot ELF),
@@ -3207,6 +3596,116 @@ namespace ps2x_app
                      });
         }
 
+        // Every game's discs looked for in the places picked or dropped (the
+        // Games page lists them when the search ends: takeSearch).
+        void startSearch(MenuScreen &menu, std::vector<std::filesystem::path> places)
+        {
+            std::string where;
+            for (const std::filesystem::path &place : places)
+                where += (where.empty() ? "" : ", ") + sourceName(place);
+            startJob(menu, "Looking for discs", [places, where](SetupJob &job)
+            {
+                const auto started = std::chrono::steady_clock::now();
+                const SetupProgressFn report = job.reporter();
+                DiscSearch search = findDiscs(places, setupGames(), extrasOpener(), [&report](const SearchProgress &p)
+                {
+                    SetupProgress shown;
+                    shown.step = "Looking for discs";
+                    shown.file = p.at;
+                    return report(shown);
+                });
+                for (const FoundDisc &disc : search.discs)
+                    std::cout << "[setup] found " << utf8Of(disc.source) << ": " << disc.message << std::endl;
+                std::cout << "[setup] looked at " << search.looked << " files and folders in " << where << " ("
+                          << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s"
+                          << (search.cancelled ? ", stopped" : "") << ")" << std::endl;
+                std::lock_guard lock(job.mutex);
+                job.found = std::move(search);
+                job.where = where;
+            });
+        }
+
+        // A search ended: what it found, added to what the searches before
+        // found, each game's plan made again and ticked when it does
+        // anything. The player's words for it.
+        std::string takeSearch(MenuScreen &menu, DiscSearch search, const std::string &where)
+        {
+            const bool stopped = search.cancelled;
+            if (!menu.found.searched)
+                menu.found = {};
+            menu.found.where = menu.found.searched ? menu.found.where + ", " + where : where;
+            menu.found.searched = true;
+            menu.found.search.add(std::move(search));
+            menu.found.plans.clear();
+            menu.found.ticked.clear();
+            for (size_t i = 0; i < kGameCount; ++i)
+            {
+                menu.found.plans.push_back(plannedSetup(menu.found.search, i));
+                menu.found.ticked.push_back(menu.found.plans.back().game >= 0 ? 1 : 0);
+            }
+            std::fill(menu.failed.begin(), menu.failed.end(), std::string());
+            // (what it found: the page's subtitle, buildGameRows)
+            return stopped ? "Stopped." : "";
+        }
+
+        // The games ticked among the discs found, set up one after another,
+        // each game's part on its row.
+        void startFoundSetup(MenuScreen &menu)
+        {
+            std::vector<FoundDiscs> plan;
+            for (size_t i = 0; i < menu.found.plans.size(); ++i)
+                if (menu.found.ticked[i] && menu.found.plans[i].game >= 0)
+                    plan.push_back(menu.found.plans[i]);
+            if (plan.empty())
+            {
+                menu.notice = "Tick a game to set it up.";
+                return;
+            }
+            startJob(menu, "Setting up " + std::to_string(plan.size()) + (plan.size() == 1 ? " game" : " games"), [plan](SetupJob &job)
+            {
+                using Part = SetupJob::GamePart;
+                {
+                    std::lock_guard lock(job.mutex);
+                    job.parts.assign(kGameCount, Part{});
+                    for (const FoundDiscs &found : plan)
+                        job.parts[static_cast<size_t>(found.game)].state = Part::Waiting;
+                }
+                size_t done = 0;
+                const auto started = std::chrono::steady_clock::now();
+                for (const FoundDiscs &found : plan)
+                {
+                    Part &part = job.parts[static_cast<size_t>(found.game)];
+                    if (job.cancel)
+                    {
+                        std::lock_guard lock(job.mutex);
+                        part.state = Part::Stopped;
+                        continue;
+                    }
+                    {
+                        std::lock_guard lock(job.mutex);
+                        part.state = Part::Running;
+                        job.progress = {};
+                    }
+                    bool ok = false;
+                    std::string said = setUpFound(found, job.reporter(), ok);
+                    std::lock_guard lock(job.mutex);
+                    part.state = ok ? Part::Done : job.cancel ? Part::Stopped : Part::Failed;
+                    part.said = std::move(said);
+                    job.changed.push_back(found.game);
+                    done += ok ? 1u : 0u;
+                }
+                std::cout << "[setup] " << done << " of " << plan.size() << " games set up from the discs found ("
+                          << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s)" << std::endl;
+                std::lock_guard lock(job.mutex);
+                job.messages.push_back(job.cancel ? std::string("Stopped.")
+                                       : done == plan.size()
+                                           ? (done == 1 ? std::string("1 game set up.") : std::to_string(done) + " games set up.")
+                                           : std::to_string(done) + " of " + std::to_string(plan.size()) + " games set up.");
+            });
+            menu.job->settingUpFound = true;
+            buildGameRows(menu);
+        }
+
         // The saves exported to or imported from the file a dialog gave
         // (its own thread: a document goes through the system's files).
         void startTransfer(MenuScreen &menu)
@@ -3270,6 +3769,11 @@ namespace ps2x_app
         void runRequest(MenuScreen &menu)
         {
             const MenuScreen::Request request = std::exchange(menu.request, {});
+            if (request.kind == MenuScreen::Request::SetUpFound)
+            {
+                startFoundSetup(menu);
+                return;
+            }
             if (request.kind == MenuScreen::Request::None || request.game < 0 || request.game >= static_cast<int>(kGameCount))
                 return;
             const GameProfile &game = kGamesInOrder[static_cast<size_t>(request.game)];
@@ -3303,6 +3807,7 @@ namespace ps2x_app
                     refreshAfterSetup(menu);
                 }
                 break;
+            case MenuScreen::Request::SetUpFound:
             case MenuScreen::Request::None:
                 break;
             }
@@ -3373,7 +3878,7 @@ namespace ps2x_app
         // One frame's menu input: keys and gamepad buttons that went down
         // (the left stick as the D-pad), the pointer over the picture, the
         // menu script's step.
-        col::MenuInput menuFrameInput(MenuScreen &menu, const col::Shell *shell)
+        col::MenuInput menuFrameInput(MenuScreen &menu, const col::Shell *shell, bool scripted = true)
         {
             namespace hi = ps2_host_input;
             const ps2_host::InputFrame &frame = ps2_host::input();
@@ -3445,7 +3950,8 @@ namespace ps2x_app
                         cards.chosen = shell->selection();
                 }
                 std::string problem;
-                menu.script.next(keys, padPressed, cards, &problem);
+                if (scripted)
+                    menu.script.next(keys, padPressed, cards, &problem, &menu.scriptDrops);
                 if (!problem.empty())
                     std::cerr << "[app] menu script: " << problem << std::endl;
             }
@@ -3825,6 +4331,13 @@ namespace ps2x_app
             if (menu.visits > 1)
                 menu.fadeInFrom = menuSeconds(); // (back from a game)
             menu.bottomShown.clear();
+            if (menu.visits == 1 && shell.page() == col::MenuPage::Tiles && !anyGameSetUp())
+            {
+                // The first start with no game set up: the Games page, its
+                // first row the search for every game's discs.
+                std::cout << "[app] menu: no game has files yet: the Games page" << std::endl;
+                shell.showPage(col::MenuPage::Games);
+            }
             bool redraw = true, shot = true;
             int shown = -1;
             col::HintDevice shownHint = menu.hint;
@@ -3881,9 +4394,35 @@ namespace ps2x_app
             };
             auto draw = [&](double now)
             {
-                col::drawMenu(menu.canvas, layoutOf(), menu.tiles, menu.font, shell, PS2X_APP_NAME, menu.notice, rowsOf(), pageOf(), menu.hint,
-                              backdropNow(now));
+                // (a setup of the discs found running: the Games page with no Back, its back button Stop)
+                const bool settingUp = menu.job && menu.job->settingUpFound && shell.page() == col::MenuPage::Games;
+                col::PageLayout page = pageOf();
+                if (settingUp)
+                    page.back = {};
+                col::drawMenu(menu.canvas, layoutOf(), menu.tiles, menu.font, shell, PS2X_APP_NAME, menu.notice, rowsOf(), page, menu.hint,
+                              backdropNow(now),
+                              shell.page() != col::MenuPage::Games ? std::string()
+                              : settingUp && menu.job->cancel     ? std::string("Stopping...")
+                                                                  : menu.gamesSubtitle,
+                              settingUp ? "Stop" : nullptr);
                 drawnAt = now;
+            };
+            // PS2X_MENU_SHOT_DIR (developers, headless checks): every picture
+            // of a change the menu shows (not its movie's pictures), and of
+            // each step of a setup, as menu-<visit>-<n>.png.
+            std::string jobShotStep, jobShown;
+            double jobShotAt = -10.0;
+            auto writeShot = [&]()
+            {
+                const char *dir = std::getenv("PS2X_MENU_SHOT_DIR");
+                if (!dir || !dir[0])
+                    return;
+                static int shots = 0;
+                const std::filesystem::path file =
+                    std::filesystem::path(dir) / ("menu-" + std::to_string(menu.visits) + "-" + std::to_string(++shots) + ".png");
+                const col::Image &image = menu.canvas.image();
+                ps2_host::writePng(file.string(), reinterpret_cast<const uint8_t *>(image.pixels.data()), static_cast<uint32_t>(image.width),
+                                   static_cast<uint32_t>(image.height), static_cast<uint32_t>(image.width) * 4u);
             };
             auto leave = [&]()
             {
@@ -3929,22 +4468,68 @@ namespace ps2x_app
                 // stops it, nothing else is taken until it ends.
                 if (menu.job)
                 {
-                    const col::MenuInput in = menuFrameInput(menu, &shell);
-                    if (in.back)
+                    // (a menu script waits while the job runs: its steps count frames)
+                    const col::MenuInput in = menuFrameInput(menu, &shell, false);
+                    // (the discs found being set up: Stop, the page's one row there, takes Enter and a click too;
+                    // the rows show the progress, the notice line nothing)
+                    const bool settingUp = menu.job->settingUpFound;
+                    const bool onStop = settingUp && !menu.gamesPage.rows.empty() &&
+                                        (in.confirm || (in.click && menu.gamesPage.rows.front().contains(in.pointerX, in.pointerY)));
+                    if (in.back || onStop)
                         menu.job->cancel = true;
-                    std::string line = jobLine(*menu.job, menu.hint);
+                    // (the job's state: shown on the notice line, or for the discs found on their rows, drawn again
+                    // whenever it changes)
+                    const std::string state = jobLine(*menu.job, menu.hint) + (menu.job->cancel ? " (stopping)" : "");
+                    // (the bottom screen's taps act on nothing while it runs: none kept for after it)
+                    col::BottomScreen::shared().takeTaps();
+                    if (state != jobShown)
+                    {
+                        jobShown = state;
+                        redraw = true;
+                    }
+                    std::string line = settingUp ? std::string() : state;
                     if (menu.job->finished)
                     {
                         menu.job->worker.join();
                         std::string said;
+                        std::optional<DiscSearch> found;
+                        std::vector<SetupJob::GamePart> parts;
+                        std::string where;
                         {
                             std::lock_guard lock(menu.job->mutex);
                             for (const std::string &message : menu.job->messages)
                                 said += (said.empty() ? "" : "  ") + message;
+                            found = std::move(menu.job->found);
+                            parts = menu.job->parts;
+                            where = menu.job->where;
                         }
                         line = said.empty() ? "Stopped." : said;
                         menu.job.reset();
+                        if (found)
+                        {
+                            // A search: what it found on the Games page.
+                            line = takeSearch(menu, std::move(*found), where);
+                            shell.showPage(col::MenuPage::Games);
+                        }
+                        if (!parts.empty())
+                        {
+                            // The discs found set up: why each that failed did, until the next search. Stopped: the
+                            // list again, each game planned anew (Set Up Games goes on from where it stopped).
+                            const bool stopped = std::any_of(parts.begin(), parts.end(), [](const SetupJob::GamePart &part)
+                                                             { return part.state == SetupJob::GamePart::Stopped; });
+                            if (stopped)
+                                for (size_t i = 0; i < kGameCount && i < menu.found.plans.size(); ++i)
+                                {
+                                    menu.found.plans[i] = plannedSetup(menu.found.search, i);
+                                    menu.found.ticked[i] = menu.found.plans[i].game >= 0 ? 1 : 0;
+                                }
+                            else
+                                menu.found = {};
+                            for (size_t i = 0; i < parts.size() && i < menu.failed.size(); ++i)
+                                menu.failed[i] = parts[i].state == SetupJob::GamePart::Failed ? parts[i].said : std::string();
+                        }
                         refreshAfterSetup(menu);
+                        shot = true;
                         if (shell.page() == col::MenuPage::Tiles)
                             menu.layout = tilesLayout(shell);
                     }
@@ -3958,15 +4543,26 @@ namespace ps2x_app
                 {
                     // Discs dropped on the window (any game: the disc says
                     // which) or picked in a dialog (for its game's row).
+                    // A drop, and Find Discs's folder, are searched for every
+                    // game's discs; a game row's pick is set up as that game.
                     std::vector<std::pair<int, std::string>> picks;
+                    std::vector<std::filesystem::path> places;
                     for (const std::string &path : ps2_host::input().dropped)
-                        picks.emplace_back(-1, path);
+                        places.push_back(pathFromUtf8(path));
+                    for (const std::string &path : std::exchange(menu.scriptDrops, {}))
+                        places.push_back(pathFromUtf8(path));
                     {
                         std::lock_guard lock(g_dialogPicks.mutex);
-                        picks.insert(picks.end(), g_dialogPicks.picks.begin(), g_dialogPicks.picks.end());
+                        for (auto &pick : g_dialogPicks.picks)
+                            if (pick.first < 0)
+                                places.push_back(pathFromUtf8(pick.second));
+                            else
+                                picks.push_back(std::move(pick));
                         g_dialogPicks.picks.clear();
                     }
-                    if (!picks.empty())
+                    if (!places.empty())
+                        startSearch(menu, std::move(places));
+                    else if (!picks.empty())
                         startSetup(menu, std::move(picks));
                     if (!menu.job)
                         startTransfer(menu);
@@ -3980,6 +4576,20 @@ namespace ps2x_app
                 if (menu.job)
                 {
                     draw(now);
+                    {
+                        // (the shots below: one of each step of the job, at most every 3 s)
+                        std::string step;
+                        {
+                            std::lock_guard lock(menu.job->mutex);
+                            step = menu.job->progress.step;
+                        }
+                        if (step != jobShotStep && now - jobShotAt >= 3.0)
+                        {
+                            jobShotStep = step;
+                            jobShotAt = now;
+                            writeShot();
+                        }
+                    }
                     presentMenu(menu, redraw);
                     redraw = false;
                     std::this_thread::sleep_for(std::chrono::milliseconds(16));
@@ -3995,6 +4605,13 @@ namespace ps2x_app
                     menuSound(menu, shownGame(shell), *sound);
                 if (shell.page() != menu.shownPage)
                 {
+                    // The Games page left: the discs found are let go (the page
+                    // lists each game's own rows again).
+                    if (menu.shownPage == col::MenuPage::Games && menu.found.searched)
+                    {
+                        menu.found = {};
+                        buildGameRows(menu);
+                    }
                     // The Mods page opened (or came back from a mod's): its
                     // folders read again; a mod's page: its rows. The map
                     // page: the maps, for the player chosen.
@@ -4017,6 +4634,14 @@ namespace ps2x_app
                     redraw = shot = true; // (a move changes rows the shell does not count)
                 }
                 menu.modsChanged = false;
+                if (action.kind == col::MenuAction::Boot && !gameHasFiles(g_argv0, kGamesInOrder[action.game]) && !anyGameSetUp())
+                {
+                    // No game set up yet: the Games page, to find every game's discs.
+                    std::cout << "[app] menu: no game has files yet: the Games page" << std::endl;
+                    shell.showPage(col::MenuPage::Games);
+                    redraw = shot = true;
+                    continue;
+                }
                 if (action.kind == col::MenuAction::Boot && !gameHasFiles(g_argv0, kGamesInOrder[action.game]))
                 {
                     // Not set up yet: its disc first.
@@ -4077,19 +4702,8 @@ namespace ps2x_app
                 if (redraw)
                 {
                     draw(now);
-                    // PS2X_MENU_SHOT_DIR (developers, headless checks): every
-                    // picture of a change the menu shows (not its movie's
-                    // pictures), as menu-<visit>-<n>.png.
-                    if (const char *dir = std::getenv("PS2X_MENU_SHOT_DIR"); shot && dir && dir[0])
-                    {
-                        static int shots = 0;
-                        const std::filesystem::path file = std::filesystem::path(dir) /
-                            ("menu-" + std::to_string(menu.visits) + "-" + std::to_string(++shots) + ".png");
-                        const col::Image &image = menu.canvas.image();
-                        ps2_host::writePng(file.string(), reinterpret_cast<const uint8_t *>(image.pixels.data()),
-                                           static_cast<uint32_t>(image.width), static_cast<uint32_t>(image.height),
-                                           static_cast<uint32_t>(image.width) * 4u);
-                    }
+                    if (shot)
+                        writeShot();
                     shot = false;
                 }
                 presentMenu(menu, redraw);
@@ -4190,28 +4804,52 @@ namespace ps2x_app
             const std::unique_ptr<GameCodeStep> code = appGameCodeStep();
             if (command == "--setup")
             {
-                int failures = 0, done = 0;
+                // Every game's discs in the places named (images, folders of
+                // them, folders of folders), set up as the Games page's Set Up
+                // Games does: each game with a PS2 disc found or set up already,
+                // its extras too.
+                std::vector<std::filesystem::path> places;
                 for (int i = 2; i < argc; ++i)
-                    for (const std::filesystem::path &source : discSources(pathFromUtf8(argv[i])))
+                    places.push_back(pathFromUtf8(argv[i]));
+                const DiscSearch search = findDiscs(places, setupGames(), extrasOpener());
+                for (const FoundDisc &disc : search.discs)
+                    std::cout << "[setup] found " << utf8Of(disc.source) << ": " << disc.message << std::endl;
+                int failures = 0, done = 0;
+                for (size_t index = 0; index < kGameCount; ++index)
+                {
+                    const FoundDiscs found = plannedSetup(search, index);
+                    if (found.game < 0)
                     {
-                        int lastShown = -1;
-                        std::string lastStep;
-                        const SetupProgressFn progress = [&](const SetupProgress &p)
+                        // (its disc found, the game set up from it before, nothing new: done)
+                        if (search.ps2Of(static_cast<int>(index)))
                         {
-                            const int percent = p.total ? static_cast<int>(p.done * 100u / p.total) : 0;
-                            if (p.step != lastStep || percent / 10 != lastShown / 10)
-                            {
-                                std::cout << "[setup] " << p.step << " " << percent << "%" << std::endl;
-                                lastShown = percent;
-                                lastStep = p.step;
-                            }
-                            return true;
-                        };
-                        int changed = -1;
-                        bool ok = false;
-                        setUpFrom(source, -1, progress, changed, ok);
-                        ok ? ++done : ++failures;
+                            std::cout << "[setup] " << kGamesInOrder[index].id << ": set up already" << std::endl;
+                            ++done;
+                        }
+                        continue;
                     }
+                    int lastShown = -1;
+                    std::string lastStep;
+                    const SetupProgressFn progress = [&](const SetupProgress &p)
+                    {
+                        const int percent = p.total ? static_cast<int>(p.done * 100u / p.total) : 0;
+                        if (p.step != lastStep || percent / 10 != lastShown / 10)
+                        {
+                            std::cout << "[setup] " << p.step << " " << percent << "%" << std::endl;
+                            lastShown = percent;
+                            lastStep = p.step;
+                        }
+                        return true;
+                    };
+                    bool ok = false;
+                    const std::string said = setUpFound(found, progress, ok);
+                    std::cout << "[setup] " << kGamesInOrder[index].id << ": " << said << std::endl;
+                    ok ? ++done : ++failures;
+                }
+                // A disc of none of the games, or another release: said, and a failure.
+                for (const FoundDisc &disc : search.discs)
+                    if (disc.kind == FoundDisc::Kind::Ps2 && disc.status != SourceCheck::Status::Ok)
+                        ++failures;
                 std::cout << "[setup] " << done << " set up, " << failures << " not" << std::endl;
                 return failures == 0 && done > 0 ? 0 : 1;
             }

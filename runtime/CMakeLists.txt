@@ -459,8 +459,11 @@ add_library(ps2_runtime STATIC
     src/collection/mods.cpp
     src/collection/maps.cpp
     src/collection/settings.cpp
+    src/collection/offered.cpp
     src/collection/disc_check.cpp
     src/collection/game_setup.cpp
+    # The search for every game's discs in a folder (the first run's Find Discs).
+    src/collection/disc_finder.cpp
     src/collection/save_transfer.cpp
     src/collection/card_import.cpp
     src/collection/game_code.cpp
@@ -495,6 +498,7 @@ add_library(ps2_runtime STATIC
     src/collection/extras/xbox_disc.cpp
     src/collection/extras/gamecube_disc.cpp
     src/collection/extras/source_files.cpp
+    src/collection/extras/lzo1x.cpp
     src/collection/extras/xbox_texture_pack.cpp
     src/collection/extras/sequence_matcher.cpp
     src/collection/extras/bmx_releases.cpp

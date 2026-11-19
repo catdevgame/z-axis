@@ -12,13 +12,26 @@ compiler of the same layout for a test), this tree's recompiler and module heade
   games/<id>/                 config.toml (its paths are the app's to set; its [vu1] table names the game's VU1
                               microprogram chain, from the symbol tables: tools/vu1_image.py) and ghidra-functions.csv
   toolchain.txt               llvm.lock's version and the compiler's own --version line
+
+--tree-games TOOLING: the three games' inputs from the tree's tooling (as recompile.sh makes them): AI's
+recomp/config.game.toml, DM2's and BMX XXX's config.ns.toml (the collection's namespaced code) made by
+dm2/recomp/tools/make-config.py, and each one's ghidra-functions.csv.
+
+--android READELF: the folder for the Android app, from build-llvm.sh's android-arm64 archive and an Android build of
+the recompiler, made on another host (nothing staged is run): the programs as the APK's native libraries, native/
+libclang.so, liblld.so and libps2_recomp.so (android/build-apk.sh puts them in lib/arm64-v8a, the one folder Android
+runs an app's files from, and the rest in its assets), no bin/; toolchain.txt names the archive's version and folder in
+place of the compiler's --version. READELF (the NDK's llvm-readelf) checks the programs need the system's libraries only;
+the llvm-strip beside it strips them.
 """
 import argparse
+import glob
 import hashlib
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RUNTIME = os.path.dirname(HERE)
@@ -66,12 +79,72 @@ def main():
     ap.add_argument('--recompiler', required=True)
     ap.add_argument('--sse2neon', help='sse2neon.h (the ARM hosts\' modules include it; none for x86-64)')
     ap.add_argument('--game', action='append', default=[], help='ID=CONFIG,FUNCTIONS')
+    ap.add_argument('--tree-games', metavar='TOOLING', help='the three games\' inputs from this tooling folder (above)')
+    ap.add_argument('--android', metavar='READELF', help='the Android app\'s folder (above), checked with this llvm-readelf')
     ap.add_argument('--link', action='store_true', help='link the compiler and linker instead of copying them (a test with '
                     'a compiler that needs its own folder\'s libraries)')
     a = ap.parse_args()
     out = os.path.abspath(a.out)
     if os.path.exists(out):
         shutil.rmtree(out)
+    if a.android:
+        stage_android_programs(a, out)
+    else:
+        stage_programs(a, out)
+    with tempfile.TemporaryDirectory() as work:
+        if a.tree_games:
+            a.game += tree_games(os.path.abspath(a.tree_games), work)
+        stage_rest(a, out)
+
+
+# The games' ELFs (the configs' input, which the app sets to the player's disc's).
+TREE_ELFS = {'ai': 'SLUS_203.27', 'dm2': 'SLUS_201.59', 'bmx': 'SLUS_204.15'}
+
+
+def tree_games(tooling, work):
+    games = ['ai=%s,%s' % (os.path.join(tooling, 'ai', 'recomp', 'config.game.toml'),
+                           os.path.join(tooling, 'ai', 'recomp', 'ghidra-functions.csv'))]
+    for game in ['dm2', 'bmx']:
+        recomp = os.path.join(tooling, game, 'recomp')
+        made = os.path.join(work, game, 'config.game.toml')
+        os.makedirs(os.path.dirname(made))
+        subprocess.run([sys.executable, '-I', os.path.join(tooling, 'dm2', 'recomp', 'tools', 'make-config.py'),
+                        os.path.join(recomp, 'config.toml'), made, '--namespace', game, '--input', TREE_ELFS[game],
+                        '--output', 'generated', '--ghidra', 'ghidra-functions.csv'], check=True, stdout=subprocess.DEVNULL)
+        games.append('%s=%s,%s' % (game, os.path.join(work, game, 'config.ns.toml'),
+                                   os.path.join(recomp, 'ghidra-functions.csv')))
+    return games
+
+
+# The libraries an Android program may need: the system's (the NDK's stable ones); its C++ library is linked in.
+ANDROID_SYSTEM = {'libc.so', 'libm.so', 'libdl.so', 'liblog.so'}
+
+
+def stage_android_programs(a, out):
+    native = os.path.join(out, 'native')
+    for name, src in [('clang', os.path.join(a.llvm, 'bin', 'clang')), ('lld', os.path.join(a.llvm, 'bin', 'lld')),
+                      ('ps2_recomp', a.recompiler)]:
+        if not os.path.exists(src):
+            sys.exit('stage_game_code_tools.py: no %s' % src)
+        dst = os.path.join(native, 'lib%s.so' % name)
+        copy(os.path.realpath(src), dst)
+        # (stripped, as the APK's runner is: the recompiler's build keeps its symbols)
+        subprocess.run([os.path.join(os.path.dirname(a.android), 'llvm-strip'), '--strip-all', dst], check=True)
+        info = subprocess.run([a.android, '--file-header', '--dynamic-table', dst], capture_output=True, text=True).stdout
+        if 'AArch64' not in info:
+            sys.exit('stage_game_code_tools.py: %s is not an AArch64 program' % src)
+        needed = {line.split('[')[1].split(']')[0] for line in info.splitlines() if '(NEEDED)' in line}
+        if needed - ANDROID_SYSTEM:
+            sys.exit('stage_game_code_tools.py: %s needs %s, not on the device' % (src, ', '.join(sorted(needed - ANDROID_SYSTEM))))
+    # (the compiler's headers: the archive's own lib/clang/<version>, which game_code.cpp gives it as -resource-dir)
+    resources = glob.glob(os.path.join(a.llvm, 'lib', 'clang', '*', 'include'))
+    if len(resources) != 1:
+        sys.exit('stage_game_code_tools.py: %s has %d lib/clang/<version>/include' % (a.llvm, len(resources)))
+    version = os.path.basename(os.path.dirname(resources[0]))
+    shutil.copytree(resources[0], os.path.join(out, 'lib', 'clang', version, 'include'))
+
+
+def stage_programs(a, out):
     # The compiler and linker: the llvm program's names (one file each: a copy keeps the folder movable).
     for name in ['clang++'] + linker_names():
         src = os.path.join(a.llvm, 'bin', name + EXE)
@@ -91,6 +164,9 @@ def main():
     version = os.path.basename(resource)
     shutil.copytree(os.path.join(resource, 'include'), os.path.join(out, 'lib', 'clang', version, 'include'))
     copy(a.recompiler, os.path.join(out, 'bin', 'ps2_recomp' + EXE))
+
+
+def stage_rest(a, out):
     # The module's headers and their key.
     sdk = os.path.join(out, 'sdk')
     files = [(f, os.path.join(RUNTIME, f)) for f in SDK_FILES]
@@ -120,14 +196,17 @@ def main():
                         % (vu1_image.CHAIN, vu1_image.chain_address(game), 'true' if vu1_image.TTE else 'false'))
         copy(functions, os.path.join(out, 'games', game, 'ghidra-functions.csv'))
     # (every program the app runs takes only what the player's system has)
-    for name in sorted(os.listdir(os.path.join(out, 'bin'))):
+    for name in sorted(os.listdir(os.path.join(out, 'bin'))) if not a.android else []:
         foreign = foreign_libraries(os.path.join(out, 'bin', name))
         if foreign and not a.link:
             sys.exit('stage_game_code_tools.py: %s loads %s, not on a player\'s system' % (name, ', '.join(foreign)))
     lock = dict(line.split(' ', 1) for line in open(os.path.join(HERE, 'llvm.lock')).read().splitlines()
                 if line and not line.startswith('#') and ' ' in line)
-    clang = subprocess.run([os.path.join(out, 'bin', 'clang++' + EXE), '--version'], capture_output=True,
-                           text=True).stdout.splitlines()[0]
+    if a.android:
+        clang = 'clang version %s (%s)' % (lock.get('version', '?'), os.path.basename(os.path.normpath(a.llvm)))
+    else:
+        clang = subprocess.run([os.path.join(out, 'bin', 'clang++' + EXE), '--version'], capture_output=True,
+                               text=True).stdout.splitlines()[0]
     open(os.path.join(out, 'toolchain.txt'), 'w').write('llvm.lock %s\n%s\n' % (lock.get('version', '?'), clang))
     total = sum(os.path.getsize(os.path.join(t, n)) for t, _d, ns in os.walk(out) for n in ns)
     print('stage_game_code_tools: %s, %.1f MB (%s; sdk key %s)' % (out, total / 1e6, clang, h.hexdigest()[:16]))

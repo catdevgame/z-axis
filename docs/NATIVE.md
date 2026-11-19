@@ -9,15 +9,11 @@ fallback and test mode only, and the defaults keep game logic identical to PCSX2
 Replacements hook the game at the engine layer, where its intent is visible ("read this file",
 "play this sample on channel n", "save this buffer"), so the PS2 protocol under it can go.
 
-The two studies written before the work (the de-emulation plan, the render path map and the native draw
-design) are the maintainers' history, outside this repository; what they found is in the code's own
-comments and in this file.
-
 ## The machinery
 
 | PS2 part | Replaced by | Code (z-axis `runtime/src/game_overrides/`) | Back to the PS2 path |
 |---|---|---|---|
-| Memory card and its dialogs | the save jobs' host form, engine code (`runtime/src/game/zge/host/save_jobs.cpp`, over `game/host/save_files.h`): plain save files written at once (the card's data file's bytes), `.bak`, profiles (README "Saves"); each game's save screen form in `game/<game>/host/save_screen.cpp`; DM2's memory card frame's host form for the game save, `game/dm2/host/game_save.cpp`; AI's autosave | `zge_saves.cpp` (its switch; each game's part in `aggressive_inline_saves.cpp`, `bmx_xxx_saves.cpp`, `dave_mirra_saves.cpp`) | `PS2X_SAVES=card` (HLE card folders, the console's dialogs) |
+| Memory card and its dialogs | the save jobs' host form, engine code (`runtime/src/game/zge/host/save_jobs.cpp`, over `game/host/save_files.h`): plain save files written at once (the card's data file's bytes), `.bak`, profiles (SETTINGS.md); each game's save screen form in `game/<game>/host/save_screen.cpp`; DM2's memory card frame's host form for the game save, `game/dm2/host/game_save.cpp`; AI's autosave | `zge_saves.cpp` (its switch; each game's part in `aggressive_inline_saves.cpp`, `bmx_xxx_saves.cpp`, `dave_mirra_saves.cpp`) | `PS2X_SAVES=card` (HLE card folders, the console's dialogs) |
 | Disc and the ZCDDVD client on the IOP | the device's host form, engine code (`runtime/src/game/zge/host/disc_device.cpp`, over `game/host/disc_files.h`): the game's file functions read the bundled files directly, with the `Mods` overlay | `zge_disc.cpp` (its switch; AI's additions in `aggressive_inline_disc.cpp`) | `[host] disc = ps2` (`ZAXIS_DISC=ps2`; `PS2X_DISC=cdvd` too) |
 | MPEG movies (libmpeg/IPU, movie sound through SDRDRV) | the movie stream's host form, engine code (`runtime/src/game/zge/host/movie_stream.cpp`, over `game/host/movies.h`): native decoding with FFmpeg, the pictures through the game's own texture upload, sound mixed into the game's | `zge_movies.cpp` (its switch; AI's Xbox movies in `aggressive_inline_movies.cpp`, DM2's intro movies in `dave_mirra_movies.cpp`) | `PS2X_MOVIES=hle` |
 | Sound driver (ZAUDIO, LIBSD, SDRDRV on the IOP, the SPU2) | a native ZAudio driver behind the game's one RPC function, 48 kHz mixer, music, effects and speech buses | `zge_sound.cpp` (AI's ZAUDIO in `aggressive_inline_sound.cpp`) | `PS2X_SOUND=spu2` (docs/SPU2.md) |
@@ -26,7 +22,7 @@ comments and in this file.
 
 Kept as they are, because they are what keeps game logic identical: the EE kernel model and
 scheduler, the pad HLE (the one input seam), VU1 and GS emulation for what is not drawn natively,
-and the 60 Hz vsync. DM2 and BMX XXX have the same replacements but saves: the disc device is
+and the 60 Hz vsync. DM2 and BMX XXX have the same replacements (their saves in the first row): the disc device is
 one engine body for all three games (zge/host, each game's instance at its own addresses), and so is
 the movie stream (each game's additions in `aggressive_inline_movies.cpp`, `dave_mirra_movies.cpp` and
 `bmx_xxx_native.cpp`); the sound driver is
@@ -63,9 +59,8 @@ streams) and `bmx_xxx_sound.cpp` (AI's with three differences); the IOP is stopp
   is applied, not under it) as on the PS2 path. Left to the strict encoder: skinned parts rebuilt from changed
   streams (none seen); `PS2X_TRACE_NATIVE=2` names each part left without a mesh or rebuilt, and why.
 - Textures: the Xbox release's textures are the HD default wherever the Xbox has a counterpart, keyed
-  by the game's own texture objects, not by GS memory (SETTINGS.md "Xbox textures and movies"). The
-  runtime fetches VIF1's chain as the DMAC does, after the texture interrupt patches TEX0 (the old
-  fast-turn texture garbling was that bug: the nativedraw study's sections 0 and 1.6).
+  by the game's own texture objects, not by GS memory (SETTINGS.md "Xbox textures, skaters and movies"). The
+  runtime fetches VIF1's chain as the DMAC does, after the texture interrupt patches TEX0.
 - Picture quality past the PS2 (FXAA, anisotropic filtering, smooth fog, sharp shadows, float depth,
   perspective-correct shading, the Xbox's character lighting), full height, widescreen, draw
   distance and LOD ends that follow it: settings, each off in the strict path (SETTINGS.md
@@ -75,9 +70,12 @@ streams) and `bmx_xxx_sound.cpp` (AI's with three differences); the IOP is stopp
 
 ## Data on the host
 
-- Assets from other releases (the Xbox textures and movies, the Zoo and the Ape, DM2's levels,
-  Estate) are made at packaging time into ready-made files in the app (`tools/make-app.sh`,
-  `tools/make-windows.ps1`); the running game never reads a disc or converts anything.
+- Assets from other releases (the three games' Xbox textures, AI's Xbox movies, the Zoo and the Ape, DM2's levels,
+  Estate, BMX XXX's other releases' content) are made once into ready-made files: by the app's setup from the
+  player's discs (`runtime/src/collection/extras/setup.cpp`), or at packaging time into the app
+  (`tooling/ai/tools/make-app.sh`, `make-windows.ps1`); the running game never reads a disc. What it makes at start is made in memory from the
+  installed files: a Custom Freeplay map converted for another game (docs/CUSTOM-LEVELS.md), DM2's rider creator's
+  data.
 - The readable code reads the level's collision and GEO meshes from host-side copies made from the
-  files (`src/game/zge/native`): `PS2X_NATIVE_COLLISION=0` falls back to the RAM copies,
+  files (`runtime/src/game/zge/native`): `PS2X_NATIVE_COLLISION=0` falls back to the RAM copies,
   `PS2X_NATIVE_COLLISION_CHECK` and `PS2X_NATIVE_MESHES_CHECK` compare the two.

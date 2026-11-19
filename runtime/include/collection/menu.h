@@ -138,6 +138,9 @@ namespace ps2x::collection
         static int textWidth(const BitmapFont &font, std::string_view line, float scale);
 
     private:
+        // "%" in a line of text (the fonts have none that reads as one), in the box given.
+        void percentSign(float x, float top, float width, float height, uint32_t colour);
+
         Image m_image;
     };
 
@@ -242,7 +245,8 @@ namespace ps2x::collection
             Page,    // opens the page `opens` (Enter, Right, a click); its value is summary's
             Action,  // does what activate says (Enter, a click): a map to start; its value is summary's
             Heading, // a title over the rows after it (a game's name): never chosen
-            Note,    // a line of text (no mods there): never chosen
+            Note,    // a line of text (no mods there), its value summary's when it has one: never chosen
+            Check,   // a tick box (Enter, Left, Right, a click flip it: current 0 or 1), its value summary's
         } kind = Toggle;
         std::string label;
         std::vector<std::string> choices;
@@ -255,14 +259,35 @@ namespace ps2x::collection
         std::function<std::string()> summary; // Page, Action: its value ("2 of 3 on")
         std::function<MenuAction()> activate; // Action: what happens (a Boot with its map)
         std::shared_ptr<const Image> picture; // shown beside the rows while the row is chosen (a map's preview)
+        // A mark at the label's left (a Check's is its tick box, from
+        // current): a tick, an empty box, a cross. Null: none.
+        enum class Mark
+        {
+            None,
+            Tick,
+            Box,
+            Cross,
+        };
+        std::function<Mark()> mark;
+        // How far the row's work is, 0-1, as a bar along the row's foot
+        // (a game being set up); below 0 or null: no bar.
+        std::function<float()> progress;
+        // A line of a list (the discs found): one fixed size whatever its
+        // text (never made smaller to fit), its label from the left `indent`
+        // steps in, its value in a column of its own, both left-aligned.
+        bool steady = false;
+        int indent = 0;
+        // A Note the selection stops on (its help, a disc's file, shown); Enter does nothing.
+        bool selectable = false;
 
         // Whether the selection stops on it (not a Heading or a Note).
-        bool choosable() const { return kind != Heading && kind != Note; }
+        bool choosable() const { return kind != Heading && (kind != Note || selectable); }
         // The value's text (Toggle: Off / On; Choice: the choice; Range: the
-        // number and the unit; Page, Action: its summary; Heading, Note: none).
+        // number and the unit; Page, Action, Check, Note: its summary;
+        // Heading: none).
         std::string valueText(int value) const;
-        // The value `steps` to the right (negative: left): a Toggle flips, a
-        // Choice and a Range stop at their ends.
+        // The value `steps` to the right (negative: left): a Toggle and a
+        // Check flip, a Choice and a Range stop at their ends.
         int moved(int value, int steps) const;
     };
 
@@ -300,7 +325,8 @@ namespace ps2x::collection
     // A row's label and value in the room from `left` to `right`: the label
     // from `left`, the value ending at `right`, at least `gap` apart, both
     // smaller when they do not fit (down to 0.6 of `scale`), then the label
-    // cut short. Neither leaves the room nor runs into the other.
+    // cut short (the value, when the label takes half the room or less).
+    // Neither leaves the room nor runs into the other.
     struct RowText
     {
         FittedLine label;
@@ -381,10 +407,10 @@ namespace ps2x::collection
     // by whom, the same line for every player's game; a Note for one the game cannot
     // start (with why: a conversion that failed says its reason); a Note
     // when there is none (`folder`: where maps go). `lends`: whether the
-    // game lends a slot at all (false: one Note saying so instead of the
-    // maps).
+    // game lends a slot this setup can start (false: one Note saying so, or
+    // `why` when given, instead of the maps).
     std::vector<SettingsRow> freeplayMapRows(const std::vector<MapChoice> &maps, const std::string &gameTitle,
-                                             const std::string &folder, bool lends);
+                                             const std::string &folder, bool lends, const std::string &why = {});
 
     // ---- the shell ---------------------------------------------------------
 
@@ -453,7 +479,7 @@ namespace ps2x::collection
         // card chosen (its index; on the player page, that player), and a
         // page opened straight from the tiles (Settings, or Mods or Games
         // with Settings behind them for Back, or Custom Freeplay's player
-        // page).
+        // page); the Games page from Settings too (the discs a drop found).
         void choose(int game);
         void showPage(MenuPage page);
         // The mod page shown is now the mod of row `row` (a move changed its
@@ -528,7 +554,9 @@ namespace ps2x::collection
     // gamepad button (pad:cross, pad:circle, pad:start, pad:left, ...),
     // wait, or game:<id>: Left or Right, a step each, until the card chosen
     // is that game's (by its collection id, wherever the menu shows it).
-    // Fed through menuInput as real keys and buttons are.
+    // Fed through menuInput as real keys and buttons are. drop:<path>
+    // drops the file or folder on the window, as the player's drop does
+    // (a check's way to a folder of discs: the file dialog takes no script).
     class MenuScript
     {
     public:
@@ -537,6 +565,7 @@ namespace ps2x::collection
             int key = -1;        // a ps2_host_input code
             int padButton = -1;  // a PadButton
             std::string game;    // game:<id>, lower case
+            std::string drop;    // drop:<path>, as written
         };
 
         // The cards the menu shows now (the games' ids, left to right) and
@@ -559,7 +588,9 @@ namespace ps2x::collection
         // (Down first when no card is: from Settings and Quit), then passes;
         // a game the menu does not show, or one not reached in as many moves
         // as there are cards and two, is passed over with `*problem` said.
-        bool next(std::vector<int> &keys, uint16_t &padButtons, const Cards &cards, std::string *problem = nullptr);
+        // A drop: step's path goes into `dropped` (none given: passed over).
+        bool next(std::vector<int> &keys, uint16_t &padButtons, const Cards &cards, std::string *problem = nullptr,
+                  std::vector<std::string> *dropped = nullptr);
         bool next(std::vector<int> &keys, uint16_t &padButtons); // (no cards: a game: step is passed over)
 
         static constexpr int kFramesPerStep = 20;
@@ -640,10 +671,15 @@ namespace ps2x::collection
     // `notice`: a line over the hint ("" none), e.g. why a game did not start.
     // `device`: whose buttons the bottom line names (buttonHint).
     // `backdrop`: what moves behind it all (Backdrop).
+    // A page's `subtitle`: a line under its title ("" none). Its bottom line
+    // names what Enter does to the chosen row (the page's Back stands for the
+    // back button); `escapeVerb`: the back button's word instead, on a page
+    // with no Back (page.back empty: "Stop" while a setup runs).
     void drawMenu(Canvas &canvas, const Layout &layout, const std::vector<Tile> &tiles, const BitmapFont &font,
                   const Shell &shell, const std::string &title, const std::string &notice,
                   const std::vector<SettingsRow> &rows = {}, const PageLayout &page = {},
-                  HintDevice device = HintDevice::Keyboard, const Backdrop &backdrop = {});
+                  HintDevice device = HintDevice::Keyboard, const Backdrop &backdrop = {},
+                  const std::string &subtitle = {}, const char *escapeVerb = nullptr);
 
     // The intro's picture: a movie's picture fitted to the canvas on black,
     // `black` (0-1) of black over it (its fade out), and the skip hint at

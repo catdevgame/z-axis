@@ -71,7 +71,7 @@ namespace game::host::native_draws
     void setRegister(uint8_t reg, uint64_t value);
     void draw(const GSNativeDraw &draw);
     // Character Lighting: Xbox (gs_quality), where the renderer draws native draws itself (the CPU renderer's
-    // primitives keep VU1's lights).
+    // primitives keep VU1's lights), for a game whose Xbox release has the lights (SkinnedDrawForm::xboxLights).
     bool xboxCharacterLighting();
 
     // ---- counts ---------------------------------------------------------------------------------------------

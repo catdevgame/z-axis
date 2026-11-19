@@ -325,8 +325,6 @@ namespace aggressive_inline::language
              "Fenster folgt der Form des Fensters.", "Ventana sigue la forma de la ventana."},
             {"The blur trail in levels.", "La traînée de flou dans les niveaux.",
              "Die Unschärfespur in Levels.", "El rastro de desenfoque en los niveles."},
-            {"Far in split screen, Farthest everywhere.", "Loin en écran partagé, Très loin partout.",
-             "Weit im Splitscreen, Am weitesten überall.", "Lejos en pantalla dividida, Muy lejos en todo."},
             {"Integer keeps pixels sharp.", "Entière garde les pixels nets.",
              "Ganzzahlig hält Pixel scharf.", "Entero mantiene los píxeles nítidos."},
             {"Off lowers latency but may tear.", "Non réduit la latence, déchirures possibles.",

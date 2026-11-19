@@ -83,7 +83,7 @@ namespace bmx_xxx
                                              sym::bmx::updateFrustum, sym::bmx::angleSin,
                                              sym::bmx::vif1PacketCloseUnpack, sym::bmx::drawWidget,
                                              sym::bmx::g_screenPrimitives, sym::bmx::g_displaySetupFlags + kDisplayWidth,
-                                             nullptr, 0u, &ridden, &hudSideAnchored}) && ok;
+                                             nullptr, 0u, &ridden, &hudSideAnchored, &drawnFieldOfView}) && ok;
         ok = zv::installDrawDistance(runtime, {"bmx-xxx", sym::bmx::setCameraFarPlane, 0u, 0u,
                                                sym::bmx::moveCameraClipRange, sym::bmx::draw2DPass,
                                                "bmx.draw_distance.2d_pass", sym::bmx::setLodTable, kNodeLods,

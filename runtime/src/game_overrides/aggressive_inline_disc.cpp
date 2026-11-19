@@ -2,16 +2,16 @@
 // the host, by the engine's disc device's host form (zge/host/disc_device.cpp,
 // where the device's contract is described; zge_disc.cpp, its switch). AI's
 // own on top: the Xbox textures follow the files the game
-// opens (aggressive_inline_xbox.h), the native asset readers every read's
+// opens (zge_xbox_textures.h), the native asset readers every read's
 // file, offset and guest destination (zge/native/disc_files.h), and the Xbox
 // release's skaters are served in place of the PS2 files (below).
 //
 // [host] disc = ps2: none of this is installed (ZCDDVD over the emulated IOP
 // and cdvdman, as on the console). PS2X_MODS_DIR, PS2X_TRACE_DISC: zge_disc.cpp.
 #include "aggressive_inline_disc.h"
-#include "aggressive_inline_xbox.h"
 #include "sym/game_overrides/aggressive_inline_disc.cpp.h"
 #include "zge_host.h"
+#include "zge_xbox_textures.h"
 
 #include "../game/ee/game_id.h"
 
@@ -143,7 +143,7 @@ namespace aggressive_inline
         static constexpr zge_host::DiscAdditions kAdditions{
             .game = "Aggressive Inline",
             .id = game::Game::Ai,
-            .fileOpened = &xboxNoteFileOpened,
+            .fileOpened = &zge_host::xbox_textures::noteFileOpened,
             .fileRead = &zge::native::noteDiscRead,
         };
         if (!zge_host::installNativeDisc(runtime, kAdditions))

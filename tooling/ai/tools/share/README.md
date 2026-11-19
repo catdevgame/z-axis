@@ -101,7 +101,7 @@ Aggressive Inline's 24-bit `.RAW` loading screens).
      smaller levels are redone from it where your edit reaches; edit them
      yourself if you want them a particular way.
 3. **Import**: `python3 zaxis_texdump.py import dump mods`
-   writes a modified copy of each game file that changed into `mods`, at
+   (`--image IMAGE` if the disc image moved since the dump) writes a modified copy of each game file that changed into `mods`, at
    the same path as on the disc. The original image is only read. Each
    picture is encoded back to the texture's own format and size, so every
    file keeps its exact size (except BMX XXX's compressed Xbox files, see
@@ -132,9 +132,12 @@ Aggressive Inline's 24-bit `.RAW` loading screens).
      on PS2 and GameCube it must fit in its old space, otherwise nothing
      is written and the tool says which file does not fit.
    - Every patched file is read back from the new image and compared.
+   - `--force` overwrites `MyDisc-mod.iso` if it exists.
 
 Then play the patched copy in your emulator (PCSX2, xemu, Dolphin) or on
-your own hardware.
+your own hardware. The Z-Axis Collection app needs no patched image: put the
+files `import` writes in a mod (`docs/MODS.md`, a disc path such as
+`ASSETS/...`), or a texture pack in a mod's `Textures/`.
 
 `import --reencode-all` treats every PNG as edited; it is a self-test of
 the encoders (an unchanged dump comes back byte for byte).

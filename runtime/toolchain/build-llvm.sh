@@ -6,7 +6,8 @@
 # What it builds: clang and lld (clang++, ld64.lld, ld.lld and lld-link are their names; LLVM's one-program driver build
 # makes an empty tool list for 23.1.5 in this configuration), for the AArch64 and X86 targets alone, with no zlib, zstd, libxml2 or terminfo, statically linked where the
 # host allows; and clang's resource headers that a game module reaches (game_module_flags.txt: intrinsics, stdint.h and
-# kin). Run at low priority; JOBS default 8.
+# kin). Run at low priority; JOBS default 8. android-arm64's is for the AArch64 target alone: the app on the device makes
+# modules for itself only, and the compiler and linker go in the APK.
 set -euo pipefail
 HOST=$1; OUT=$2; JOBS=${3:-8}
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -24,8 +25,10 @@ if [ ! -d "$SRC" ]; then
 fi
 # What decides the programs: CFG. Its hash (with HOST) is the archive's <recipe>, so a change to the rest of this file
 # (the link jobs, the packing) keeps the name of an archive that comes out the same.
+TARGETS="AArch64;X86"
+[ "$HOST" = android-arm64 ] && TARGETS=AArch64
 CFG=(-DCMAKE_BUILD_TYPE=Release
-  -DLLVM_ENABLE_PROJECTS="clang;lld" -DLLVM_TARGETS_TO_BUILD="AArch64;X86"
+  -DLLVM_ENABLE_PROJECTS="clang;lld" -DLLVM_TARGETS_TO_BUILD="$TARGETS"
   -DLLVM_DISTRIBUTION_COMPONENTS="clang;lld;clang-resource-headers"
   -DLLVM_ENABLE_ZLIB=OFF -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBXML2=OFF -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_ENABLE_LIBEDIT=OFF
   -DLLVM_ENABLE_ASSERTIONS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF

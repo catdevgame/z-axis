@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """A Dave Mirra BMX 2 level into Aggressive Inline's level files (ZGE2 into ZGE3): a map across games, so the
-collection's Custom Freeplay lists a map built for DM2 under AI too (docs/CUSTOM-LEVELS.md step 4).
+collection's Custom Freeplay lists a map built for DM2 under AI too (docs/CUSTOM-LEVELS.md section 3, step 4).
 
     python3 -I dm2_to_ai_level.py convert FOLDER --out DIR [--theme LEWAREHO | --level WOODWARD] [--slot TUT] [--force]
         FOLDER is a DM2 map folder (a mod: FOLDER/ASSETS/EDITOR/<theme>/<theme>.{GEO,INS,DAT,TXR}, the form

@@ -677,6 +677,97 @@ void register_ps2_collection_tests()
             t.IsTrue(off.page() == col::MenuPage::Tiles, "no player page with Custom Freeplay off");
         });
 
+        tc.Run("a drop: step drops its path; the Games page opens from Settings too", [](TestCase &t)
+        {
+            col::MenuScript script;
+            std::string error;
+            t.IsTrue(script.parse("drop:/Discs/ROMs,Enter", &error), "parses: " + error);
+            t.IsFalse(script.parse("drop:", &error), "a drop: with no path refused");
+            t.IsTrue(script.parse("drop:/Discs/ROMs,Enter", &error), "again");
+            std::vector<std::string> dropped;
+            std::vector<int> keys;
+            uint16_t pad = 0;
+            for (int frame = 1; frame <= 2 * col::MenuScript::kFramesPerStep; ++frame)
+                script.next(keys, pad, {}, nullptr, &dropped);
+            t.IsTrue(dropped == std::vector<std::string>{"/Discs/ROMs"}, "the path, as written");
+            t.Equals(keys.size(), size_t{1}, "then Enter");
+
+            col::Shell shell(3);
+            shell.start();
+            shell.showPage(col::MenuPage::Settings);
+            shell.showPage(col::MenuPage::Games);
+            t.IsTrue(shell.page() == col::MenuPage::Games, "Games over Settings");
+            const std::vector<col::SettingsRow> rows;
+            shell.input(key("Escape"), col::layout(960, 720, 3), rows, col::pageLayout(960, 720, 0));
+            t.IsTrue(shell.page() == col::MenuPage::Settings, "its Back: Settings");
+        });
+
+        tc.Run("tick boxes, marks and bars on a page", [](TestCase &t)
+        {
+            int ticked = 1;
+            std::vector<col::SettingsRow> rows(3);
+            rows[0].kind = col::SettingsRow::Check;
+            rows[0].label = "PS2 Disc";
+            rows[0].summary = []() { return std::string("ai.iso"); };
+            rows[0].current = [&]() { return ticked; };
+            rows[0].apply = [&](int value) { ticked = value; };
+            rows[1].kind = col::SettingsRow::Note;
+            rows[1].label = "Xbox Disc";
+            rows[1].summary = []() { return std::string("ai-xbox.iso"); };
+            rows[1].mark = [&]() { return ticked ? col::SettingsRow::Mark::Tick : col::SettingsRow::Mark::Box; };
+            rows[2].kind = col::SettingsRow::Note;
+            rows[2].label = "Not set up";
+            rows[2].progress = []() { return 0.5f; };
+            t.Equals(rows[0].valueText(1), std::string("ai.iso"), "a tick box's value: its summary");
+            t.Equals(rows[1].valueText(0), std::string("ai-xbox.iso"), "a note's too");
+            t.IsTrue(rows[0].moved(1, 1) == 0 && rows[0].moved(0, -1) == 1, "a tick box flips");
+            t.IsTrue(rows[0].choosable() && !rows[1].choosable(), "chosen, a note not");
+
+            col::Shell shell(3);
+            shell.start();
+            shell.showPage(col::MenuPage::Games);
+            const col::Layout layout = col::layout(320, 240, 3);
+            const col::PageLayout page = col::pageLayout(320, 240, rows.size());
+            shell.input(key("Enter"), layout, rows, page);
+            t.Equals(ticked, 0, "Enter takes the tick off");
+            shell.input(key("Right"), layout, rows, page);
+            t.Equals(ticked, 1, "Right puts it back");
+
+            col::Canvas canvas(320, 240);
+            std::vector<col::Tile> tiles{{"One", col::Image{}, {}}, {"Two", col::Image{}, {}}, {"Three", col::Image{}, {}}};
+            tiles[0].colour = col::rgba(0, 255, 0);
+            col::BitmapFont font;
+            col::readFont(fontFile(8, {{'O', 0, 0, 0, 4, 8}}), solid(8, 8, col::rgba(255, 255, 255)), font);
+            col::drawMenu(canvas, layout, tiles, font, shell, "Z-Axis Collection", "", rows, page);
+            const col::Rect &bar = page.rows[2];
+            bool lit = false, unlit = false;
+            for (int x = page.labelX; x < page.valueX; ++x)
+            {
+                const uint32_t c = canvas.image().at(x, bar.y + bar.height - 2);
+                (((c & 0xFF) < 40 && ((c >> 8) & 0xFF) > 200) ? lit : unlit) = true;
+            }
+            t.IsTrue(lit && unlit, "the bar half in the game's colour");
+
+            // A short label and a long value (a game's name, its disc's file): the label whole, the value cut short.
+            const col::RowText laid = col::layRowText(font, "OOOO", std::string(200, 'O'), page.labelX, page.valueX, 1.0f, 6);
+            t.IsTrue(laid.label.text == "OOOO" && laid.value.text.size() > 3 &&
+                         laid.value.text.substr(laid.value.text.size() - 3) == "..." &&
+                         laid.labelX + laid.label.width + 6 <= laid.valueX && laid.valueX + laid.value.width <= page.valueX,
+                     "the label whole, the value cut, side by side");
+
+            // "%" is drawn whatever the font has: some of its pixels lit, inside its width.
+            col::Canvas sign(64, 32);
+            sign.clear(col::rgba(0, 0, 0));
+            const int wide = col::Canvas::textWidth(font, "%", 2.0f);
+            sign.text(font, 4, 4, "%", 2.0f, col::rgba(255, 255, 255));
+            int inked = 0, outside = 0;
+            for (int y = 0; y < 32; ++y)
+                for (int x = 0; x < 64; ++x)
+                    if ((sign.image().at(x, y) & 0xFF) > 128)
+                        (x >= 4 && x <= 4 + wide ? inked : outside) += 1;
+            t.IsTrue(wide > 0 && inked > 10 && outside == 0, "a percent sign drawn in its own width");
+        });
+
         tc.Run("a step that is no key, button or wait is refused", [](TestCase &t)
         {
             col::MenuScript script;
@@ -897,6 +988,9 @@ void register_ps2_collection_tests()
                      "no maps: a note saying where they go");
             const std::vector<col::SettingsRow> noSlot = col::freeplayMapRows(maps, "BMX XXX", "Maps", false);
             t.IsTrue(noSlot.size() == 2 && noSlot[1].label.find("lends no level slot") != std::string::npos, "a game lending no slot: one note");
+            const std::vector<col::SettingsRow> needs = col::freeplayMapRows(maps, "Aggressive Inline", "Maps", false, "Add its GameCube disc.");
+            t.IsTrue(needs.size() == 2 && needs[1].kind == col::SettingsRow::Note && needs[1].label == "Add its GameCube disc.",
+                     "a slot the setup cannot start: no maps offered, the note says what it needs");
             // Measured by the rectangles at the app's menu size (960 x 720)
             // and 640 x 480: a long map name and its value, the game's name
             // over the rows and the notice never meet each other, the picture

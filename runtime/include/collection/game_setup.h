@@ -41,8 +41,9 @@ namespace ps2x::app
     // read through files the platform opens for it. The platform installs
     // its access once (installDocumentAccess, collection/android_documents.cpp);
     // with none, every source is a path. A document's URI goes wherever a
-    // source's path goes: DiscSource::open, discSourcesIn, the manifest's
-    // source (the Games page's repair row).
+    // source's path goes: DiscSource::open, the search for discs
+    // (collection/disc_finder.h), the manifest's source (the Games page's
+    // repair row).
     class DocumentAccess
     {
     public:
@@ -131,12 +132,6 @@ namespace ps2x::app
         // name ('/'-separated, as files() gives them), sorted by it.
         std::vector<DocumentAccess::Entry> m_folderDocuments;
     };
-
-    // The sources a picked or dropped path or document stands for: itself
-    // when it is a disc; for a folder that is none, each image or folder in
-    // it that is one (a folder of every game's dumps); else itself (for its
-    // message).
-    std::vector<std::filesystem::path> discSourcesIn(const std::filesystem::path &path);
 
     // A source as an installed game's manifest names it (a path or a
     // document): whether it can still be read, and its name for the player.

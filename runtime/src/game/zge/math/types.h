@@ -15,6 +15,8 @@
 #include "ee/address_compare.h"
 #include "ee/mirror.h"
 
+#include <cstddef>
+
 namespace zge
 {
     // Pointers compared by address, as the game compares them (ee/address_compare.h).
@@ -38,6 +40,8 @@ namespace zge
         const Vec3 &xyz() const { return *reinterpret_cast<const Vec3 *>(this); }
     };
     static_assert(sizeof(Vec4) == 16);
+    static_assert(offsetof(Vec4, x) == 0x0 && offsetof(Vec4, y) == 0x4 && offsetof(Vec4, z) == 0x8 &&
+                  offsetof(Vec4, w) == 0xC);
 
     struct alignas(16) Quaternion
     {

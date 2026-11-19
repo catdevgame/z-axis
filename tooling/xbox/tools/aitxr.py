@@ -12,6 +12,11 @@ Both platforms use the same Z-Axis IFF layout:
         TTGA <size>                  PS2/Xbox: a 32-bit TGA (UI only)
         TXPR <size>                  Xbox: u32 0 + an XPR0 bundle (one
                                      D3DTexture resource, data at +0x800)
+        TDDS <size>                  Xbox (DM2): u32 0 + a DDS file
+                                     (DXT1/3/5 with its mips, or 32-bit)
+      ZLZO <size>                    Xbox (BMX XXX): u32 unpacked size + an
+                                     LZO1X stream of one chunk (a TXRC),
+                                     zaxis_texdump.lzo1x_decompress
 
 Disc files are data only: run with python3 -I. Needs numpy (decode) and
 Pillow (PNG writing, only in the CLI paths).
@@ -19,11 +24,15 @@ Pillow (PNG writing, only in the CLI paths).
 
 from __future__ import annotations
 
+import os
 import struct
 import sys
 from dataclasses import dataclass, field
 
 import numpy as np
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "ai", "tools", "share"))
+import zaxis_texdump  # noqa: E402  (its LZO1X decoder)
 
 
 @dataclass
@@ -32,7 +41,7 @@ class Texture:
     tid: int  # TXRH id (a hash of the name; same on both platforms)
     lw: int  # TXRH width/height: the size the game was authored for
     lh: int
-    kind: str  # TBMP, TZMP, TTGA, TXPR
+    kind: str  # TBMP, TZMP, TTGA, TXPR, TDDS
     data: bytes = field(repr=False)
     w: int = 0  # stored picture size
     h: int = 0
@@ -46,6 +55,8 @@ class Texture:
             return decode_tga(self.data)
         if self.kind == "TXPR":
             return decode_xpr(self.data)[0]
+        if self.kind == "TDDS":
+            return decode_dds(self.data)
         raise ValueError(self.kind)
 
 
@@ -58,17 +69,24 @@ def chunks(d: bytes, p: int, end: int):
 
 
 def read_txrc(d: bytes, b: int, size: int) -> Texture | None:
-    name, tid, lw, lh, pic = "", 0, 0, 0, None
+    name, tid, lw, lh, pic, levels = "", 0, 0, 0, None, 0
     for tag, cb, cs in chunks(d, b, b + size):
         if tag == "TXRH":
             tid, lw, lh = struct.unpack_from("<IHH", d, cb)
             name = d[cb + 0x14 : cb + cs].split(b"\0")[0].decode("latin1")
-        elif tag in ("TBMP", "TZMP", "TTGA", "TXPR"):
-            pic = (tag, d[cb : cb + cs])
+        elif tag in ("TBMP", "TZMP", "TTGA", "TXPR", "TDDS"):
+            # A PS2 picture is followed by its smaller mip levels (TBMPs of
+            # half the size): the first is the picture.
+            if pic is None:
+                pic = (tag, d[cb : cb + cs])
+            if tag == pic[0]:
+                levels += 1
     if pic is None:
         return None
     t = Texture(name, tid, lw, lh, pic[0], pic[1])
     describe(t)
+    if t.kind in ("TBMP", "TZMP"):
+        t.mips = levels
     return t
 
 
@@ -83,9 +101,12 @@ def iter_txrc(d: bytes, p: int = 0, end: int | None = None):
             if t:
                 yield t
         elif tag == "FORM":
-            yield from iter_txrc(d, b + 4 if d[b : b + 4] != b"TXRC" else b, b + sz)
+            yield from iter_txrc(d, b + 4 if d[b : b + 4] not in (b"TXRC", b"ZLZO") else b, b + sz)
         elif tag in ("ULIB", "UAST", "UMTL", "UFNT", "LIST", "CAT ", "FMDL", "MODL"):
             yield from iter_txrc(d, b, b + sz)
+        elif tag == "ZLZO":
+            u = zaxis_texdump.lzo1x_decompress(d[b + 4 : b + sz], struct.unpack_from("<I", d, b)[0])
+            yield from iter_txrc(u, 0, len(u))
 
 
 def read_txr(path: str) -> list[Texture]:
@@ -157,6 +178,9 @@ def describe(t: Texture):
         code, w, h, mips, _ = tex
         t.w, t.h, t.mips = w, h, mips
         t.fmt = XBOX_FORMATS.get(code, hex(code))
+    elif t.kind == "TDDS":
+        w, h, mips, fmt, _ = dds_header(t.data)
+        t.w, t.h, t.mips, t.fmt = w, h, mips, fmt
 
 
 # ---- decoders ---------------------------------------------------------------
@@ -288,6 +312,33 @@ def unswizzle(raw: np.ndarray, w: int, h: int) -> np.ndarray:
             sy += 1
             bit += 1
     return raw[yo[:, None] + xo[None, :]]
+
+
+def dds_header(x: bytes):
+    """(width, height, mips, format, data offset) of a TDDS body (u32 0, then 'DDS ')."""
+    o = x.find(b"DDS ", 0, 16)
+    assert o >= 0, x[:16]
+    _, _, flags, h, w, _, _, mips = struct.unpack_from("<4s7I", x, o)
+    pf_flags, fourcc, bits = struct.unpack_from("<I4sI", x, o + 4 + 72 + 4)
+    if pf_flags & 4:
+        fmt = fourcc.decode("latin1")
+    else:
+        fmt = f"RGB{bits}" if not pf_flags & 1 else f"ARGB{bits}"
+    return w, h, max(1, mips), fmt, o + 128
+
+
+def decode_dds(x: bytes) -> np.ndarray:
+    w, h, _, fmt, off = dds_header(x)
+    raw = x[off:]
+    if fmt in ("DXT1", "DXT3", "DXT5"):
+        return decode_dxt(raw, w, h, fmt)
+    if fmt in ("ARGB32", "RGB32"):
+        px = np.frombuffer(raw, np.uint8, w * h * 4).reshape(h, w, 4)
+        out = px[..., [2, 1, 0, 3]].copy()
+        if fmt == "RGB32":
+            out[..., 3] = 255
+        return out
+    raise ValueError(f"dds format {fmt}")
 
 
 def decode_xpr(x: bytes):

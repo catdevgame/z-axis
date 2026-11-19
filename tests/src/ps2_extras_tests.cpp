@@ -1,18 +1,25 @@
 #include "MiniTest.h"
 #include "collection/extras/disc_image.h"
+#include "collection/disc_finder.h"
 #include "collection/extras/gamecube_disc.h"
 #include "collection/extras/panel_maps.h"
 #include "collection/extras/setup.h"
 #include "collection/extras/source_files.h"
 #include "collection/extras/xbox_disc.h"
+#include "collection/extras/xbox_texture_pack.h"
 #include "collection/settings.h"
+#include "runtime/ps2_texture_replace.h"
+#include "../../runtime/src/collection/extras/lzo1x.h"
 #include "../../runtime/src/collection/extras/sequence_matcher.h"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -173,6 +180,138 @@ namespace
     std::string text(const std::vector<uint8_t> &bytes) { return std::string(bytes.begin(), bytes.end()); }
 }
 
+namespace
+{
+    // ---- Z-Axis texture libraries, hand-made ---------------------------------
+
+    using Bytes = std::vector<uint8_t>;
+
+    Bytes chunk(const char *tag, const Bytes &body)
+    {
+        Bytes out(tag, tag + 4);
+        out.resize(8);
+        le32(out, 4, uint32_t(body.size()));
+        out.insert(out.end(), body.begin(), body.end());
+        return out;
+    }
+    Bytes operator+(Bytes a, const Bytes &b)
+    {
+        a.insert(a.end(), b.begin(), b.end());
+        return a;
+    }
+
+    // TXRH: u32 id, u16 width, u16 height, 12 zero bytes, the name (32 bytes).
+    Bytes txrh(const std::string &name, uint16_t width, uint16_t height)
+    {
+        Bytes h(0x34, 0);
+        le32(h, 0, 0x1234u);
+        le16(h, 4, width);
+        le16(h, 6, height);
+        std::memcpy(h.data() + 0x14, name.data(), name.size());
+        return chunk("TXRH", h);
+    }
+
+    // A PS2 8-bit BMP (rows bottom up) of `indices` (top down), the palette
+    // B, G, R, A with the PS2's alpha (0x80 opaque).
+    Bytes bmp8(int width, int height, const Bytes &indices, const std::vector<std::array<uint8_t, 4>> &palette)
+    {
+        Bytes d(14 + 40, 0);
+        d[0] = 'B';
+        d[1] = 'M';
+        le32(d, 10, uint32_t(14 + 40 + 1024));
+        le32(d, 14, 40);
+        le32(d, 18, uint32_t(width));
+        le32(d, 22, uint32_t(height));
+        le16(d, 26, 1);
+        le16(d, 28, 8);
+        for (size_t i = 0; i < 256; ++i)
+        {
+            const std::array<uint8_t, 4> c = i < palette.size() ? palette[i] : std::array<uint8_t, 4>{0, 0, 0, 0x80};
+            d.insert(d.end(), c.begin(), c.end());
+        }
+        for (int y = height - 1; y >= 0; --y)
+            d.insert(d.end(), indices.begin() + y * width, indices.begin() + (y + 1) * width);
+        le32(d, 2, uint32_t(d.size()));
+        return d;
+    }
+
+    // One DXT3 level of `width` x `height`, opaque: the left half `left`,
+    // the right half `right` (RGB565).
+    Bytes dxt3Halves(int width, int height, uint16_t left, uint16_t right)
+    {
+        Bytes d;
+        for (int by = 0; by < height / 4; ++by)
+            for (int bx = 0; bx < width / 4; ++bx)
+            {
+                Bytes block(16, 0xFF);
+                le16(block, 8, bx < width / 8 ? left : right);
+                le16(block, 10, 0);
+                le32(block, 12, 0); // every texel colour 0
+                d = d + block;
+            }
+        return d;
+    }
+
+    // DM2's Xbox picture: TDDS, u32 0, then a DDS file of one DXT3 level.
+    Bytes tdds(int width, int height, const Bytes &pixels)
+    {
+        Bytes d(8 + 124, 0);
+        std::memcpy(d.data() + 4, "DDS ", 4);
+        le32(d, 8, 124);
+        le32(d, 12, 0x1007); // caps, height, width, pixel format
+        le32(d, 16, uint32_t(height));
+        le32(d, 20, uint32_t(width));
+        le32(d, 8 + 72, 32);
+        le32(d, 8 + 76, 4); // DDPF_FOURCC
+        std::memcpy(d.data() + 8 + 80, "DXT3", 4);
+        return chunk("TDDS", d + pixels);
+    }
+
+    // AI's and BMX XXX's Xbox picture: TXPR, u32 0, then an XPR0 bundle with
+    // one swizzled D3D texture (DXT3, one level).
+    Bytes txpr(int width, int height, const Bytes &pixels)
+    {
+        const uint32_t headerSize = 0x30;
+        Bytes d(4 + headerSize, 0);
+        std::memcpy(d.data() + 4, "XPR0", 4);
+        le32(d, 8, uint32_t(headerSize + pixels.size()));
+        le32(d, 12, headerSize);
+        le32(d, 16, 0x00040001u); // a texture resource
+        le32(d, 20, 0);           // its data at the header's end
+        auto log2 = [](int v)
+        {
+            uint32_t n = 0;
+            while ((1 << n) < v)
+                ++n;
+            return n;
+        };
+        le32(d, 28, (0x0Eu << 8) | (1u << 16) | (log2(width) << 20) | (log2(height) << 24));
+        le32(d, 36, 0xFFFFFFFFu);
+        return chunk("TXPR", d + pixels);
+    }
+
+    // BMX XXX's form: a TXRC packed in a ZLZO chunk (u32 its size, then
+    // LZO1X: here one literal run and the end marker).
+    Bytes zlzo(const Bytes &packed)
+    {
+        Bytes body(4, 0);
+        le32(body, 0, uint32_t(packed.size()));
+        size_t rest = packed.size() - 3 - 15; // a long literal run: 0, zeros of 255, the rest
+        body.push_back(0);
+        while (rest > 255)
+        {
+            body.push_back(0);
+            rest -= 255;
+        }
+        body.push_back(uint8_t(rest));
+        body = body + packed;
+        body = body + Bytes{0x11, 0x00, 0x00};
+        return chunk("ZLZO", body);
+    }
+
+    Bytes library(const Bytes &chunks) { return chunk("FORM", chunks); }
+}
+
 void register_ps2_extras_tests()
 {
     MiniTest::Case("Extras", [](TestCase &tc)
@@ -303,6 +442,31 @@ void register_ps2_extras_tests()
             t.Equals(ex::extrasDiscsOf("dm2").size(), size_t(1), "DM2: the Xbox disc");
         });
 
+        tc.Run("the search tells Xbox and GameCube discs from PS2 discs and other files", [](TestCase &t)
+        {
+            TempDir dir;
+            const fs::path roms = dir.path / "ROMs";
+            write(roms / "xbox" / "game.iso", xiso());
+            write(roms / "gamecube" / "game.gcm", gcm());
+            write(roms / "ps2" / "notes.bin", std::vector<uint8_t>(70000, 3));
+            const ps2x::app::DiscSearch search = ps2x::app::findDiscs({roms}, {}, ex::pathOpener());
+            std::vector<std::string> names;
+            for (const ps2x::app::FoundDisc &disc : search.discs)
+            {
+                names.push_back(disc.name);
+                t.IsTrue(disc.kind == ps2x::app::FoundDisc::Kind::Extras, disc.name + " is an extras disc");
+                t.IsNull(disc.extras, disc.name + ": none the app makes extras from (made-up executables)");
+            }
+            std::sort(names.begin(), names.end());
+            std::string all;
+            for (const std::string &name : names)
+                all += " " + name;
+            t.IsTrue(names == std::vector<std::string>{"game.gcm", "game.iso"}, "the two game discs, not the other file:" + all);
+            t.IsTrue(search.extrasOf("ai").empty(), "no game's extras");
+            const ps2x::app::DiscSearch noExtras = ps2x::app::findDiscs({roms}, {}, {});
+            t.IsTrue(noExtras.discs.empty(), "with no opener, no extras discs looked for");
+        });
+
         tc.Run("the boot reads the made extras before the bundled ones", [](TestCase &t)
         {
             TempDir dir;
@@ -335,6 +499,89 @@ void register_ps2_extras_tests()
             t.IsFalse(ex::makePanelMaps(ex::PanelGame::AggressiveInline, disc, {}, dir.path / "panel", log, &error),
                       "refused");
             t.IsFalse(error.empty(), "says why: " + error);
+        });
+
+        tc.Run("LZO1X: literals, a match that overlaps itself, the end marker", [](TestCase &t)
+        {
+            // 3 literals (17 + 3), an M2 match of 6 bytes 3 back (0xA8 0x00),
+            // the end (an M4 match at distance 0).
+            const Bytes stream = {20, 'a', 'b', 'c', 0xA8, 0x00, 0x11, 0x00, 0x00, 0x00};
+            Bytes out;
+            t.IsTrue(ex::lzo1xDecompress(stream.data(), stream.size(), 64, out), "unpacked (a padding byte after the end left)");
+            t.Equals(std::string(out.begin(), out.end()), std::string("abcabcabc"), "the match repeats the literals");
+            t.IsFalse(ex::lzo1xDecompress(stream.data(), stream.size(), 8, out), "more than the size it may have: refused");
+            t.IsFalse(ex::lzo1xDecompress(stream.data(), 7, 64, out), "cut short: refused");
+            const Bytes before = {20, 'a', 'b', 'c', 0xA8, 0x01, 0x11, 0x00, 0x00};
+            t.IsFalse(ex::lzo1xDecompress(before.data(), before.size(), 64, out), "a match before the start: refused");
+        });
+
+        tc.Run("DM2's and BMX XXX's Xbox pictures (TDDS, TXPR in ZLZO, a ZAL's) replace the PS2 ones", [](TestCase &t)
+        {
+            // The PS2 texture: 8 x 8, red on the left, blue on the right.
+            Bytes indices(64);
+            for (size_t i = 0; i < indices.size(); ++i)
+                indices[i] = (i % 8) < 4 ? 1 : 2;
+            const std::vector<std::array<uint8_t, 4>> palette = {{0, 0, 0, 0x80}, {0, 0, 255, 0x80}, {255, 0, 0, 0x80}};
+            const Bytes ps2 = chunk("TXRC", txrh("wall", 8, 8) + chunk("TBMP", bmp8(8, 8, indices, palette)));
+            const Bytes pixels = dxt3Halves(16, 16, 0xF800, 0x001F); // its Xbox picture at twice the size
+            struct Form
+            {
+                const char *name;
+                Bytes xbox;   // the Xbox library
+                bool archive; // in a ZAL (BMX XXX's level props)
+            };
+            const Form forms[] = {
+                {"DM2's TDDS", library(chunk("TXRC", txrh("wall", 8, 8) + tdds(16, 16, pixels))), false},
+                {"BMX XXX's TXPR in a ZLZO", library(zlzo(chunk("TXRC", txrh("wall", 8, 8) + txpr(16, 16, pixels)))), false},
+                {"BMX XXX's in a ZAL", library(zlzo(chunk("TXRC", txrh("wall", 8, 8) + txpr(16, 16, pixels)))), true},
+            };
+            for (const Form &form : forms)
+            {
+                TempDir dir;
+                const char *file = form.archive ? "MODELS.ZAL" : "T.TXR";
+                auto zal = [](const Bytes &entry)
+                {
+                    // ZDIR, DIDF (the count at 0x10), GRID, DLEN, OFST, then the entry.
+                    Bytes d(0x18 + 3 * 12, 0);
+                    std::memcpy(d.data(), "ZDIR", 4);
+                    std::memcpy(d.data() + 8, "DIDF", 4);
+                    le32(d, 0x10, 1);
+                    std::memcpy(d.data() + 0x18, "GRID", 4);
+                    std::memcpy(d.data() + 0x24, "DLEN", 4);
+                    le32(d, 0x2C, uint32_t(entry.size()) | 0x60000000u);
+                    std::memcpy(d.data() + 0x30, "OFST", 4);
+                    le32(d, 0x38, uint32_t(d.size()));
+                    return d + entry;
+                };
+                const Bytes ps2File = form.archive ? zal(chunk("FMDL", ps2)) : library(ps2);
+                const Bytes xboxFile = form.archive ? zal(chunk("FMDL", form.xbox)) : form.xbox;
+                write(dir.path / "ps2" / "ASSETS" / "LEVELS" / "T" / file, ps2File);
+                write(dir.path / "xbox" / "media" / "assets" / "levels" / "t" / (std::string(file) == "T.TXR" ? "t.txr" : "models.zal"),
+                      xboxFile);
+                ex::FolderFiles ps2Disc, xboxDisc;
+                t.IsTrue(ps2Disc.open(dir.path / "ps2", {"levels"}) && xboxDisc.open(dir.path / "xbox", {"levels"}),
+                         std::string(form.name) + ": the folders");
+                ex::XboxTexturePackOptions options;
+                options.movies = false;
+                options.archives = form.archive;
+                std::vector<std::string> log;
+                std::string error;
+                t.IsTrue(ex::makeXboxTexturePack(ps2Disc, xboxDisc, dir.path / "pack", options, log, &error),
+                         std::string(form.name) + ": made " + error);
+                std::ifstream in(dir.path / "pack" / "textures" / "ASSETS" / "LEVELS" / "T" / (std::string(file) + ".xtp"),
+                                 std::ios::binary);
+                const Bytes xtp((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                std::vector<ps2x::texture_replace::Entry> entries;
+                t.IsTrue(ps2x::texture_replace::parsePack(xtp, entries, &error), std::string(form.name) + ": a pack " + error);
+                t.Equals(entries.size(), size_t(1), std::string(form.name) + ": one picture");
+                if (entries.size() != 1)
+                    continue;
+                t.Equals(entries[0].width, 8u, std::string(form.name) + ": keyed by the PS2 size");
+                t.Equals(entries[0].indexHash, ps2x::texture_replace::indexHash(indices.data(), indices.size()),
+                         std::string(form.name) + ": and its indices");
+                t.Equals(entries[0].picture->width, 16u, std::string(form.name) + ": the Xbox picture's size");
+                t.IsTrue(entries[0].picture->data == pixels, std::string(form.name) + ": its DXT3 as it is");
+            }
         });
 
         tc.Run("no extras without the PS2 disc", [](TestCase &t)

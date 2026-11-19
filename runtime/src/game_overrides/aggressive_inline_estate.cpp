@@ -38,7 +38,7 @@
 //     .xtp of the retail TUT.TXR, or another level's, could match a
 //     borrowed texture's indices with another palette): the build lists
 //     their keys (TEXTURES.TXT) and the pack's texture identity notes carry
-//     no key for them while Estate is played (aggressive_inline_xbox.h).
+//     no key for them while Estate is played (zge_xbox_textures.h).
 //     Estate's own scripts always run (no Xbox script takes their place),
 //     and their texts are left in English with another language: the
 //     language's table pairs the Xbox release's level scripts (the retail
@@ -56,8 +56,8 @@
 
 #include "aggressive_inline_language.h"
 #include "aggressive_inline_saves.h"
-#include "aggressive_inline_xbox.h"
 #include "ps2_runtime.h"
+#include "zge_xbox_textures.h"
 #include "runtime/ps2_disc_patch.h"
 #include "runtime/ps2_pad.h"
 #include "runtime/ps2_game_files.h"
@@ -1963,13 +1963,13 @@ namespace aggressive_inline::estate
                             estate().scriptTexts.insert(string);
             }
         language::keepUntranslated([](const std::string &english) { return active() && estate().scriptTexts.count(english) != 0; });
-        xboxKeepTexturesOff([](uint32_t width, uint32_t height, uint64_t indexHash)
-                            {
-                                if (!active() || !estate().textureKeys.count({width, height, indexHash}))
-                                    return false;
-                                ++estate().keptOff;
-                                return true;
-                            });
+        zge_host::xbox_textures::keepTexturesOff([](uint32_t width, uint32_t height, uint64_t indexHash)
+                                                 {
+                                                     if (!active() || !estate().textureKeys.count({width, height, indexHash}))
+                                                         return false;
+                                                     ++estate().keptOff;
+                                                     return true;
+                                                 });
         std::cout << "[estate] on: TUT/Estate from " << estate().dir.string() << " (" << estate().textureKeys.size()
                   << " textures kept off the Xbox pack, " << estate().scriptTexts.size()
                   << " script texts left untranslated, " << showHide().visibility.size()

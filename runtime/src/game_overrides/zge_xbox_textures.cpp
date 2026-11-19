@@ -1,14 +1,16 @@
-// Aggressive Inline (SLUS-20327): textures of the Xbox release.
+// The Xbox textures (zge_xbox_textures.h), the same in the three games.
 //
-// The Xbox release has the same levels, skaters and park editor pieces with
-// the textures the PS2 build cut down to 32-128 pixels: 4.6 times the texels
-// in levels, 512x512 skaters, all DXT3 with full mip chains. A build step
-// (tools/xbox_pack.py in the bring-up workspace) pairs every PS2 texture with
-// its Xbox picture (same file, same name, checked by picture) and writes a
-// pack: one .xtp per PS2 file (runtime/ps2_texture_replace.h describes the
-// format) under <pack>/textures/, named after the PS2 file's normalized
-// path ("ASSETS/LEVELS/CIVIC/CIVIC.TXR.xtp"), keyed by what the GS will
-// hold: the texture's size and the hash of its indices.
+// The Xbox releases have the same levels with the textures the PS2 builds
+// cut down: Aggressive Inline's 4.6 times the texels in levels and 512x512
+// skaters, DM2's and BMX XXX's levels 3.4 and 3.7 times (256x256 where the
+// PS2 has 128x128), all DXT3 with full mip chains. The extras' setup
+// (collection/extras/xbox_texture_pack.cpp; for AI also tools/xbox_pack.py
+// in the bring-up workspace) pairs every PS2 texture with its Xbox picture
+// (same file, same name, checked by picture) and writes a pack: one .xtp per
+// PS2 file (runtime/ps2_texture_replace.h describes the format) under
+// <pack>/textures/, named after the PS2 file's normalized path
+// ("ASSETS/LEVELS/CIVIC/CIVIC.TXR.xtp"), keyed by what the GS will hold: the
+// texture's size and the hash of its indices.
 //
 // Here: when the game opens a PS2 file the pack covers, a worker thread
 // reads that .xtp and registers its pictures (one source per file; the file
@@ -18,16 +20,17 @@
 // checks, saves) is as without the pack.
 //
 // Which texture a draw shows is told by the game itself, not guessed from GS
-// memory: the texture cache's level allocator (FUN_00107C88, called from the
-// VIF1 interrupt handler FUN_001085B0 when it gives a texture object's level
-// a GS address and patches TEX0/MIPTBP1) is wrapped, and each allocation is
-// handed to the renderer in stream order as "blocks B.. hold level k of
-// texture object O" (GSTextureObjectNote, PS2Memory::postGsSideband). The
-// object's picture key is the size and index hash of its level 0 as the game
-// holds it in RAM (the texels stay there for the level's lifetime), so it is
-// the pack's key without reading GS memory. Draws find the object by TEX0's
-// TBP0, or by MIPTBP1 when only mip levels 1 and up are uploaded.
-#include "aggressive_inline_xbox.h"
+// memory: the texture cache's placeTextureLevel (zge/render/texture.cpp,
+// called from the VIF1 interrupt handler when it gives a texture object's
+// level a GS address and patches TEX0/MIPTBP1; the same code in the three
+// games) is wrapped, and each placement is handed to the renderer in stream
+// order as "blocks B.. hold level k of texture object O"
+// (GSTextureObjectNote, PS2Memory::postGsSideband). The object's picture key
+// is the size and index hash of its level 0 as the game holds it in RAM (the
+// texels stay there for the level's lifetime), so it is the pack's key
+// without reading GS memory. Draws find the object by TEX0's TBP0, or by
+// MIPTBP1 when only mip levels 1 and up are uploaded.
+#include "zge_xbox_textures.h"
 
 #include "ps2_runtime.h"
 #include "runtime/gs/gs_backend.h"
@@ -52,11 +55,13 @@
 #include <unordered_map>
 #include <vector>
 
-namespace aggressive_inline
+#include "sym/game_overrides/zge_xbox_textures.cpp.h"
+
+namespace zge_host::xbox_textures
 {
     // Named, not anonymous: the unity build puts other overrides in the
     // same translation unit.
-    namespace xbox_textures
+    namespace pack
     {
         namespace tr = ps2x::texture_replace;
         namespace fs = std::filesystem;
@@ -72,9 +77,11 @@ namespace aggressive_inline
             bool started = false;
             int trace = 0;
             // The loader thread (packWorker), stopped and joined when the
-            // game is left.
+            // game is left; then the pictures it registered leave the
+            // renderer (the next game booted brings its own).
             bool stop = false;
             std::thread worker;
+            std::set<std::string> loaded; // the sources registered (packWorker's)
 
             ~XboxTextures()
             {
@@ -85,6 +92,8 @@ namespace aggressive_inline
                 cv.notify_all();
                 if (worker.joinable())
                     worker.join();
+                for (const std::string &source : loaded)
+                    tr::removeSource(source);
             }
         };
 
@@ -104,7 +113,7 @@ namespace aggressive_inline
             return size == 0 || static_cast<bool>(in.read(reinterpret_cast<char *>(out.data()), size));
         }
 
-        void loadPack(const XboxTextures &s, const std::string &ps2Path)
+        void loadPack(XboxTextures &s, const std::string &ps2Path)
         {
             const auto t0 = std::chrono::steady_clock::now();
             std::vector<uint8_t> bytes;
@@ -130,6 +139,10 @@ namespace aggressive_inline
                     pictureBytes += e.picture->data.size();
             const size_t count = pictures.size(), keys = entries.size();
             tr::setSource(ps2Path, std::move(entries));
+            {
+                std::lock_guard<std::mutex> lock(s.mutex);
+                s.loaded.insert(ps2Path);
+            }
             const auto t2 = std::chrono::steady_clock::now();
             const auto ms = [](auto a, auto b)
             { return std::chrono::duration<double, std::milli>(b - a).count(); };
@@ -181,11 +194,24 @@ namespace aggressive_inline
 
     // ---- texture objects (identity for the renderer) ----------------------
 
-    namespace xbox_objects
+    namespace objects_notes
     {
         namespace tr = ps2x::texture_replace;
-        constexpr uint32_t kLevelAlloc = 0x00107C88u; // a0 = texture object + 0x30, a1 = its level record
-        // Texture object (0x560 bytes, FUN_00128468):
+        // The game's placeTextureLevel (a0 = texture object + 0x30, a1 = its level record).
+        uint32_t placeTextureLevelOf(game::Game game)
+        {
+            switch (game)
+            {
+            case game::Game::Dm2:
+                return sym::dm2::placeTextureLevel;
+            case game::Game::Bmx:
+                return sym::bmx::placeTextureLevel;
+            case game::Game::Ai:
+                break;
+            }
+            return sym::placeTextureLevel;
+        }
+        // Texture object (0x560 bytes, zge/render/texture.h Texture; the same in the three games):
         constexpr uint32_t kObjName = 0x10;      // char[32]
         constexpr uint32_t kObjLevels = 0x40;    // level records, 0xA0 each
         constexpr uint32_t kLevelStride = 0xA0;
@@ -205,7 +231,7 @@ namespace aggressive_inline
             PS2Runtime::RecompiledFunction origAlloc = nullptr;
             int trace = 0; // PS2X_TRACE_XBOX_OBJECTS=1: each note, 2: and each key
             bool pack = false; // a pack is there (its sources may load later)
-            std::function<bool(uint32_t, uint32_t, uint64_t)> keepOff; // xboxKeepTexturesOff
+            std::function<bool(uint32_t, uint32_t, uint64_t)> keepOff; // keepTexturesOff
             uint64_t notes = 0;
             uint64_t keys = 0;
 
@@ -290,7 +316,7 @@ namespace aggressive_inline
             return &cached;
         }
 
-        void levelAllocHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+        void placeTextureLevelHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
             const uint32_t object = getRegU32(ctx, 4) - 0x30u;
             const uint32_t record = getRegU32(ctx, 5);
@@ -336,15 +362,19 @@ namespace aggressive_inline
                                              { runtime->gs().noteTextureObjects(notes); });
         }
 
-        void install(PS2Runtime &runtime, bool pack)
+        // Once a session: a second call only says whether a pack is there.
+        void install(PS2Runtime &runtime, game::Game game, bool pack)
         {
+            objects().pack = objects().pack || pack;
+            if (objects().origAlloc)
+                return;
             if (const char *v = std::getenv("PS2X_TRACE_XBOX_OBJECTS"))
                 objects().trace = std::atoi(v);
-            objects().pack = pack;
             if (const char *v = std::getenv("PS2X_XBOX_OBJECTS"); v && v[0] == '0')
                 return; // debugging: textures not named (PS2X_TEXTURE_REPLACE_CONTENT=1 finds them by content)
-            objects().origAlloc = runtime.lookupFunction(kLevelAlloc);
-            if (!objects().origAlloc || !runtime.replaceFunction(kLevelAlloc, &levelAllocHook))
+            const uint32_t placeTextureLevel = placeTextureLevelOf(game);
+            objects().origAlloc = runtime.lookupFunction(placeTextureLevel);
+            if (!objects().origAlloc || !runtime.replaceFunction(placeTextureLevel, &placeTextureLevelHook))
             {
                 objects().origAlloc = nullptr;
                 std::cerr << "[xbox] texture cache hook not installed: no Xbox textures" << std::endl;
@@ -352,26 +382,26 @@ namespace aggressive_inline
         }
     }
 
-    using namespace xbox_textures;
+    using namespace pack;
 
-    ps2x::settings::Setting xboxTexturesSetting(std::function<void(bool)> save)
+    ps2x::settings::Setting setting(std::function<void(bool)> save)
     {
-        ps2x::settings::Setting setting;
-        setting.key = kXboxTexturesKey;
-        setting.label = "Xbox Textures";
-        setting.help = "Sharper Xbox textures.";
-        setting.current = []()
+        ps2x::settings::Setting row;
+        row.key = kSettingKey;
+        row.label = "Xbox Textures";
+        row.help = "Sharper Xbox textures.";
+        row.current = []()
         { return ps2x::texture_replace::enabled() ? 1 : 0; };
-        setting.apply = [save](int value)
+        row.apply = [save](int value)
         {
             ps2x::texture_replace::setEnabled(value != 0);
             if (save)
                 save(value != 0);
         };
-        return setting;
+        return row;
     }
 
-    std::string xboxPackFolder()
+    std::string packFolder()
     {
         const char *pack = ps2x::boot::text("PS2X_XBOX_PACK");
         if (!pack || !pack[0])
@@ -380,22 +410,27 @@ namespace aggressive_inline
         return fs::is_directory(pack, ec) ? std::string(pack) : std::string();
     }
 
-    void installXboxTextures(PS2Runtime &runtime)
+    void installTextureNotes(PS2Runtime &runtime, game::Game game)
+    {
+        objects_notes::install(runtime, game, false);
+    }
+
+    void install(PS2Runtime &runtime, game::Game game)
     {
         XboxTextures &s = packState();
         if (const char *v = std::getenv("PS2X_TRACE_XBOX"))
             s.trace = std::atoi(v);
         const char *on = ps2x::boot::text("PS2X_XBOX_TEXTURES");
         tr::setEnabled(!(on && on[0] == '0'));
-        const std::string pack = xboxPackFolder();
+        const std::string pack = packFolder();
         if (!pack.empty())
         {
             s.folder = fs::path(pack) / "textures";
             scanPack(s);
         }
         // The renderer learns which texture object each draw shows (also
-        // for the Zoo's pictures, which need no pack).
-        xbox_objects::install(runtime, !s.covered.empty());
+        // for pictures other overrides register: AI's Zoo, DM2's Xbox levels).
+        objects_notes::install(runtime, game, !s.covered.empty());
         if (pack.empty())
         {
             if (ps2x::boot::text("PS2X_XBOX_PACK"))
@@ -413,16 +448,16 @@ namespace aggressive_inline
         s.worker = std::thread(packWorker, std::ref(s));
         // The app adds the row with settings.ini behind it; the developer
         // runner gets one without (PS2X_CONTROL "set display.xbox_textures 0").
-        if (!ps2x::settings::has(kXboxTexturesKey))
-            ps2x::session::addSetting(xboxTexturesSetting(nullptr));
+        if (!ps2x::settings::has(kSettingKey))
+            ps2x::session::addSetting(setting(nullptr));
     }
 
-    void xboxKeepTexturesOff(std::function<bool(uint32_t, uint32_t, uint64_t)> keepOff)
+    void keepTexturesOff(std::function<bool(uint32_t, uint32_t, uint64_t)> keepOff)
     {
-        xbox_objects::objects().keepOff = std::move(keepOff);
+        objects_notes::objects().keepOff = std::move(keepOff);
     }
 
-    void xboxNoteFileOpened(const std::string &path)
+    void noteFileOpened(const std::string &path)
     {
         XboxTextures &s = packState();
         if (!s.started)

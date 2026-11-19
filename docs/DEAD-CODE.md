@@ -1,32 +1,25 @@
 # Dead code: what it is and what it is for later
 
-The readable sweep flags functions that no game path reaches, in the flags column of the sweep
-manifests (z-axis `src/game/<layer>/sweep/manifest.txt`). Flagged functions stay in the
-manifests with their status; they only leave the coverage counts and the paths rounds' targets.
-None of it is gibberish: every flagged function is the game's own machine code, drafted like the
-rest. All engine and game drafts but 3 compile; 79 SDK functions hold instructions the drafter does
-not lift (73 of them syscall wrappers).
+Functions of the games that no game path reaches: what they are, and which of them are cut or unfinished
+features worth bringing back (the "Game content" lists below). None of it is gibberish: every one is the game's own
+machine code. A dead flag means no reference was found, not that the function is proven unreachable: the scans
+miss computed calls, and a route that reaches a flagged function is always right over the flag.
 
-`tools/dead_code.py` sorts the flagged functions into the three groups below and writes the full
-table (address, group, flag, size, name, the other releases with a counterpart, module,
-counterpart name, strings) to `$ZAXIS_SCRATCH/dead-code/dead-code.tsv`. The table holds
-strings from the game's ELF, so it stays out of the repo. Rebuild the work database first
-(`tooling/dm2/tools/workdb.py build`), then run it with the venv that has duckdb:
-
-    $ZAXIS_SCRATCH/venv/bin/python -I tools/dead_code.py
+Aggressive Inline's table is a snapshot of 2026-10-26, from the flags column of the sweep manifests of then. The
+manifests are gone (the sweep was emptied in 2026-11: every function is in its named file, or a library's in
+`not_ported.tsv`), so `tooling/ai/tools/dead_code.py`, which read them, has no input until the flags have a new
+home (the work database). DM2's table is made from the ELF and the work database by
+`tooling/dm2/tools/dead_code_dm2.py` and still runs. Both write their tables to `$ZAXIS_SCRATCH/dead-code/`: they
+hold strings from the games' ELFs, so they stay out of the repository.
 
 ## The flags
 
 | Flag | Meaning | How it was decided |
 |---|---|---|
-| `dead` | no caller and no pointer to it in AI's PS2 ELF, or called only from such code | triggers1's scan of the ELF |
-| `port-dead` | live on PS2, but reached only through code the PC runtime replaces for good (printf, libmpeg and the IPU, the kernel, SIF, CD, GS setup) | triggers1 |
-| `script-dead` | its only way in is a script command or menu item that no shipped AI script uses | paths3, paths4, triggers1 |
-| `data-dead` | nothing in AI's PS2 data reaches it, but another game's or release's data does: it stays a target | paths5's and paths6's scans of DM2, BMX XXX and AI's Xbox and GameCube data |
-
-A `dead` flag means no reference was found, not that the function is proven unreachable: the scan
-misses computed calls. paths5 found fn_1FBBF8, flagged dead, running in Airfield's career editor,
-and took its flag off. A route that reaches a flagged function is always right over the flag.
+| `dead` | no caller and no pointer to it in AI's PS2 ELF, or called only from such code | a scan of the ELF |
+| `port-dead` | live on PS2, but reached only through code the PC runtime replaces for good (printf, libmpeg and the IPU, the kernel, SIF, CD, GS setup) | the same scan |
+| `script-dead` | its only way in is a script command or menu item that no shipped AI script uses | scans of AI's scripts |
+| `data-dead` | nothing in AI's PS2 data reaches it, but another game's or release's data does: it stays a target | scans of DM2's, BMX XXX's and AI's Xbox and GameCube data |
 
 ## The three groups (2026-10-26: 1,259 functions, 185 KB)
 
@@ -36,8 +29,7 @@ and took its flag off. A route that reaches a flagged function is always right o
 | Engine (NgEngine / ZGE3) | zge | 571 (538 dead, 29 data-dead, 4 script-dead) | 82 KB | 411 |
 | Game content | aggressive | 246 (194 dead, 33 data-dead, 19 script-dead) | 31 KB | 44 |
 
-paths6 (2026-10-26) flagged 63 more rows from the nine releases' data (paths6's xscan6.py, strscan.py
-and cmdscan.py, the images read in place; the reason column names the game and file). The last
+A scan of the nine releases' data (2026-10-26) flagged 63 more rows (the reason column names the game and file). The last
 column of the table above (also in DM2 or BMX XXX) is not counted again for them.
 
 - `script-dead`, 7: the zgui script commands STRCMP, LOADZSC, USE_STR, ROTQUATX, ROTQUATZ and
@@ -61,7 +53,7 @@ Not flagged, but no shipped data reaches them either: updateDynamics' per-body f
 (+0x398: FUN_0015A400) set only by FUN_0015B528, both `dead`; the decompressor (FUN_0013EA50 and its
 parts) runs for a ZDIR with CLEN (none on any release) or from FUN_001DEF30, which no route reached.
 
-Not flagged, with no way in from the game's own code (paths7; test routes reach some of them):
+Not flagged, with no way in from the game's own code (test routes reach some of them):
 - airTrickOnButtonReleased (0x1EE290): the air trick class registers a ButtonReleased handler, but
   ButtonReleased is sent only to a pole object (0x18C11C).
 - zfile's create (FUN_0013FAF0) calls device slot +0x50, past the 20 methods of every device table
@@ -72,26 +64,26 @@ Not flagged, with no way in from the game's own code (paths7; test routes reach 
   have no live caller (`cov-devapi` drives the dvd0, pcfs and rd00 ones by guest call).
 - The group 0x167DD0, 0x167DF8, 0x167F68, 0x167F90, 0x168098, 0x1680E0, 0x168140: only the table at
   0x273E08 refers to them, and only they use it.
-- The engine's pad recorder start FUN_0014C768 (record or play a pad file) has no caller (triggers1
+- The engine's pad recorder start FUN_0014C768 (record or play a pad file) has no caller (an earlier scan
   had it as the tail of padVibrate); `cov-padrec` starts it by guest call.
 - Text trick objects (kind 5) are made only by tellGoalsOver for the bonus goals, whose list only
   setBonusObjectiveState fills (called only in TUT/MOVIE.BIN, LOCAL/LOCALT.BIN and MP/LOCAL, which no
   menu loads), and by the native addBonusTrickToTrickQueue, which no script calls.
 - AI's TrafficLight object type (registerTrafficLightType 0x1E61A0) is registered by no shipped code.
-  paths8's `cov-trafficlight` registered it by guest call at the first frame in DM2's COMMERCI level
+  the test route `cov-trafficlight` registered it by guest call at the first frame in DM2's COMMERCI level
   converted to AI's formats (the cross-game levels, removed 2026-11-05: the route went with them, its
   recordings stay in corpus v5): the two lights were made and updated, 10 of the 18 functions; their path
   tags found no path record in the converted level, so setSegmentTrafficLight and the segment light states
   stayed unreached; gamehand23's `cov-gh23-z1` reaches them on a Movie Lot car's scene object made a light
   by guest calls, made-up data.
 
-Reached by paths8 only by test routes (guest calls: docs/DEVTOOLS.md; nothing in the game gets there; 285 functions
+Reached only by test routes (guest calls: docs/DEVTOOLS.md; nothing in the game gets there; 285 functions
 in `cov-*` folders of the corpus, each replay identical but matrixTransformPoints' cycles for a count of 0):
 - The mc00 device (the card as a zfile device): its 19 methods, the Ps2MemCard completions and the poll task, driven
   through the device wrappers and openFile/fileRead/fileWrite, and directly with a completion block (`cov-mc00`); needs
   `PS2X_MC_FD_BASE0=1` (this runtime numbers libmc's descriptors from 1, FUN_00121138 takes only an open that returns 0).
   Left of the card code: formatMemoryCard, findMemoryCard, endSaveJob, memoryCardTestWrite, appendRequiredSpaceText,
-  appendClientRequiredSpace, memoryCardFormatted (the NEEDFORMAT dialog: MANUAL-TESTS).
+  appendClientRequiredSpace, memoryCardFormatted (the NEEDFORMAT dialog).
 - zgui's type setters (uint8SetFloat .. vectorSetColor, zfloatSetInt): in the type tables' setFloat/setInt/setVector slots,
   which only operateFloats calls, for a ZFloat destination (`cov-zguiset`).
 - zcompres (decompressFileData, lzDecompress, decodeFileBlock and their copies) on token streams made for it
@@ -104,17 +96,17 @@ in `cov-*` folders of the corpus, each replay identical but matrixTransformPoint
 - Trick handlers: the input recorder's save and load of a skitch, pole, vault and wall trick (`cov-replay4`), the manual's
   TrickStartHolding and StoppedHolding (no manual animation has the event), ButtonReleased to an air trick, the pole's
   ButtonReleased (a press of the grab button on the pole: `tools/routes.py polebutton`).
-Still unreached with no caller and no data word (45; paths8's scan of the ELF: the call graph and every data word): the
+Still unreached with no caller and no data word (45; a scan of the ELF: the call graph and every data word): the
 emitter objects' effect functions (no asset has an emitter; deleting an emitter object crashes: a null call in
 destroyParticleEmitterObject), the particle system group, the scene database's animation library functions
 (loadLibraryModel, loadAnimationLibrary ...), zobjModel's library loaders, the animation stream reader, the CLEN and NAME chunk
 handlers, FUN_0013FAF0 (create), and the libkernl/libc stubs the runtime replaces.
 
-What reaching the `data-dead` rows would take in AI (paths6; nothing ported):
+What reaching the `data-dead` rows would take in AI (nothing ported):
 - BMX XXX's particle emitters, WSMC/WSMO: one of its level GEOs (CHL_DAM and the others) through
   AI's level loader, converted at build time.
 - NAME, ZFFD: BMX XXX's rider creator archives (CREATE/*.ZAL) loaded: content of a rider creator.
-- ZLIT/LITO: a level with those chunks (DM2's CLOVERLE in AI's formats: paths8's `cov-dm2cloverle` loaded it
+- ZLIT/LITO: a level with those chunks (DM2's CLOVERLE in AI's formats: the test route `cov-dm2cloverle` loaded it
   with the developer start and reached readZlitChunk and readLitoChunk; the route went with the cross-game
   levels on 2026-11-05, its recordings stay in corpus v5).
 - TrafficLight: a level with TrafficLight objects and the type registered (see above).
@@ -151,14 +143,14 @@ place to look when the engine has to run DM2's and BMX XXX's content as well as 
   functions BMX XXX's Xbox build names zparseParse.
 - 384 engine functions have no module yet (no module map entry, no counterpart source file and no
   string). DM2's ELF keeps the `.rodata` lines of its link map, which give the engine's object
-  files in link order (zgehand9); that is the way to place them.
+  files in link order; that is the way to place them.
 - 118 are in AI's PS2 build only and 11 in AI's Xbox and GameCube builds only: engine code no
   other game kept.
 
 ### Game content: cut and unfinished features to play with later
 
 AI's own code, 149 of the 210 in no other game or release. By module where known: the editors'
-tool set (editToolSet) 27, zgui types 14, inlineFx 7. What the paths rounds found:
+tool set (editToolSet) 27, zgui types 14, inlineFx 7. What the coverage work found:
 
 - A ragdoll crash: every player loads `edwards.zad`, a ragdoll of 10 bodies and 9 constraints and
   the only dynamics file with constraints on any AI disc. Its stepper (FUN_001A4968) has no caller
@@ -170,7 +162,7 @@ tool set (editToolSet) 27, zgui types 14, inlineFx 7. What the paths rounds foun
 - The input replay: a recorder and player of the players' input, which saves and restores their
   game objects. Reached only by a test call (routes `cov-replay`, `cov-replay2`); starting a
   recording hangs Boardwalk's free skate, and stopping within 50 vsyncs of a start hangs the game.
-- Named by names4 from the strings they use (readable_names.tsv): the memory-card save of
+- Named from the strings they use (readable_names.tsv): the memory-card save of
   `mc00:\ZAxis\globals.dat` (openGlobalsSave, createGlobalsFile, readGlobalsDirectory,
   writeGlobalsEntry, closeGlobalsSave: 0x1D7F88 to 0x1D8780) and `TESTGAM.SAV`
   (testSaveFileName), the `FrontEnd.ShowAll` command (showAllFrontEnd, with hideAllFrontEnd), the
@@ -206,7 +198,7 @@ reference was found: a computed call is not seen.
 | Engine (ZGE2, below 0x163280) | 387 (319 / 68) | 42 KB | 249 / 78 / 60 | 73 |
 | Game (DM2's own) | 118 (77 / 41) | 19 KB | 5 / 6 / 107 | 9 |
 
-- Libraries: listed, never rewritten (decision 2, 2026-11-06). Kernel call wrappers 95, libkernl 65,
+- Libraries: listed, never rewritten. Kernel call wrappers 95, libkernl 65,
   libcdvd 42, libdev 41, libvu0 34, libc 23, libmpeg 18, libgcc 12, libpad 11, libmc 9, libdma 8,
   libsdr 5; 302 are AI's code (identical), whose treatment applies (sce/sweep, not_ported.tsv). The
   versions are in game/dm2/libraries.tsv.
@@ -220,5 +212,4 @@ reference was found: a computed call is not seen.
   counterpart.
 - The work database's DM2 library bound was 0x1C2728, an SCE scan hit that is game code: the 173
   functions from there to 0x1CC800 (the level object types, EditObj_GapMarker to SpecialFX/zfxMgr.c)
-  are DM2's game layer (tooling/dm2/tools/workdb.py SCE_FALSE). src2plan's 702 (318 engine, 67 game,
-  317 library) are the same functions as this table's `dead` rows, split by the corrected bound.
+  are DM2's game layer (tooling/dm2/tools/workdb.py SCE_FALSE).

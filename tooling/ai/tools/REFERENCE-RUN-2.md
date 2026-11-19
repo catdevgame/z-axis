@@ -45,9 +45,7 @@ python3 pcsx2pad.py quit
 
 The Tutorial part took 3 min 16 s of game time (11,734 vsyncs) and about 4 min
 wall time. The Career part took 90 s of game time from boot (5,424 vsyncs) and
-about 2 min wall time. Every segment passed first time in the final runs. Both
-parts were also run once more before the final runs (Tutorial lessons 10-18 from
-a different start, Career from a fresh boot), with all checkpoints reached.
+about 2 min wall time.
 
 ## Scripts (`tools/scripts/`)
 
@@ -79,42 +77,28 @@ running).
 |---|---|
 | `balance grind\|manual FRAMES [KD] [EXTRA]` | holds a grind (LEFT/RIGHT) or manual (UP/DOWN) with a PD rule on the balance meter in the player object (+0x280 rails, +0x284 manuals): press the correcting button when `bal + KD * (change per frame)` is past +-0.02, KD 24. Stops when the meter and the combo points both read 0 for 10 frames (combo banked or lost). Without it, a grind after a switch falls off within ~35 frames and a manual within ~100 |
 | `chase ADDR BACK R [TIMEOUT] [GRAB] [UNTIL_Y]` | closed-loop pursuit of a moving object (vec3 at ADDR): first to a point BACK units behind it (opposite its measured motion), then at its back, holding GRAB within R; returns with GRAB held when the player's y drops below UNTIL_Y (lifted onto it) |
-| `save_state` retry | PCSX2 cancels a savestate while the memory card is busy ("The memory card is busy, so the state save operation has been cancelled to prevent data loss"), during a write and for a few seconds after. `savestate` / `checkpoint` now re-request it every 4 s (up to 8 times) until the file appears |
+| `save_state` retry | PCSX2 cancels a savestate while the memory card is busy ("The memory card is busy, so the state save operation has been cancelled to prevent data loss"), during a write and for a few seconds after. `savestate` / `checkpoint` re-request it every 4 s (up to 8 times) until the file appears |
 
 ## Where scripted play stops
 
 **Tutorial: at the start of "Cess Slides" (ref46).** The level has 25 lessons (its
 script objects are numbered `..._L2` to `..._L25`, e.g. `Scriptobj_qpipe_1_L19`,
-`Scriptobj_rail_3_L23`, `ScriptObj_Davehelper_L24`, `Scriptobj_qpipe_Lcess25`), so
-about 6 lessons remain after Cess Slides; the end of the Tutorial was not reached.
+`ScriptObj_Davehelper_L24`, `Scriptobj_qpipe_Lcess25`), so about 6 remain after it.
 The Cess Slides goal is "By using cess slides and manuals, perform a 5,000 point
-series of tricks chained together." Its two quarterpipes (`qpipe_1/2_L19` at
-x 4.53, z 4.32 and -8.85) face each other and form a small halfpipe. What was
-tried:
+series of tricks chained together", on two quarterpipes facing each other
+(`qpipe_1/2_L19` at x 4.53, z 4.32 and -8.85). A single long manual banks 5,000
+points but does not complete it (it wants several tricks); flat R2 is not a trick
+(R2 on landing in a pipe is); a jump into a manual banks separately. Chaining it
+needs a better controller than `goto` and `balance` (the line across the 11-unit
+halfpipe drifts).
 
-- a single manual held with `balance manual` while steering a circle and banked
-  with an ollie at 5,053 points (score 3,766 to 8,872): banked, but the goal does
-  not complete (it wants several tricks);
-- vert air on qpipe_1, R2 on landing (cess slide, counts as a trick when landing
-  in a pipe), manual across, up the other pipe, repeated: the HUD shows
-  "Cess Slide + Single Toe Manual + Cess Slide + Single Toe Manual, 2x", but each
-  pass adds only ~200 points and the multiplier rises slowly (602 points banked as
-  1,806), and the closed-loop line across the 11-unit-wide halfpipe drifts in x
-  until the skater misses a face or flies off its side;
-- flat R2 (not a trick), a jump + grab landed into a manual and an ollie from one
-  manual into another: each banks separately.
-
-So this goal would need a much better controller (or a human). Everything up to it
-replays reliably.
-
-**Career: after the first trick line in MOVIE LOT.** Not attempted: the CHALLENGES.
-"Skitch a bus" looks feasible with `chase` but the transit buses on the reachable
-lanes run at 0.417 to 0.583 units/frame and the skater tops out at ~0.39 on the
-flat, so it can only catch one when it stops (not observed). The juice pickups
-near the start float 10 to 25 units up (PropDef_PowerJuiceRefill at
-(233.78, -9.72, -146.65), (314.04, -25.86, -153.48)), out of reach of a flat
-ollie. No NPC is needed for the listed challenges; the NPC nodes (`NPC_HAMLET`,
-`NPC_ELVIS`, `NPC_MIME`, ...) exist but were not located in the world.
+**Career: after the first trick line in MOVIE LOT.** The CHALLENGES were not
+attempted. "Skitch a bus": the transit buses on the reachable lanes run at 0.417 to
+0.583 units/frame, the skater tops out at about 0.39 on the flat, so one can only be
+caught when it stops. The juice pickups near the start float 10 to 25 units up
+(PropDef_PowerJuiceRefill at (233.78, -9.72, -146.65), (314.04, -25.86, -153.48)),
+out of reach of a flat ollie. The NPC nodes (`NPC_HAMLET`, `NPC_ELVIS`, `NPC_MIME`,
+...) exist but were not located in the world.
 
 ## What the game shows
 
@@ -122,8 +106,7 @@ ollie. No NPC is needed for the listed challenges; the NPC nodes (`NPC_HAMLET`,
   the next lesson's title box, or a HINT box first. XP awards appear in the corner
   ("GRIND XP +3", "WALLRIDE XP +6"). Juice does not drain in the Tutorial (31.00 at
   every lesson start).
-- **MOVIE LOT start**: "Loading..." screen (an AI logo in the final run; in an
-  exploratory session it showed a skater card, "SHANE", instead), then a fly-thru of the studio lot (gate,
+- **MOVIE LOT start**: "Loading..." screen (an AI logo, or a skater card), then a fly-thru of the studio lot (gate,
   sound stages, ~500 level frames), then the skater stands on a footbridge over a
   divided boulevard, score 0. No tip boxes. Buses, cars and a pizza truck drive on
   the road below.

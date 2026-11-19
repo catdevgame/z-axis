@@ -39,6 +39,14 @@ namespace zge::vu0
     {
     public:
         Registers() : m_ctx(ee::t_ee.frame && ee::t_ee.frame->ctx ? ee::t_ee.frame->ctx : scratch()) {}
+        // A thread's second set of registers, not the running context's:
+        // work done beside a routine's own (the game's view culled beside
+        // the drawn one, render/node_tree.cpp) that leaves the context's
+        // registers and flags as the routine alone leaves them.
+        struct Beside
+        {
+        };
+        explicit Registers(Beside) : m_ctx(beside()) {}
         Registers(const Registers &) = delete;
         Registers &operator=(const Registers &) = delete;
 
@@ -258,6 +266,68 @@ namespace zge::vu0
             return &context;
         }
 
+        static R5900Context *beside()
+        {
+            static thread_local R5900Context context = []
+            {
+                R5900Context c{};
+                c.vu0_vf[0] = _mm_setr_ps(0.0f, 0.0f, 0.0f, 1.0f);
+                return c;
+            }();
+            return &context;
+        }
+
         R5900Context *m_ctx;
+    };
+
+    // The running context's VU0 registers and flags, put back as they were
+    // when this goes out of scope: work done in between (the game's view
+    // beside the drawn one, zge/scene/camera.cpp) leaves the routine's own
+    // registers as the routine alone leaves them.
+    class KeptRegisters
+    {
+    public:
+        KeptRegisters() : m_ctx(ee::t_ee.frame && ee::t_ee.frame->ctx ? ee::t_ee.frame->ctx : nullptr)
+        {
+            if (!m_ctx)
+                return;
+            for (int reg = 0; reg < 32; ++reg)
+                m_vf[reg] = m_ctx->vu0_vf[reg];
+            m_acc = m_ctx->vu0_acc;
+            m_r = m_ctx->vu0_r;
+            m_q = m_ctx->vu0_q;
+            m_p = m_ctx->vu0_p;
+            m_i = m_ctx->vu0_i;
+            m_status = m_ctx->vu0_status;
+            m_mac = m_ctx->vu0_mac_flags;
+            m_clip = m_ctx->vu0_clip_flags;
+            m_clip2 = m_ctx->vu0_clip_flags2;
+        }
+        ~KeptRegisters()
+        {
+            if (!m_ctx)
+                return;
+            for (int reg = 0; reg < 32; ++reg)
+                m_ctx->vu0_vf[reg] = m_vf[reg];
+            m_ctx->vu0_acc = m_acc;
+            m_ctx->vu0_r = m_r;
+            m_ctx->vu0_q = m_q;
+            m_ctx->vu0_p = m_p;
+            m_ctx->vu0_i = m_i;
+            m_ctx->vu0_status = m_status;
+            m_ctx->vu0_mac_flags = m_mac;
+            m_ctx->vu0_clip_flags = m_clip;
+            m_ctx->vu0_clip_flags2 = m_clip2;
+        }
+        KeptRegisters(const KeptRegisters &) = delete;
+        KeptRegisters &operator=(const KeptRegisters &) = delete;
+
+    private:
+        R5900Context *m_ctx;
+        __m128 m_vf[32]{};
+        __m128 m_acc{}, m_r{};
+        float m_q = 0.0f, m_p = 0.0f, m_i = 0.0f;
+        uint16_t m_status = 0;
+        uint32_t m_mac = 0, m_clip = 0, m_clip2 = 0;
     };
 }

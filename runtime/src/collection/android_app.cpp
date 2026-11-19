@@ -26,6 +26,7 @@
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -245,6 +246,67 @@ namespace ps2x_android
         return folder.string();
     }
 
+    // The app's tools for making each game's code (collection/game_code.h), but for its programs (the APK's native
+    // libraries): the APK's assets/game-code-tools, listed in its files.txt ("key <its key>", then one file a line),
+    // unpacked into the internal storage's game-code-tools when the APK's key is not the one unpacked there (a new
+    // APK, or none yet). The folder; empty if the APK has none.
+    std::string gameCodeTools()
+    {
+        namespace fs = std::filesystem;
+        const char *internal = SDL_GetAndroidInternalStoragePath();
+        size_t size = 0;
+        char *list = internal ? static_cast<char *>(SDL_LoadFile("game-code-tools/files.txt", &size)) : nullptr;
+        if (!list)
+            return {};
+        std::istringstream lines(std::string(list, size));
+        SDL_free(list);
+        std::string key;
+        std::getline(lines, key);
+        const fs::path folder = fs::path(internal) / "game-code-tools", stamp = folder / "unpacked.txt";
+        std::string unpacked;
+        {
+            std::ifstream in(stamp);
+            std::getline(in, unpacked);
+        }
+        if (unpacked == key)
+            return folder.string();
+        const auto t0 = std::chrono::steady_clock::now();
+        const fs::path partial = fs::path(internal) / "game-code-tools.partial";
+        std::error_code ec;
+        fs::remove_all(partial, ec);
+        size_t files = 0;
+        for (std::string name; std::getline(lines, name);)
+        {
+            if (name.empty())
+                continue;
+            size_t bytes = 0;
+            void *data = SDL_LoadFile(("game-code-tools/" + name).c_str(), &bytes);
+            fs::create_directories((partial / name).parent_path(), ec);
+            std::ofstream out(partial / name, std::ios::binary);
+            if (data)
+                out.write(static_cast<const char *>(data), static_cast<std::streamsize>(bytes));
+            SDL_free(data);
+            if (!data || !out)
+            {
+                std::fprintf(stderr, "[android] game code tools: %s not unpacked\n", name.c_str());
+                return {};
+            }
+            ++files;
+        }
+        std::ofstream(partial / "unpacked.txt") << key << '\n';
+        fs::remove_all(folder, ec);
+        fs::rename(partial, folder, ec);
+        if (ec)
+        {
+            std::fprintf(stderr, "[android] game code tools not kept in %s: %s\n", folder.c_str(), ec.message().c_str());
+            return {};
+        }
+        std::fprintf(stderr, "[android] game code tools: %zu files unpacked in %lld ms\n", files,
+                     static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::steady_clock::now() - t0).count()));
+        return folder.string();
+    }
+
     void prepareApp(int &argc, char **&argv)
     {
         const char *folder = SDL_GetAndroidExternalStoragePath();
@@ -258,6 +320,8 @@ namespace ps2x_android
         setenv("PS2X_APP_SUPPORT_DIR", (files + "/support").c_str(), 1);
         if (const std::string code = gameCodeFolder(files); !code.empty())
             setenv("PS2X_GAME_CODE_DIR", code.c_str(), 1);
+        if (const std::string tools = gameCodeTools(); !tools.empty())
+            setenv("PS2X_GAME_CODE_TOOLS", tools.c_str(), 1);
         // Developer switches, one NAME=value a line (the Activity takes no
         // environment): PS2X_PERF_LOG, PS2X_PAD_SCRIPT and the like.
         std::ifstream env(files + "/ps2x-env.txt");

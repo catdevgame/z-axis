@@ -41,7 +41,9 @@
 #                (USA)-xbox.iso), read only: DM2's Xbox-only levels, Venice and Greenville (PS2Recomp
 #                tools/dm2_xbox.py), into Resources/games/dm2/xbox-levels, for its Free Ride
 #                (Settings > Game > Xbox Levels), with the park editor's Desert and Highway and the
-#                gallery's Retro movie (Xbox Themes, Retro Movie); DM2_XBOX_LEVELS=0 leaves them out. The app never reads
+#                gallery's Retro movie (Xbox Themes, Retro Movie); DM2_XBOX_LEVELS=0 leaves them out; and its
+#                levels' Xbox textures (ps2xExtras xbox-pack) into Resources/games/dm2/xbox-pack (Xbox Textures),
+#                DM2_XBOX_PACK=0 leaves them out. The app never reads
 #                the image. Each game runs on its own riders and levels: none is made into another's.
 #   GC_IMAGE     optional: your Aggressive Inline GameCube disc image (RVZ or GCM/ISO; default
 #                $GAME_DISCS/aggressive inline/Aggressive Inline-gc.rvz), read
@@ -85,7 +87,9 @@
 #                BMX XXX-gc.rvz), read only: their challenge scripts, fuller French, German and
 #                Spanish, level-select previews, Z-Axis logo movie and the GameCube's Secret Level and
 #                test levels (PS2Recomp tools/bmx_releases.py),
-#                into Resources/games/bmx/releases, each behind its setting; BMX_RELEASES=0 leaves them out
+#                into Resources/games/bmx/releases, each behind its setting; BMX_RELEASES=0 leaves them out;
+#                and from the Xbox image its levels' and props' Xbox textures (ps2xExtras xbox-pack) into
+#                Resources/games/bmx/xbox-pack (Xbox Textures), BMX_XBOX_PACK=0 leaves them out
 #   GAMES        several games in one app, e.g. GAMES="ai dm2 bmx" (default: Aggressive
 #                Inline alone, as above). dm2 is Dave Mirra Freestyle BMX 2 from the
 #                DM2 workspace (DM2_ROOT, default ../dm2 beside this ai/ folder:
@@ -494,7 +498,7 @@ data $(data_print | shasum -a 256 | cut -c1-16)"
     rm -f $BUILD_DIR/.make-app-stamp
     cmake -S $PS2RECOMP -B $BUILD_DIR "${CMAKE_ARGS[@]}" >/dev/null
     # (BUILD_ONLY: the tools the bundle runs too, so FROM_BUILD needs nothing built)
-    TARGETS=(ps2EntryRunner); [[ -n $BUILD_ONLY ]] && TARGETS+=(ps2xNativeAssets ps2xXboxConvert ps2xGcConvert)
+    TARGETS=(ps2EntryRunner); [[ -n $BUILD_ONLY ]] && TARGETS+=(ps2xNativeAssets ps2xXboxConvert ps2xGcConvert ps2xExtras)
     $NINJA -C $BUILD_DIR $TARGETS
     [[ -n $STAMP ]] && print -r -- "$STAMP" > $BUILD_DIR/.make-app-stamp
   fi
@@ -664,6 +668,18 @@ if (( COLLECTION )) && (( ${GAMES[(Ie)dm2]} )); then
   else
     say "no DM2 Xbox image ($DM2_XBOX_ISO) or DM2_XBOX_LEVELS=0: no Venice and Greenville in DM2"
   fi
+  # DM2's Xbox textures: its levels' from the Xbox disc image, made as the extras' setup makes them (ps2xExtras
+  # xbox-pack --no-movies; collection/extras/setup.cpp), into Resources/games/dm2/xbox-pack, where the app reads a
+  # bundled game's pack (Xbox Textures). DM2_XBOX_PACK=0 leaves them out.
+  if [[ ${DM2_XBOX_PACK:-1} != 0 && -f $DM2_XBOX_ISO ]]; then
+    PS2XEXTRAS=$(tool ps2xExtras)
+    rm -rf $DIST/.dm2-xbox-pack
+    $PS2XEXTRAS xbox-pack --ps2 $DM2_CACHE --xbox "$DM2_XBOX_ISO" --out $DIST/.dm2-xbox-pack --no-movies \
+      | sed 's/^/[make-app] /' || die "ps2xExtras xbox-pack could not make DM2's Xbox textures from $DM2_XBOX_ISO"
+    cp -cR $DIST/.dm2-xbox-pack $APP/Contents/Resources/games/dm2/xbox-pack 2>/dev/null \
+      || cp -R $DIST/.dm2-xbox-pack $APP/Contents/Resources/games/dm2/xbox-pack
+    say "DM2's Xbox textures: $(du -sh $APP/Contents/Resources/games/dm2/xbox-pack | cut -f1)"
+  fi
 fi
 if (( COLLECTION )) && (( ${GAMES[(Ie)bmx]} )); then
   mkdir -p $APP/Contents/Resources/games/bmx
@@ -706,6 +722,18 @@ if (( COLLECTION )) && (( ${GAMES[(Ie)bmx]} )); then
     say "BMX XXX's Xbox and GameCube content: $(du -sh $APP/Contents/Resources/games/bmx/releases | cut -f1)"
   else
     say "no BMX XXX Xbox or GameCube image, or BMX_RELEASES=0: BMX XXX as its PS2 release alone"
+  fi
+  # BMX XXX's Xbox textures: its levels' and their props' (the ZAL archives) from the Xbox disc image, made as the
+  # extras' setup makes them (ps2xExtras xbox-pack --no-movies --archives), into Resources/games/bmx/xbox-pack, where
+  # the app reads a bundled game's pack (Xbox Textures). BMX_XBOX_PACK=0 leaves them out.
+  if [[ ${BMX_XBOX_PACK:-1} != 0 && -f $BMX_XBOX_ISO ]]; then
+    PS2XEXTRAS=$(tool ps2xExtras)
+    rm -rf $DIST/.bmx-xbox-pack
+    $PS2XEXTRAS xbox-pack --ps2 $BMX_CACHE --xbox "$BMX_XBOX_ISO" --out $DIST/.bmx-xbox-pack --no-movies --archives \
+      | sed 's/^/[make-app] /' || die "ps2xExtras xbox-pack could not make BMX XXX's Xbox textures from $BMX_XBOX_ISO"
+    cp -cR $DIST/.bmx-xbox-pack $APP/Contents/Resources/games/bmx/xbox-pack 2>/dev/null \
+      || cp -R $DIST/.bmx-xbox-pack $APP/Contents/Resources/games/bmx/xbox-pack
+    say "BMX XXX's Xbox textures: $(du -sh $APP/Contents/Resources/games/bmx/xbox-pack | cut -f1)"
   fi
 fi
 if [[ -d $XBOX_DIR ]]; then

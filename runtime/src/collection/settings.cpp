@@ -537,7 +537,8 @@ namespace ps2x::app
 
         GameSettingsProfile makeEveryOption()
         {
-            GameSettingsProfile every{{"", "", "Aggressive Inline"}, {}};
+            // (every game's draw distance changes the game: ps2_games.cpp)
+            GameSettingsProfile every{{"", "", "Aggressive Inline", true}, {}};
             for (int i = 0; i < static_cast<int>(GameOption::Count); ++i)
                 every.options.push_back(static_cast<GameOption>(i));
             return every;
@@ -631,11 +632,7 @@ namespace ps2x::app
                 << "scaling = " << (settings.scaling == Scaling::Integer ? "integer" : "smooth") << "\n";
             if (shared(GameOption::Widescreen))
                 out << "# 16:9: the game draws a wider view, stretched to 16:9 (movies and 2D screens stay 4:3).\n"
-                    << (scope == SettingsScope::App || game.viewChangesRandom
-                            ? "# Aggressive Inline: the wider view changes the random sequence compared with 4:3\n"
-                              "# play (its effects draw random numbers as they come into view); the game is\n"
-                              "# otherwise the same.\n"
-                            : "")
+                    << "# Drawn only: the game plays as at 4:3, so what is only at the sides stays still.\n"
                     << "widescreen = " << boolText(settings.widescreen) << "\n"
                     << "# Widescreen shape: 16:9 | 16:10 | 21:9 | 32:9 | window (follows the window's shape).\n"
                     << "aspect = " << kWideAspects[std::clamp(settings.wideAspect, 0, 4)] << "\n";
@@ -762,15 +759,12 @@ namespace ps2x::app
 
         if (option(GameOption::Tuning) || option(GameOption::CareerScripts) || option(GameOption::DrawDistance))
             out << "\n[gameplay]\n";
-        if (option(GameOption::DrawDistance) && game.drawDistanceChangesGame)
+        // (every game's draw distance changes the game: ps2_games.h drawDistanceChangesGame)
+        if (option(GameOption::DrawDistance))
             out << "# How far the view reaches before the fog: original | far | farthest. Beyond\n"
                 << "# original it changes the game (the cameras' far clip is the game's own state" << (bmx ? ",\n# and the models' levels of detail with it" : "")
-                << "). Applies at the next start.\n";
-        else if (option(GameOption::DrawDistance))
-            out << "# How far the view reaches before the fog: original | far | farthest (split screen\n"
-                << "# 100 -> 250 -> 1000; single player is at the game's maximum already).\n";
-        if (option(GameOption::DrawDistance))
-            out << "draw_distance = " << kDrawDistances[drawDistanceOf(settings, game)] << "\n";
+                << "). Applies at the next start.\n"
+                << "draw_distance = " << kDrawDistances[drawDistanceOf(settings, game)] << "\n";
         if (option(GameOption::Tuning) && bmx)
             out << "# ps2 | xbox: with the Xbox challenge scripts (xbox_challenges), Syracuse's two\n"
                 << "# timed challenges at the Xbox and GameCube releases' 60 seconds (the PS2's: 45).\n"
@@ -1167,6 +1161,38 @@ namespace ps2x::app
         }
     }
 
+    namespace
+    {
+        // The other releases' content's folders, by the boot name each is read by.
+        struct ReleaseFolder
+        {
+            const char *name;
+            const char *folder;
+        };
+        constexpr ReleaseFolder kReleaseFolders[] = {
+            {"PS2X_XBOX_DIR", "xbox"},                     // AI's Xbox files (runtime/ps2_xbox_disc.h)
+            {"PS2X_XBOX_CONVERTED", "xbox-converted"},     // the Zoo and the Ape made from them
+            {"PS2X_XBOX_PACK", "xbox-pack"},               // their textures, movies and skaters
+            {"PS2X_ESTATE_DIR", "estate"},                 // AI's GameCube Estate
+            {"PS2X_DM2_XBOX_LEVELS_DIR", "xbox-levels"},   // DM2's Xbox levels, themes and movie
+            {"PS2X_BMX_RELEASES_DIR", "releases"},         // BMX XXX's Xbox and GameCube content
+        };
+    }
+
+    std::vector<std::pair<std::string, std::filesystem::path>> releaseFolders(const BootFolders &folders)
+    {
+        std::vector<std::pair<std::string, std::filesystem::path>> out;
+        std::error_code ec;
+        for (const ReleaseFolder &release : kReleaseFolders)
+            for (const std::filesystem::path &root : {folders.extras, folders.resources})
+                if (!root.empty() && std::filesystem::is_directory(root / release.folder, ec))
+                {
+                    out.emplace_back(release.name, root / release.folder);
+                    break;
+                }
+        return out;
+    }
+
     ps2x::BootConfig gameBootConfig(const std::string &gameId, const Settings &settings, const AppPaths &paths,
                                     const GameSettingsProfile &profile, const BootFolders &folders,
                                     const GetEnv &getEnv)
@@ -1175,22 +1201,14 @@ namespace ps2x::app
         config.game = gameId;
         auto has = [&profile](GameOption option) { return profile.has(option); };
         auto flag = [](bool on) { return std::string(on ? "1" : "0"); };
-        std::error_code ec;
-        // An extra's folder: the one the setup made from the player's discs,
-        // else the one bundled with the app (a workshop build).
-        auto bundled = [&](const char *name, const char *folder)
+        // An extra's folder (releaseFolders): the one the setup made from the
+        // player's discs, else the one bundled with the app (a workshop build).
+        const std::vector<std::pair<std::string, std::filesystem::path>> releases = releaseFolders(folders);
+        auto bundled = [&](const char *name)
         {
-            for (const std::filesystem::path &root : {folders.extras, folders.resources})
-            {
-                if (root.empty())
-                    continue;
-                const std::filesystem::path dir = root / folder;
-                if (std::filesystem::is_directory(dir, ec))
-                {
+            for (const auto &[each, dir] : releases)
+                if (each == name)
                     config.set(name, dir.string());
-                    return;
-                }
-            }
         };
 
         if (!folders.gamepadMappings.empty())
@@ -1233,8 +1251,8 @@ namespace ps2x::app
         // (tools/make-app.sh; runtime/ps2_xbox_disc.h), and what the build
         // made from them in the PS2's formats (the Zoo, the Ape:
         // ps2xXboxConvert). Optional.
-        bundled("PS2X_XBOX_DIR", "xbox");
-        bundled("PS2X_XBOX_CONVERTED", "xbox-converted");
+        bundled("PS2X_XBOX_DIR");
+        bundled("PS2X_XBOX_CONVERTED");
         config.set("PS2X_SAVE_PROFILE", settings.saveProfile);
         // The game's own menus get the Settings screen (game override).
         config.set("PS2X_GAME_SETTINGS_MENUS", "1");
@@ -1250,13 +1268,13 @@ namespace ps2x::app
             config.set("PS2X_ZOO", flag(settings.zoo));
         // TUT/Estate made at build time from the GameCube disc
         // (ps2xGcConvert from tools/make-app.sh). Optional.
-        bundled("PS2X_ESTATE_DIR", "estate");
+        bundled("PS2X_ESTATE_DIR");
         if (has(GameOption::Estate))
             config.set("PS2X_ESTATE", flag(settings.estate));
         // Dave Mirra BMX 2's Xbox-only levels made into its PS2 formats at
         // build time (tools/dm2_xbox.py from tools/make-app.sh),
         // bundled with DM2's files. Optional.
-        bundled("PS2X_DM2_XBOX_LEVELS_DIR", "xbox-levels");
+        bundled("PS2X_DM2_XBOX_LEVELS_DIR");
         if (has(GameOption::Dm2XboxLevels))
             config.set("PS2X_DM2_XBOX_LEVELS", flag(settings.dm2XboxLevels));
         // From the same folder (game override): the park editor's Desert and
@@ -1295,7 +1313,7 @@ namespace ps2x::app
         // BMX XXX's Xbox and GameCube releases' content made into its PS2
         // formats at build time (tools/bmx_releases.py from tools/make-app.sh),
         // bundled with its files, each behind its setting (game override). Optional.
-        bundled("PS2X_BMX_RELEASES_DIR", "releases");
+        bundled("PS2X_BMX_RELEASES_DIR");
         if (has(GameOption::BmxXboxChallenges))
             config.set("PS2X_BMX_XBOX_CHALLENGES", flag(settings.bmxXboxChallenges));
         if (has(GameOption::BmxEditorPieces))
@@ -1331,7 +1349,7 @@ namespace ps2x::app
         // The Xbox release's textures and movies, converted from the user's
         // Xbox disc when the app was built (tools/make-app.sh):
         // Resources/xbox-pack. The game override reads them from there.
-        bundled("PS2X_XBOX_PACK", "xbox-pack");
+        bundled("PS2X_XBOX_PACK");
         config.set("PS2X_XBOX_TEXTURES", flag(settings.xboxTextures));
         config.set("PS2X_XBOX_MOVIES", flag(settings.xboxMovies));
         config.set("PS2X_XBOX_MODELS", flag(settings.xboxSkaters));

@@ -16,7 +16,7 @@ namespace
     // The keys the games' pages show today (runtime/src/collection/app.cpp
     // registerSettings, lib/gs/gs_quality.cpp, lib/ps2_pad.cpp
     // registerControlSettings, the overrides' *_gameplay.cpp, *_sound.cpp,
-    // dave_mirra_volumes.cpp, *_native.cpp, aggressive_inline_xbox.cpp,
+    // dave_mirra_volumes.cpp, *_native.cpp, zge_xbox_textures.cpp,
     // _disc.cpp, _movies.cpp). The key and pad rows are one per game action
     // (controls.key.jump, controls.pad.jump): one of each stands for them.
     const char *const kRegisteredKeys[] = {

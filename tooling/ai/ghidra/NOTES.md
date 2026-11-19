@@ -1,6 +1,6 @@
 # Ghidra function map for Aggressive Inline (SLUS_203.27)
 
-Builds the PS2Recomp function map (`recomp/ghidra-functions.csv`) and config (`recomp/config.toml`)
+Builds the recompiler's function map (`recomp/ghidra-functions.csv`) and config (`recomp/config.toml`)
 from `extracted/SLUS_203.27` with Ghidra 12.1.4 running headless.
 
 ## Processor language
@@ -11,7 +11,7 @@ macro-mode instructions wrongly. So the pipeline uses:
 
 - **ghidra-emotionengine-reloaded v2.1.38**, the prebuilt release for Ghidra 12.1.4
   (`downloads/ghidra_12.1.4_PUBLIC_20261004_ghidra-emotionengine-reloaded.zip`, from
-  github.com/chaoticgd/ghidra-emotionengine-reloaded). I didn't have to build it.
+  github.com/chaoticgd/ghidra-emotionengine-reloaded).
 - Language **`r5900:LE:32:default`** ("Emotion Engine (Play Station 2) R5900 MIPS Core"), compiler spec `default`.
 - The extension is installed in a **project-local Ghidra settings dir**, so nothing outside
   `ghidra/` changes: `settings/ghidra/ghidra_12.1.4_PUBLIC/Extensions/ghidra-emotionengine-reloaded/`.
@@ -41,7 +41,7 @@ tail -f logs/pipeline.out
 
 | stage | what it does |
 |---|---|
-| 0 | `sce_scan.py extract` pulls `symbols.json`/`tree.json` out of PS2Recomp's embedded `sce_symbol_database_data.h` (read-only) into `sce-db/`. `sce_scan.py scan` matches SDK functions in `.text` and writes `sce-db/sce-matches.csv`. Then the project is recreated |
+| 0 | `sce_scan.py extract` pulls `symbols.json`/`tree.json` out of the analyzer's embedded `sce_symbol_database_data.h` (`tooling/recompiler/ps2xAnalyzer`, read-only) into `sce-db/`. `sce_scan.py scan` matches SDK functions in `.text` and writes `sce-db/sce-matches.csv`. Then the project is recreated |
 | 1 | import with `-processor r5900:LE:32:default -cspec default`. `PrepareEEProgram.java` clears the execute bit on every block except `.text`: `.vutext` and the 8 `.DVP.overlay.*` VU microcode sections, plus the extension's `vu0.code`/`vu1.code`/`iop_ram` placeholders. VU code is never disassembled as EE code and never exported |
 | 2 | `SetAnalyzerOption.java "Shared Return Calls=false"`, then `ApplySceSymbols.java`, then full auto-analysis |
 | 3 | turn off "Non-Returning Functions - Discovered", then `FixNoReturn.java` and `FixSwitchTables.java`, then re-analysis |
@@ -50,7 +50,7 @@ tail -f logs/pipeline.out
 | 6 | verify: dry runs of all the fixers (all must report 0 left to do; 6 dead branch stubs are expected) |
 | 7 | `MapQualityReport.java` writes `reports/` |
 | 8 | `ExportPS2FunctionsHeadless.java` writes `recomp/config.toml` and `recomp/ghidra-functions.csv` |
-| 9 | the readable write-back on a copy, `project-readable/` (the project stays as stage 8 exported it): `dm2/tools/readable_ghidra.py gen ai_ps2 readable` writes `readable/readable-ai_ps2.jsonl` and `.h` from the work database and the readable sources, `tools/ghidra/readable_pass.sh` applies them with `ApplyReadable.java`, checks them read-only and writes `readable/AggressiveInline-decomp.c` (dave-mirra-bmx2 MATCH3.md section 7). Skipped without the DM2 repo |
+| 9 | the readable write-back on a copy, `project-readable/` (the project stays as stage 8 exported it): `tooling/dm2/tools/readable_ghidra.py gen ai_ps2 readable` writes `readable/readable-ai_ps2.jsonl` and `.h` from the work database and the readable sources, `tooling/dm2/tools/ghidra/readable_pass.sh` applies them with `ApplyReadable.java`, checks them read-only and writes `readable/AggressiveInline-decomp.c` (`tooling/dm2/MATCH3.md` section 7). Skipped when `DM2_REPO` (default `tooling/dm2`) has no `readable_pass.sh` |
 
 To run a single script against the saved project:
 
@@ -63,17 +63,17 @@ scripts/run-ghidra.sh -process SLUS_203.27 -noanalysis -readOnly \
 
 - `run-ghidra.sh`: wrapper around `$(brew --prefix ghidra)/libexec/support/analyzeHeadless` with
   JAVA_HOME=openjdk@21, 6 GB heap, the local settings dir and project `project/AggressiveInline`.
-- `ExportPS2FunctionsHeadless.java`: copy of `recompiler/ps2xRecomp/tools/ghidra/ExportPS2Functions.java`
+- `ExportPS2FunctionsHeadless.java`: copy of `tooling/recompiler/ps2xRecomp/tools/ghidra/ExportPS2Functions.java`
   with two changes. (1) Script args `<config.toml> <functions.csv> [input_elf] [output_dir]` replace the
   `askFile` dialogs and set `[general].input`/`output`. (2) Non-function code labels (`caseD_*`, `switchD_*`,
   `default`) are exported as `entry_XXXXXXXX`. The upstream script exports them under their Ghidra label
   names. Those names repeat (756 duplicates) and the recompiler only treats `entry_*` names as nested
   synthetic entries, so upstream turned every switch case into a fake top-level function.
-- `sce_scan.py`: a Python port of `recompiler/ps2xAnalyzer/src/sce_symbol_scanner.cpp`: match tree, relocation masking,
+- `sce_scan.py`: a Python port of `tooling/recompiler/ps2xAnalyzer/src/sce_symbol_scanner.cpp`: match tree, relocation masking,
   SHA-1, at least 256 static bits, one identity per address.
 - `ApplySceSymbols.java`: SCE names become function entry points before analysis, so the export's
   name-based stub classification sees them.
-- `ApplyReadable.java`: the readable write-back (stage 9, and the DM2 repo's pipelines for the
+- `ApplyReadable.java`: the readable write-back (stage 9, and `tooling/dm2/tools/ghidra`'s pipelines for the
   other builds): parses the generated header with Ghidra's C parser into `/readable`, renames the
   functions (the old name kept in the `ReadableOriginalName` property map, a loader or SCE name as a
   secondary label), applies the signatures (default convention, the EE's EABI), types the globals,
@@ -100,7 +100,7 @@ scripts/run-ghidra.sh -process SLUS_203.27 -noanalysis -readOnly \
 
 ## Outputs
 
-- `../recomp/ghidra-functions.csv`: the PS2Recomp map, `Name,Start,End,Size`. It has 6324 Ghidra functions
+- `../recomp/ghidra-functions.csv`: the recompiler's map, `Name,Start,End,Size`. It has 6324 Ghidra functions
   plus 19936 `entry_*` synthetic labels. The labels are branch targets and address-taken code; this is
   upstream script behaviour, and the recompiler treats nested `entry_*` labels as wrappers.
 - `../recomp/config.toml`: `input` = the ELF, `output` = `recomp/generated`, `ghidra_output` = the CSV.
@@ -111,7 +111,7 @@ scripts/run-ghidra.sh -process SLUS_203.27 -noanalysis -readOnly \
   and the functions that reference it. `reports/function-source.csv` is the same data inverted (function to paths).
 - `sce-db/sce-matches.csv`: 582 SCE SDK matches (address, size, name, library).
 
-## Results (last run)
+## Results
 
 - 6324 functions. 1,223,620 of 1,235,764 `.text` bytes are inside functions (99.02%).
   The remainder is 12,096 B of zero/nop padding (3010 ranges) and 48 B of dead `b` stubs (6 of them, in the -O0

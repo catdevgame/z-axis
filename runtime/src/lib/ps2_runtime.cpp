@@ -1317,7 +1317,7 @@ float PS2Runtime::wideAspect() const
 {
     const float setting = wideAspectSetting();
     const float aspect = setting > 0.0f ? setting : m_windowAspect.load(std::memory_order_relaxed);
-    // The window's shape reaches the game's logic (GameSettingsProfile::viewChangesRandom): a play recording keeps it.
+    // A play recording keeps the window's shape (Camera Xbox's drawn field of view follows it).
     return play_recording::read(play_recording::Channel::ViewAspect, std::clamp(aspect, 4.0f / 3.0f, 32.0f / 9.0f));
 }
 

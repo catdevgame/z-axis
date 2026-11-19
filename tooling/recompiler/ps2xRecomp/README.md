@@ -6,8 +6,8 @@ checkout's root.
 
 ## Modules
 
-* `ps2xAnalyzer`: scans ELF/functions and writes TOML config (`stubs`, `skip`, instruction patches).
-* `ps2xRecomp`: reads TOML + ELF, decodes R5900 instructions, and generates C++ output.
+* `tooling/recompiler/ps2xAnalyzer`: scans ELF/functions and writes TOML config (`stubs`, instruction patches).
+* `tooling/recompiler/ps2xRecomp`: reads TOML + ELF, decodes R5900 instructions, and generates C++ output.
 * `runtime`: hosts memory, function registration, syscall dispatch, and hardware stubs.
 * `iop`: R3000A IRX execution, a virtual IOP kernel, and generic HLE fallbacks.
 
@@ -34,11 +34,11 @@ The translated code is very literal, with each MIPS instruction mapping to a C++
 * `stubs` entries generate wrappers that call known runtime syscall/stub handlers by name.
 * `stubs` also supports address bindings with `handler@0xADDRESS` for stripped games (for example `sceCdRead@0x00123456`).
 * Address bindings also support generic return handlers for triage: `ret0`, `ret1`, `reta0`.
-* Recompiler now tries relocation-symbol auto-binding at callsites (`J/JAL`) before raw address dispatch; when relocation symbol is known (for example `sceCdRead`), it can call runtime handlers without manual address mapping.
+* The recompiler tries relocation-symbol auto-binding at callsites (`J/JAL`) before raw address dispatch; when relocation symbol is known (for example `sceCdRead`), it can call runtime handlers without manual address mapping.
 * Recompiler discovers additional internal static entry targets and emits `entry_...` wrappers for those addresses.
 * For unresolved static `J/JAL` sites, generated code falls back to `runtime->lookupFunction(0x...)`.
 * `skip` entries are not recompiled and generate explicit `ps2_stubs::TODO_NAMED(...)` wrappers.
-* Recompiled `SYSCALL` now calls `runtime->handleSyscall(...)` with the encoded syscall immediate.
+* Recompiled `SYSCALL` calls `runtime->handleSyscall(...)` with the encoded syscall immediate.
 * Runtime syscall dispatch tries encoded syscall ID first, then falls back to `$v1`.
 
 ## Usage
@@ -46,7 +46,8 @@ The translated code is very literal, with each MIPS instruction mapping to a C++
 Preferred workflow for retail or stripped games:
 
 1. Open the ELF in Ghidra.
-2. Run `ps2xRecomp/tools/ghidra/ExportPS2Functions.java`.
+2. Run `tooling/recompiler/ps2xRecomp/tools/ghidra/ExportPS2Functions.java` (headless, as the games' workspaces do:
+   `tooling/ai/ghidra/NOTES.md`).
 3. Use the exported TOML and CSV map.
 4. Recompile with the exported TOML:
 
@@ -54,13 +55,14 @@ Preferred workflow for retail or stripped games:
 ./ps2_recomp config.toml
 ```
 
-Fallback workflow for quick local experiments or ELFs with debug symbol :
+Fallback workflow for quick local experiments or ELFs with debug symbols:
 
 ```bash
 ./ps2_analyzer your_game.elf config.toml
 ```
 
-See the [Ghidra Workflow](../ps2xAnalyzer/Readme.md#3-ghidra-integration-for-retail-and-stripped-games-preferred) for Ghidra instructions.
+See the [Ghidra workflow](../ps2xAnalyzer/Readme.md#4-ghidra-integration) for Ghidra instructions. For the three
+games, `tooling/recompile.sh` makes each game's config (`recomp/tools/make-config.py`) and runs the recompiler.
 
 Then build generated output and link with the runtime (`runtime/`).
 
@@ -79,7 +81,17 @@ Main fields in `config.toml`:
 * `general.patch_cache`: apply configured patches to CACHE instructions.
 * `general.stubs`: names to force as stubs. Also accepts `handler@0xADDRESS` to bind a stripped function address directly to a runtime syscall/stub handler. Includes generic handlers `ret0`, `ret1`, `reta0`.
 * `general.skip`: names to force as skipped wrappers.
+* `general.recompile`: names (exact, `prefix*` or `name@0xADDR`) recompiled from the ELF even when the runtime has a
+  handler of the same name.
+* `general.entry_points`: guest functions without runtime handlers that may be reached by address.
+* `general.namespace`: wrap the generated code in this C++ namespace and register its function table with the runtime
+  by name instead of defining the global table (several games in one executable: DM2's and BMX XXX's
+  `generated-ns`).
 * `patches.instructions`: raw instruction replacements by address.
+* `[vu1] microprogram_chain`: the address of the DMA chain the game's renderer sends VIF1 its VU1 microprograms with
+  (`microprogram_chain_tte`: whether that DMA has CHCR.TTE, default true). With a chain the recompiler writes the
+  micro memory image it leaves, `<hash>.vu1code`, beside the generated code (`runtime/tools/VU1_AOT.md`).
+* `[mmio]`, `[jump_tables]`: per-instruction MMIO addresses and jump tables, as the analyzer writes them.
 
 Address binding for stripped ELFs:
 

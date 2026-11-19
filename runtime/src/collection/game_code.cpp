@@ -18,6 +18,19 @@
 #include <thread>
 #include <vector>
 
+#if defined(__ANDROID__)
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <cstring>
+
+extern char **environ;
+#endif
+
 namespace ps2x::app
 {
     namespace
@@ -89,7 +102,31 @@ namespace ps2x::app
         // Generated sources compiled as one unit (the workshop's unity batch, runtime/CMakeLists.txt).
         constexpr size_t kUnitSources = 32;
 
-        fs::path tool(const GameCodeTools &tools, const char *name) { return tools.root / "bin" / (std::string(name) + kExe); }
+#if defined(__ANDROID__)
+        // The APK's native libraries, lib<name>.so (an Android app runs programs from its native library folder alone):
+        // the compiler as libclang.so, so its name says nothing of C++ (the compile says --driver-mode=g++), the linker
+        // as liblld.so, which says no flavour either (the link says -flavor gnu).
+        constexpr bool kProgramsNamed = false;
+        fs::path tool(const GameCodeTools &tools, const char *name)
+        {
+            const std::string program = name == std::string("clang++") ? "clang"
+                                        : name == std::string("ld.lld") ? "lld" : name;
+            return tools.programs / ("lib" + program + ".so");
+        }
+        // The folder of the library this code is in (libps2EntryRunner.so): the app's native library folder.
+        fs::path programsFolder(const fs::path &)
+        {
+            Dl_info info{};
+            if (dladdr(reinterpret_cast<const void *>(&programsFolder), &info) && info.dli_fname)
+                return fs::path(info.dli_fname).parent_path();
+            return {};
+        }
+#else
+        // (the programs' own names: clang++ is the C++ driver, and each linker's name is its flavour)
+        constexpr bool kProgramsNamed = true;
+        fs::path tool(const GameCodeTools &tools, const char *name) { return tools.programs / (std::string(name) + kExe); }
+        fs::path programsFolder(const fs::path &root) { return root / "bin"; }
+#endif
         fs::path linker(const GameCodeTools &tools)
         {
 #if defined(__APPLE__)
@@ -99,6 +136,18 @@ namespace ps2x::app
 #else
             return tool(tools, "ld.lld");
 #endif
+        }
+        // The compiler's own headers (lib/clang/<version>), as -resource-dir: where the compiler looks for them by
+        // itself only when it is in bin/ beside them.
+        fs::path resourceFolder(const GameCodeTools &tools)
+        {
+            std::error_code ec;
+            for (const auto &item : fs::directory_iterator(tools.root / "lib" / "clang", ec))
+            {
+                if (item.is_directory(ec))
+                    return item.path();
+            }
+            return {};
         }
         fs::path sdk(const GameCodeTools &tools) { return tools.root / "sdk"; }
         fs::path gameInputs(const GameCodeTools &tools, const std::string &id) { return tools.root / "games" / id; }
@@ -123,6 +172,56 @@ namespace ps2x::app
         }
 
         // A program run to its end: its exit code, and what it printed (stdout and stderr together).
+#if defined(__ANDROID__)
+        // (SDL makes no processes on Android: posix_spawn, as its POSIX processes are made elsewhere; a program a
+        // signal stopped, the system's low-memory killer's included, exits 128 + the signal)
+        bool runProgram(const std::vector<std::string> &args, std::string &output, int &exitCode)
+        {
+            std::vector<char *> argv;
+            for (const std::string &a : args)
+                argv.push_back(const_cast<char *>(a.c_str()));
+            argv.push_back(nullptr);
+            exitCode = -1;
+            int pipes[2];
+            if (pipe2(pipes, O_CLOEXEC) != 0)
+            {
+                output = "could not start " + args[0] + ": " + std::strerror(errno);
+                return false;
+            }
+            posix_spawn_file_actions_t actions;
+            posix_spawn_file_actions_init(&actions);
+            posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+            posix_spawn_file_actions_adddup2(&actions, pipes[1], STDOUT_FILENO);
+            posix_spawn_file_actions_adddup2(&actions, pipes[1], STDERR_FILENO);
+            pid_t pid = 0;
+            const int spawned = posix_spawn(&pid, argv[0], &actions, nullptr, argv.data(), environ);
+            posix_spawn_file_actions_destroy(&actions);
+            close(pipes[1]);
+            if (spawned != 0)
+            {
+                close(pipes[0]);
+                output = "could not start " + args[0] + ": " + std::strerror(spawned);
+                return false;
+            }
+            output.clear();
+            char buffer[4096];
+            for (;;)
+            {
+                const ssize_t got = read(pipes[0], buffer, sizeof buffer);
+                if (got > 0)
+                    output.append(buffer, static_cast<size_t>(got));
+                else if (got == 0 || errno != EINTR)
+                    break;
+            }
+            close(pipes[0]);
+            int status = 0;
+            while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+            {
+            }
+            exitCode = WIFEXITED(status) ? WEXITSTATUS(status) : WIFSIGNALED(status) ? 128 + WTERMSIG(status) : -1;
+            return exitCode == 0;
+        }
+#else
         bool runProgram(const std::vector<std::string> &args, std::string &output, int &exitCode)
         {
             std::vector<const char *> argv;
@@ -150,6 +249,7 @@ namespace ps2x::app
             SDL_DestroyProcess(process);
             return exitCode == 0;
         }
+#endif
 
         // The recompiler's config for this disc: the bundled one with its paths made this build's.
         std::string recompilerConfig(const std::string &config, const fs::path &elf, const fs::path &output,
@@ -205,6 +305,7 @@ namespace ps2x::app
     bool GameCodeTools::open(const fs::path &folder, std::string *error)
     {
         root = folder;
+        programs = programsFolder(folder);
         for (const fs::path &need : {tool(*this, "clang++"), linker(*this), tool(*this, "ps2_recomp"),
                                      sdk(*this) / "include" / "ps2_generated.h", sdk(*this) / "module_entry.cpp",
                                      sdk(*this) / "vu" / "ps2_vu1_core.cpp",
@@ -292,8 +393,62 @@ namespace ps2x::app
         }
         std::string output;
         int exitCode = 0;
-        if (!runProgram({tool(tools, "ps2_recomp").string(), (work / "config.toml").string()}, output, exitCode) ||
-            !fs::exists(generated / "register_functions.cpp", ec))
+        // (run so that the setup's Stop ends it: the recompiler takes a minute or two on a desktop, its output read
+        // on a thread while the setup is asked every tenth of a second, the process killed when it says stop;
+        // Android's, a few seconds, runs as runProgram runs it)
+        bool stopped = false;
+        auto recompile = [&](const std::vector<std::string> &args) -> bool
+        {
+#if defined(__ANDROID__)
+            return runProgram(args, output, exitCode);
+#else
+            std::vector<const char *> argv;
+            for (const std::string &a : args)
+                argv.push_back(a.c_str());
+            argv.push_back(nullptr);
+            SDL_PropertiesID props = SDL_CreateProperties();
+            SDL_SetPointerProperty(props, SDL_PROP_PROCESS_CREATE_ARGS_POINTER, argv.data());
+            SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDIN_NUMBER, SDL_PROCESS_STDIO_NULL);
+            SDL_SetNumberProperty(props, SDL_PROP_PROCESS_CREATE_STDOUT_NUMBER, SDL_PROCESS_STDIO_APP);
+            SDL_SetBooleanProperty(props, SDL_PROP_PROCESS_CREATE_STDERR_TO_STDOUT_BOOLEAN, true);
+            SDL_Process *process = SDL_CreateProcessWithProperties(props);
+            SDL_DestroyProperties(props);
+            if (!process)
+            {
+                output = std::string("could not start ") + args[0] + ": " + SDL_GetError();
+                exitCode = -1;
+                return false;
+            }
+            std::atomic<bool> ended{false};
+            void *data = nullptr;
+            size_t size = 0;
+            int code = -1;
+            std::thread reader([&]
+            {
+                data = SDL_ReadProcess(process, &size, &code);
+                ended = true;
+            });
+            while (!ended)
+            {
+                if (!report("Recompiling", 0, 1))
+                {
+                    SDL_KillProcess(process, true);
+                    stopped = true;
+                    break;
+                }
+                SDL_Delay(100);
+            }
+            reader.join();
+            output.assign(data ? static_cast<const char *>(data) : "", data ? size : 0);
+            SDL_free(data);
+            SDL_DestroyProcess(process);
+            exitCode = code;
+            return !stopped && exitCode == 0;
+#endif
+        };
+        if (!recompile({tool(tools, "ps2_recomp").string(), (work / "config.toml").string()}) && stopped)
+            return fail("");
+        if (exitCode != 0 || !fs::exists(generated / "register_functions.cpp", ec))
             return fail("Recompiling the game's code failed (" + std::to_string(exitCode) + "):\n" +
                         firstLines(output.substr(output.size() > 4000 ? output.size() - 4000 : 0), 20));
 
@@ -356,12 +511,17 @@ namespace ps2x::app
         std::vector<std::string> vu1AotFlags = vu1Flags;
         for (const std::string &flag : moduleFlags(tools, {"vu1aot"}))
             vu1AotFlags.push_back(flag);
-        std::vector<std::string> common = {tool(tools, "clang++").string(), std::string("--target=") + platform.triple,
+        std::vector<std::string> common = {tool(tools, "clang++").string()};
+        if (!kProgramsNamed)
+            common.push_back("--driver-mode=g++");
+        if (const fs::path resources = resourceFolder(tools); !kProgramsNamed && !resources.empty())
+            common.insert(common.end(), {"-resource-dir", resources.string()});
+        common.insert(common.end(), {std::string("--target=") + platform.triple,
                                            "-std=gnu++20", "-O3", "-DNDEBUG", "-DPS2X_GAME_MODULE_ID=" + request.id,
                                            "-DPS2X_GAME_MODULE_SHARED=1", "-I" + generated.string(),
                                            "-I" + (sdk(tools) / "include").string(), "-isystem",
                                            (sdk(tools) / "include" / "game_module" / "libc").string(),
-                                           "-Wno-return-type"};
+                                           "-Wno-return-type"});
         for (const std::string &flag : moduleFlags(tools, {"all", platform.arch}))
             common.push_back(flag);
         if (platform.link == LinkKind::Elf)
@@ -438,7 +598,7 @@ namespace ps2x::app
         }
         const fs::path built = work / (std::string("module") + platform.extension);
         std::vector<std::string> link = {linker(tools).string()};
-        if (platform.link != hostTarget().link)
+        if (platform.link != hostTarget().link || !kProgramsNamed)
             link.insert(link.end(), {"-flavor", platform.link == LinkKind::MachO ? "darwin"
                                                 : platform.link == LinkKind::Coff ? "link" : "gnu"});
         if (platform.link == LinkKind::MachO)
@@ -464,6 +624,16 @@ namespace ps2x::app
         report("Done", 1, 1);
         return true;
     }
+    std::filesystem::path gameCodeCache(const std::filesystem::path &gameDir)
+    {
+#if defined(__ANDROID__)
+        // (the external files folder, where the game's folder is, is mounted noexec: Android loads no library there)
+        if (const char *internal = SDL_GetAndroidInternalStoragePath())
+            return fs::path(internal) / "game-code" / gameDir.filename();
+#endif
+        return gameDir / "code";
+    }
+
     std::string gameCodeGame(const GameCodeTools &tools, const std::string &id, const std::filesystem::path &elf)
     {
         std::error_code ec;

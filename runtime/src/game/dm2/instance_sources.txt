@@ -50,6 +50,7 @@ zge/debug/profiler.cpp
 zge/debug/profiler_label.cpp
 zge/host/class_draws.cpp
 zge/host/disc_device.cpp
+zge/host/game_view.cpp
 zge/host/movie_stream.cpp
 zge/input/pad_driver.cpp
 zge/input/pads.cpp

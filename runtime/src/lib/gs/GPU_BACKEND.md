@@ -1,21 +1,20 @@
-# GS hardware renderer on SDL_GPU (prototype)
+# GS hardware renderer on SDL_GPU
 
 `GSGpuBackend` (`include/runtime/gs/gs_gpu_backend.h`, `gs_gpu_backend.cpp`,
 shaders in `gs_gpu_shaders_msl.h` and `gs_gpu_shaders.hlsl`) is a `GSRasterBackend` that draws GS
 primitives with SDL3's GPU API instead of the CPU rasterizer, at the GS
 resolution or an integer multiple of it (2x, 3x, 4x ...), the way PCSX2's
-hardware renderer does. Metal on macOS (hand-written MSL) and Direct3D 12
-on Windows (the same shaders in HLSL); Vulkan would need SPIR-V.
+hardware renderer does. Metal on macOS (hand-written MSL), Direct3D 12
+on Windows and Vulkan on Android (the same shaders in HLSL, compiled to DXIL
+or SPIR-V at build time).
 
-Status: works on every recorded trace of Aggressive Inline (menus, Tutorial
-with the skater shadow and the puddle reflections, MOVIE LOT, split screen)
-and in the game: the window shows the upscaled picture straight from the GPU
-(no read-back), with widescreen, movies and the front end. In the app it is
-View > Renderer (CPU, or GPU at 1x-4x, switched while running). It is the
-app's default (GPU at 3x; `settings.ini` without a `renderer` line); it is
-not bit-exact (that stays the CPU renderer's job, one click away, and the
+It draws the three games on the GPU and the window shows the upscaled picture
+straight from it (no read-back), with widescreen, movies and the front end. It
+is the app's default (GPU at 3x, 2x on Android; `settings.ini` without a
+`renderer` line) and a Display setting (CPU, or GPU at 1x-4x, switched while
+running). It is not bit-exact: that stays the CPU renderer's job, and the
 developer runner and the test tools keep using it unless
-`PS2X_GS_BACKEND=gpu`).
+`PS2X_GS_BACKEND=gpu`.
 
 ## Build and use
 
@@ -133,16 +132,17 @@ Rules:
 ### Replacement pictures
 
 `runtime/ps2_texture_replace.h` holds host-side pictures that stand in
-for GS textures (Aggressive Inline: the Xbox release's textures and
-640x480 movie frames). Nothing of the game changes: its RAM, GS memory and
+for GS textures (the Xbox releases' textures in all three games, and
+Aggressive Inline's 640x480 Xbox movie frames). Nothing of the game changes: its RAM, GS memory and
 CLUTs stay as they are, the GPU renderer only draws another picture.
 
 - **Key: the game's own texture objects.** A game override tells the
   backend, in stream order, which texture of the game's GS memory holds
   (`GSTextureObjectNote` through `PS2Memory::postGsSideband` and
   `GS::noteTextureObjects`: object, mip level, block address and allocated
-  blocks, size, PSM, and the picture key). Aggressive Inline wraps its
-  texture cache's level allocator (FUN_00107C88, called by the VIF1
+  blocks, size, PSM, and the picture key). Each game wraps its texture
+  cache's level allocator (placeTextureLevel, by symbol per game in
+  `game_overrides/zge_xbox_textures.cpp`, called by the VIF1
   interrupt handler when it gives a level a GS address and patches TEX0 /
   MIPTBP1); the key is the object's level 0 as the game holds it in RAM:
   TW x TH and the FNV-1a 64 of its indices (one byte per texel, row order,
@@ -376,7 +376,7 @@ resource; up to 7 ms seen for a buffer) and about 0.02 ms on Metal. A new
 area of a level asks for tens of textures in one frame (its palettes,
 decodes, mip copies, Xbox pictures) and, on the native path, a vertex
 buffer per mesh met for the first time: the Museum's first room turn on
-the Windows worker made 112 textures and 152 buffers in one frame (an
+Windows made 112 textures and 152 buffers in one frame (an
 82 ms GS-worker frame), AI's texture cache refills in Woodward 27-32
 textures in a frame (8-10 ms). So:
 
@@ -397,7 +397,7 @@ textures in a frame (8-10 ms). So:
 - **Pipelines.** SDL_GPU passes the driver no pipeline cache, so a
   pipeline's first use compiles it on the thread that records the pass (the
   GS worker, or the window thread when a presentation closes it): 110-130 ms
-  frames on the Thor's Vulkan driver, 0.2 ms at most on the Mac's Metal with
+  frames on an Android handheld's Vulkan driver, 0.2 ms at most on the Mac's Metal with
   its own shader cache warm. With a pipeline file (`PS2X_GS_PIPELINE_CACHE`)
   the key of every pipeline a game makes is added to it (in first-use
   order), and at the next start a thread of its own makes those pipelines
@@ -432,7 +432,7 @@ game's memory and timing never depend on them.
 | Shadows | `shadows = original \| sharp` | `PS2X_NATIVE_SHADOWS` | sharp | the skater's shadow volumes drawn natively |
 | Depth Precision | `depth_precision = original \| high` | `PS2X_GS_PRECISE_DEPTH` | high | native meshes keep the GPU's float depth (z'/w' / 2^bits) instead of the GS's 16-bit steps |
 | Perspective Correction | `perspective_correct = false \| true` | `PS2X_NATIVE_PERSPECTIVE` | true | native meshes' vertex colours interpolated in perspective (the GS interpolates on screen) and skinned models' textures mapped in perspective (their programs give Q = 1.0, affine) |
-| Character Lighting | `character_lighting = ps2 \| xbox` | `PS2X_NATIVE_LIGHTING` | xbox | lit skinned models (skaters, people) with the Xbox release's lights instead of the PS2's |
+| Character Lighting | `character_lighting = ps2 \| xbox` | `PS2X_NATIVE_LIGHTING` | xbox | lit skinned models (skaters, riders, people) with the Xbox release's lights instead of the PS2's, in a game whose Xbox release has them (Aggressive Inline, BMX XXX: `SkinnedDrawForm::xboxLights`) |
 
 - **Fog planes.** Aggressive Inline draws a view's fog as eight flat
   full-viewport planes of the fog colour (FUN_001110C0, in the 2D packet):
@@ -459,7 +459,10 @@ game's memory and timing never depend on them.
   (Off: trilinear). A PS2 texture without a picture is drawn from a
   mipmapped RGBA copy (`runtime/gs/gs_texture_mips.h`): the indices read
   through the draw's palette on the CPU with TEXA applied per texel, the
-  GS's own levels kept, the rest box-filtered (colour weighted by alpha
+  GS's own levels kept from the first one outside a render target (DM2's
+  distant models keep level 0 at TBP 0, in the frame buffer: the GS's LOD
+  never reads it, the copy's would, with PS2X_GS_MIP_TARGET_LEVELS=memory
+  too), the rest box-filtered (colour weighted by alpha
   where TCC uses it, so cut-out edges do not darken), keyed by content
   (texels, palette, TEXA, size) so a texture the game's cache flushes and
   uploads again finds its copy; at most half a million texels read or built
@@ -619,9 +622,49 @@ screen, 3x: GS thread 3.7 ms per vsync with or without it). The shaders
 carry the vertical scale in `FSUniforms.f1.z`, `BlitUniforms.f.y` and
 `PresentUniforms.out.z`; the HLSL versions need the same three fields.
 
+### Write-backs, threads and locks
+
+- Write-backs: a write-back records the download and does its bookkeeping
+  at once, but local memory gets the pixels only when the GPU is done
+  (`OwedWriteBack`; `PS2X_GS_GPU_DEFER=0` waits at once); until then those
+  pages are owed and whatever reads or writes them on the CPU waits for them
+  first. CLUT loads and 4- and 8-bit textures over owed pages are read from
+  the target on the GPU instead (gather passes, PCSX2's
+  palette-from-render-target path), with the last gather reused while the
+  target is unchanged. Split screen at draw distance far reads the frame
+  being drawn several times a frame: on Direct3D 12 skating there runs at 57
+  frames/s with them against 24 without (5900X, RTX 3070 Ti, 3x).
+- Threading: SDL_GPU uses a command buffer only on the thread that
+  acquired it. On Metal (which does not mind) the GS worker and the window
+  thread share the backend's command buffer under the mutex. On other
+  drivers (`threadOwnedCommands`, `PS2X_GS_GPU_THREAD_OWNED=0/1` to force)
+  every public call runs in a `CallScope`: on entry it waits (up to 20 ms)
+  until no other thread holds an open command buffer; the owner submits at
+  the end of its current call when someone waits, a thread other than the
+  drawing one always submits what it recorded before it leaves, and the GS
+  worker submits when its queue runs dry (`GSRasterBackend::WorkerIdle` from
+  the `Ps2AsyncStage` idle hook). After the 20 ms the waiter takes the
+  buffer over and says so once in the log (only expected with the GS on the
+  game thread, `PS2X_VU1_ASYNC=0`).
+- Locks: the GS worker holds the frontend's state lock for each GIF packet
+  and the backend's for the same packet (`GSRasterBackend::BeginPacket` /
+  `EndPacket`: one `CallScope` over the packet, so a primitive takes no
+  lock), and takes them again at once for the next. A mutex that does not
+  hand over (Windows' SRW locks) would wake the window thread's presentation
+  latch after every one, at a kernel call each on the worker, while the
+  latch spins; so other threads count themselves as waiting
+  (`GS::lockForHost`, `CallScope`) and the worker lets them in before its
+  next packet or call (at most a millisecond): inside a packet it ends the
+  packet's scope for them (submitting its command buffer to a thread waiting
+  for it) and starts a new one after.
+- Per draw: a pass keeps its vertex and draw storage across passes, and
+  texture objects, replacement pictures, targets and pipeline keys keep
+  their last lookup. With the locks this keeps the Movie Lot at 60 frames/s
+  on Direct3D 12 (GS worker 16 ms per vsync at 3x).
+
 ### Switching while running
 
-`PS2Runtime::requestRasterBackendReload()` (the app's View > Renderer,
+`PS2Runtime::requestRasterBackendReload()` (the Renderer setting,
 PS2X_CONTROL `renderer cpu|gpu [n]`) makes the backend again from
 `PS2X_GS_BACKEND` / `PS2X_GS_SCALE` between two host frames.
 `GS::switchRasterBackend` waits until no host-to-local transfer is half
@@ -629,7 +672,7 @@ done (at most 60 host frames), writes the old backend's targets back
 (`setRasterBackend`: Sync, SnapshotVram), and carries the CLUT buffer over;
 the new backend loads its targets and textures from local memory.
 
-## Shaders on Metal and Direct3D 12
+## Shaders on Metal, Direct3D 12 and Vulkan
 
 Metal: hand-written MSL (`gs_gpu_shaders_msl.h`) compiled by SDL at run
 time (`SDL_GPU_SHADERFORMAT_MSL`); variants come from `#define`s.
@@ -644,10 +687,11 @@ fragment textures and samplers `t0-3`/`s0-3, space2`, fragment uniforms
 `b0, space3`; vertex attribute n is `TEXCOORDn`. Differences from the MSL:
 `round()` is half to even in HLSL, so a `roundAway()` gives MSL's half away
 from zero; `select()` instead of `?:` on vectors; `linear` is a keyword.
-The backend takes MSL if the device does, else DXIL (`builtShaderFormats`);
+Vulkan (Android): the same HLSL compiled to SPIR-V by the NDK's `glslc`
+(`-DGLSLC=`, the same script; `gs_gpu_spirv`, `GS_SPIRV=1`). The backend
+takes MSL if the device does, else DXIL, else SPIR-V (`builtShaderFormats`);
 without `dxc` at build time a Windows build has no GPU renderer (the CPU
-renderer draws). Vulkan would need the same HLSL compiled to SPIR-V (`dxc
--spirv`, or SDL_shadercross).
+renderer draws). Desktop builds have no SPIR-V, so no Vulkan device there.
 
 ## Results
 
@@ -655,15 +699,11 @@ Per-frame comparison with the CPU renderer at 1x (`--gpu --compare`): mean
 absolute per-channel difference (0-255), largest difference, share of pixels
 off by more than 16. Frame 0 of a trace is the buffer the trace starts with
 (no GPU drawing yet), so it matches exactly where the game did not draw into
-the shown buffer. (menu1, vu1-level-final, gpugs-*: with the 2D rectangle
-rule above; the others were measured before it.)
+the shown buffer. Aggressive Inline's traces:
 
 | Trace | Frame | Mean | Max | > 16 |
 |---|---|---|---|---|
 | menu1 (main menu) | 1, 2 | 0.43 | 22 | 0.008 % |
-| level1 (Tutorial, older trace) | 0, 1 | 0.57, 0.55 | 65, 17 | 0.44 %, 0.01 % |
-| level2 (Tutorial, older trace) | 0, 1 | 0.66, 0.81 | 78, 68 | 0.43 %, 0.19 % |
-| vu1-level-fixed (Tutorial) | 0, 1 | 0.50, 0.74 | 237 | 0.08 %, 0.46 % |
 | vu1-level-final (Tutorial, skater shadow, puddles) | 0, 1 | 0.49, 0.64 | 78, 120 | 0.01 %, 0.24 % |
 | gpugs-movielot (MOVIE LOT) | 1, 2 | 0.65 | 84 | 0.52 % |
 | gpugs-splitscreen (multiplayer, MOVIE LOT) | 1, 2 | 0.45, 0.54 | 74, 113 | 0.37 %, 0.45 % |
@@ -683,7 +723,7 @@ Speed (Apple M-series, trace replay, per Tutorial frame, ~30,000
 primitives): CPU renderer ~9 ms using all cores (1.9 s CPU time for 60
 frames); GPU renderer 7-9 ms at 1x and ~12 ms at 3x, mostly one thread
 preparing vertices (0.4 s CPU time for the same 60 frames, about a fifth).
-In the game (tools/speedsweep.py, the 30 s skate routine, paced 60 Hz,
+In the game (`tooling/ai/tools/speedsweep.py`, the 30 s skate routine, paced 60 Hz,
 120 Hz display, picture shown from the GPU):
 
 | Scene | Renderer | vsyncs/s mean (min) | game frames/s | GS thread ms/vsync | process CPU ms/vsync |
@@ -711,45 +751,7 @@ time per frame at 3x.
 - Upscaled bilinear texture sampling differs from the CPU renderer's native
   samples on fine textures (the menu background's seams), as any upscale
   does; `--compare` at 3x (centre sample) shows it.
-- Write-backs: a write-back records the download and does its bookkeeping
-  at once, but local memory gets the pixels only when the GPU is done
-  (`OwedWriteBack`, `PS2X_GS_GPU_DEFER=0` waits at once as before); until
-  then those pages are owed and whatever reads or writes them on the CPU
-  waits for them first. CLUT loads and 4- and 8-bit textures over owed
-  pages are read from the target on the GPU instead (gather passes, PCSX2's
-  palette-from-render-target path), with the last gather reused while the
-  target is unchanged. Split screen at draw distance far reads the frame
-  being drawn several times a frame: on Direct3D 12 skating there went
-  from 24 to 57 frames/s with them (5900X, RTX 3070 Ti, 3x).
-- Threading: SDL_GPU uses a command buffer only on the thread that
-  acquired it. On Metal (which does not mind) the GS worker and the window
-  thread share the backend's command buffer under the mutex, as before. On
-  other drivers (`threadOwnedCommands`, `PS2X_GS_GPU_THREAD_OWNED=0/1` to
-  force) every public call runs in a `CallScope`: on entry it waits (up to
-  20 ms) until no other thread holds an open command buffer; the owner
-  submits at the end of its current call when someone waits, a thread other
-  than the drawing one always submits what it recorded before it leaves,
-  and the GS worker submits when its queue runs dry
-  (`GSRasterBackend::WorkerIdle` from the `Ps2AsyncStage` idle hook). After
-  the 20 ms the waiter takes the buffer over and says so once in the log
-  (only expected with the GS on the game thread, `PS2X_VU1_ASYNC=0`).
-- Locks: the GS worker holds the frontend's state lock for each GIF packet
-  and the backend's for the same packet (`GSRasterBackend::BeginPacket` /
-  `EndPacket`: one `CallScope` over the packet, so a primitive takes no
-  lock), and takes them again at once for the next. A
-  mutex that does not hand over (Windows' SRW locks) then woke the window
-  thread's presentation latch after every one, at a kernel call each on
-  the worker, while the latch spun. Other threads now count themselves as
-  waiting (`GS::lockForHost`, `CallScope`) and the worker lets them in
-  before its next packet or call (at most a millisecond): inside a packet
-  it ends the packet's scope for them (submitting its command buffer to a
-  thread waiting for it) and starts a new one after.
-- Per draw: a pass keeps its vertex and draw storage (a new `Pass` per pass
-  regrew them, with fresh pages from the Windows kernel each time), and
-  texture objects, replacement pictures, targets and pipeline keys keep
-  their last lookup. With the locks this took the Movie Lot from 24 to 60
-  frames/s on Direct3D 12 (GS worker 25 to 16 ms per vsync at 3x).
-- No Vulkan shaders (SPIR-V).
+- No Vulkan on desktop builds (SPIR-V is built for Android only).
 
 ## Out of scope (not implemented)
 

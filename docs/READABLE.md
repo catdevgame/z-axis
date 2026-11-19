@@ -46,7 +46,6 @@ All code is in z-axis `runtime/src/game` unless a path says otherwise.
   merges or starts) with each step's measured number, the checks of every batch, the scaffolding counts and the
   trends. `STATUS_NO_BUILD=1` keeps the database as it is; `status.py OUT_DIR --no-history` builds without pushing.
 - `docs/DEAD-CODE.md`: the functions no game path reaches and what they are for.
-  `docs/MANUAL-TESTS.md`: checks no agent can reach in 30 minutes.
 
 ## Statuses
 
@@ -280,7 +279,7 @@ The rules:
 - EE time: generated code charges 32 cycles at every backward branch and 8 for every call it
   dispatches, and emulated time decides when vsyncs and interrupts fall. A readable body charges
   the 8 of each call it makes but none of the original's loop cycles, so at the defaults EE time,
-  and with it the vsync a read lands on, can differ from the original's (b131's strcpy moved AI's
+  and with it the vsync a read lands on, can differ from the original's (a readable strcpy moved AI's
   boot's first prompt read from vsync 4 to 3). The gate does not compare time (it judges logic at
   4096x); a recording replays with its own build's readable set (`replay.py run`, DEVTOOLS.md). The
   few functions that still mark the original's entry blocks (`ee::block`, `ee::loopBack`,
@@ -392,14 +391,12 @@ READABLE_FUNCTION_IN(dm2, sym::dm2::riderFrame, riderFrame, Verified);  // DM2's
    reaches), once per recorder version, into `$ZAXIS_SCRATCH/reccorpus/v<N>/<route>/`.
    `fncheck_corpus.py run --incremental` replays every recording against the build with a verdict
    cache and replays only what changed; `compare`, `same`, `coverage`, `saves`, `emit` (workdb
-   lines), `prune-plan`. It caps its own memory (`--max-mem-gb`, `--jobs auto`). On the Windows
-   worker the same replay runs (DEVTOOLS.md, `rcheck.sh`).
-   DM2 has its own corpus, `reccorpus/dm2-v1` (`tools/dm2corpus.py` in its repository, routes in `dm2routes.py`): a
+   lines), `prune-plan`. It caps its own memory (`--max-mem-gb`, `--jobs auto`).
+   DM2 has its own corpus, `reccorpus/dm2-v1` (`tooling/dm2/tools/dm2corpus.py`, routes in `dm2routes.py`; BMX XXX's with `--game bmx`, routes in `bmxroutes.py`): a
    build with `PS2X_GAME_CORPUS=dm2` (and `PS2X_BIND_DIR`) has all of DM2's 4,527 functions (`game/dm2/functions.tsv`)
    traced and registered Planned, and an instance of every shared engine source (`game/dm2/instance_sources.txt`), the
    level 1 bodies registered Draft for the replay to judge (`headers --try-close`). `readable_locals_dm2.tsv` and `readable_args_dead_dm2.tsv` hold its rows of word-identical functions. `dm2cov.py` says what the routes
-   reach (`PS2X_FNPROF` needs no traced build), `dm2proof.py` what a replay proves by level. Its route folders live on
-   the Linux worker: `dm2corpus.py ship`, then `rcheck.sh` replays them there (`--dm2-corpus --fncheck-arg=--semantic`).
+   reach (`PS2X_FNPROF` needs no traced build), `dm2proof.py` what a replay proves by level.
 6. Integrate: `tools/lc-when-free.sh NAME`, 21/21 MATCH with the defaults and with
    `PS2X_READABLE=tested`, each against `off` at the same clock; the career A/B (`tooling/checks/career_ab.py`:
    nine inputs unpaced with the null GS, defaults against `off` at 4096x, always readable off on one side:
@@ -431,7 +428,7 @@ The bytes read on the way that hold the original's memory at the call must be th
 (bugs1's contact record, dead stack after the return). It is a lower bound: the result line's `callee_probes` ...
 `callee_buckets` say how far it got (`--no-callee-reads` turns it off, `PS2X_FNCHECK_PROBES=1` prints each call).
 A probe stops at the callee's first global the caller's recording does not hold, so a record the caller builds on its
-stack for a callee is read by the recording instead (version 7, tools44): the recorder keeps, per call, the bytes of the
+stack for a callee is read by the recording instead (recorder version 7): the recorder keeps, per call, the bytes of the
 caller's frame the callee read before anything wrote them (fncheck.h `Call::reads`). A recorded callee runs traced at
 every call that hands it a pointer into a recorded caller's frame, kept or not, and one it hands the pointer on to adds
 its reads. Those bytes the original's replay holds with the recorded value must be the same at the readable version's
@@ -474,8 +471,8 @@ says a person can read it; they are reported apart and neither implies the other
 - The pins first: every file that decides a verdict is pinned
   by hash outside the tree (the replay, the corpus compare, the A/B, its allow list and inputs, logiccheck, the
   arguments check and its exception lists, the lint and its baseline, the state probe). A file not as pinned
-  stops the merge; the maintainers read its diff and re-pin it. An agent that needs a
-  check changed says so in its report.
+  stops the merge; the maintainers read its diff and re-pin it. A change that needs a
+  check changed says so.
 - The ratchet, in the build: `readable_lint.py --ratchet` against `readable_lint_baseline.txt`, by address. A
   function that passed may not stop passing. The lint follows helpers: a function with no registration of its own, in the
   same file or a thin wrapper in an included header, answers for its raw addresses and offsets, VU0 work, selfCall and
@@ -487,7 +484,7 @@ says a person can read it; they are reported apart and neither implies the other
   is a new hit. A wrapper or helper in another file counts for its callers. A call through ee::FunctionPtr or ee::Callback
   is an indirect call like any other, its type says which words are floats, and a value the original leaves for the jalr
   in its block counts whoever is recorded; a helper that hands on a pack is checked at each place it is called.
-- The semantic replay of the whole corpus: `fncheck_corpus.py run --semantic` (`rcheck.sh --fncheck-arg=--semantic`),
+- The semantic replay of the whole corpus: `fncheck_corpus.py run --semantic`,
   which exits 1 if the readable side failed or faulted on any recording,
   then `compare PREV NEW --no-worse --semantic`: no pass may become a fail. A call passes on what it does: results by
   type, RAM byte for byte outside the dead stack, callee-saved registers, every call with its target and arguments,
@@ -515,8 +512,6 @@ says a person can read it; they are reported apart and neither implies the other
   sides (career_ab.py PAGE_INPUTS). A change made on that page reaches the game before the game goes on
   (ps2_settings.h, the FromGame calls), so the run repeats exactly whenever the window thread runs.
 - dm2logic.
-
-Byte match (`decomp/`, the original's compiler) is a tier above Verified for rows no route reaches, not a gate.
 
 A value left on the stack has no gate of its own: the replay answers calls and the A/B sees only dumps and streams.
 `PS2X_STACK_POISON=1` fills the stack below each readable function's sp with 0x5A: a run with it against a run without,
@@ -623,8 +618,8 @@ one side has.
   DM2's corpus and checks are "How a function is proven" item 5.
 - BMX XXX (SLUS-20415) is game 2 of the collection runner (`game/bmx`, `game_overrides/bmx_xxx.cpp`): its `generated-ns` (27,112 files from the match3 Ghidra map, namespace `bmx`, made by `tooling/recompile.sh --bmx` (`tooling/bmx/recomp/recompile.py`) into paths.env's `BMX_RECOMP`) in `PS2X_RUNNER_EXTRA_GENERATED_DIRS`, its instance of the shared sources with `PS2X_BIND_DIR` (`runtime/tools/bind/bmx.tsv`), its differences as `kIsBmx` / `perGame(ai, dm2, bmx)` and `PS2X_GAME_BMX` layouts. What runs readable is its status file's Verified rows; it is played by `tools/playbot/bmx.py` and ships in the collection app (`GAMES="ai dm2 bmx"` make-app.sh).
 - Native assets: texture libraries of both releases, GEO meshes and collision parts are made on the host from
-  the files at build time (`zge/native`); Xbox textures are the HD default. See `readable-native-assets.md`.
-- Suspendable calls (`readable-suspendable.md`): `READABLE_FUNCTION_WAITS` runs a function on a host fiber
+  the files at build time (`zge/native`); Xbox textures are the HD default (docs/NATIVE.md).
+- Suspendable calls: `READABLE_FUNCTION_WAITS` runs a function on a host fiber
   (a register-only switch on arm64 and x86-64, ucontext elsewhere, the Fibers API on Windows). A readable
   callee of a guest call runs on its caller's fiber, with the same steps and states: only a generated callee
   leaves it, so a level load makes about 100,000 fibers for 3.5 million calls.

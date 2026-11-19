@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggressive Inline: the custom-levels test park (docs/CUSTOM-LEVELS.md section 3, step 0) built in the game's own
+"""Aggressive Inline: the park players' test park built in the game's own
 Park Editor, saved the game's way, and skated.
 
     aipark.py catalog NAME                the editor's piece catalog (name, group, footprint) read from the game
@@ -349,7 +349,7 @@ def probe3(name):
     core.save_json(os.path.join(ai.SCRATCH, 'measure', name + '.probe.json'), log)
 
 
-# ---- the park: docs/CUSTOM-LEVELS.md section 3's six zones on the Repository's 16 x 16 grid -----------------------
+# ---- the park: six zones on the Repository's 16 x 16 grid -----------------------
 # Cells (x, z); the default camera looks along -x (d-pad UP), RIGHT is -z. A piece's turns (O presses) and what it
 # faces (probe3's pictures): 0 -z, 1 +x, 2 +z, 3 -x; a quarter pipe, kicker or roll-in faces the way a skater comes
 # at it (rides up it going the other way, rolls down a roll-in going that way); walls and rails at 0 and 2 run along x,

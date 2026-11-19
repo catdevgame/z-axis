@@ -9,7 +9,7 @@
 // g_mpGameSelectModes, SKILLZ, PAINTBALL and STRIP CHALLENGE, then EXIT, in
 // every release. With the setting the menu lists kOfferedModes instead, in
 // mode order, then EXIT; each was played with two riders to its game over.
-// Two stay out:
+// Two are never offered (dead ends: neither can be played as it says):
 //
 //   B-M-X (6): its word screen (horseWordScreenMessage) looks for
 //   "KeyboardFrame" in UI_overlay, where no release's UILIB has one (the
@@ -28,8 +28,8 @@
 // MODENAME_MODE%02d" and "$KSTR_GAMEOVER_EXIT"), four lines in view as the
 // game's menu shows (it scrolls). A line chosen or moved to
 // does what the game's handler does with its own lines: a mode chosen starts
-// that game (startGame; B-M-X would go to its word screen, the others to the
-// game's start phase), EXIT asks for the exit confirmation over this screen,
+// that game (startGame, then the game's start phase), EXIT asks for the exit
+// confirmation over this screen,
 // and the description shows the mode's KSTRMP_DESC_MODE%02d. The game's
 // table and its code are not changed.
 
@@ -55,7 +55,6 @@ namespace bmx_xxx::mp_modes
     // CONTEST, FURTHEST JUMP, LONGEST MANUAL, LONGEST NOSE WHEELIE), PAINTBALL
     // and STRIP CHALLENGE.
     constexpr uint8_t kOfferedModes[] = {4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
-    constexpr uint8_t kHorseMode = 6; // B-M-X: its own screen before the first turn
 
     // The screen's messages (game/bmx/overlay/screens.h).
     constexpr int32_t kScreenChosen = 0;
@@ -64,7 +63,6 @@ namespace bmx_xxx::mp_modes
     // The screens and the round's phase a choice leads to.
     constexpr uint32_t kScreenExitLevel = 18;
     constexpr uint32_t kScreenAfterGame = 37;
-    constexpr uint32_t kScreenBeforeGame = 38;
     constexpr uint32_t kGameStartPhase = 1;
     constexpr uint32_t kFrameNode = 1; // findNode's kind: a frame
     constexpr int32_t kVisibleLines = 4;
@@ -182,12 +180,8 @@ namespace bmx_xxx::mp_modes
         }
         const uint8_t mode = kOfferedModes[selected];
         std::cout << "[bmx-xxx] multiplayer: mode " << static_cast<int>(mode) << std::endl;
-        uint32_t started = 0;
-        runtime->callGuestFunction(rdram, ctx, sym::bmx::startGame, {mode}, sp, &started);
-        if ((started & 0xFFu) == kHorseMode)
-            runtime->callGuestFunction(rdram, ctx, sym::bmx::showGameScreen, {kScreenBeforeGame}, sp);
-        else
-            runtime->callGuestFunction(rdram, ctx, sym::bmx::setRoundPhase, {kGameStartPhase}, sp);
+        runtime->callGuestFunction(rdram, ctx, sym::bmx::startGame, {mode}, sp);
+        runtime->callGuestFunction(rdram, ctx, sym::bmx::setRoundPhase, {kGameStartPhase}, sp);
     }
 }
 

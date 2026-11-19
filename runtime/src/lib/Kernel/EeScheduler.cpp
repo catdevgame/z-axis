@@ -1,5 +1,6 @@
 #include "runtime/lane_watch.h"
 #include "runtime/ee_scheduler.h"
+#include "runtime/ee_time.h"
 #include "runtime/ps2_frame_trace.h"
 #include "runtime/ps2_host_pacing.h"
 #include "runtime/gs/gs_interpolate.h"
@@ -598,8 +599,21 @@ inline void EeScheduler::advanceCycles(uint32_t cycles, void *caller, bool idleJ
     }
 }
 
+namespace ee_time
+{
+    namespace
+    {
+        int t_held = 0; // the executor's (holds nest)
+    }
+    void hold() noexcept { ++t_held; }
+    void release() noexcept { --t_held; }
+    bool held() noexcept { return t_held != 0; }
+}
+
 bool EeScheduler::checkpointDue(uint32_t cycles) noexcept
 {
+    if (ee_time::held())
+        return false;
     void *const caller = eeTrace().file ? __builtin_return_address(0) : nullptr;
     const bool due = [&]() noexcept -> bool
     {
@@ -645,6 +659,8 @@ void eeSchedulerAccountCycles(EeScheduler &scheduler, uint32_t cycles) noexcept 
 
 void EeScheduler::accountCycles(uint32_t cycles) noexcept
 {
+    if (ee_time::held())
+        return;
     advanceCycles(cycles, eeTrace().file ? __builtin_return_address(0) : nullptr, false);
 }
 

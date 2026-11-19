@@ -40,6 +40,10 @@ namespace bmx_xxx
     // at BMX XXX's code; with the app's settings (PS2X_GAME_SETTINGS_MENUS=1;
     // bmx_xxx_gameplay.cpp).
     void installGameplay(PS2Runtime &runtime);
+    // The field of view a level's view camera is drawn with for the game's
+    // own (degrees): the Field of View setting's scale of it, the game's at
+    // the game's 62 (zge_view.h Widescreen::drawnFieldOfView).
+    float drawnFieldOfView(const uint8_t *rdram, float gameDegrees);
     // The Restart key's hook (with the gameplay keys; bmx_xxx_restart.cpp).
     bool installRestartKey(PS2Runtime &runtime);
 

@@ -17,6 +17,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace ps2x::app
@@ -251,6 +252,12 @@ namespace ps2x::app
         // <support>/Mods is the game's own).
         std::filesystem::path sharedMods;
     };
+    // The folders of the other releases' content a boot is given, by the
+    // boot name the game reads each by (PS2X_XBOX_DIR: xbox, PS2X_ESTATE_DIR:
+    // estate, ...): the one the setup made from the player's discs
+    // (folders.extras), else the one bundled with the app (folders.resources);
+    // only those there are.
+    std::vector<std::pair<std::string, std::filesystem::path>> releaseFolders(const BootFolders &folders);
     // What the app gives a game when it boots it: the game's settings (the
     // options its profile has), its folders and files, the renderer settings
     // (over PS2X_GS_SCALE and PS2X_GS_FULL_HEIGHT unless the environment

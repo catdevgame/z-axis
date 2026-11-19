@@ -1,6 +1,9 @@
-// Aggressive Inline's Xbox texture pack (collection/extras/xbox_texture_pack.h),
-// as tools/xbox_pack.py makes it.
+// The Xbox texture pack (collection/extras/xbox_texture_pack.h): Aggressive
+// Inline's as tools/xbox_pack.py makes it, DM2's and BMX XXX's from their own
+// Xbox libraries' forms.
 #include "collection/extras/xbox_texture_pack.h"
+
+#include "lzo1x.h"
 
 #include <algorithm>
 #include <array>
@@ -9,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <deque>
 #include <map>
 #include <optional>
 #include <set>
@@ -20,6 +24,9 @@ namespace ps2x::app::extras
     {
         constexpr uint8_t kPackFormatBc2 = 1; // ps2_texture_replace.h's DXT3
         constexpr uint32_t kXboxDxt3 = 0x0E;  // the D3D format of a DXT3 texture
+        // A DDS file's header (DM2's TDDS): its size, after the "DDS " magic.
+        constexpr size_t kDdsHeaderBytes = 124;
+        constexpr uint32_t kDdsHasMipCount = 0x20000; // DDSD_MIPMAPCOUNT
         constexpr int kThumbSide = 8;
 
         // Renamed textures (PS2 file, PS2 name) -> Xbox name, all lower case;
@@ -49,7 +56,8 @@ namespace ps2x::app::extras
             size_t size = 0;
         };
 
-        // A picture of a TXRC: a PS2 BMP (TBMP, TZMP) or an Xbox XPR (TXPR).
+        // A picture of a TXRC: a PS2 BMP (TBMP, TZMP) or an Xbox picture, an
+        // XPR (TXPR: AI, BMX XXX) or a DDS file (TDDS: DM2).
         struct Texture
         {
             std::string name; // the TXRH's, its bytes as they are
@@ -57,9 +65,9 @@ namespace ps2x::app::extras
             Span data;
             int width = 0, height = 0; // a BMP's height < 0: rows top down
             int bitsPerPixel = 0;
-            uint32_t xboxFormat = 0; // an XPR's D3D format
+            uint32_t xboxFormat = 0; // an Xbox picture's D3D format (a DDS's DXT3 as kXboxDxt3)
             int mipLevels = 0;
-            size_t pixels = 0; // an XPR's first level, from the chunk's start
+            size_t pixels = 0; // an Xbox picture's first level, from the chunk's start
             std::vector<Texture> levels; // a PS2 picture's smaller mip levels
         };
 
@@ -118,6 +126,25 @@ namespace ps2x::app::extras
             }
         }
 
+        // A TDDS: u32 0, then a DDS file (DXT1, DXT3 or 32-bit; its mips
+        // after the first level, as a DDS file keeps them).
+        void readDdsHeader(Texture &t)
+        {
+            const Span x = t.data;
+            if (x.size < 8 + kDdsHeaderBytes || std::memcmp(x.data + 4, "DDS ", 4) != 0)
+                return;
+            const uint8_t *header = x.data + 8;
+            const uint32_t flags = le32(header + 4);
+            t.height = int(le32(header + 8));
+            t.width = int(le32(header + 12));
+            const uint32_t mips = le32(header + 24);
+            t.mipLevels = (flags & kDdsHasMipCount) && mips > 0 ? int(mips) : 1;
+            const uint32_t pixelFlags = le32(header + 76);
+            if ((pixelFlags & 4) && std::memcmp(header + 80, "DXT3", 4) == 0) // DDPF_FOURCC
+                t.xboxFormat = kXboxDxt3;
+            t.pixels = 8 + kDdsHeaderBytes;
+        }
+
         // A TXRC: the TXRH, then the picture; a PS2 picture may be followed by
         // its smaller mip levels (TBMPs of half the size).
         std::optional<Texture> readTxrc(const Bytes &d, size_t body, size_t size)
@@ -131,7 +158,7 @@ namespace ps2x::app::extras
                     const Span s = slice(d, at + 0x14, length >= 0x14 ? length - 0x14 : 0);
                     name.assign(reinterpret_cast<const char *>(s.data), strnlen(reinterpret_cast<const char *>(s.data), s.size));
                 }
-                else if (tag == "TBMP" || tag == "TZMP" || tag == "TXPR" || tag == "TTGA")
+                else if (tag == "TBMP" || tag == "TZMP" || tag == "TXPR" || tag == "TDDS" || tag == "TTGA")
                 {
                     Texture t;
                     t.kind = tag;
@@ -153,6 +180,8 @@ namespace ps2x::app::extras
                 }
                 else if (t.kind == "TXPR")
                     readXprHeader(t);
+                else if (t.kind == "TDDS")
+                    readDdsHeader(t);
             }
             Texture base = pictures[0];
             for (size_t i = 1; i < pictures.size(); ++i)
@@ -167,8 +196,11 @@ namespace ps2x::app::extras
         }
 
         // Every TXRC in a library, in order (the libraries' container chunks
-        // looked into, a FORM's type skipped unless it is a TXRC).
-        void collectTxrc(const Bytes &d, size_t p, size_t end, std::vector<Texture> &out)
+        // looked into, a FORM's type skipped unless it is a chunk of its own).
+        // A ZLZO chunk (BMX XXX's Xbox libraries: u32 the unpacked size, then
+        // an LZO1X stream of one chunk, a TXRC) is unpacked into `unpacked`,
+        // which keeps the bytes the textures point into.
+        void collectTxrc(const Bytes &d, size_t p, size_t end, std::vector<Texture> &out, std::deque<Bytes> &unpacked)
         {
             forChunks(d, p, end, [&](const std::string &tag, size_t body, size_t size)
             {
@@ -181,14 +213,46 @@ namespace ps2x::app::extras
                 }
                 else if (tag == "FORM")
                 {
-                    const bool txrcForm = body + 4 <= d.size() && std::memcmp(d.data() + body, "TXRC", 4) == 0;
-                    collectTxrc(d, txrcForm ? body : body + 4, body + size, out);
+                    const bool untyped = body + 4 <= d.size() && (std::memcmp(d.data() + body, "TXRC", 4) == 0 ||
+                                                                  std::memcmp(d.data() + body, "ZLZO", 4) == 0);
+                    collectTxrc(d, untyped ? body : body + 4, body + size, out, unpacked);
+                }
+                else if (tag == "ZLZO" && size >= 4)
+                {
+                    Bytes &chunk = unpacked.emplace_back();
+                    if (lzo1xDecompress(d.data() + body + 4, size - 4, le32(d.data() + body), chunk))
+                        collectTxrc(chunk, 0, chunk.size(), out, unpacked);
                 }
                 else if (tag == "ULIB" || tag == "UAST" || tag == "UMTL" || tag == "UFNT" || tag == "LIST" ||
                          tag == "CAT " || tag == "FMDL" || tag == "MODL")
-                    collectTxrc(d, body, body + size, out);
+                    collectTxrc(d, body, body + size, out, unpacked);
                 return true;
             });
+        }
+
+        // Every TXRC of a file: a library, or a ZDIR archive's (a .ZAL:
+        // "DIDF" with the entry count at 0x10, then the GRID of name hashes,
+        // the DLEN of sizes (the top four bits flags) and the OFST of
+        // offsets) entries, each a library.
+        void collectFile(const Bytes &d, std::vector<Texture> &out, std::deque<Bytes> &unpacked)
+        {
+            if (d.size() < 0x18 || std::memcmp(d.data(), "ZDIR", 4) != 0 || std::memcmp(d.data() + 8, "DIDF", 4) != 0)
+            {
+                collectTxrc(d, 0, d.size(), out, unpacked);
+                return;
+            }
+            const size_t count = le32(d.data() + 0x10);
+            const size_t grid = 0x18, lengths = grid + 8 + 4 * count, offsets = lengths + 8 + 4 * count;
+            if (offsets + 8 + 4 * count > d.size() || std::memcmp(d.data() + grid, "GRID", 4) != 0 ||
+                std::memcmp(d.data() + lengths, "DLEN", 4) != 0 || std::memcmp(d.data() + offsets, "OFST", 4) != 0)
+                return;
+            for (size_t i = 0; i < count; ++i)
+            {
+                const size_t length = le32(d.data() + lengths + 8 + 4 * i) & 0x0FFFFFFFu;
+                const size_t at = le32(d.data() + offsets + 8 + 4 * i);
+                if (at <= d.size() && length <= d.size() - at)
+                    collectTxrc(d, at, at + length, out, unpacked);
+            }
         }
 
         std::vector<size_t> dxtLevelSizes(int w, int h, int mips)
@@ -710,7 +774,7 @@ namespace ps2x::app::extras
         long long ps2Texels = 0, xboxTexels = 0;
         for (const std::string &xboxPath : xbox.files())
         {
-            if (!endsWithAny(xboxPath, {".txr", ".zit"}))
+            if (!endsWithAny(xboxPath, {".txr", ".zit"}) && !(options.archives && endsWithAny(xboxPath, {".zal"})))
                 continue;
             const std::string relative = lowerAscii(xboxPath);
             const std::optional<std::string> ps2Path = ps2.find(relative);
@@ -723,14 +787,15 @@ namespace ps2x::app::extras
                 return false;
             }
             std::vector<Texture> all, ps2Textures, xboxTextures;
-            collectTxrc(ps2Data, 0, ps2Data.size(), all);
+            std::deque<Bytes> unpacked;
+            collectFile(ps2Data, all, unpacked);
             for (Texture &t : all)
                 if ((t.kind == "TBMP" || t.kind == "TZMP") && (t.bitsPerPixel == 4 || t.bitsPerPixel == 8))
                     ps2Textures.push_back(std::move(t));
             all.clear();
-            collectTxrc(xboxData, 0, xboxData.size(), all);
+            collectFile(xboxData, all, unpacked);
             for (Texture &t : all)
-                if (t.kind == "TXPR")
+                if (t.kind == "TXPR" || t.kind == "TDDS")
                     xboxTextures.push_back(std::move(t));
 
             std::vector<PackEntry> entries;

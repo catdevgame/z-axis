@@ -8,6 +8,7 @@
 #include "collection/levels/scene.h"
 #include "collection/maps.h"
 #include "collection/mods.h"
+#include "collection/offered.h"
 #include "runtime/ps2_game_files.h"
 #include "test_zip_builder.h"
 
@@ -340,6 +341,187 @@ void register_ps2_app_support_tests()
             t.IsTrue(loadSettings(file, loaded) && loaded.windowWidth == 1600 && loaded.widescreen, "load");
             t.IsFalse(std::filesystem::exists(dir.path / "sub" / "settings.ini.tmp"), "no temporary file left");
             t.IsFalse(loadSettings(dir.path / "missing.ini", loaded), "missing file");
+        });
+
+        tc.Run("offered: what a setup has, found from its folders (none, all, the GameCube disc alone)", [](TestCase &t)
+        {
+            auto put = [](const std::filesystem::path &file)
+            {
+                std::filesystem::create_directories(file.parent_path());
+                std::ofstream(file, std::ios::binary) << "x";
+            };
+            const std::vector<Need> discs = {
+                Need::XboxText, Need::XboxSpeech, Need::XboxLevelScripts, Need::XboxFreeSkate, Need::XboxApe,
+                Need::XboxTextures, Need::XboxSkaters, Need::XboxMovies, Need::Estate, Need::Dm2XboxLevels,
+                Need::Dm2XboxThemes, Need::Dm2RetroMovie, Need::BmxText, Need::BmxChallenges, Need::BmxEditorPieces,
+                Need::BmxLevelPreviews, Need::BmxLogoMovie, Need::BmxGcLevels};
+
+            TempDir empty;
+            BootFolders nothing;
+            nothing.extras = empty.path / "extras";
+            nothing.resources = empty.path / "resources";
+            const Installed none = findInstalled(nothing);
+            t.IsTrue(releaseFolders(nothing).empty(), "no extras, nothing bundled: no folders given");
+            bool anyDisc = false;
+            for (Need need : discs)
+                anyDisc = anyDisc || none[need];
+            t.IsTrue(!anyDisc && none[Need::Nothing] && !none[Need::Dm2ReadableRider], "the PS2 discs alone: no extra's need met");
+#if defined(__ANDROID__)
+            t.IsTrue(!none[Need::SecondWindow] && !none[Need::WindowModes] && !none[Need::Borderless], "Android: one window, the whole screen");
+#elif defined(__APPLE__)
+            t.IsTrue(none[Need::SecondWindow] && none[Need::WindowModes] && none[Need::Borderless], "macOS: a map window, window modes, borderless");
+#else
+            t.IsTrue(none[Need::SecondWindow] && none[Need::WindowModes] && !none[Need::Borderless], "a map window and window modes, no borderless");
+#endif
+
+            // Every disc's extras, as the setup lays them out (names in the discs' own case).
+            TempDir full;
+            const std::filesystem::path x = full.path / "extras";
+            put(x / "xbox" / "media" / "assets" / "string.fre");
+            put(x / "xbox" / "media" / "assets" / "audio" / "speech01.zsd");
+            put(x / "xbox" / "media" / "assets" / "uilib.zal");
+            put(x / "xbox" / "media" / "assets" / "levels" / "civic" / "civic.bin");
+            put(x / "xbox" / "media" / "assets" / "levels" / "brdwlk" / "brdwlkt.bin");
+            put(x / "xbox-converted" / "ASSETS" / "SKATERS" / "GORILLA" / "GOR.ZIT");
+            put(x / "xbox-pack" / "textures" / "a.xtp");
+            put(x / "xbox-pack" / "models" / "a.zit");
+            put(x / "xbox-pack" / "movies" / "a.bik");
+            put(x / "estate" / "TUT.GEO");
+            put(x / "xbox-levels" / "levels.txt");
+            put(x / "xbox-levels" / "themes" / "DESERT.TXT");
+            put(x / "xbox-levels" / "movies" / "ASSETS" / "MOVIE" / "RETRO.PSS");
+            put(x / "releases" / "strings" / "FRENCH");
+            put(x / "releases" / "challenges" / "objctv.txt");
+            put(x / "releases" / "editor" / "OBJECT.OBJ");
+            put(x / "releases" / "movies" / "ASSETS" / "MOVIES" / "MENU" / "BRONX.PSM");
+            put(x / "releases" / "movies" / "ASSETS" / "MOVIES" / "ZAXIS.XMV");
+            put(x / "releases" / "levels" / "ASSETS" / "LEVELS" / "CMP_SCRT" / "a.geo");
+            BootFolders every;
+            every.extras = x;
+            every.resources = full.path / "resources";
+            const Installed all = findInstalled(every);
+            bool allDiscs = true;
+            for (Need need : discs)
+                allDiscs = allDiscs && all[need];
+            t.IsTrue(allDiscs, "every extras disc set up: each need met, found in any case");
+            t.Equals(releaseFolders(every).size(), size_t(6), "the six folders given");
+
+            // The extras' folder over the bundled one; the bundled one alone counts too.
+            put(every.resources / "estate" / "TUT.GEO");
+            BootFolders bundled;
+            bundled.resources = every.resources;
+            const auto given = releaseFolders(bundled);
+            t.IsTrue(given.size() == 1 && given[0].first == "PS2X_ESTATE_DIR" && findInstalled(bundled)[Need::Estate],
+                     "an app built with the Estate: offered");
+            const auto both = releaseFolders(every);
+            t.IsTrue(std::any_of(both.begin(), both.end(), [&](const auto &f) { return f.first == "PS2X_ESTATE_DIR" && f.second == x / "estate"; }),
+                     "the setup's extras before the bundled ones");
+
+            // BMX XXX with its GameCube disc alone: no Xbox movies.
+            TempDir gc;
+            put(gc.path / "releases" / "strings" / "FRENCH");
+            put(gc.path / "releases" / "challenges" / "objctv.txt");
+            put(gc.path / "releases" / "editor" / "OBJECT.OBJ");
+            put(gc.path / "releases" / "levels" / "ASSETS" / "LEVELS" / "CMP_SCRT" / "a.geo");
+            BootFolders gcOnly;
+            gcOnly.extras = gc.path;
+            const Installed cube = findInstalled(gcOnly);
+            t.IsTrue(cube[Need::BmxText] && cube[Need::BmxChallenges] && cube[Need::BmxEditorPieces] && cube[Need::BmxGcLevels] &&
+                         !cube[Need::BmxLevelPreviews] && !cube[Need::BmxLogoMovie],
+                     "the GameCube's content offered, the Xbox's movies not");
+
+            // The boot's own names (gameBootConfig's), as the game's rows read them.
+            const Installed booted = findInstalled(envFrom({{"PS2X_XBOX_DIR", (x / "xbox").string()},
+                                                            {"PS2X_DM2_XBOX_LEVELS_DIR", (gc.path / "none").string()}}));
+            t.IsTrue(booted[Need::XboxText] && booted[Need::XboxFreeSkate] && !booted[Need::XboxApe] && !booted[Need::Dm2XboxLevels],
+                     "from the boot config: the Xbox files, no Ape without its model, a folder that is not there is none");
+        });
+
+        tc.Run("offered: each game's rows with no extras and with every extras disc", [](TestCase &t)
+        {
+            Installed none = platformInstalled();
+            Installed all = platformInstalled();
+            for (int i = 0; i < static_cast<int>(Need::Count); ++i)
+                all.set(static_cast<Need>(i));
+            const GameSettingsProfile &ai = gameSettingsProfile("ai");
+            const GameSettingsProfile &dm2 = gameSettingsProfile("dm2");
+            const GameSettingsProfile &bmx = gameSettingsProfile("bmx");
+            // Every option of every game: with every extra a row for each one the game has, and only those.
+            bool fullRows = true;
+            for (const GameSettingsProfile *game : {&ai, &dm2, &bmx})
+                for (int i = 0; i < static_cast<int>(GameOption::Count); ++i)
+                {
+                    const GameOption option = static_cast<GameOption>(i);
+                    fullRows = fullRows && offered(*game, option, all) == game->has(option) &&
+                               (offered(*game, option, none) == (game->has(option) && needOf(game->id, option) == Need::Nothing));
+                }
+            t.IsTrue(fullRows, "every extra: every row the game has; none: only those that need nothing");
+
+            using O = GameOption;
+            t.IsTrue(!offered(ai, O::Language, none) && !offered(ai, O::FrenchVoices, none) && !offered(ai, O::CareerScripts, none) &&
+                         !offered(ai, O::XboxFreeSkate, none) && !offered(ai, O::Ape, none) && !offered(ai, O::Estate, none),
+                     "AI with its PS2 disc alone: no Language, French Voices, Career Scripts, Xbox Free Skate, Ape, Estate");
+            t.IsTrue(offered(ai, O::Zoo, none) && offered(ai, O::ZooUnlock, none) && offered(ai, O::Tuning, none) &&
+                         offered(ai, O::DeveloperMenu, none),
+                     "AI's Zoo (the PS2 disc's own), its unlock, its tuning (code) and developer menu stay");
+            t.IsTrue(!offered(dm2, O::Dm2XboxLevels, none) && !offered(dm2, O::Dm2XboxThemes, none) &&
+                         !offered(dm2, O::Dm2RetroMovie, none) && offered(dm2, O::Dm2AttractDemo, none),
+                     "DM2 with its PS2 disc alone: no Xbox levels, themes or Retro movie; the attract demo (level 3's replay) stays");
+            Installed rider = none;
+            t.IsTrue(!offered(dm2, O::Dm2CreatePlayer, none), "DM2's Create Rider: not without the readable newRider");
+            rider.set(Need::Dm2ReadableRider);
+            t.IsTrue(offered(dm2, O::Dm2CreatePlayer, rider), "and offered with it, no disc needed");
+            t.IsTrue(!offered(bmx, O::Language, none) && !offered(bmx, O::Tuning, none) && !offered(bmx, O::BmxXboxChallenges, none) &&
+                         !offered(bmx, O::BmxEditorPieces, none) && !offered(bmx, O::BmxLevelPreviews, none) &&
+                         !offered(bmx, O::BmxLogoMovie, none) && !offered(bmx, O::BmxGcLevels, none),
+                     "BMX XXX with its PS2 disc alone: none of its other releases' rows (the tuning only times their challenges)");
+            t.IsTrue(offered(bmx, O::BmxParkEditor, none) && offered(bmx, O::BmxMenuLines, none) && offered(bmx, O::BmxAllMpModes, none) &&
+                         offered(bmx, O::BmxIntroMovie, none),
+                     "BMX XXX's park editor, menu lines, multiplayer modes and intro movie (the PS2 disc's) stay");
+            t.IsTrue(!offered(bmx, O::Zoo, all) && !offered(dm2, O::Language, all), "another game's option: never");
+            t.IsTrue(needOf("ai", O::Language) == Need::XboxText && needOf("bmx", O::Language) == Need::BmxText,
+                     "one option, each game's need");
+
+            // The app's own rows: the Xbox pack's and the platform's.
+            Installed android;
+            t.IsTrue(!offered(Need::SecondWindow, android) && !offered(Need::WindowModes, android) && !offered(Need::Borderless, android),
+                     "Android: no Map Window, no Display Mode");
+            t.IsTrue(!offered(Need::XboxTextures, none) && offered(Need::XboxTextures, all), "Xbox Textures with the Xbox pack only");
+
+            // Custom Freeplay: AI's start goes through the Estate.
+            t.IsTrue(mapSlotOf("ai") && mapSlotOf("ai")->need == Need::Estate && mapSlotOf("dm2")->need == Need::Nothing &&
+                         mapSlotOf("bmx")->need == Need::Nothing,
+                     "AI's maps need the Estate (the GameCube disc); DM2's and BMX XXX's nothing");
+        });
+
+        tc.Run("mods: a tuning.ini only where a game reads one", [](TestCase &t)
+        {
+            TempDir dir;
+            const std::filesystem::path shared = dir.path / "Mods";
+            auto put = [](const std::filesystem::path &file, const std::string &text)
+            {
+                std::filesystem::create_directories(file.parent_path());
+                std::ofstream(file, std::ios::binary) << text;
+            };
+            put(shared / "10-ai" / "mod.ini", "[mod]\nid = ai-tune\ngames = ai, dm2\n");
+            put(shared / "10-ai" / "tuning.ini", "x = 1\n");
+            put(shared / "20-dm2" / "mod.ini", "[mod]\nid = dm2-tune\ngames = dm2, bmx\n");
+            put(shared / "20-dm2" / "tuning.ini", "x = 1\n");
+            const std::vector<Mod> mods = listSharedMods(shared);
+            t.Equals(mods.size(), size_t(2), "two mods");
+            if (mods.size() != 2)
+                return;
+            t.IsTrue(mods[0].contents == kModTuning && mods[0].changesLogic() && mods[0].notes.empty(),
+                     "for AI among others: tuning, changes game logic");
+            t.IsTrue(mods[1].contents == 0u && !mods[1].changesLogic() && mods[1].notes.size() == 1 &&
+                         mods[1].notes[0].find("tuning.ini not read") == 0,
+                     "for DM2 and BMX XXX alone: no tuning, no logic changed, a note says why");
+            TempDir own;
+            put(own.path / "Mods" / "tune" / "tuning.ini", "x = 1\n");
+            const std::vector<Mod> dm2Own = listMods(own.path / "Mods", {}, {}, "dm2");
+            const std::vector<Mod> aiOwn = listMods(own.path / "Mods", {}, {}, "ai");
+            t.IsTrue(dm2Own.size() == 1 && !dm2Own[0].changesLogic() && aiOwn.size() == 1 && aiOwn[0].changesLogic(),
+                     "a game's own Mods folder: DM2's not logic, AI's logic");
         });
 
         tc.Run("sha256 matches the FIPS test vectors", [](TestCase &t)

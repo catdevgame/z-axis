@@ -171,6 +171,12 @@ namespace ps2x::zaxis
         // ZGE2's lit skinned program (DM2's VU1 0x118) lights the alpha as the colour channels, from the lights'
         // w (GSNativeSkinning::alphaFromLights); ZGE3's and ZGE4's give 0x80.
         bool alphaFromLights = false;
+        // The game's Xbox release lights its characters with the lights xboxCharacterLights puts in place of the
+        // PS2's default ones (Character Lighting: Xbox): Aggressive Inline's and BMX XXX's, whose XBEs hold the same
+        // light block and whose PS2 default directions are the world axes. Dave Mirra 2's PS2 default directions
+        // are (1, 0, 0.3), (0, 1, 0.3), (0, 0, 1), not the axes, and its XBE has no such block: its riders keep the
+        // PS2's lights.
+        bool xboxLights = false;
     };
 
     // A rigid prelit part made into a native mesh: its triangles, the
@@ -249,6 +255,10 @@ namespace ps2x::zaxis
     // -L x world^-1), so its lights in object space are U times the
     // normalised directions as columns; its vertex colours saturate at 1.0
     // (maxColour 128; VU1 keeps up to 255). Skinning with other lights (a
-    // node's own light block) is left as it is. True if changed.
+    // node's own light block) is left as it is. True if changed. Only for a
+    // game whose PS2 default directions are the world axes and whose Xbox
+    // release has these lights (SkinnedDrawForm::xboxLights): with other
+    // directions U is not the world turned into object space, and the
+    // lights would come out as neither release's.
     bool xboxCharacterLights(GSNativeSkinning &skin);
 }

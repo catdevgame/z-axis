@@ -1,10 +1,12 @@
 #pragma once
 
-// Aggressive Inline's Xbox texture pack, made from the player's PS2 and Xbox
-// discs as tools/xbox_pack.py makes it (the reference: the same bytes): the
+// A game's Xbox texture pack, made from the player's PS2 and Xbox discs: the
 // Xbox release's picture for each PS2 texture it replaces, keyed by the PS2
-// texture, and the Xbox Bink movie for each PS2 movie. The game override
-// reads them (PS2X_XBOX_PACK: Xbox Textures, Xbox Movies).
+// texture, and (Aggressive Inline) the Xbox Bink movie for each PS2 movie.
+// Aggressive Inline's is made as tools/xbox_pack.py makes it (the reference:
+// the same bytes); DM2's and BMX XXX's the same way from their own Xbox
+// libraries' forms (below). The game overrides read them (PS2X_XBOX_PACK:
+// Xbox Textures, Xbox Movies; game_overrides/zge_xbox_textures.h).
 //
 //   <out>/textures/<PS2 path>.xtp   one per PS2 file with replacements
 //                                   (textures/ASSETS/LEVELS/CIVIC/CIVIC.TXR.xtp)
@@ -16,9 +18,15 @@
 // with a TXRH header (u32 id, u16 w, u16 h, 12 zero bytes, the name at
 // +0x14) and the picture, a PS2 TBMP/TZMP (a Windows BMP, 4 or 8 bits) or an
 // Xbox TXPR (u32 0, then an XPR0 bundle with one D3D texture: DXT3 with its
-// mip chain). The Xbox files keep the PS2 names (sizes dropped from skater
-// names, IDn slots kept); a few renamed ones are paired by name below. A
-// pair goes in when the Xbox picture is DXT3 and at least as large, and
+// mip chain). The other games' Xbox libraries differ in form only: DM2's
+// pictures are TDDS chunks (u32 0, then a DDS file: DXT3 with its mips for
+// levels), BMX XXX's TXRCs are each packed in a ZLZO chunk (u32 the unpacked
+// size, then LZO1X: collection/extras/lzo1x.h), and its level props'
+// textures are in the levels' ZAL archives (options.archives).
+//
+// The Xbox files keep the PS2 names (sizes dropped from AI's skater names,
+// IDn slots kept); a few renamed ones are paired by name below. A pair goes
+// in when the Xbox picture is DXT3 and at least as large, and
 // when both look alike (8x8 thumbnails: the mean RGB difference where both
 // are opaque at most maxDiff, the mean difference of the opaque share at
 // most maxCover), so a wrong name match never shows. Xbox pictures with
@@ -41,6 +49,7 @@ namespace ps2x::app::extras
         double maxDiff = 48.0; // largest mean thumbnail difference of a pair (0-255)
         double maxCover = 0.5; // largest mean difference of the opaque share a thumbnail cell (0-1)
         bool movies = true;    // the Bink movies too
+        bool archives = false; // the ZAL archives' textures too (BMX XXX's level props)
     };
 
     // Writes the pack into `out` (which should be empty). `log` gets the

@@ -3,6 +3,7 @@
 #include "dave_mirra.h"
 #include "ps2_runtime.h"
 #include "runtime/ps2_boot_config.h"
+#include "zge_xbox_textures.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -26,6 +27,7 @@ namespace dave_mirra
         installDevTools(runtime);
         installNativeSaves(runtime);
         installXboxLevels(runtime);
+        zge_host::xbox_textures::install(runtime, game::Game::Dm2); // the extras' Xbox textures (Settings > Graphics)
         installXboxThemes(runtime);     // [extras] xbox_themes
         installRetroMovie(runtime);     // [extras] retro_movie
         installAttractDemo(runtime);    // [extras] attract_demo

@@ -248,6 +248,38 @@ namespace game::readable
         return ok;
     }
 
+    bool switchedOnAtBoot(uint32_t address, Game game)
+    {
+        const Function *f = find(address, game);
+        if (!f || !f->readable || f->game != game)
+            return false;
+        bool on = f->status == Status::Verified;
+        const char *spec = std::getenv("PS2X_READABLE");
+        std::stringstream items(spec ? spec : "");
+        std::string item;
+        while (std::getline(items, item, ','))
+        {
+            item.erase(0, item.find_first_not_of(" \t"));
+            item.erase(item.find_last_not_of(" \t") + 1);
+            if (item == "on" || item == "verified" || item == "default")
+                on = f->status == Status::Verified;
+            else if (item == "off")
+                on = false;
+            else if (item == "tested")
+                on = f->status >= Status::Tested;
+            else if (item == "all")
+                on = true;
+            else if (!item.empty())
+            {
+                const bool off = item[0] == '-';
+                const bool plus = item[0] == '+';
+                if (find((off || plus) ? item.substr(1) : item, game) == f)
+                    on = !off;
+            }
+        }
+        return on;
+    }
+
     void install(PS2Runtime &runtime) { install(runtime, Game::Ai); }
 
     void install(PS2Runtime &runtime, Game game)

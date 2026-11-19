@@ -2,33 +2,33 @@
 
 What this file is for: how the cross-build function match is made and what the work database built on it holds
 (sources, tables, views, results, the card, the write-back). `tools/workdb.py`'s docstring is its usage; section 6
-below is the database's reference. Results quoted here are as of the date of each section.
+below is the database's reference. Counts quoted here are from when each part was made: `workdb.py tables` and the
+views give today's.
 
-Research date 2026-10-24 (branch `match3`). Three PS2 games on consecutive versions of Z-Axis's
-engine: Dave Mirra BMX 2 `SLUS_201.59` (ZGE2, Aug 2001), Aggressive Inline `SLUS_203.27` (ZGE3,
+Three PS2 games on consecutive versions of Z-Axis's engine: Dave Mirra BMX 2 `SLUS_201.59` (ZGE2, Aug 2001), Aggressive Inline `SLUS_203.27` (ZGE3,
 Apr 2002), BMX XXX `SLUS_204.15` (ZGE4, Oct 2002; it was "bmx3"). The aim: say how much of the
-readable C++ written for AI (PS2Recomp `runtime/src/game`) can switch on in DM2 and BMX XXX,
+readable C++ written for AI (`runtime/src/game`) can switch on in DM2 and BMX XXX,
 and map AI's functions to the engine's modules. Keyed on AI's functions throughout.
 
 Nothing here is game data: the tools are committed, their outputs (function maps, the match, the
 module map, decompiler output, everything with the games' addresses) are written to a scratch
-folder outside the repos (`$ZAXIS_SCRATCH/match3`) and never committed.
+folder outside the checkout (`$ZAXIS_SCRATCH/match3`) and never committed.
 
 ## Tools (`tools/`, Python run with `-I`, disc files read as data)
 
 | tool | what it does |
 |---|---|
 | `ghidra/pipeline.sh` | The carry-over study's Ghidra pipeline for any of the engine's executables: `pipeline.sh <name> <elf copy> <work dir>`. The scripts are AI's (`tooling/ai/ghidra/scripts`, copied into the work dir) plus `ghidra/ExportDecomp.java`; it installs the R5900 extension into the work dir's own Ghidra settings. Stages 1-8 as before, 9 = full decompiler output |
-| `xbe_paths.py` | `extract`: default.xbe out of an Xbox image (read only, with aggressive-inline's `tools/xbox_files.py`); `paths`: the __FILE__ strings in an XBE and the x86 instructions that push them |
+| `xbe_paths.py` | `extract`: default.xbe out of an Xbox image (read only, with `tooling/ai/tools/xbox_files.py`); `paths`: the __FILE__ strings in an XBE and the x86 instructions that push them |
 | `fmatch3.py` | the three-way match (below); writes `match3.json` |
-| `readable_carry.py` | every PS2Recomp readable registration with its counterpart in DM2 and BMX XXX and what differs; writes `readable-carry.json`, `--list` prints the identical ones |
+| `readable_carry.py` | every readable registration with its counterpart in DM2 and BMX XXX and what differs; writes `readable-carry.json`, `--list` prints the identical ones |
 | `modmap.py` | AI's functions by module (below); writes `modmap.json`, `--readable` adds the readable functions per block |
 | `ghidra/xbe_pipeline.sh`, `xmatch.py`, `xpair.py` | the Xbox build as a second decompilation, paired with the PS2's (section 4) |
 | `readable_ghidra.py`, `ghidra/readable_pass.sh` | the readable write-back: the readable rewrite's names, signatures, structs and globals applied to a copy of a Ghidra project, then the exports again (section 7) |
 | `exports.py` | where each build's decompilation and function export are, as analysed and readable; the tools that read them take the readable ones by default (section 7) |
 | `dm2bmx.py` | DM2 -> BMX XXX PS2: fmatch3's match, then again seeded with its pairs and the triangle's; writes the work database's `pair` results (section 6, "DM2 and BMX XXX") |
 | `lineage_gc.py` | the engine changes the GameCube builds date, as `history` notes (section 6, "The engine's lineage") |
-| `dead_code_dm2.py` | DM2's dead-code table (PS2Recomp docs/DEAD-CODE.md, "Dave Mirra BMX 2") |
+| `dead_code_dm2.py` | DM2's dead-code table (docs/DEAD-CODE.md, "Dave Mirra BMX 2") |
 
 The run, from the scratch folder (inputs: copies of the three ELFs in `elf/`; AI's and DM2's
 function maps from the earlier pipeline runs in `tooling/dm2/ghidra-ai` and
@@ -87,61 +87,27 @@ Findings:
   the game layer: 672 of AI's game functions are identical in BMX XXX, 413 of them at AI
   0x1F0000-0x1FFFFF (the park editor, `GameTools/ParkEditor/editToolSet.c`, which BMX XXX
   inherited) and 162 at 0x170000-0x18FFFF (zgui and the UI script interpreter).
-- BMX XXX's SDK is AI's release, not a newer one (d1data, 2026-11-06): its library version strings are
+- BMX XXX's SDK is AI's release, not a newer one: its library version strings are
   AI's (PsIIlibkernl2430 ... PsIIlibpkt 2400, plus libscf 2400), and every library function that
   pairs is AI's code. The 342 of AI's SDK functions with no counterpart are ones BMX XXX's link
   left out (nothing references them: its ELF has 7 unreferenced functions, DM2's 702). DM2 links
-  release 2.2 (every version string 2200). PS2Recomp game/dm2/libraries.tsv, game/bmx/libraries.tsv
+  release 2.2 (every version string 2200). `runtime/src/game/dm2/libraries.tsv`, `game/bmx/libraries.tsv`
   pin each library.
 - DM2's game layer shares almost nothing with AI's (76 identical, mostly small helpers).
 
 ## 2. The readable functions (readable_carry.py)
 
-PS2Recomp `aggressive-inline` at fbf7557: 544 registrations (425 Verified, 8 Tested, 32 Draft, 79
-Planned); "readable" below means the 465 that are not Planned. For identical pairs, "table ok"
-means every call goes to the matched counterpart of AI's callee and every global maps as the rest
-of the match maps it (so a per-game address table is all the function needs); "+ call site"
-also allows callees the match left unmatched but whose call sites all name one function (they
-need that callee's semantics checked: e.g. AI's sin/cos pair against DM2's).
+Every readable registration with its counterpart in DM2 and BMX XXX and what differs. For identical pairs, "table
+ok" means every call goes to the matched counterpart of AI's callee and every global maps as the rest of the match
+maps it (so a per-game address table is all the function needs); "+ call site" also allows callees the match left
+unmatched but whose call sites all name one function (they need that callee's semantics checked: e.g. AI's sin/cos
+pair against DM2's). For drifted pairs it lists what differs (code, calls, constants, registers, call sites, struct
+offsets, stack frame, globals). The work database's `carry_by_status` view gives the same by status, today.
 
-| readable | n | DM2 identical (table ok / + call site) | DM2 drifted | weak | none | BMX XXX identical (table ok / + call site) | drifted | weak | none |
-|---|---|---|---|---|---|---|---|---|---|
-| Verified | 425 | 67 (60 / 62) | 26 | 24 | 308 | 109 (102 / 107) | 50 | 6 | 260 |
-| Tested | 8 | 3 (3 / 3) | 1 | 1 | 3 | 6 (6 / 6) | 0 | 0 | 2 |
-| Draft | 32 | 13 (8 / 10) | 1 | 1 | 17 | 13 (10 / 13) | 1 | 0 | 18 |
-| all 465 | 465 | 83 (71 / 75) | 28 | 26 | 328 | 128 (118 / 126) | 51 | 6 | 280 |
-| engine | 140 | 69 (58 / 62) | 20 | 19 | 32 | 94 (85 / 92) | 28 | 4 | 14 |
-| game | 312 | 1 (0 / 0) | 8 | 7 | 296 | 21 (20 / 21) | 23 | 2 | 266 |
-| SDK (libvifpk) | 13 | 13 (13 / 13) | 0 | 0 | 0 | 13 (13 / 13) | 0 | 0 | 0 |
-
-"Drifted" here is close or drifted in the match (DM2: 4 close, 24 drifted; BMX XXX: 32 close).
-What differs in the drifted readable functions (functions with each kind): DM2 code 23, calls
-17, constants 17, registers 12, call sites 10, struct offsets 9, stack frame 2; BMX XXX
-constants 31, code 28, struct offsets 27, registers 13, calls 10, call sites 5, stack 2,
-globals 1. Only 3 DM2 functions differ by struct offsets alone.
-
-The 83 readable functions identical in DM2 (V Verified, T Tested, D Draft; * = not table ok):
-the GEO/TXR chunk loaders and the collision face-tree helpers (placeTextureClut,
-placeTextureLevel, collisionClock, loadTextureChunk, loadTextureHeaderChunk, loadGeoHeaderChunk,
-checkFaceTree, loadPositionsChunk*, loadColoursChunk, loadSkinWeightsChunk, loadBoneChunk,
-loadFacesChunk, loadStripGroupsChunk, loadFaceEdgesChunk, loadFaceTagsChunk, loadVertexTagsChunk
-D, faceVertices, edgeVertices, elementEdgeVertices, tagRecordCount, tagRecordAt,
-tagElementRecord, tagByte, setTagByte, tagWord, setTagWord), vector and matrix math (vec3SetOne,
-vec3ScaleAxes D, vec4Midpoint D, vec3Negate, vec3Length, vec3RotateX/Y/Z D*, vec3RotateEuler D,
-matrixTransformPoints D, vec3Lerp, matrixIdentity, matrixClearTranslation, matrixClearRotation,
-matrixToEuler), text and IFF chunks (stringTableText, nameHash*, chunkDataSize, chunkBytesRead,
-readChunkHeader, readChunkData, readChunk, readChunkU32, seekChunk, enterChunk, leaveChunk),
-quaternions (quaternionIdentity, Copy, Multiply, FromAxisAngle*, ToAxisAngle D, FromEuler*,
-ToMatrix, Conjugate D, Dot, Inverse D, Accumulate, Add D, Align D, Scale), lists and boxes
-(listPushFront T, listRemove T, boxContainsPoint T), the UI script's commandGoto*, and libvifpk's
-13 (vif1PacketCloseDmaTag, Cnt, Ref, Call, OpenUnpack, CloseUnpack, Align, AddCode, AddCallCode,
-AddWord, AddQword, AddDword, AddQwords). Close in DM2: loadPartChunk, loadBufferStreamChunk,
-loadCollisionTreeChunk, releaseTagTable.
-
-So about 18 % of the readable functions carry to DM2 as they are (71 to 75 with an address
-table), almost all engine leaves; 28 % to BMX XXX (118 to 126), with BMX XXX's 21 game-side
-identical ones from zgui and the UI scripts. The skater, the level scripts and the follow camera
-(two thirds of the readable work) have no counterpart in either BMX game.
+When this was first measured, about 18 % of the readable functions carried to DM2 as they were and 28 % to BMX
+XXX, almost all engine leaves (chunk loaders, collision face trees, vector, matrix and quaternion math, IFF chunks,
+lists, libvifpk) and, in BMX XXX, zgui and the UI scripts; the skater, the level scripts and the follow camera had
+no counterpart in either BMX game.
 
 ## 3. The module map (modmap.py)
 
@@ -177,8 +143,8 @@ The Xbox builds' __FILE__ paths (AI 21, DM2 24, BMX XXX 27) are the same modules
 platform files (XBoxGL, XBoxTexture, XBoxMovie, xboxChan ...), DM2's zglCamera.c and
 Entities/mover.c, BMX XXX's ztexturefx.c and its game files (action/{action, camera, fx, game,
 motview, overlay, physics, weapon}.c, bmx.c). Their .rdata order is not the PS2 link order, so
-they only add names. (Section 4: they are function anchors after all; the engine's error
-reports store __FILE__ with `mov [eax+0x14], imm32`, which xbe_paths.py did not look for then.)
+they only add names. (Section 4: they are function anchors too; the engine's error
+reports store __FILE__ with `mov [eax+0x14], imm32`, which xbe_paths.py finds.)
 
 Coverage of AI's functions:
 
@@ -197,9 +163,9 @@ libdev, libpkt, libpad, libvu0, libcdvd, libkernl, libmc, libsdr, libgcc, libc. 
 readable functions, 65 are in a named module; all are in one of 85 blocks (49 in one-function
 blocks), the list `modmap.py --readable` prints.
 
-## 4. The Xbox build beside the MIPS (branch `aixbox`)
+## 4. The Xbox build beside the MIPS
 
-Research date 2026-10-24. AI's Xbox release (`default.xbe`, the PDB path
+AI's Xbox release (`default.xbe`, the PDB path
 `C:\inline\src\Xbox\Final_LTCG\InlineXBox.exe`, XDK 4627, MSVC with link-time code generation,
 D3D8LTCG) run through Ghidra as a second decompilation, its functions paired with AI's PS2
 functions, and the pair printed side by side for the readable work. Outputs in
@@ -215,8 +181,8 @@ Tools:
 | `ghidra/ExportXbe.java` | per function: calls in order (tail jumps too), data references with the instruction, immediates, displacements; all defined strings |
 | `ghidra/XbeDump.java` | debug: the listing from an address |
 | `xmatch.py` | the pairing (below); `--holdout` the precision check |
-| `xpair.py` | a PS2 function beside its Xbox counterpart, annotated; `--slices` one file per function of READABLE.md's next slices and Planned registrations |
-| `xbe_paths.py` | now also finds `mov [r32+d], imm32` uses of a path |
+| `xpair.py` | a PS2 function beside its Xbox counterpart, annotated; `--slices FILE` one file per Planned registration and per address in FILE's "Next slices, in order" section (docs/READABLE.md no longer has one: Planned only) |
+| `xbe_paths.py` | also finds `mov [r32+d], imm32` uses of a path |
 
 The run (from `$ZAXIS_SCRATCH/aixbox`; XBE_EXT_ZIP is the ghidra-xbe release zip,
 github.com/XboxDev/ghidra-xbe `build-202610161023`, `ghidra_12.1.4_PUBLIC_20261016_ghidra-xbe.zip`):
@@ -233,8 +199,8 @@ python3 -I tools/xpair.py xmatch.json <ai-decomp.c> ghidra-aixbox/AiXbox-decomp.
 ```
 
 (`<ai.csv>`, `<ai sce-matches.csv>`: `ghidra-ai/out/ghidra-functions.csv` and
-`ghidra-ai/sce-db/sce-matches.csv`; `<ai-decomp.c>`: this repo's `ai-decomp.c`, the PS2
-pipeline's stage 9.)
+`ghidra-ai/sce-db/sce-matches.csv`; `<ai-decomp.c>`: this workspace's `ai-decomp.c` (a data link), the PS2
+pipeline's decompiler output.)
 
 ### Ghidra on the XBE
 
@@ -277,7 +243,7 @@ loaders, ps2Movie, ps2Chan, the memory card) pairs at 0-9 % by size per 16 KB, 0
 
 Checks:
 - Hand check, pairs drawn at random from engine and game, read side by side: high 11 of 11
-  right, medium 12 of 12, low 29 over the last three versions of the rules, about half right
+  right, medium 12 of 12, low 29, about half right
   (the wrong ones: a size match beside a paired call with nothing else shared). Medium is not
   always right: PS2 0x138370 (a 16-byte aligned bump allocator) is paired with the Xbox's
   ziffChunkReadData (0xAA370), whose PS2 counterpart is readChunk 0x149428 (paired low with
@@ -291,10 +257,6 @@ Checks:
   pairs made are wrong (a low and a medium one, not read).
 - Not checked: the pairs against running code (nothing was run), and the engine's low pairs
   beyond the sample.
-
-Readable registrations (PS2Recomp `aggressive-inline` at 7ae0d77; 544): of the 465 readable, 94
-high, 81 medium, 54 low, 47 inlined, 189 none (engine 22/15/7/24/72, game 72/66/47/23/104, the 13
-libvifpk ones none); of the 79 Planned, 19/10/19/1/30.
 
 ### Reading the Xbox code beside the MIPS
 
@@ -363,14 +325,12 @@ for mac_x86_64 only and runs under Rosetta (copied to `os/mac_arm_64`).
 Not done: the Player's offset map as a table (from the paired functions' displacements); the low
 pairs checked; the engine's PS2-only code has no Xbox counterpart by design.
 
-### DM2's and BMX XXX's Xbox builds (branch `workdb`, 2026-10-24)
+### DM2's and BMX XXX's Xbox builds
 
-BMX XXX (`c:\bmx3\src\XBox\Bmx3XBox\Final\Bmx3XBox.exe`) through `xbe_pipeline.sh` with the
-gap fill's first-byte fix (the dm2xcareer round's: a pointer to `.text`'s first byte read the byte
-before it), in `$ZAXIS_SCRATCH/workdb/bmxxbox`; about 3 minutes. 6,116 functions, 4,134 in
+BMX XXX (`c:\bmx3\src\XBox\Bmx3XBox\Final\Bmx3XBox.exe`) through `xbe_pipeline.sh`, in
+`$ZAXIS_SCRATCH/workdb/bmxxbox`; about 3 minutes. 6,116 functions, 4,134 in
 `.text` (96.4 % of its 1,162,368 bytes; 769 gaps after code that falls through), 376 named by
-XbSymbolDatabase and Function ID. DM2's (`$ZAXIS_SCRATCH/dm2xbox-ghidra`, made by the
-dm2xcareer round) is paired again here.
+XbSymbolDatabase and Function ID. DM2's is in `$ZAXIS_SCRATCH/dm2xbox-ghidra`.
 
 `xmatch.py --layers ENGINE:GAME:SDK` gives the other games' PS2 builds their own layer bounds:
 with AI's, BMX XXX's game code from 0x2021E0 to its SDK at 0x21DAA8 was out of the pool, and DM2's
@@ -389,17 +349,15 @@ functions' identical and close counterparts fall: DM2 100100:150000:1C2728, BMX 
 hidden): BMX XXX 82 paired the same, 4 differently (all high: 1 call, 3 order), 14 unpaired of
 100; DM2 41 the same, 2 differently (a low and a medium), 33 unpaired of 76. DM2's Xbox engine
 does not pair: its Xbox release was built on a different engine (0.3 % by size, against 53 % for
-BMX XXX). The dm2xcareer round's pairing (AI's bounds) had 925 pairs: 772 the same as here, 7
-different, 146 only there (141 of them DM2 PS2 functions in its Sony libraries, which have no Xbox
-counterpart), 5 only here.
+BMX XXX).
 
-## 5. The GameCube builds (branch `workdb`)
+## 5. The GameCube builds
 
-Research date 2026-10-24. The three games' GameCube releases: `main.dol`, PowerPC Gekko, Metrowerks
+The three games' GameCube releases: `main.dol`, PowerPC Gekko, Metrowerks
 CodeWarrior, no symbols and no `__FILE__` paths, but the engine's and game's messages the PS2
 builds dropped are there (zguiScript_Load's, the "Memory leak in ..." reports) and the UI code
-spells out its `$KSTR_*` keys. Extracted from the discs (read only) with aggressive-inline's
-`tools/gc_disc.py extract <rvz> --out <dir> sys/main.dol --sys`; outputs in
+spells out its `$KSTR_*` keys. Extracted from the discs (read only) with
+`tooling/ai/tools/gc_disc.py extract <rvz> --out <dir> sys/main.dol --sys`; outputs in
 `$ZAXIS_SCRATCH/workdb/gc` (disc derived, never committed).
 
 Tools:
@@ -460,10 +418,10 @@ Installed: nothing system-wide. Downloaded into `$ZAXIS_SCRATCH/workdb/gc/downlo
 9892f28fc1e7f19bb3fcec7cfb4ad2ab7504503b571d93de8b142a6f7bec8ed0), unpacked by the pipeline into
 each work dir's own Ghidra settings.
 
-## 6. The work database (tools/workdb.py, branch `workdb`)
+## 6. The work database (tools/workdb.py)
 
 One DuckDB file, `$ZAXIS_SCRATCH/workdb/work.duckdb`, with everything above keyed on AI's
-PS2 functions, for the readable rewrite's sweep (READABLE.md round 14) and the readable passes. It
+PS2 functions, for the readable rewrite's sweep (docs/READABLE.md "Drafts and the sweep") and the readable passes. It
 is a cache: `workdb.py build` makes it from the sources (about 5 s), nothing edits it, everyone
 else opens it read-only, and a build writes a new file and renames it over the old one. Run with
 `$ZAXIS_SCRATCH/venv/bin/python` (duckdb 2.0.0; any other Python re-runs the script with
@@ -485,7 +443,7 @@ duckdb -readonly $ZAXIS_SCRATCH/workdb/work.duckdb   # or the CLI
 Sources (each overridable, see the docstring): the three PS2 ELF copies with their Ghidra
 function CSVs and SCE scans; `match3.json` and `modmap.json`; the three XBE exports with their
 xmatch pairings and `__FILE__` uses; the three DOL exports with their gcmatch pairings; the
-readable sources (PS2Recomp `src/game`: registrations, `ee::Global` and `k...` address
+readable sources (`runtime/src/game`: registrations, `ee::Global` and `k...` address
 constants, the `// FUN_xxxxxxxx:` doc comments, lines per file); every `index.json` of the
 recording corpus; the PS2X_FNPROF profile; main's commit messages ("N of M ... on"); the string
 tables (AI and DM2, PS2 and Xbox) with the `KSTR_*` names the builds and the UI files spell out;
@@ -493,24 +451,24 @@ the sweep's result files.
 
 Tables (layer 1):
 
-| table | rows | what |
-|---|---|---|
-| builds | 9 | the nine builds: platform, CPU, functions, which build each is paired to, layer bounds |
-| functions | 49,907 | per build: address, end, size, instructions, Ghidra's name, layer (other builds: their AI counterpart's, else by bounds), section, masked hash (PS2), floats, integer constants, struct offsets (lists) |
-| calls | 209,654 | caller, byte offset, callee per build |
-| func_strings, func_globals | 25,017, 93,637 | strings (with is_path) and other data each function references |
-| file_anchors | 261 | `__FILE__` paths by function: PS2 and Xbox strings, xbe_paths.py's uses |
-| modules, blocks | 6,324, 763 | AI's module map (module, how, block, candidates) |
-| matches | 20,922 | direct pairs between builds: method, class (identical .. weak, or high .. low), confidence, score, votes, the triangle check, source file |
-| inlined | 4,709 | functions with no counterpart that a counterpart of their callers holds |
-| counterparts | 20,261 | per AI function and build: the counterpart, direct or through DM2's or BMX XXX's PS2 build (confidence the lower of the two links), or the functions it is inlined into |
-| readable, readable_symbols, readable_files | 550, 1,281, 162 | registrations (status, file, line, WAITS/VU0, doc comment); named addresses; C++ lines |
-| corpus, corpus_routes, corpus_uncovered | 2,799, 9, 153 | per corpus version, route and function: calls kept, callee calls, vsyncs |
-| profile, progress | 1,335, 17 | the PS2X_FNPROF profile; Verified counts over main's history |
-| tuning | 408 | AI's tuning table (category, name, value, range, step) |
-| string_keys, key_names | 3,622, 295 | string table keys with their text and name; KSTR names by hash and where seen |
-| names | 7,532 | name candidates per build and function with source, kind, confidence and evidence |
-| best_names | 6,290 | one name per function (AI's own, else its counterpart's) for listings |
+| table | what |
+|---|---|
+| builds | the nine builds: platform, CPU, functions, which build each is paired to, layer bounds |
+| functions | per build: address, end, size, instructions, Ghidra's name, layer (other builds: their AI counterpart's, else by bounds), section, masked hash (PS2), floats, integer constants, struct offsets (lists) |
+| calls | caller, byte offset, callee per build |
+| func_strings, func_globals | strings (with is_path) and other data each function references |
+| file_anchors | `__FILE__` paths by function: PS2 and Xbox strings, xbe_paths.py's uses |
+| modules, blocks | AI's module map (module, how, block, candidates) |
+| matches | direct pairs between builds: method, class (identical .. weak, or high .. low), confidence, score, votes, the triangle check, source file |
+| inlined | functions with no counterpart that a counterpart of their callers holds |
+| counterparts | per AI function and build: the counterpart, direct or through DM2's or BMX XXX's PS2 build (confidence the lower of the two links), or the functions it is inlined into |
+| readable, readable_symbols, readable_files | registrations (status, file, line, WAITS/VU0, doc comment); named addresses; C++ lines |
+| corpus, corpus_routes, corpus_uncovered | per corpus version, route and function: calls kept, callee calls, vsyncs |
+| profile, progress | the PS2X_FNPROF profile; Verified counts over main's history |
+| tuning | AI's tuning table (category, name, value, range, step) |
+| string_keys, key_names | string table keys with their text and name; KSTR names by hash and where seen |
+| names | name candidates per build and function with source, kind, confidence and evidence |
+| best_names | one name per function (AI's own, else its counterpart's) for listings |
 
 Name sources: `readable` (registration), `sce` (the SCE scan), `ghidra`/`xdk`/`function_id`
 (Ghidra's names on the PS2, XbSymbolDatabase, Function ID), `message` (identifiers in a
@@ -519,18 +477,16 @@ function's messages, xmatch.py's rule, in every build: `function` when the messa
 `tuning` (the tuning entries it reads: directly, or through a category's entries pointer and an
 entry offset), `string_key` (a `KSTR_*` key: a name hash constant on the PS2, a `$KSTR_*` string
 elsewhere, with the English text), `readable_doc` (the doc comment of an unregistered address).
-14 AI functions get a message name (function kind) through a high or medium counterpart; 96 use
-a string key; 622 unregistered AI functions have a name or module from some source.
 
 Views: `ai_functions` (status, module, routes, counterparts at a glance), `counterparts_wide`
 (one column per build), `card` (one row per function with lists), `ai_names` (every candidate
 from every build through the counterparts, with the pair's confidence), `uncovered` (non-SDK
-functions no route of the newest corpus reaches: 4,986, of them 149 registered), `carry_by_layer`
+functions no route of the newest corpus reaches), `carry_by_layer`
 and `carry_by_status` (counterparts by confidence per layer or readable status, with shares by
 size), `sweep_latest`, `sweep_failure_classes`, `engine_lineage` (below).
 
-Carry-over of AI's functions (best counterpart; size = share of the layer's instructions with a
-high or medium counterpart):
+Carry-over of AI's functions when the database was first built (best counterpart; size = share of the layer's
+instructions with a high or medium counterpart; `carry_by_layer` gives today's):
 
 | build | engine high / medium / low | engine size | game high / medium / low | game size |
 |---|---|---|---|---|
@@ -550,7 +506,7 @@ Sweep jobs and agents never write the database. Each appends JSON lines to its o
 rejected lines go to `ingest_errors` with the reason. A line:
 
 ```
-{"kind": "check", "addr": "0x0018D678", "run": "r14-a", "generator": "readable_draft.py <commit>",
+{"kind": "check", "addr": "0x0018D678", "run": "sweep-a", "generator": "readable_draft.py <commit>",
  "ts": "2026-10-24T13:00:00", "route": "lc", "result": "pass", "calls": 100, "failed": 0}
 ```
 
@@ -572,10 +528,10 @@ required; `agent` is optional; fields a kind does not know are kept in `extra` (
 `map` and `pair` lines are keyed by their own `build` and `addr` (any build, not only AI's PS2):
 a function mapped by hand for a port (the DM2 rider code,
 `results/riderplan/rider-map.jsonl` by `tools/ridermap.py`) and pairs the match does not make
-(`results/riderplan/dm2-bmx-pairs.jsonl`: DM2 -> BMX XXX PS2, 2,674; superseded by d1data's, below). The views
+(`results/riderplan/dm2-bmx-pairs.jsonl`: DM2 -> BMX XXX PS2, 2,674; superseded by `dm2bmx.py`'s, below). The views
 `func_map_latest` and `func_pairs_latest` give the newest line per function (schema version 2).
 
-### DM2 and BMX XXX (d1data, 2026-11-06)
+### DM2 and BMX XXX
 
 `tools/dm2bmx.py OUT.json <workdb>/results/d1data --run d1data` makes the DM2 -> BMX XXX PS2 match:
 fmatch3.match_pair on the two ELFs (as `ridermap.py pair`, which gave the same 2,674 pairs on today's
@@ -595,7 +551,7 @@ DM2's library bound is 0x1CC800 (sceGsResetGraph), not 0x1C2728: the SCE scan's 
 a game function (SCE_FALSE in workdb.py), and the 173 functions between are DM2's level object types
 (EditObj_GapMarker .. SpecialFX/zfxMgr.c). The Xbox and GameCube pairings were made with the old bound.
 
-### The engine's lineage (d1data, 2026-11-06)
+### The engine's lineage
 
 View `engine_lineage`: one row per engine function across ZGE2 (DM2 PS2, Aug 2001), ZGE3 (AI PS2,
 Apr 2002) and ZGE4 (BMX XXX PS2, its build string Oct 16 2002), from the three games' direct links
@@ -630,11 +586,11 @@ engine does not pair (section 4) and MSVC's inlining hides the bodies. Build dat
 executables: DM2 Xbox XBE Nov 9 2001; DM2 GameCube Dolphin OS Sep 8 2001; AI GameCube Dolphin OS
 Jun 5 2002; AI Xbox XBE Jul 2 2002; BMX XXX PS2 Oct 16 2002, Xbox Oct 22 2002, GameCube Nov 3 2002.
 
-A `check` line names what the pass was made against (ps2xFnCheck's result line, PS2Recomp
-docs/READABLE.md "Path coverage and pass digests"): `impl` the readable function's source digest
-(PS2Recomp tools/readable_digest.py), `orig` the generated original's, `rec` the recording's
+A `check` line names what the pass was made against (ps2xFnCheck's result line,
+docs/READABLE.md "How a function is proven"): `impl` the readable function's source digest
+(`runtime/tools/readable_digest.py`), `orig` the generated original's, `rec` the recording's
 recorder version and corpus folder (`6:v5/lc`), `checker` the ps2xFnCheck executable's. A
-`coverage` line (PS2Recomp tools/fncheck_corpus.py emit) gives a function's path coverage over a
+`coverage` line (`tooling/checks/fncheck_corpus.py emit`) gives a function's path coverage over a
 corpus: the original's basic blocks, how many the replayed calls ran, the uncovered blocks'
 addresses. The build also runs readable_digest.py on the readable sources (source
 `readable_digest`, next to `game_src`) into `readable_digests`: each registration's current digest.
@@ -652,8 +608,6 @@ evidence), evidence (how a fact was established), caveat (a trap, or why it stay
 (a past change worth knowing). Notes are appended, never edited; the same text twice is shown once.
 They go to `func_notes`; `workdb.py card` shows the first twelve under the function and
 `workdb.py notes TOPIC|ADDR|NAME [--build B]` lists them all (`notes` alone counts them per topic).
-The old round sections of docs/READABLE.md, BRINGUP.md, DEVTOOLS.md and DEAD-CODE.md were migrated
-once (`results/knowledge1/notes.jsonl`, agent `knowledge1`, source = recomp/log file and line).
 Schema version 4.
 
 `workdb.py emit FILE KIND key=value ...` writes one checked line (values parsed as JSON when they
@@ -676,60 +630,34 @@ their readable names; callers and callees (in call order) with their best names.
 inside a function finds the function; a name is looked up in every build's candidates. About
 25 ms a card (100 cards in 2.4 s in one process).
 
-For readable_draft.py (the engine agent's tool; not changed here), what calling it needs:
-- Run `python3 -I <tooling>/dm2/tools/workdb.py card ADDR [ADDR ...] --prefix '// '
-  --width 100` once per batch of drafts (it re-runs itself with the venv's Python). Each card
-  starts with a line `// workdb card: AI PS2 0x<addr> ...`: split the output there, or use
-  `--json` (a list of card dicts; one dict for one address) and format it yourself.
-- Paste the card after the draft's "Draft by readable_draft.py" header and before Ghidra's
-  decompilation comment.
-- Options it would want: `--workdb PATH` (default `tooling/dm2/tools/workdb.py`,
-  or WORKDB_PY), `--no-workdb`; when the script or the database is missing, or the address is not
-  an AI function (exit status 1, a message on stderr), draft without the card.
-- The card names the database's build time; drafts made from an old database say so. The card
-  is a comment: it does not change the draft's code, so ps2xFnCheck results do not depend on it.
+`runtime/tools/readable_draft.py` puts a function's card in each draft's header, after its "Draft by
+readable_draft.py" line and before Ghidra's decompilation comment (`--workdb PATH`, default
+`tooling/dm2/tools/workdb.py` or WORKDB_PY; `--no-workdb`; with the database missing, or an address that is not an
+AI function, it drafts without the card). The card names the database's build time; it is a comment, so
+ps2xFnCheck results do not depend on it.
 
-### The tracking page
+Not checked: the GameCube pairs read side by side by hand (the holdout is the only precision measure); the tuning
+candidates read through the category pointer (a displacement in a function that also reads the category could be
+another struct's); the string-key candidates beyond their hash matching a named key.
 
-aggressive-inline's `tools/readable_map/map.py` reads the page's data from the database (the duckdb
-CLI, read-only): the tree, code map and progress line as before, plus the sweep (functions per
-stage: drafted, builds, checks pass, Tested, Verified, failed; checks per route; failure classes;
-generator versions; every function with a result), coverage (registered functions no route
-reaches, per layer) and carry-over to DM2 and BMX XXX by layer (all eight builds in a table
-below). `tools/readable_map/update.sh` rebuilds the database, builds the page and pushes it to its
-address (300f).
-
-Checked: the build from scratch (no source missing), every table's row count against the sources
-(functions per build against the CSVs and exports, pairs against the pairing files, 550
-registrations against the source); three cards read against MATCH3.md's and READABLE.md's facts
-(keepCameraEyeClear's Xbox pair and its Player offsets, stringTableText's identical DM2 and BMX
-XXX pairs, zguiScript_Load's names); results ingest with good and bad lines in a test database
-(accepted lines in sweep_latest and sweep_failure_classes, bad ones in ingest_errors, `emit`
-refusing a bad value); the page rendered headless (Chrome) from the database and from a test
-database with results. Not checked: the GameCube pairs read side by side by hand (the holdout is
-the only precision measure); the tuning candidates read through the category pointer (a
-displacement in a function that also reads the category could be another struct's); the
-string-key candidates beyond their hash matching a named key.
-
-## 7. The readable write-back (branch `ghidranames`)
+## 7. The readable write-back
 
 The decompilations read with the readable rewrite's names, types and struct fields: what the
 readable code knows is written into a copy of each analysed Ghidra project, read back, and the
-exports are made again from the copy (recommendation 4 of the REA study,
-whose report was scratch and is not kept). Everything it writes holds the games' addresses:
+exports are made again from the copy. Everything it writes holds the games' addresses:
 scratch only (`$ZAXIS_SCRATCH/ghidranames`).
 
 | tool | what it does |
 |---|---|
-| `readable_ghidra.py` | the input. `scan`: clang over the 131 readable translation units (flags from a `compile_commands.json` under `<PS2Recomp>/out`; 45 s, cached by a digest of the sources): `-fdump-record-layouts-complete` for every struct's offsets and size, and the JSON AST of the namespaces aggressive, zge and sce for the registrations (address, the registered function's C++ signature and parameter names), the ee::Global variables, enums and typedefs. `gen BUILD DIR`: `readable-BUILD.h` (the guest structs, packed with every gap spelled out so the offsets are clang's; the prototypes; the globals' types) and `readable-BUILD.jsonl` (a meta line with the header's SHA-256, the readable commit and the work database's build time; then the expected layouts, the names, the signatures with their EABI registers, the globals). `all DIR`: the five builds. `stats BEFORE.c AFTER.c`: counts over two decompilations |
-| aggressive-inline `ghidra/scripts/ApplyReadable.java` | the stage. The header goes through Ghidra's C parser into the category `/readable`. Function names: the analysis name is kept in the `ReadableOriginalName` property map; a name a loader, Function ID or the SCE scan gave (the libraries' own) stays, and the readable one becomes a label beside it. Signatures: ApplyFunctionSignatureCmd with the compiler spec's default convention. Globals: typed data, larger first (a global inside a struct global stays a label). Each function gets a plate comment saying where its name came from. Then everything is read back: struct sizes and each field's offset, name and size; names; parameter types, names and registers against the EABI (a0-a3, t0-t3, f12-f19); return types. Any mismatch fails the stage. The input's and the header's SHA-256 go into Program Information. `verify` runs the read-back alone (read only) |
+| `readable_ghidra.py` | the input. `scan`: clang over the 131 readable translation units (flags from a `compile_commands.json` under the checkout's `out/`; 45 s, cached by a digest of the sources): `-fdump-record-layouts-complete` for every struct's offsets and size, and the JSON AST of the namespaces aggressive, zge and sce for the registrations (address, the registered function's C++ signature and parameter names), the ee::Global variables, enums and typedefs. `gen BUILD DIR`: `readable-BUILD.h` (the guest structs, packed with every gap spelled out so the offsets are clang's; the prototypes; the globals' types) and `readable-BUILD.jsonl` (a meta line with the header's SHA-256, the readable commit and the work database's build time; then the expected layouts, the names, the signatures with their EABI registers, the globals). `all DIR`: the five builds. `stats BEFORE.c AFTER.c`: counts over two decompilations |
+| `tooling/ai/ghidra/scripts/ApplyReadable.java` | the stage. The header goes through Ghidra's C parser into the category `/readable`. Function names: the analysis name is kept in the `ReadableOriginalName` property map; a name a loader, Function ID or the SCE scan gave (the libraries' own) stays, and the readable one becomes a label beside it. Signatures: ApplyFunctionSignatureCmd with the compiler spec's default convention. Globals: typed data, larger first (a global inside a struct global stays a label). Each function gets a plate comment saying where its name came from. Then everything is read back: struct sizes and each field's offset, name and size; names; parameter types, names and registers against the EABI (a0-a3, t0-t3, f12-f19); return types. Any mismatch fails the stage. The input's and the header's SHA-256 go into Program Information. `verify` runs the read-back alone (read only) |
 | `ghidra/readable_pass.sh` | `readable_pass.sh <ps2\|xbe\|gc> <name> <work dir> <program> <readable-BUILD.jsonl>`: copies `<work>/project` to `<work>/project-readable` and applies there. The base project stays as analysed: its CSV names the recompiled functions and its jsonl feeds the pairings. Then, read only: verify, the export again (xbe/gc) and the decompilation, into `<work>/readable/` |
 | `ExportXbe.java`, `ExportDecomp.java` | on a readable copy, ExportXbe writes the analysis name as `"n"` (so xmatch, gcmatch and workdb read what they always read) and the readable one as `"rn"`. ExportDecomp starts with a line that names the input and its SHA-256 |
 | `xpair.py` | a call to a function that the readable stage named on the Xbox side gets its PS2 counterparts, as a FUN_ call does |
 
 The pipelines run it as their last stage when `READABLE_BUILD` names the build:
 `pipeline.sh` stage 10, `xbe_pipeline.sh` stage 5, `gc_pipeline.sh` stage 4. AI's own
-pipeline (aggressive-inline `ghidra/scripts/pipeline.sh`) runs it as stage 9.
+pipeline (`tooling/ai/ghidra/scripts/pipeline.sh`) runs it as stage 9.
 
 What each build takes:
 - AI PS2 gets everything: the registrations, the readable constants that name a function
@@ -742,7 +670,7 @@ What each build takes:
 No two AI names fold into one counterpart in these five builds (the generator would apply
 neither). A name used twice gets the address (`allocate_00117AC0`).
 
-Run 2026-10-24 on copies of the five projects. Every apply and every read-only verify reported
+On copies of the five projects every apply and every read-only verify reports
 0 mismatches. Before = a fresh ExportDecomp of each base copy, byte-identical to the decompilations
 in use (`ai-decomp.c`, `dm2-decomp.c`, `BmxXXX-decomp.c`, `AiXbox-decomp.c`, `AiGc-decomp.c`).
 
@@ -787,7 +715,7 @@ Checks on the new exports:
   swapped in: all 33 tables (meta and sources aside) hold the same rows.
 - `xpair.py` reads the readable PS2 and Xbox decompilations; on 0x18CC50 it annotates the same
   8 counterpart calls as on the base files, and its base output is unchanged.
-- aggressive-inline's `readable_draft.py --decomp <readable AI decomp>` reads it. Its draft of
+- `readable_draft.py --decomp <readable AI decomp>` reads it. Its draft of
   0x18E858 names the parameters `camera` and `seconds` (`param_2` and `param_1` from the base
   file).
 - Not checked: dmatch.py on the readable files; Ghidra's GUI on a readable project.
@@ -805,12 +733,12 @@ python3 -I tools/readable_ghidra.py stats <base decomp.c> <work dir>/readable/<n
 The scratch folder holds the copies (`<build>/project`, `project-readable`, `readable/`, `base/`),
 `run-all.sh` (all five, one Ghidra at a time; about 5 minutes) and `base-decomp.sh`.
 
-### The other four builds, and types on the Xbox and GameCube (branch `ghidranames2`)
+### The other four builds, and types on the Xbox and GameCube
 
 DM2's and BMX XXX's Xbox and GameCube builds take names through their high and medium
 counterparts: AI's function, its pair in the game's PS2 build, and that one's pair in the Xbox or
 GameCube build (the work database's `counterparts` with `via`; the confidence is the lower of the
-two links). All six Xbox and GameCube builds now also take structs and signatures, where shown:
+two links). All six Xbox and GameCube builds also take structs and signatures, where shown:
 
 - **Struct layouts, per struct and build** (`readable_ghidra.py layouts BUILD [--json]`). AI PS2's
   readable decompilation spells each field access (`camera->player->speed`): per function, the
@@ -840,7 +768,7 @@ two links). All six Xbox and GameCube builds now also take structs and signature
   integers in ECX, EDX); `__thiscall` and LTCG's own register conventions are skipped. Wide
   arguments (8-byte integers, x86 doubles) are skipped, and a float return against an integer
   one. ApplyReadable.java takes the record's `cc` and reads it back with each parameter's
-  storage (aggressive-inline patch).
+  storage.
 
 `tools/exports.py` says where each build's exports are: the base ones (as analysed) and the
 readable ones in one folder, `$ZAXIS_SCRATCH/readable-exports/<build>/` (`decomp.c`,
@@ -848,7 +776,7 @@ readable ones in one folder, `$ZAXIS_SCRATCH/readable-exports/<build>/` (`decomp
 SHA-256; `exports.py install BUILD WORKDIR` after a readable pass). The tools take the readable
 files by default:
 
-| tool | default now | the originals |
+| tool | default | the originals |
 |---|---|---|
 | `workdb.py build` | the six readable Xbox/GameCube exports (they name the analysis name `"n"`, so the tables read as before; `meta.exports` says which) | `--base-exports` |
 | `xpair.py` | `xpair.py ai_xbox\|dm2_xbox\|bmx_xbox ADDR ...`: the pairing and both readable decompilations; any decompilation argument may be a build name | `--base` |
@@ -858,11 +786,10 @@ files by default:
 | `ridermap.py`, `readable_ghidra.py gen` | read the work database only (ridermap), or AI PS2's readable decompilation for the layout check | - |
 
 READABLE_EXPORTS=base in the environment turns every default back. A build with no readable
-file falls back to its base file with a warning. aggressive-inline's `readable_draft.py
---decomp` (not changed here) should take `$ZAXIS_SCRATCH/readable-exports/ai_ps2/decomp.c`
-(`python3 -I tools/exports.py path ai_ps2 decomp`) instead of `tooling/dm2/ai-decomp.c`.
+file falls back to its base file with a warning. `readable_draft.py --decomp` still defaults to
+`tooling/dm2/ai-decomp.c`; the readable one is `python3 -I tools/exports.py path ai_ps2 decomp`.
 
-Run 2026-10-24 on copies of the six Xbox and GameCube projects (AI Xbox and GameCube again, now with types). Every apply and read-only verify: 0 mismatches.
+On copies of the six Xbox and GameCube projects every apply and read-only verify reports 0 mismatches.
 Before = the base decompilation each pipeline wrote.
 
 | build | names (renamed, library kept) | structs written (layout check: same, small, differs, unknown) | signatures (of high readable ones) | FUN_ refs | raw `*(T *)(x + 0xN)` | `->field` | `param_N` |
@@ -924,8 +851,6 @@ The scratch folder holds `run-all.sh` (the six, one Ghidra at a time, about 13 m
 - A finer block rule (local calls tie neighbouring objects; a call-only link could be dropped where
   the data says otherwise) and a decompiler-text pass (dmatch.py) for the 776 engine functions
   with no DM2 counterpart.
-- The Xbox builds as x86 decompilations: all three done (section 4); the GameCube builds
-  (section 5).
 - The work database's next layers: struct offsets per build as a table of field pairs (the
   Player's on Xbox and GameCube), the GameCube pairs read by hand, DM2's and BMX XXX's string
   tables from their discs, the corpus per-function caps the sweep needs.
@@ -936,7 +861,7 @@ The scratch folder holds `run-all.sh` (the six, one Ghidra at a time, about 13 m
   size); `__thiscall` and LTCG register conventions on the Xbox; medium counterparts' signatures;
   the 134-164 structs per build with too little evidence (most are used by no paired function);
   DM2 Xbox (6 names: its pairing with DM2 PS2 holds 523 high pairs, 53 of them with an AI
-  counterpart); readable_draft.py's `--decomp` default (aggressive-inline, another agent's).
-- The three-way match is static: nothing was run in DM2 or BMX XXX. "Identical" means the masked
-  machine code is equal, not that a readable function was checked there (that needs DM2
-  recordings and ps2xFnCheck, see the design in aggressive-inline's docs/READABLE.md).
+  counterpart); readable_draft.py's `--decomp` default.
+- The three-way match is static. "Identical" means the masked machine code is equal, not that a
+  readable function was checked there: that is each game's own recording corpus and ps2xFnCheck
+  (docs/READABLE.md "How a function is proven").

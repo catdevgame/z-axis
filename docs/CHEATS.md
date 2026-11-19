@@ -80,8 +80,8 @@ written to the saved game, so it stays with the save. Each row has a kind and an
 rider, a movie opened in the movie gallery, a rider unlocked, a rider's every bike, or a feature opened and turned on
 (index -1: every one of the kind).
 
-Checked on the PS2 game (the lane runner, every PS2 code typed on its keyboard in one run, the saved game read after
-each, $ZAXIS_SCRATCH/extras3/cheatcheck-cheats1.txt): each code below did what its row says. The level, movie, rider and
+Checked on the PS2 game (the runner, every PS2 code typed on its keyboard in one run, the saved game read after
+each): each code below did what its row says. The level, movie, rider and
 bike codes are the same in all three releases; the rows marked otherwise differ.
 
 | Code | What it opens | Releases |

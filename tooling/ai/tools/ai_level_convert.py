@@ -59,7 +59,7 @@ The model (glTF 2.0, as Blender exports it; gltf_model.py reads it):
   zone: its box is the node's position +- its scale (Blender's empty cube of size 1), or its mesh's bounds
   when it has one; #sees=a,b lists the zones visible from it, every other zone is hidden there.
 
-Budgets (the numbers behind them: docs/CUSTOM-LEVELS.md section 5):
+Budgets (the numbers behind them: docs/CUSTOM-LEVELS.md section 2):
   texels          TEXEL_BUDGET_KB (2,560 KB) over the whole level, a byte a texel: over it, the largest
                   textures are halved first until it fits (the Zoo converter's rule); said in the report
   texture side    TEXTURE_SIDE (128): a larger texture is halved to it; a side that is not a power of two is

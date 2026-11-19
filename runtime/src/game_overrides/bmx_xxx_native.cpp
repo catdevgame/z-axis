@@ -16,9 +16,11 @@
 // host mix).
 //
 // [host] disc = ps2, PS2X_MOVIES=hle: the IOP's modules instead.
+// The Xbox textures follow the files the game opens (zge_xbox_textures.h).
 // PS2X_MODS_DIR, PS2X_TRACE_DISC, PS2X_TRACE_MOVIES as for AI.
 #include "bmx_xxx.h"
 #include "zge_host.h"
+#include "zge_xbox_textures.h"
 
 #include "../game/ee/game_id.h"
 #include "../game/host/native_draws.h"
@@ -34,7 +36,9 @@ namespace bmx_xxx
 {
     bool installNativeDisc(PS2Runtime &runtime)
     {
-        return zge_host::installNativeDisc(runtime, {.game = "BMX XXX", .id = game::Game::Bmx});
+        return zge_host::installNativeDisc(runtime, {.game = "BMX XXX",
+                                                     .id = game::Game::Bmx,
+                                                     .fileOpened = &zge_host::xbox_textures::noteFileOpened});
     }
 
     bool installNativeMovies(PS2Runtime &runtime)
@@ -65,10 +69,12 @@ namespace bmx_xxx
         const bool records = !strict;
         // The rigid clipping program's form: VU1 0x06 at 0x1168, AI's passes; the rigid builder (ZGE4's buildRigid)
         // sends a part's normals where its colours go, which VU1 0x04 / 0x06 light with its node's own lights; the
-        // skinned builder (ZGE4's buildSkinned) limits a vertex to three bones first.
+        // skinned builder (ZGE4's buildSkinned) limits a vertex to three bones first; the Xbox release lights its
+        // riders with Aggressive Inline's Xbox lights (the same block in its XBE).
         game::host::native_draws::attach(runtime, records,
                                          {.clipped = GSNativeClip::NearSplit, .normalsForColours = true},
-                                         {.weights = ps2x::zaxis::SkinnedDrawForm::Weights::ThreeBones},
+                                         {.weights = ps2x::zaxis::SkinnedDrawForm::Weights::ThreeBones,
+                                          .xboxLights = true},
                                          /*followInterpolation: its meshes are native only from their records*/ !strict);
         ps2x::gs_shots::install(runtime); // (PS2X_GS_SHOT_VSYNC, developers)
         // The Native Meshes row (Aggressive Inline's key), unless the app added one; switched while the game runs:

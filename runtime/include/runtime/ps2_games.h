@@ -17,13 +17,6 @@ namespace ps2x::games
         const char *id;    // the collection's game id: "ai", "dm2", "bmx"
         const char *elf;   // its boot ELF (the single-game app and the developer runner find the game by it)
         const char *title; // "Dave Mirra Freestyle BMX 2"
-        // The game's logic follows what is on screen: Aggressive Inline's
-        // effects (particles, explosions) draw from the game's one random
-        // number generator as they come into view, so a wider or turned view
-        // (widescreen, the camera's field of view, mouse-look) changes the
-        // random sequence; the game is otherwise the same. Those settings'
-        // rows say so.
-        bool viewChangesRandom = false;
         // Draw Distance changes the game: its cameras' far clips are the
         // game's own state (and BMX XXX's models' levels of detail with
         // them), so beyond Original the game runs otherwise than the

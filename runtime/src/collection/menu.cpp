@@ -329,6 +329,62 @@ namespace ps2x::collection
         blit(m_image, picture, source, left, top, scale, scale, clip.empty() ? target : intersect(clip, target), tint, opacity);
     }
 
+    namespace
+    {
+        // The percent sign is drawn, not taken from the font (the games'
+        // fonts have none, the shipped one's reads as "o/o"): two rings and a
+        // stroke over the rows the font's "0" fills, a little wider than it.
+        struct DigitRows
+        {
+            int top = 0, bottom = 0, width = 0;
+        };
+        DigitRows digitRows(const BitmapFont &font)
+        {
+            DigitRows rows{font.height / 5, font.height * 4 / 5, font.height / 2};
+            const BitmapFont::Glyph &zero = font.glyphs[static_cast<uint8_t>('0')];
+            if (!zero.present)
+                return rows;
+            int top = -1, bottom = -1;
+            for (int y = 0; y < zero.height; ++y)
+                for (int x = 0; x < zero.width; ++x)
+                    if (zero.u + x < font.page.width && zero.v + y < font.page.height && (font.page.at(zero.u + x, zero.v + y) >> 24) > 96)
+                    {
+                        top = top < 0 ? y : top;
+                        bottom = y;
+                        break;
+                    }
+            if (top >= 0)
+                rows = {zero.top + top, zero.top + bottom + 1, zero.width};
+            return rows;
+        }
+        float percentWidth(const BitmapFont &font) { return digitRows(font).width * 1.25f; }
+
+        float distanceToSegment(float px, float py, float ax, float ay, float bx, float by)
+        {
+            const float dx = bx - ax, dy = by - ay, length = dx * dx + dy * dy;
+            const float t = length > 0.0f ? std::clamp(((px - ax) * dx + (py - ay) * dy) / length, 0.0f, 1.0f) : 0.0f;
+            return std::hypot(px - (ax + t * dx), py - (ay + t * dy));
+        }
+    }
+
+    void Canvas::percentSign(float x, float top, float width, float height, uint32_t colour)
+    {
+        const float stroke = std::max(1.0f, height * 0.1f), radius = std::min(width * 0.2f, height * 0.18f);
+        const float rings[2][2] = {{x + width * 0.26f, top + radius + stroke / 2}, {x + width * 0.74f, top + height - radius - stroke / 2}};
+        const uint8_t alpha = static_cast<uint8_t>(colour >> 24);
+        for (int py = static_cast<int>(top); py <= static_cast<int>(top + height); ++py)
+            for (int px = static_cast<int>(x); px <= static_cast<int>(x + width); ++px)
+            {
+                const float cx = px + 0.5f, cy = py + 0.5f;
+                float d = distanceToSegment(cx, cy, x + width * 0.86f, top, x + width * 0.14f, top + height) - stroke / 2;
+                for (const auto &ring : rings)
+                    d = std::min(d, std::fabs(std::hypot(cx - ring[0], cy - ring[1]) - radius) - stroke / 2);
+                const float cover = std::clamp(0.5f - d, 0.0f, 1.0f);
+                if (cover > 0.0f)
+                    fill({px, py, 1, 1}, (colour & 0x00FFFFFFu) | static_cast<uint32_t>(std::lround(alpha * cover)) << 24);
+            }
+    }
+
     int Canvas::textWidth(const BitmapFont &font, std::string_view line, float scale)
     {
         if (font.empty())
@@ -338,7 +394,7 @@ namespace ps2x::collection
         {
             const BitmapFont::Glyph &glyph = font.glyphs[static_cast<uint8_t>(c)];
             // A character the font lacks (the space) advances half a line.
-            width += (glyph.present ? glyph.width + 1 : font.height / 2) * scale;
+            width += (c == '%' ? percentWidth(font) + 1 : glyph.present ? glyph.width + 1 : font.height / 2) * scale;
         }
         return static_cast<int>(std::lround(width));
     }
@@ -353,6 +409,13 @@ namespace ps2x::collection
         for (const char c : line)
         {
             const BitmapFont::Glyph &glyph = font.glyphs[static_cast<uint8_t>(c)];
+            if (c == '%')
+            {
+                const DigitRows rows = digitRows(font);
+                percentSign(pen, y + rows.top * scale, percentWidth(font) * scale, (rows.bottom - rows.top) * scale, colour);
+                pen += (percentWidth(font) + 1) * scale;
+                continue;
+            }
             if (!glyph.present)
             {
                 pen += font.height / 2 * scale;
@@ -467,9 +530,10 @@ namespace ps2x::collection
             return std::to_string(value) + unit;
         case Page:
         case Action:
+        case Check:
+        case Note:
             return summary ? summary() : std::string();
         case Heading:
-        case Note:
             return {};
         }
         return {};
@@ -480,6 +544,7 @@ namespace ps2x::collection
         switch (kind)
         {
         case Toggle:
+        case Check:
             return steps == 0 ? value : (value != 0 ? 0 : 1);
         case Choice:
             return choices.empty() ? 0 : std::clamp(value + steps, 0, static_cast<int>(choices.size()) - 1);
@@ -570,6 +635,15 @@ namespace ps2x::collection
         while (total(s) > room && s > least)
             s = std::max(least, s * 0.97f);
         out.value = {value, s, Canvas::textWidth(font, value, s)};
+        if (const int labelWidth = Canvas::textWidth(font, label, s); total(s) > room && labelWidth <= room / 2)
+        {
+            // A short label whole and the long value cut short ("Dave Mirra BMX 2", a disc's long file name).
+            out.label = {label, s, labelWidth};
+            out.value = fitLine(font, value, std::max(room - gap - labelWidth, 0), s, s);
+            out.labelX = left;
+            out.valueX = right - out.value.width;
+            return out;
+        }
         // The label in what the value leaves (cut short if it must be).
         out.label = fitLine(font, label, std::max(room - gap - out.value.width, 0), s, s);
         out.labelX = left;
@@ -600,7 +674,7 @@ namespace ps2x::collection
     }
 
     std::vector<SettingsRow> freeplayMapRows(const std::vector<MapChoice> &maps, const std::string &gameTitle,
-                                             const std::string &folder, bool lends)
+                                             const std::string &folder, bool lends, const std::string &why)
     {
         std::vector<SettingsRow> rows;
         SettingsRow heading;
@@ -611,7 +685,7 @@ namespace ps2x::collection
         {
             SettingsRow none;
             none.kind = SettingsRow::Note;
-            none.label = gameTitle + " lends no level slot to a custom map yet.";
+            none.label = why.empty() ? gameTitle + " lends no level slot to a custom map yet." : why;
             rows.push_back(std::move(none));
             return rows;
         }
@@ -954,6 +1028,12 @@ namespace ps2x::collection
 
     void Shell::showPage(MenuPage page)
     {
+        if (m_state == State::Menu && m_page == MenuPage::Settings && page == MenuPage::Games)
+        {
+            // (from Settings: its Back comes back there)
+            openPage(page);
+            return;
+        }
         if (m_state != State::Menu || m_page != MenuPage::Tiles)
             return;
         if (page == MenuPage::FreeplayPlayer && !m_freeplay)
@@ -1223,6 +1303,18 @@ namespace ps2x::collection
                 continue;
             Step step;
             const std::string name = lower(item);
+            if (name.rfind("drop:", 0) == 0)
+            {
+                step.drop = item.substr(5);
+                if (step.drop.empty())
+                {
+                    if (error)
+                        *error = "'" + item + "' names no file or folder";
+                    return false;
+                }
+                steps.push_back(step);
+                continue;
+            }
             if (name == "wait")
             {
                 steps.push_back(step);
@@ -1251,7 +1343,7 @@ namespace ps2x::collection
             if (step.key < 0 && step.padButton < 0)
             {
                 if (error)
-                    *error = "'" + item + "' is not a key, pad:BUTTON, game:ID or wait";
+                    *error = "'" + item + "' is not a key, pad:BUTTON, game:ID, drop:PATH or wait";
                 return false;
             }
             steps.push_back(step);
@@ -1264,7 +1356,8 @@ namespace ps2x::collection
 
     bool MenuScript::next(std::vector<int> &keys, uint16_t &padButtons) { return next(keys, padButtons, Cards{}); }
 
-    bool MenuScript::next(std::vector<int> &keys, uint16_t &padButtons, const Cards &cards, std::string *problem)
+    bool MenuScript::next(std::vector<int> &keys, uint16_t &padButtons, const Cards &cards, std::string *problem,
+                          std::vector<std::string> *dropped)
     {
         ++m_visitFrame;
         if (m_next >= m_steps.size() || m_visitFrame % kFramesPerStep != 0)
@@ -1290,6 +1383,8 @@ namespace ps2x::collection
             return true;
         }
         const Step &step = m_steps[m_next++];
+        if (!step.drop.empty() && dropped)
+            dropped->push_back(step.drop);
         if (step.key >= 0)
             keys.push_back(step.key);
         if (step.padButton >= 0)
@@ -1368,7 +1463,8 @@ namespace ps2x::collection
 
     void drawMenu(Canvas &canvas, const Layout &layout, const std::vector<Tile> &tiles, const BitmapFont &font,
                   const Shell &shell, const std::string &title, const std::string &notice,
-                  const std::vector<SettingsRow> &rows, const PageLayout &page, HintDevice device, const Backdrop &backdrop)
+                  const std::vector<SettingsRow> &rows, const PageLayout &page, HintDevice device, const Backdrop &backdrop,
+                  const std::string &subtitle, const char *escapeVerb)
     {
         const uint32_t kWhite = rgba(255, 255, 255), kDim = rgba(170, 170, 180), kAmber = rgba(255, 196, 64);
         canvas.clear(rgba(10, 10, 14));
@@ -1423,9 +1519,39 @@ namespace ps2x::collection
             canvas.frame(rect, std::max(1, static_cast<int>(unit)), accent);
         };
 
+        // A row's mark in its square: a box, with a tick or a cross in it.
+        auto stroke = [&](float x0, float y0, float x1, float y1, int thick, uint32_t colour)
+        {
+            const int steps = std::max(1, static_cast<int>(std::max(std::fabs(x1 - x0), std::fabs(y1 - y0))));
+            for (int i = 0; i <= steps; ++i)
+            {
+                const float t = static_cast<float>(i) / steps;
+                canvas.fill({static_cast<int>(x0 + (x1 - x0) * t) - thick / 2, static_cast<int>(y0 + (y1 - y0) * t) - thick / 2, thick, thick},
+                            colour);
+            }
+        };
+        auto drawMark = [&](const Rect &square, SettingsRow::Mark mark, uint32_t colour)
+        {
+            const int thin = std::max(1, static_cast<int>(unit)), thick = std::max(2, static_cast<int>(2 * unit));
+            canvas.frame(square, thin, colour);
+            const float x = static_cast<float>(square.x), y = static_cast<float>(square.y), size = static_cast<float>(square.width);
+            if (mark == SettingsRow::Mark::Tick)
+            {
+                stroke(x + size * 0.22f, y + size * 0.52f, x + size * 0.42f, y + size * 0.74f, thick, colour);
+                stroke(x + size * 0.42f, y + size * 0.74f, x + size * 0.80f, y + size * 0.26f, thick, colour);
+            }
+            else if (mark == SettingsRow::Mark::Cross)
+            {
+                stroke(x + size * 0.28f, y + size * 0.28f, x + size * 0.72f, y + size * 0.72f, thick, colour);
+                stroke(x + size * 0.72f, y + size * 0.28f, x + size * 0.28f, y + size * 0.72f, thick, colour);
+            }
+        };
+
         // The pages' Back line.
         auto backLine = [&](const Rect &rect, bool on)
         {
+            if (rect.empty())
+                return; // (a page with no Back: a setup running)
             if (on)
                 marked(rect);
             centred(rect, "Back", 1.25f * unit, on ? kWhite : kDim);
@@ -1552,9 +1678,9 @@ namespace ps2x::collection
                     2.0f * unit, kWhite);
             canvas.fill({0, page.title.y + page.title.height + static_cast<int>(2 * unit), canvas.width(), std::max(2, static_cast<int>(unit))},
                         accent);
-            if (freeplay)
-                centred({0, page.title.y + page.title.height + static_cast<int>(4 * unit), canvas.width(), canvas.height() / 24}, "Choose a map",
-                        1.0f * unit, kDim);
+            if (freeplay || !subtitle.empty())
+                centred({0, page.title.y + page.title.height + static_cast<int>(4 * unit), canvas.width(), canvas.height() / 24},
+                        freeplay ? "Choose a map" : subtitle, 1.0f * unit, kDim);
             const int backRow = static_cast<int>(rows.size());
             const int chosenRow = shell.chosenRow(rows);
             const int first = shell.pageFirst();
@@ -1586,17 +1712,84 @@ namespace ps2x::collection
                     continue;
                 }
                 const uint32_t colour = chosen ? kWhite : kDim;
+                if (row.steady)
+                {
+                    // A list's line: one size whatever its text, the label
+                    // `indent` steps in (after its mark), the value from its
+                    // column; a text too long is cut, never made smaller.
+                    const float at = 0.62f * unit;
+                    const int textHeight = static_cast<int>(font.height * at);
+                    int x = page.labelX + row.indent * textHeight * 3 / 2;
+                    const int column = page.labelX + (page.valueX - page.labelX) * 9 / 20;
+                    const int gap = static_cast<int>(12 * unit);
+                    if (const float done = row.progress ? row.progress() : -1.0f; done >= 0.0f)
+                    {
+                        const int thick = std::max(2, static_cast<int>(2 * unit));
+                        const Rect bar{x, rect.y + rect.height - thick - 1, page.valueX - x, thick};
+                        canvas.fill(bar, rgba(255, 255, 255, 40));
+                        canvas.fill({bar.x, bar.y, static_cast<int>(bar.width * std::min(done, 1.0f)), bar.height}, accent);
+                    }
+                    SettingsRow::Mark mark = row.mark ? row.mark() : SettingsRow::Mark::None;
+                    if (row.kind == SettingsRow::Check && !row.mark)
+                        mark = row.current && row.current() != 0 ? SettingsRow::Mark::Tick : SettingsRow::Mark::Box;
+                    if (mark != SettingsRow::Mark::None)
+                    {
+                        const int box = textHeight * 4 / 5;
+                        drawMark({x, rect.y + (rect.height - box) / 2, box, box}, mark, colour);
+                        x += box + gap / 2;
+                    }
+                    // (a game's own line bright, the lines under it dim, the chosen one white)
+                    const uint32_t labelColour = chosen || row.indent == 0 ? kWhite : kDim;
+                    const FittedLine label = fitLine(font, row.label, std::max(column - gap - x, 0), at, at);
+                    line(x, lineY(at), label.text, at, labelColour);
+                    if (const std::string value = row.valueText(row.current ? row.current() : 0); !value.empty())
+                    {
+                        const int valueX = std::max(column, x + label.width + gap);
+                        const FittedLine fitted = fitLine(font, value, std::max(page.valueX - valueX, 0), at, at);
+                        line(valueX, lineY(at), fitted.text, at, colour);
+                    }
+                    continue;
+                }
+                // Work under way: a bar along the row's foot.
+                if (const float done = row.progress ? row.progress() : -1.0f; done >= 0.0f)
+                {
+                    const int thick = std::max(2, static_cast<int>(2 * unit));
+                    const Rect bar{page.labelX, rect.y + rect.height - thick - 1, page.valueX - page.labelX, thick};
+                    canvas.fill(bar, rgba(255, 255, 255, 40));
+                    canvas.fill({bar.x, bar.y, static_cast<int>(bar.width * std::min(done, 1.0f)), bar.height}, accent);
+                }
+                // A mark at the label's left (a Check's tick box), the label after it.
+                SettingsRow::Mark mark = row.mark ? row.mark() : SettingsRow::Mark::None;
+                if (row.kind == SettingsRow::Check && !row.mark)
+                    mark = row.current && row.current() != 0 ? SettingsRow::Mark::Tick : SettingsRow::Mark::Box;
+                int labelX = page.labelX;
+                if (mark != SettingsRow::Mark::None)
+                {
+                    const int box = static_cast<int>(font.height * scale * 0.7f);
+                    const Rect square{labelX, rect.y + (rect.height - box) / 2, box, box};
+                    drawMark(square, mark, colour);
+                    labelX += box + static_cast<int>(8 * unit);
+                }
                 if (row.kind == SettingsRow::Note)
                 {
-                    const FittedLine note = fitLine(font, row.label, rowRight - page.labelX, 0.82f * scale, 0.6f * scale);
-                    line(page.labelX, lineY(note.scale), note.text, note.scale, colour);
+                    const std::string value = row.valueText(0);
+                    if (value.empty())
+                    {
+                        const FittedLine note = fitLine(font, row.label, rowRight - labelX, 0.82f * scale, 0.6f * scale);
+                        line(labelX, lineY(note.scale), note.text, note.scale, colour);
+                        continue;
+                    }
+                    const RowText laid = layRowText(font, row.label, value, labelX, page.valueX, 0.82f * scale, static_cast<int>(12 * unit));
+                    line(laid.labelX, lineY(laid.label.scale), laid.label.text, laid.label.scale, colour);
+                    line(laid.valueX, lineY(laid.value.scale), laid.value.text, laid.value.scale, colour);
                     continue;
                 }
                 const int value = row.current ? row.current() : 0;
                 const std::string valueText = row.valueText(value);
-                const bool arrows = row.kind != SettingsRow::Page && row.kind != SettingsRow::Action;
-                const std::string text = !chosen ? valueText : !arrows ? valueText + " >" : "< " + valueText + " >";
-                const RowText laid = layRowText(font, row.label, text, page.labelX, page.valueX, scale, static_cast<int>(12 * unit));
+                const bool arrows = row.kind != SettingsRow::Page && row.kind != SettingsRow::Action && row.kind != SettingsRow::Check;
+                const bool pointer = row.kind == SettingsRow::Page || row.kind == SettingsRow::Action;
+                const std::string text = !chosen ? valueText : arrows ? "< " + valueText + " >" : pointer ? valueText + " >" : valueText;
+                const RowText laid = layRowText(font, row.label, text, labelX, page.valueX, scale, static_cast<int>(12 * unit));
                 line(laid.labelX, lineY(laid.label.scale), laid.label.text, laid.label.scale, colour);
                 line(laid.valueX, lineY(laid.value.scale), laid.value.text, laid.value.scale, colour);
             }
@@ -1620,19 +1813,52 @@ namespace ps2x::collection
                     centred(page.picture, "No Preview", 0.9f * unit, kDim);
                 canvas.frame(page.picture, std::max(1, static_cast<int>(unit)), rgba(255, 255, 255, 60));
             }
-            if (!help.empty())
+            // (a page too full for the notice's own line: the notice in the help's place)
+            const bool noticeOnHelp = !notice.empty() && page.notice.height < page.help.height / 2;
+            if (!help.empty() && !noticeOnHelp)
             {
                 const FittedLine fitted = fitLine(font, help, page.help.width - static_cast<int>(16 * unit), 0.9f * unit, 0.6f * unit);
                 centred(page.help, fitted.text, fitted.scale, kDim);
             }
             backLine(page.back, chosenRow == backRow);
-            if (!notice.empty())
+            if (noticeOnHelp)
+            {
+                const FittedLine fitted = fitLine(font, notice, page.help.width - static_cast<int>(16 * unit), 1.0f * unit, 0.6f * unit);
+                centred(page.help, fitted.text, fitted.scale, kAmber);
+            }
+            else if (!notice.empty())
             {
                 // (the page's own line for it, between the help and Back)
                 const FittedLine fitted = fitLine(font, notice, page.notice.width - static_cast<int>(16 * unit), 1.0f * unit, 0.6f * unit);
                 centred(page.notice, fitted.text, fitted.scale, kAmber);
             }
-            centred(layout.hint, buttonHint(device, freeplay ? "Start" : "Change", "Back"), 0.9f * unit, kDim);
+            // One hint line for what the chosen row does (the page's Back
+            // stands for the back button; a page with none names what the
+            // back button does there).
+            const char *verb = nullptr;
+            if (escapeVerb)
+                ; // (a setup running: only the back button does anything)
+            else if (chosenRow >= backRow || freeplay)
+                verb = chosenRow >= backRow ? "Select" : "Start";
+            else
+                switch (rows[static_cast<size_t>(chosenRow)].kind)
+                {
+                case SettingsRow::Page:
+                case SettingsRow::Action:
+                    verb = "Select";
+                    break;
+                case SettingsRow::Check:
+                    verb = "Tick";
+                    break;
+                case SettingsRow::Note:
+                case SettingsRow::Heading:
+                    verb = nullptr;
+                    break;
+                default:
+                    verb = "Change";
+                    break;
+                }
+            centred(layout.hint, buttonHint(device, verb, escapeVerb), 0.9f * unit, kDim);
             fade();
             return;
         }

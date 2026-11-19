@@ -63,7 +63,7 @@ namespace ps2x::app
         // TUTT.BIN, the map's own) and DM2's FREERIDE has no NPCs: no NPCs of
         // those slots come from outside the map's files.
         const std::vector<MapSlot> kMapSlots = {
-            {"ai", "TUT", "ASSETS/LEVELS", "ESTATE", "PS2X_ESTATE", ""},
+            {"ai", "TUT", "ASSETS/LEVELS", "ESTATE", "PS2X_ESTATE", "", Need::Estate},
             {"dm2", "WOODWARD", "ASSETS/LEVELS", "0", "PS2X_DM2_LEVEL_CAMERA_POINTS", ""},
             {"bmx", "CHL_MULY", "ASSETS/LEVELS", "CHL_MULY", "PS2X_BMX_KEEP_LEVEL_GOALS", "PS2X_BMX_LEVEL_NPCS"},
         };

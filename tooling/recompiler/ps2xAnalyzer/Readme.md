@@ -1,10 +1,10 @@
 # PS2 ELF Analyzer Tool
 
-The PS2 ELF Analyzer Tool automates the creation of TOML configuration files for the PS2Recomp static recompiler. It identifies function boundaries, library stubs, and problematic instructions.
+The PS2 ELF Analyzer Tool automates the creation of TOML configuration files for the static recompiler (`ps2xRecomp`). It identifies function boundaries, library stubs, and problematic instructions.
 
 ## Analysis Paths
 
-The analyzer supports three distinct paths for discovering code within a PS2 binary:
+The analyzer supports four paths for discovering code within a PS2 binary:
 
 ### 1. DWARF Debug Information
 If the ELF was compiled with debug symbols (`-g`), the analyzer uses `libdwarf` to extract perfect function names and exact start/end addresses. This is common in homebrew or early development builds.
@@ -33,7 +33,8 @@ high-confidence hint rather than a complete SDK catalog: it can miss SDK variant
 were not present in the sampled games, and ambiguous matches are intentionally ignored.
 
 ### 4. Ghidra Integration
-1. Use the provided script: `ps2xRecomp/tools/ghidra/ExportPS2Functions.java`.
+1. Use the provided script: `ps2xRecomp/tools/ghidra/ExportPS2Functions.java` (the three games' workspaces run it
+   headless: `tooling/ai/ghidra/NOTES.md`).
 2. Run it in Ghidra to export a CSV map of all functions.
 3. Let the script generate the TOML, and keep the CSV path in `ghidra_output = "path/to/map.csv"`.
 4. Run the recompiler with that exported TOML.
@@ -45,7 +46,7 @@ were not present in the sampled games, and ambiguous matches are intentionally i
 * Identifies common library functions that should be stubbed
 * Reports risky instruction patterns for manual review without auto-skipping functions
 * Detects potential instruction patterns that may need patching
-* Generates a ready-to-use TOML configuration file for PS2Recomp
+* Generates a ready-to-use TOML configuration file for the recompiler
 
 ## Using the Analyzer
 ```bash
@@ -62,7 +63,7 @@ ps2_analyzer <input_elf> <output_toml> [sce_symbol_db_dir]
 1. Open `game.elf` in Ghidra.
 2. Run `ps2xRecomp/tools/ghidra/ExportPS2Functions.java`.
 3. Use the exported TOML and CSV.
-4. Run the recompiler: `ps2recomp config.toml`
+4. Run the recompiler: `ps2_recomp config.toml`
 
 Fallback:
 1. Run `ps2_analyzer game.elf config.toml`.
@@ -82,4 +83,4 @@ The tool creates a TOML file with the following sections:
 * Heuristics may not catch all special cases in highly optimized code.
 * Self-modifying code is flagged but requires manual review.
 
-For more details on the recompilation process, see the [Main README](../README.md).
+For more details on the recompilation process, see the [recompiler's README](../ps2xRecomp/README.md).

@@ -7,6 +7,7 @@
 // documents.
 #include "MiniTest.h"
 #include "collection/disc_check.h"
+#include "collection/disc_finder.h"
 #include "collection/game_setup.h"
 #include "ps2x/iop/cue_sheet.h"
 #include "ps2x/iop/iso9660.h"
@@ -457,13 +458,118 @@ void register_ps2_disc_formats_tests()
             t.IsTrue(got.files == reference.files, "the ISO's files, byte for byte");
             t.IsTrue(isCueSheetSource(dir.path / "Game.txt") && !isCueSheetSource(dir.path / "disc.iso"), "told apart");
 
-            // A folder of the dump: its sheet stands for the three BINs.
+            // A folder of the dump: its sheet stands for the three BINs (the
+            // folders below hold the installs' disc folders, found too).
             const std::vector<fs::path> sources = discSourcesIn(dir.path);
             std::vector<std::string> names;
             for (const fs::path &source : sources)
-                names.push_back(source.filename().string());
+                if (source.parent_path() == dir.path)
+                    names.push_back(source.filename().string());
             std::sort(names.begin(), names.end());
             t.IsTrue(names == std::vector<std::string>{"Game.txt", "disc.iso"}, "the sheet and the ISO");
+        });
+
+        // The first run's search (collection/disc_finder.h): a player's folder
+        // of folders, each disc in another format, among files that are no
+        // disc; and the same folder through Android's documents.
+        tc.Run("the search finds every format in a folder of folders, among other files", [](TestCase &t)
+        {
+            TempDir dir;
+            test_iso::write(dir.path / "disc.iso", discFiles());
+            const Bytes iso = readAll(dir.path / "disc.iso");
+            const fs::path roms = dir.path / "ROMs";
+            struct Placed
+            {
+                fs::path path;
+                bool disc;
+            };
+            const std::vector<Placed> placed = {
+                {roms / "ps2" / "Aggressive Inline (USA).iso", true},
+                {roms / "ps2" / "chd" / "ai.chd", true},
+                {roms / "ps2" / "cso" / "deep" / "ai.cso", true},
+                {roms / "ps2" / "zso" / "ai.zso", true},
+                {roms / "ps2" / "bincue" / "ai.bin", false}, // (its CUE's)
+                {roms / "ps2" / "bincue" / "ai.cue", true},
+                {roms / "bios" / "scph39001.bin", false},
+                {roms / "readme.txt", false},
+                {roms / "ps2" / "covers" / "ai.png", false},
+                {roms / ".hidden" / "ai.iso", false},
+                {roms / "a" / "b" / "c" / "d" / "e" / "too-deep.iso", false},
+            };
+            for (const Placed &p : placed)
+                fs::create_directories(p.path.parent_path());
+            writeAll(placed[0].path, iso);
+            writeAll(placed[1].path, cdChd(iso, "MODE2_RAW", 2352u));
+            writeAll(placed[2].path, writeCso(iso, "CISO", 1, 2048u, 0, [](size_t) { return Packing::Deflate; }));
+            writeAll(placed[3].path, writeCso(iso, "ZISO", 1, 2048u, 0, [](size_t) { return Packing::Lz4; }));
+            writeAll(placed[4].path, rawImage(iso, 2));
+            std::ofstream(placed[5].path) << "FILE \"ai.bin\" BINARY\r\n  TRACK 01 MODE2/2352\r\n    INDEX 01 00:00:00\r\n";
+            writeAll(placed[6].path, Bytes(4u * 1024u * 1024u, 0x5Au));
+            std::ofstream(placed[7].path) << "my discs";
+            writeAll(placed[8].path, Bytes(3000u, 0x89u));
+            writeAll(placed[9].path, iso);
+            writeAll(placed[10].path, iso);
+            // A disc's files in a folder of their own.
+            const fs::path folderDisc = roms / "ps2" / "AI files";
+            for (const test_iso::File &file : discFiles())
+            {
+                fs::create_directories((folderDisc / file.path).parent_path());
+                writeAll(folderDisc / file.path, file.data);
+            }
+
+            size_t reports = 0;
+            const DiscSearch search = findDiscs({roms}, games(), {}, [&](const SearchProgress &p)
+            {
+                ++reports;
+                return !p.at.empty();
+            });
+            std::vector<std::string> names;
+            for (const FoundDisc &disc : search.discs)
+            {
+                names.push_back(disc.name);
+                t.IsTrue(disc.kind == FoundDisc::Kind::Ps2 && disc.game == 0 && disc.status == SourceCheck::Status::Ok,
+                         disc.name + " checks as AI: " + disc.message);
+            }
+            std::sort(names.begin(), names.end());
+            t.IsTrue(names == std::vector<std::string>{"AI files", "Aggressive Inline (USA).iso", "ai.chd", "ai.cso", "ai.cue", "ai.zso"},
+                     "the six discs, the BIN/CUE by its CUE, nothing else or too deep");
+            t.IsTrue(reports == search.looked && search.looked > names.size(), "every file and folder reported");
+            t.IsTrue(search.ps2Of(0) && search.ps2Of(0)->bytes > 0, "the game's disc, with its size");
+            t.IsNull(search.ps2Of(1), "no other game's");
+            t.IsTrue(discSourcesIn(roms).size() == 6u, "discSourcesIn finds the same");
+
+            // Stopped at the first report: nothing more looked at.
+            const DiscSearch stopped = findDiscs({roms}, games(), {}, [](const SearchProgress &) { return false; });
+            t.IsTrue(stopped.cancelled && stopped.discs.empty() && stopped.looked == 1u, "stops");
+
+            // Files dropped one by one, and a place gone, as places.
+            const DiscSearch dropped = findDiscs({placed[0].path, placed[5].path, placed[7].path, dir.path / "gone"}, games(), {});
+            t.Equals(dropped.discs.size(), size_t{2}, "the two discs dropped");
+
+            // Added to: a disc found again is not found twice.
+            DiscSearch both = dropped;
+            both.add(findDiscs({placed[0].path, placed[1].path}, games(), {}));
+            t.Equals(both.discs.size(), size_t{3}, "each disc once");
+
+            // The same folder as Android's documents give it.
+            FolderDocuments documents(roms);
+            const DiscSearch picked = findDiscs({pathFromUtf8(documents.uriOf(roms))}, games(), {});
+            std::vector<std::string> documentNames;
+            for (const FoundDisc &disc : picked.discs)
+            {
+                documentNames.push_back(disc.name);
+                t.IsTrue(isDocument(disc.source), disc.name + " found as a document");
+            }
+            std::sort(documentNames.begin(), documentNames.end());
+            t.IsTrue(documentNames == std::vector<std::string>{"AI files", "Aggressive Inline (USA).iso", "ai.bin", "ai.chd", "ai.cso",
+                                                               "ai.zso"},
+                     "the same discs, the BIN/CUE by its BIN (a CUE document alone cannot read it)");
+            for (const FoundDisc &disc : picked.discs)
+            {
+                const Installed got = install(disc.source, dir.path / ("games-" + disc.name) / "ai");
+                t.IsTrue(got.ok && got.files == install(placed[0].path, dir.path / "games-ref" / "ai").files,
+                         disc.name + " installs the ISO's files: " + got.message);
+            }
         });
 
         tc.Run("Android's documents: a CHD picked, a folder of CSO and ZSO dumps", [](TestCase &t)
