@@ -10,7 +10,7 @@ Related guides: `README.md` (what the collection is, building the apps), `docs/R
 proofs), `docs/DEVTOOLS.md` (debug menu, tuning.ini, test runs, the remote workers), `docs/TUNING.md` (every tuning entry), `docs/NATIVE.md` (what
 replaced the PS2's machinery), `docs/CHEATS.md` (the cheat codes), `CONTROLS.md`, `SETTINGS.md` (every
 setting and its environment variable), `docs/MANUAL-TESTS.md`, `docs/SPU2.md`, `docs/DEAD-CODE.md`,
-`BACKLOG.md` (open work), `tooling/ai/tools/REFERENCE-RUN.md` (the PCSX2 reference logiccheck replays).
+`tooling/ai/tools/REFERENCE-RUN.md` (the PCSX2 reference logiccheck replays).
 
 ## Layout
 

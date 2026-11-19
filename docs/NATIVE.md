@@ -2,8 +2,7 @@
 
 The design note for how the PC version leaves the PS2's machinery behind: for each part of the
 console the game used, what replaced it, where that code is, and the switch that brings the PS2
-path back for checks and comparisons. Settings and their environment variables are in `SETTINGS.md`; the GPU renderer's own design in `runtime/src/lib/gs/GPU_BACKEND.md`. Open work
-is in BACKLOG.md.
+path back for checks and comparisons. Settings and their environment variables are in `SETTINGS.md`; the GPU renderer's own design in `runtime/src/lib/gs/GPU_BACKEND.md`.
 
 The rule behind all of it: native is the default, the strict PS2 path a
 fallback and test mode only, and the defaults keep game logic identical to PCSX2 (logiccheck 21/21).

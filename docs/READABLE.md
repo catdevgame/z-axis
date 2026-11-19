@@ -9,7 +9,7 @@ sections.
 ## The goal
 
 A readable, deobfuscated C++ version of Aggressive Inline that loads native
-assets where possible, as part of this repository's public source (BACKLOG.md). The recompiled game (`recomp/generated`, never
+assets where possible, as part of this repository's public source. The recompiled game (`recomp/generated`, never
 committed) stays the reference and the fallback: functions are replaced one at a
 time by hand-written C++ (or by a draft the generator lifts from the original),
 each proven equal to the recompiled one, and the whole stays bit-identical to

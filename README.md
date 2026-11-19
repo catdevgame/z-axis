@@ -85,7 +85,6 @@ rebuilt at each push: each game's functions by what runs for them, the plan's st
 | `docs/` | how it works: `READABLE.md` (writing a readable function), `SCAFFOLDING.md`, `BRINGUP.md` (build and run), `NATIVE.md`, `DEAD-CODE.md` |
 | `tooling/` | each game's workspace (`ai/`, `dm2/`), the recompiler that makes the generated code (`recompiler/`), the checks (`checks/`), the Xbox tools |
 | `CONTROLS.md`, `SETTINGS.md` | keyboard, mouse and gamepad; the PC settings in each game's own menus |
-| `BACKLOG.md` | open work |
 
 ## Building
 

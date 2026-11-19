@@ -19,7 +19,7 @@ AI's workspace in z-axis's `tooling/` (the runtime, the readable C++ and the gui
 | `mods/` | PCSX2 patches for the disc (`mods/pcsx2`). |
 | `reference/` | A link: screenshots from PCSX2 and the native build, for comparison. |
 
-Controls (keyboard, mouse, gamepad; rebinding via `controls.ini`): z-axis `CONTROLS.md`. Open work: z-axis `BACKLOG.md`.
+Controls (keyboard, mouse, gamepad; rebinding via `controls.ini`): z-axis `CONTROLS.md`.
 
 Inputs expected outside the repo: `$GAME_DISCS/aggressive inline/Aggressive Inline-ps2.iso`
 and `scph39001.bin`.
