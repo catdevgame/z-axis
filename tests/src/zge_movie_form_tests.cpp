@@ -3,7 +3,7 @@
 // no DM2 instance) ran the PS2 form with the native driver, and DM2's intro waited forever in sceMpegGetPicture.
 #include "MiniTest.h"
 
-#include "zge_host.h"
+#include "overrides/zge_host.h"
 
 void register_zge_movie_form_tests()
 {

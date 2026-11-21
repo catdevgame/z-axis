@@ -1,0 +1,46 @@
+# Xbox release files the native port reads at run time as they are (runtime/xbox_disc.h),
+# bundled by tools/modding/xbox_files.py into Resources/xbox/assets/. Paths relative to
+# media/assets, any case, `*` and `?` allowed. Made from your own disc at build
+# time; never commit the result.
+
+# The Zoo (its level, split screen and NPC models) and the Ape's model are
+# not read from here: platform/mac/make-app.sh and make-windows.ps1 make them into
+# the PS2's formats (zx-xbox-convert, from the extracted disc) in
+# Resources/xbox-converted. The Ape's select picture comes from uilib.zal
+# (below).
+
+# The Xbox release's free skate scripts for the Boardwalk and the Cannery
+# (game override aggressive_inline_freeskate.cpp): doors, rides, the cutter.
+levels/brdwlk/brdwlkt.bin
+levels/cannery/canneryt.bin
+
+# The Xbox release's career scripts, the PS2's with its bug fixes (game
+# override aggressive_inline_careerscripts.cpp), and Civic's motions with the
+# window ledges preview its script plays.
+levels/brdwlk/brdwlk.bin
+levels/cannery/cannery.bin
+levels/civic/civic.bin
+levels/hanger/hanger.bin
+levels/indust/indust.bin
+levels/movie/movie.bin
+levels/museum/museum.bin
+levels/civic/motions.zal
+
+# Languages (game override aggressive_inline_language.cpp): the string tables,
+# the fonts with accented characters (uilib.zal), the level scripts' texts in
+# each language (.bni English, .bnf French, .bng German, .bns Spanish) and the
+# French speech (aggressive_inline_sound.cpp).
+string.eus
+string.fre
+string.ger
+string.spa
+uilib.zal
+levels/*/*.bni
+levels/*/*.bnf
+levels/*/*.bng
+levels/*/*.bns
+audio/speech01.zsd
+
+# The Tutorial's loading screens with the Xbox controller, shown with an
+# Xbox-style pad (aggressive_inline_prompts.cpp).
+loading/tut/tut?.raw

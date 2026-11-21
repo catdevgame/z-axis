@@ -4,7 +4,7 @@
 // rasterizer (ZX_GS_REFERENCE=1) and to one running the fast path; local
 // memory must stay identical bit for bit.
 #include "gs_test_support.h"
-#include "../../runtime/src/lib/gs/gs_cpu_shared.h"
+#include "gs/gs_cpu_shared.h"
 
 #include <algorithm>
 #include <cmath>

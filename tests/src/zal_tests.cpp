@@ -1,12 +1,12 @@
-// The .ZAL archives (zx/zal_archive.h): both formats read and written
+// The .ZAL archives (zal/zal_archive.h): both formats read and written
 // byte for byte, unpacked and packed again, entries found by name; and mods
-// that replace single entries of one (runtime/ps2_game_files.h,
+// that replace single entries of one (runtime/game_files.h,
 // collection/mods.h: docs/MODS.md "Archives").
 #include "MiniTest.h"
 #include "collection/menu.h"
 #include "collection/mods.h"
-#include "runtime/ps2_game_files.h"
-#include "zx/zal_archive.h"
+#include "runtime/game_files.h"
+#include "zal/zal_archive.h"
 #include "test_zip_builder.h"
 
 #include <chrono>

@@ -1143,7 +1143,7 @@ int main()
                 "sceCdSeek still emitted an unhandled IOP import")) return 1;
 
     // perf7: while the IOP is idle, EE cycles given in many charges or in one (fewer than eeCyclesIdle) move
-    // only its clock, the same: what PS2Runtime's deferred charges rely on.
+    // only its clock, the same: what PS2Machine's deferred charges rely on.
     {
         TestHost idleHost(0x20000u);
         IopSubsystem stepped(idleHost), batched(idleHost);

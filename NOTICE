@@ -12,8 +12,9 @@ the notice is at the top of the file too.
 ----------------------
 
 This repository is a fork of PS2Recomp, https://github.com/ran-j/PS2Recomp,
-GPL-3.0, by Ran-j and its contributors. The runtime's host layer (runtime/,
-iop/, tests/) and the recompiler (tooling/recompiler/) descend from it; the
+GPL-3.0, by Ran-j and its contributors. The runtime's host layer (ps2/ apart
+from ps2/ee and ps2/sce, iop/, tests/) and the recompiler (recompiler/) descend
+from it; the
 fork point is upstream commit eb8688b2f ("Emulate PS2 float semantics for EE
 FPU results and DIV.S/RSQRT.S (#272)", 2026-10-14). Upstream's history is
 kept in this repository's history, with its authors.
@@ -22,12 +23,12 @@ kept in this repository's history, with its authors.
 2. PCSX2's SPU2
 ---------------
 
-iop/src/emulator/spu2/ is a port of PCSX2's SPU2 emulation,
+ps2/spu2/ is a port of PCSX2's SPU2 emulation,
 https://github.com/PCSX2/pcsx2, at commit
 091ab68708a555198d80a7216965481c7ddd0d98, copyright 2002-2026 PCSX2 Dev Team,
-GPL-3.0-or-later; iop/src/emulator/spu2/README.md lists each file's source
-and what changed. runtime/src/lib/ps2_spu_voice.cpp and
-runtime/src/lib/sound/spu_gauss_table.h follow the same code (Mixer.cpp,
+GPL-3.0-or-later; ps2/spu2/README.md lists each file's source
+and what changed. ps2/runtime/spu_voice.cpp and
+ps2/runtime/spu_gauss_table.h follow the same code (Mixer.cpp,
 ADSR.cpp, interpolate_table.h at that commit). Thanks to the PCSX2 team and to
 the people its sources credit (Dr. Hell, nocash, Near, Ryphecha and others).
 
@@ -35,7 +36,7 @@ the people its sources credit (Dr. Hell, nocash, Near, Ryphecha and others).
 3. newlib 1.8.2 (the C library and libm the games link)
 -------------------------------------------------------
 
-runtime/src/game/sce/libc.cpp, libc_stdio.cpp, libc_malloc.cpp,
+ps2/sce/libc.cpp, libc_stdio.cpp, libc_malloc.cpp,
 libc_printf.cpp, libc_scanf.cpp, libc_strtod.cpp, mprec.cpp, libm.cpp and the
 records in newlib.h are ported from newlib 1.8.2,
 https://sourceware.org/pub/newlib/newlib-1.8.2.tar.gz (SHA-256
@@ -76,7 +77,7 @@ where).
 4. GCC 2.95.2's libgcc
 ----------------------
 
-runtime/src/game/sce/libgcc.cpp is ported from GCC 2.95.2,
+ps2/sce/libgcc.cpp is ported from GCC 2.95.2,
 https://ftp.gnu.org/gnu/gcc/gcc-2.95.2/: libgcc2.c and config/fp-bit.c,
 copyright the Free Software Foundation, under the GNU General Public License
 version 2 or (at your option) any later version, with the libgcc runtime
@@ -86,12 +87,12 @@ exception. This port takes GPL-3.0. The notices are at the top of the file.
 5. Sony's libraries
 -------------------
 
-No Sony code is in this repository. runtime/src/game/sce/kernel.h and
+No Sony code is in this repository. ps2/sce/kernel.h and
 eeregs.h name records and registers by the field names of Sony's headers;
 libmc.h uses ps2sdk's public libmc.h names. The SDK functions the games link
-(runtime/src/game/sce/not_ported.tsv) run as the recompiled originals, made
+(ps2/sce/not_ported.tsv) run as the recompiled originals, made
 from the player's own disc and never in this repository. The recompiler's
-SDK signature table (tooling/recompiler/ps2xAnalyzer/include/ps2recomp/
+SDK signature table (recompiler/ps2xAnalyzer/include/ps2recomp/
 sce_symbol_database_data.h: hashes and sizes) is upstream PS2Recomp's.
 
 
@@ -103,38 +104,40 @@ named): CMake fetches a release or tag archive of each, but for stb_truetype
 and bcdec, single headers it fetches as files; FFmpeg's release tarball is
 fetched by its build script.
 
-- SDL 3.4.18, zlib licence: runtime/cmake/zx_sdl3.cmake
-- Dear ImGui v1.92.7-docking, MIT: runtime/CMakeLists.txt (debug UI builds)
+- SDL 3.4.18, zlib licence: third_party/cmake/zx_sdl3.cmake
+- Dear ImGui v1.92.7-docking, MIT: ps2/CMakeLists.txt (debug UI builds)
 - sse2neon v1.9.1, MIT: CMakeLists.txt (ARM builds)
 - FFmpeg 9.0.2, LGPL-2.1-or-later: the apps (Mac, Windows, Android) link a
   minimal static build of its release tarball, configured LGPL only (no
-  --enable-gpl or --enable-nonfree): tooling/ai/tools/build-ffmpeg.sh,
-  android/build-ffmpeg.sh. A development build without that prefix uses the
+  --enable-gpl or --enable-nonfree): third_party/build-ffmpeg.sh,
+  platform/android/build-ffmpeg.sh. Its licence, FFmpeg's own COPYING.LGPLv2.1 of that
+  release, is third_party/licenses/FFmpeg-LGPL-2.1.txt, which every app carries as
+  FFMPEG-LICENSE.txt beside this file and LICENSE. A development build without that prefix uses the
   system's FFmpeg, or on Windows the LGPL shared prebuilt n7.1 of
-  github.com/System233/ffmpeg-msvc-prebuilt: runtime/CMakeLists.txt
+  github.com/System233/ffmpeg-msvc-prebuilt: ps2/CMakeLists.txt
 - ELFIO Release_3.12, MIT; toml11 v4.4.0, MIT; fmt 12.1.0, MIT; libdwarf
   v2.2.0, LGPL-2.1 (libdwarf) and BSD; rabbitizer 1.14.3, MIT:
-  tooling/recompiler/ps2xRecomp/CMakeLists.txt
-- nlohmann/json v3.11.3, MIT: tooling/recompiler/ps2xAnalyzer/CMakeLists.txt
-- miniz 3.0.2, MIT: runtime/CMakeLists.txt (zip mods read in place)
-- xxHash 0.8.3, BSD-2-Clause: runtime/CMakeLists.txt (texture packs' names)
+  recompiler/ps2xRecomp/CMakeLists.txt
+- nlohmann/json v3.11.3, MIT: recompiler/ps2xAnalyzer/CMakeLists.txt
+- miniz 3.0.2, MIT: ps2/CMakeLists.txt (zip mods read in place)
+- xxHash 0.8.3, BSD-2-Clause: ps2/CMakeLists.txt (texture packs' names)
 - zstd 1.5.7, BSD-3-Clause (dual-licensed BSD or GPL-2.0; used under BSD):
-  runtime/cmake/zx_zstd.cmake (compressed recordings in developer builds;
+  third_party/cmake/zx_zstd.cmake (compressed recordings in developer builds;
   CHD disc images' zstd hunks in every build)
 - libchdr at commit 47d794151b2b64f6aba60304e6480f4f5a2bc24b (2026-10-11),
   BSD-3-Clause, copyright Romain Tisserand, with what it bundles: the LZMA
   SDK 26.02 (public domain), miniz 3.1.2 (MIT) and dr_flac (public domain or
-  MIT-0): iop/cmake/zx_chdr.cmake (CHD disc images)
+  MIT-0): third_party/cmake/zx_chdr.cmake (CHD disc images)
 - LZ4 1.10.0, BSD-2-Clause (its lib/), copyright Yann Collet:
-  iop/cmake/zx_lz4.cmake (ZSO and CSO disc images)
+  third_party/cmake/zx_lz4.cmake (ZSO and CSO disc images)
 - stb_truetype v1.28 (github.com/nothings/stb at commit
   9600522de53973336fa033a289858a4354cbb04c), by Sean Barrett, public domain
-  or MIT (the header's own choice of the two): runtime/cmake/zx_stb.cmake
+  or MIT (the header's own choice of the two): third_party/cmake/zx_stb.cmake
   (the shipped font drawn for the collection's menu)
 - bcdec v0.985 (github.com/iOrange/bcdec at commit
   80859ed3b7afb1c527a2a99d70c61457bea72d0c), by Sergii Kudlai, MIT or the
-  Unlicense (the header's own choice of the two): runtime/cmake/zx_bcdec.cmake
-  (texture packs' DDS pictures decoded, runtime/ps2_texture_dds.h, which reads
+  Unlicense (the header's own choice of the two): third_party/cmake/zx_bcdec.cmake
+  (texture packs' DDS pictures decoded, ps2/runtime/texture_dds.h, which reads
   DDS files as PCSX2's GSTextureReplacementLoaders.cpp does at PCSX2 commit
   5b6e6e23eba403b589495c1abf8266eb1309a5b1, v2.9.131)
 
@@ -142,7 +145,7 @@ fetched by its build script.
 7. LZO 2.10's LZO1X decompressor
 --------------------------------
 
-runtime/src/collection/extras/lzo1x.cpp is a port of LZO 2.10's
+collection/extras/lzo1x.cpp is a port of LZO 2.10's
 lzo1x_decompress_safe (lzo-2.10/src/lzo1x_d.ch, from
 https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz, SHA-256
 c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072),
@@ -154,16 +157,33 @@ libraries with it.
 8. Michroma (the collection menu's font)
 ----------------------------------------
 
-runtime/resources/fonts/Michroma-Regular.ttf is Michroma, copyright 2011 The
+collection/resources/fonts/Michroma-Regular.ttf is Michroma, copyright 2011 The
 Michroma Project Authors (https://github.com/googlefonts/Michroma-font),
 under the SIL Open Font License 1.1, unchanged; the licence is beside it
 (Michroma-OFL.txt) and goes with the font into every app built (the Mac
 app's and the Windows folder's fonts/, the APK's assets/fonts/).
 
 
-9. This project's own code
---------------------------
+9. LLVM's clang and lld (what makes each game's code)
+-----------------------------------------------------
+
+An app that makes each game's code on the player's machine from the player's
+disc (the Android app; a Mac or Windows app given the same folder) carries
+LLVM 23.1.5's clang and lld and the compiler's own headers
+(lib/clang/<version>/include) in its game-code-tools folder. They are built
+from the source release
+https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/llvm-project-23.1.5.src.tar.xz
+(SHA-256 in third_party/toolchain/llvm.lock) by
+third_party/toolchain/build-llvm.sh and build-llvm.ps1, unchanged; nothing of
+LLVM is in this repository. Copyright the LLVM Project contributors, under the
+Apache License v2.0 with LLVM Exceptions (Apache-2.0 WITH LLVM-exception).
+Its licence, LLVM-LICENSE.TXT (llvm/LICENSE.TXT of that release), goes into
+that folder with the programs (third_party/toolchain/stage_game_code_tools.py).
+
+
+10. This project's own code
+---------------------------
 
 Everything else in this repository, the readable games and engine
-(runtime/src/game) included, is this project's own work under the
+(engine/, games/, ps2/ee, ps2/sce) included, is this project's own work under the
 repository's GPL-3.0 (LICENSE).

@@ -1,0 +1,20 @@
+# render_path = records against the defaults (DM2: --allow ab_allow_dm2.txt,ab_allow_records_dm2.txt).
+# The class renderers draw natively from their draw records
+# (z-axis engine/zge/host/class_draws.cpp): each draw's VU1 work (the part's packet called, its matrices,
+# bones and lights, the microprogram) is left out of the view's mesh packet; the strict encoder still runs for it
+# (its VU1 state, texture request and VU0 work), then a VIF NOP where the draw stands. Pinned: a line here is the
+# orchestrator's to accept (native1).
+#
+# What VIF1 and the GS are handed differs at every vsync with a class draw: by design.
+stream=vif1,gs the class draws' VU1 work left out of the mesh packet (render_path = records), drawn natively
+#
+# The frame packet buffers and what points into them (the mesh packet's cursor, the texture request's marker, the
+# frame fix-ups' words): fewer words for the same draws, everything after them at other places. Only the packet
+# library, the frame fix-ups and the DMA touch them (native1's watch run).
+owner=Dm2Renderer.framePackets the frame packets' words (render_path = records)
+#
+# DM2's screen primitives' DMA buffers: a sprite's S and T its staged vertex leaves unset, copied by
+# sceVif1PkAddGsDataN, hold what earlier code left there (in the defaults the mesh packet's address, from the encoder
+# calls the records path leaves out): denormal junk both ways; the packet library writes them, only the DMA reads them
+# (native1's watch run: W at 0x1D8C38 and 0x1D8C54, no load).
+owner=Dm2ScreenPrimitives.buffers a sprite's unset texcoords in the screen primitives' DMA buffers (render_path = records)

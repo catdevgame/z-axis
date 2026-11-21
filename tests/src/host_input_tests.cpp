@@ -1,6 +1,6 @@
 #include "MiniTest.h"
-#include "runtime/ps2_host_input.h"
-#include "runtime/ps2_pad.h"
+#include "runtime/host_input.h"
+#include "runtime/pad.h"
 
 #include <algorithm>
 #include <cmath>
@@ -977,8 +977,13 @@ void register_host_input_tests()
             t.IsTrue(dm2.stick[kRightUp].empty() && dm2.mouseCamera == MouseCamera::Look,
                      "DM2: no right stick keys (the rider reads the left one), mouse-look");
             const HostInputConfig bmx = HostInputConfig::defaults(gameControls("bmx").defaultIni);
+#if defined(__ANDROID__)
             t.IsTrue(bmx.mouseCamera == MouseCamera::Stick && bmx.mouseMotion == MouseMotion::None && bmx.recentreKeys.empty(),
-                     "BMX: stick mode with no motion by default, so the mouse moves nothing");
+                     "BMX (Android): stick mode with no motion by default, so the mouse moves nothing");
+#else
+            t.IsTrue(bmx.mouseCamera == MouseCamera::Look && bmx.mouseMotion == MouseMotion::None && bmx.recentreKeys.empty(),
+                     "BMX (desktop): mouse-look by default, no stick motion and no recentre key (R3 is the camera)");
+#endif
             t.Equals(formatBindings(bmx.buttons[kR3]), std::string("MOUSE_MIDDLE, V"), "BMX: R3 is its camera button");
             t.IsTrue(gameControls("dm2").defaultIni.find("Aggressive") == std::string::npos &&
                          gameControls("bmx").defaultIni.find("skater") == std::string::npos,

@@ -1,0 +1,110 @@
+# readable_layering.py: verdicts given one function at a time where the blocks disagree (or are wrong), one per
+# line: name<TAB>engine|game<TAB>the evidence (a source path or string, the module, the counterparts in all
+# three games and three releases, the workdb card). A verdict here wins over the blocks.
+#
+# The 60 functions whose blocks disagreed (layer2, 11-06). The rule (the user's): engine code if any game's
+# engine library has it. A counterpart counts when it is that function; it is set aside only on evidence that
+# it is another one (a caveat in the card, another field or string, or the address being a function the
+# caller calls directly). Pairs and blocks are readable_layering_games.tsv's, the rest the workdb's cards.
+#
+# zge, kept (engine):
+readWsmcChunk	engine	AI ZGE3 block (0x16B260); BMX identical in ZGE4 (callgraph); DM2's identical pair sits in its game block. Engine by the rule
+freeDmmRegion	engine	AI ZGE3 block (dmm); DM2 identical in Zge2 (exact); BMX's is a drifted neighbour pair in its game block. Engine by the rule
+proceedAudio	engine	AI module ps2Movie (../ngengine/ZGE3/ps2/ps2Movie.c); BMX identical in ZGE4; DM2's identical copy sits just past its engine end. Engine by the rule
+markSaveTime	engine	AI module Ps2MemCard (ZGE3/ps2/Ps2MemCard.c); BMX identical (exact) in ZGE4; DM2's has it in src/com (and calls another clock: card caveat). Engine by the rule
+toSjisSaveName	engine	AI module Ps2MemCard (ZGE3/ps2/Ps2MemCard.c); BMX identical (exact) in ZGE4; DM2's identical in src/com. Engine by the rule
+asciiToSjis	engine	AI module Ps2MemCard (ZGE3/ps2/Ps2MemCard.c); BMX identical (exact) in ZGE4; DM2's identical in src/com. Engine by the rule
+saveScratchpad	engine	AI module ps2Movie (ZGE3); BMX's drifted neighbour pair in its game block; DM2 none. Engine by the rule
+callIopRpc	engine	AI module ps2Movie (ZGE3); BMX identical (exact) in ZGE4; DM2's call-site pair is an SDK function. Engine by the rule
+freeFrameFixups	engine	AI ZGE3 block (render); BMX identical (exact) in ZGE4; DM2's drifted pair in its game block. Engine by the rule
+objectNameHash	engine	AI ZGE3 block; BMX identical (exact) in ZGE4; DM2's drifted neighbour in its game block. Engine by the rule
+unregisterBillboardParticles	engine	AI ZGE3 block (particle emitters); BMX's drifted pair in its game block; DM2 none. Engine by the rule
+freeEmitterListEntry	engine	AI ZGE3 block (emitter list); BMX identical (callgraph) in ZGE4; DM2's close pair in its game block. Engine by the rule
+newSparkEffect	engine	AI ZGE3 block (particle kinds); BMX identical in ZGE4; DM2's drifted pair in its game block. Engine by the rule
+setSoundtrackName	engine	AI ZGE3 block (music); DM2 identical (exact) in Zge2; BMX's identical copy in its game block. Engine by the rule
+# zge, game (goes to games/aggressive with zfile_library.cpp):
+zfileLibraryGroupCount	game	AI and DM2 (identical) in their game blocks with the rest of the zfile library; BMX's two-instruction pair reads +0x4 where AI's and DM2's read +0x8 (another field: another accessor), and BMX has none of the library's other ten
+# games/aggressive, engine (go down into zge: inlineTextureFX.c is BMX XXX's ZGE4 ZgeMods/UVanim/ztexturefx.c):
+animateTextures	engine	AI module inlineTextureFX (src/com/inlineTextureFX.c); BMX close (0.99) in ZGE4 at 0x1755B0, the module ztexturefx.c (../ngengine/ZGE4/ZgeMods/UVanim/ztexturefx.c, BMX PS2 and Xbox anchors). Engine by the rule
+faceTexturesToCamera	engine	AI module inlineTextureFX; BMX identical (exact) in ZGE4 ztexturefx.c. Engine by the rule
+initTextureFx	engine	AI module inlineTextureFX; BMX drifted at ztexturefx.c's anchor 0x175360 (BMX Xbox: /NgEngine/Zge4/ZgeMods/UVanim/ztexturefx.c). Engine by the rule
+freeTextureEffects	engine	AI module inlineTextureFX; BMX close (0.96) in ZGE4 ztexturefx.c. Engine by the rule
+matchScroller	engine	AI module inlineTextureFX; BMX close in ZGE4 ztexturefx.c. Engine by the rule
+setupFireTextureEffect	engine	AI module inlineTextureFX; BMX close (strings: "WARNING! - loop_u is out of range!") in ZGE4 ztexturefx.c. Engine by the rule
+collectTextureMaterials	engine	AI module inlineTextureFX; BMX close (0.99) in ZGE4 ztexturefx.c. Engine by the rule
+collectObjectOfClass	engine	AI module inlineTextureFX; BMX close in ZGE4 ztexturefx.c. Engine by the rule
+# games/aggressive, game (stay):
+parkCell	game	../GameTools/ParkEditor in AI and BMX (BMX identical in its game block); DM2's call-site pair comes through parkCellAnchor's false pair
+parkCellAnchor	game	../GameTools/ParkEditor in AI and BMX (BMX identical in its game block); DM2's identical 8-instruction pair is DM2's objectSceneNode (card caveat: same words, another function)
+newPool	game	AI's zone wrappers (src/com, with poolTake/poolGive, which no game pairs); BMX's code calls createPool itself where AI calls newPool (its initCarriedAnimals, identical, at newPool's three call sites): BMX has no such wrapper, its drifted neighbour pair (14 instructions to 7) is another function
+freePool	game	AI's zone wrappers; the call-site pair is BMX's destroyPool (0x137A18, AI destroyPool's close pair), which BMX's freeCarriedAnimals calls itself where AI's calls freePool
+releaseGameObject	game	AI's object classes (src/com: 41 of objects.cpp's 51 functions pair with nothing); BMX's close pair by order is a lone pool-give wrapper; callers all AI game code (trick input, ground tricks, text objects)
+gameObjectState	game	AI's object classes; BMX's two-instruction pair by order reads +0x30, AI's reads the object's state at +0x4 (another field)
+hasKeyedValue	game	AI's object classes (41 of 51 unpaired); BMX's lone drifted neighbour pair is a search-tree-find wrapper; nothing calls it in AI
+setupObjectClasses	game	AI's object classes; DM2's lone drifted neighbour pair (0.54) is an init of a tree and two pools; its pair freeObjectClasses pairs with nothing in any game
+removeClassKeyedValue	game	AI's object classes; BMX's lone drifted neighbour pair (0.56, 14 instructions to 18); nothing calls it in AI
+freeSkaterHud	game	frees the player's HUD (skater::Player::hud), AI's own; BMX's lone drifted neighbour pair (22 instructions to 14) is a free-and-zero of another record; hud.cpp's other 20 pair with nothing
+initCloserQueries	game	AI's "AreYouCloser" query; BMX's drifted pair hashes "camera" (another query of the same shape: pool, tree, hash); closers.cpp's other 13 pair with nothing
+collideIfBothShown	game	AI's NPC and skater contact; BMX's lone drifted pair (0.53, 17 instructions to 28) sits apart from BMX's dynamics objects, which pair into its game block (8 of dynamics_objects.cpp)
+pairedRail	game	AI's double rails (src/com rails); BMX's lone drifted pair (0.52, 11 instructions to 20); rails_setup.cpp's other 10 pair with nothing
+animObjHash	game	the "AnimObj" message's hash, AI's script objects; BMX's pair is in its game block, DM2's drifted 8-instruction neighbour (0.57) is a lookalike name hash
+scriptFreeNatives	game	AI's script machine (src/com script block); DM2's better pair (0.78) is in its game block; BMX's (0.56, 26 instructions to 13) is a lookalike
+groundObjectOnTrickStartHolding	game	AI's ground tricks; BMX's lone drifted neighbour pair (0.55); ground_object.cpp's other 28 pair with nothing
+# games/aggressive/skater, engine by the rule: moved into zge/scene/animator.cpp and zge/scene/carried_objects.cpp (layer3).
+updateAnimator	engine	AI's animators (block 0x1AD0A0); BMX drifted in ZGE4's zanimUtil (message identifier "zanimUtil", BMX PS2 and Xbox; BMX Xbox in its engine)
+keepMotion	engine	AI's animators; BMX identical (callgraph) in ZGE4's zanimUtil
+loadFormFile	engine	AI's animators; BMX drifted in ZGE4's zanimUtil (BMX Xbox 0.88)
+freeLayers	engine	AI's animators; BMX drifted (callgraph, 0.80) in ZGE4's zanimUtil
+freeAnimatorOnMessage	engine	AI's animators; BMX identical (exact) in ZGE4's zanimUtil
+freeAnimator2	engine	AI's animators; BMX close (callgraph) in ZGE4's zanimUtil (BMX Xbox 0.98)
+initAnimators	engine	AI's animators; BMX drifted, the string "zanimUtil" (BMX GC, PS2, Xbox) in ZGE4
+updateAnimators	engine	AI's animators; BMX drifted (0.78) in ZGE4's zanimUtil
+animationDone2	engine	AI's animators; BMX drifted in ZGE4's zanimUtil
+stopAnimation	engine	AI's animators; BMX drifted (BMX Xbox 0.97) in ZGE4's zanimUtil
+animationTime	engine	AI's animators; BMX identical (exact) in ZGE4's zanimUtil
+setAnimationTime	engine	AI's animators; BMX identical (exact) in ZGE4's zanimUtil
+pauseAnimation	engine	AI's animators; BMX close (0.94) in ZGE4's zanimUtil
+resumeAnimation	engine	AI's animators; BMX close (0.93) in ZGE4's zanimUtil
+initCarriedAnimals	engine	AI's carried objects ("ParrotAttached"); BMX close (0.96) in ZGE4, called from BMX's initEngine
+freeCarriedAnimals	engine	AI's carried objects; BMX identical (exact) in ZGE4
+compareCarriedAnimals	engine	AI's carried objects; BMX identical (exact) in ZGE4
+attachCarriedAnimal	engine	AI's carried objects; BMX drifted in ZGE4 (BMX Xbox via PS2 0.62)
+detachAnimal	engine	AI's carried objects; BMX drifted in ZGE4 (BMX Xbox 0.87)
+carriedAnimalCount	engine	AI's carried objects; BMX drifted (0.83) in ZGE4
+animalCarrier	engine	AI's carried objects; BMX drifted in ZGE4 (BMX Xbox 0.66)
+#
+# zge/scene/animator.cpp (layer3): AI's animator source (block 0x1AD0A0..0x1AE490) is the animator BMX XXX's ZGE4
+# has as zanimUtil (its functions 0x164B50..0x165B38 in BMX's engine block). By the rule, the module is engine code:
+# the 14 pairs above it, and the rest of the source with it, since its functions read and write only the module's
+# own records (the animators, tracks, pose layers, mirror maps, the animation table and their pools). Kept in
+# games/aggressive: handleAnimationEvent (it names the game: skaters, follow cameras, sounds).
+freeQueue	engine	AI's animators; BMX weak 0x165868 in ZGE4's zanimUtil, called at freeQueue's call site by the BMX pairs of freeAnimator (close), updateAnimator and playAnimation (3 of its 4 callers)
+playAnimation	engine	AI's animators; BMX weak 0x165078 in ZGE4's zanimUtil makes AI's calls in AI's order (searchTreeFind, poolAlloc where AI's poolTake, memoryFill, initList twice, subscribe, searchTreeInsert, crossfadeAnimation, freeQueue's and freeLayers' pairs, startAnimation, setTrackRecord, listPush), less AI's NPC test and mirror map
+findAnimation	engine	AI's animators; BMX weak 0x164FB8 in ZGE4's zanimUtil: nameHash, then the table lookup 0x164FE0, as AI's calls findAnimationByHash
+findAnimationByHash	engine	AI's animators; BMX 0x164FE0 in ZGE4's zanimUtil, the lookup BMX's findAnimation calls where AI's calls it
+playAnimationNamed	engine	AI's animators (findAnimation, then playAnimation: the module's own); BMX's weak pair (eventKind, searchTreeFind) is another function
+addPoseLayerNamed	engine	AI's animators (findAnimation, then addPoseLayer); no counterpart
+addPoseLayer	engine	AI's animators: the module's pose layers (its pool, the animator's list, the mirror map); no counterpart
+advanceAnimationTime	engine	AI's animators: an animator's time; BMX's weak pair 0x1653A0 sits in ZGE4's zanimUtil
+animationPaused	engine	AI's animators: an animator's pause word; no counterpart
+buildMirrorMap	engine	AI's animators: an animator's mirror map; BMX's weak lead (0.45) calls newBoneMirror from its game block, and BMX's playAnimation makes none (AI's own step of the module)
+freeMirrorMap	engine	AI's animators: an animator's mirror map (freeAnimator2's call; BMX's freeAnimator2 has no mirror map)
+blendHips	engine	AI's animators: the track records' root motion, onTrackBlend's first step; no counterpart
+mirrorTrack	engine	AI's animators: a track record's mirror map, onTrackBlend's second step; no counterpart
+mirrorLayer	engine	AI's animators: a pose layer's mirror hook (addPoseLayer sets it); no counterpart
+onTrackBlend	engine	AI's animators: the callback updateAnimator hands the animation player; no counterpart
+freeAnimationEntry	engine	AI's animators: the animation table's entries and their pool (shutdownAnimators' visit); no counterpart
+freeAnimatorVisit	engine	AI's animators: freeAnimator2 for each animator (shutdownAnimators' visit); no counterpart
+shutdownAnimators	engine	AI's animators: initAnimators' pools and trees freed; no counterpart
+forEachLibraryEntryOf	engine	AI's animators: an archive's assets through loadFormFile into the table; no counterpart
+loadAnimationArchive	engine	AI's animators: an archive into the animation table; BMX's drifted pair (nameHash, loadLibraryModelEntry, newModelObject) is a model library's loader, another function
+animatorBoneOffset	engine	AI's animators (block 0x1AD0A0): engine calls only (objectNameHash, findAnimatorBone, boneTranslation, objectOrientation); no counterpart
+#
+# zge/scene/carried_objects.cpp (layer3): AI's carried objects (block 513) are BMX XXX's ZGE4 0x16FD38..0x1702D8 (in
+# BMX's engine block, called from BMX's initEngine). With the 7 pairs above, the rest of the module that reads only
+# its own records. Kept in games/aggressive: updateCarriedAnimals, updateCarriedAnimal, animalCallSound (the call's
+# speech by AI's level and game type; BMX's update calls an empty function where AI's calls updateCarriedAnimal).
+sendParrotAttached	engine	AI's carried objects: both sides told; BMX's detachAnimal calls 0x16FD38 (ZGE4, an empty function) at the call site where AI's calls it
+sendParrotReleased	engine	AI's carried objects: both sides told; BMX's attachCarriedAnimal calls 0x16FD38 (ZGE4) at the call site where AI's calls it
+detachAllAnimals	engine	AI's carried objects: the carrier's record and detachAnimal; no counterpart
+listCarriedAnimals	engine	AI's carried objects: the carrier's record's list; no counterpart

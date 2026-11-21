@@ -1,0 +1,78 @@
+# DM2 reference run 1 (PCSX2): fresh boot -> intro skipped -> main menu ->
+# FREERIDE -> Dave Mirra -> first bike -> default modifiers -> Woodward Camp
+# -> a few seconds of riding (pedal, turn, jump, coast).
+#
+#   python3 -I games/dm2/tools/dm2pcsx2.py quit ; python3 -I games/dm2/tools/dm2pcsx2.py launch --card unformatted
+#   python3 -I games/dm2/tools/dm2pcsx2.py run tools/scripts/dm2-ref-run1.txt | tee tools/scripts/dm2-ref-run1-commands.txt
+#
+# Vsyncs are the hook's VBlank counter (MAILBOX+0x18, counted from the
+# graphics init); the first pad poll is at vsync 469 on a fresh boot.
+# Screenshots: /tmp/ai-dm2-shots (savestate thumbnails, 640x480).
+# Checkpoints: savestate slot 8 + RAM image in recomp/dumps/ref/<name>.ram.
+
+waitpolls 1
+waitvsync 800
+shot /tmp/ai-dm2-shots/pcsx2-01-boot.png
+waitvsync 1100
+shot /tmp/ai-dm2-shots/pcsx2-02-intro.png
+waitvsync 2400
+shot /tmp/ai-dm2-shots/pcsx2-03-title.png
+# START skips the intro movie (any time during it)
+press START
+wait 180
+shot /tmp/ai-dm2-shots/pcsx2-03b-memcard-check.png
+# front-end music starts with the main menu: sound mode 0 -> 1
+waitval 0x259770 u32 == 1 1800
+wait 120
+shot /tmp/ai-dm2-shots/pcsx2-04-main-menu.png
+press DOWN
+wait 20
+press DOWN
+wait 30
+checkpoint 8 ck1-main-menu-freeride
+press CROSS
+wait 240
+shot /tmp/ai-dm2-shots/pcsx2-04b-choose-rider.png
+press CROSS
+wait 240
+shot /tmp/ai-dm2-shots/pcsx2-04c-choose-bike.png
+press CROSS
+wait 240
+shot /tmp/ai-dm2-shots/pcsx2-04d-modifier-setup.png
+press CROSS
+wait 240
+shot /tmp/ai-dm2-shots/pcsx2-05-level-select.png
+checkpoint 8 ck2-level-select
+press CROSS
+wait 400
+shot /tmp/ai-dm2-shots/pcsx2-06-loading.png
+# level start: the rider task frame counter starts counting
+waitval 0x25BCC4 u32 >= 1 3600
+wait 60
+shot /tmp/ai-dm2-shots/pcsx2-07-in-level.png
+waitval 0x25BCC4 u32 >= 120 600
+checkpoint 8 ck3-level-start
+# ride: pedal, turn left while pedalling, jump (hold CROSS, release), coast
+down UP
+wait 50
+down LEFT
+wait 30
+up LEFT
+wait 20
+checkpoint 8 ck4-ride-turn
+down CROSS
+wait 20
+up CROSS
+wait 30
+checkpoint 8 ck5-ride-jump
+shot /tmp/ai-dm2-shots/pcsx2-08-riding.png
+up UP
+wait 60
+down RIGHT
+wait 20
+up RIGHT
+wait 60
+checkpoint 8 ck6-ride-end
+shot /tmp/ai-dm2-shots/pcsx2-09-ride-end.png
+seenlog tools/scripts/dm2-ref-run1-seen.txt
+state

@@ -9,9 +9,9 @@
 #include "collection/playback.h"
 #include "collection/recordings.h"
 #include "runtime/play_recording.h"
-#include "runtime/ps2_boot_config.h"
-#include "runtime/ps2_host_input.h"
-#include "runtime/ps2_memory.h"
+#include "runtime/boot_config.h"
+#include "runtime/host_input.h"
+#include "runtime/memory.h"
 
 #include <algorithm>
 #include <atomic>

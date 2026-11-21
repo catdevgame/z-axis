@@ -12,11 +12,11 @@ body:
     attributes:
       label: Game
       options:
-        - The engine (runtime/src/game/zge, shared)
-        - Aggressive Inline (runtime/src/game/aggressive)
-        - Dave Mirra Freestyle BMX 2 (runtime/src/game/dm2)
-        - BMX XXX (runtime/src/game/bmx)
-        - The system libraries (runtime/src/game/sce)
+        - The engine (engine/zge, shared)
+        - Aggressive Inline (games/aggressive)
+        - Dave Mirra Freestyle BMX 2 (games/dm2)
+        - BMX XXX (games/bmx)
+        - The system libraries (ps2/sce)
     validations:
       required: true
   - type: input
@@ -24,7 +24,7 @@ body:
     attributes:
       label: Where
       description: The file and the function, type or field.
-      placeholder: runtime/src/game/<folder>/<file>.cpp, <function>
+      placeholder: games/<game>/<folder>/<file>.cpp (or engine/zge/...), <function>
     validations:
       required: true
   - type: dropdown

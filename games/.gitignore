@@ -1,0 +1,18 @@
+# Never commit game data or anything derived from a disc (CLAUDE.md "Assets and discs"), in a game's code, tools
+# or workspace: it lives in the data folder (tools/paths.env's ZAXIS_DATA), linked into the workspaces by
+# tools/setup/setup.sh (the links: the root's .gitignore). tools/.gitignore the same.
+*.iso
+*.bin
+*.elf
+*.ELF
+*.irx
+*.IRX
+*.nvm
+*.mec
+*.ps2
+*.pss
+*.PSS
+*-decomp.c
+__pycache__/
+.DS_Store
+imgui.ini

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "runtime/gs/gs_cpu_backend.h"
-#include "runtime/gs/gs_frontend.h"
+#include "gs/gs_cpu_backend.h"
+#include "gs/gs_frontend.h"
 
 #include <cstdint>
 #include <exception>

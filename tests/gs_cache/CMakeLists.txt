@@ -5,11 +5,12 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     include(CTest)
 endif()
 
-get_filename_component(PS2_GS_DEFAULT_RUNTIME_DIR "${CMAKE_CURRENT_LIST_DIR}/../../runtime" ABSOLUTE)
+# (the PS2 runtime's folder, ps2/: gs/, runtime/, include/)
+get_filename_component(PS2_GS_DEFAULT_RUNTIME_DIR "${CMAKE_CURRENT_LIST_DIR}/../../ps2" ABSOLUTE)
 set(PS2_GS_RUNTIME_DIR "${PS2_GS_DEFAULT_RUNTIME_DIR}" CACHE PATH "Runtime source to test")
 # A cached folder that no longer holds the GS sources (a build dir configured for a tree that moved) goes back to
 # the default.
-if(NOT EXISTS "${PS2_GS_RUNTIME_DIR}/src/lib/gs")
+if(NOT EXISTS "${PS2_GS_RUNTIME_DIR}/gs")
     set(PS2_GS_RUNTIME_DIR "${PS2_GS_DEFAULT_RUNTIME_DIR}" CACHE PATH "Runtime source to test" FORCE)
 endif()
 option(PS2_GS_CACHE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
@@ -17,19 +18,19 @@ option(PS2_GS_CACHE_BUILD_MEMORY_TESTS "Build tests for the new shared cached-re
 
 find_package(Threads REQUIRED)
 add_library(zx_gs_cache_backend_under_test STATIC
-    "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_cpu_backend.cpp"
-    "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_cpu_fast.cpp"
-    "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_frontend.cpp"
-    "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_null_backend.cpp"
-    "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_record.cpp"
-    "${PS2_GS_RUNTIME_DIR}/src/lib/gs/ps2_gs_memory.cpp"
-    "${PS2_GS_RUNTIME_DIR}/src/lib/ps2_frame_trace.cpp"
+    "${PS2_GS_RUNTIME_DIR}/gs/gs_cpu_backend.cpp"
+    "${PS2_GS_RUNTIME_DIR}/gs/gs_cpu_fast.cpp"
+    "${PS2_GS_RUNTIME_DIR}/gs/gs_frontend.cpp"
+    "${PS2_GS_RUNTIME_DIR}/gs/gs_null_backend.cpp"
+    "${PS2_GS_RUNTIME_DIR}/gs/gs_record.cpp"
+    "${PS2_GS_RUNTIME_DIR}/gs/gs_memory.cpp"
+    "${PS2_GS_RUNTIME_DIR}/runtime/frame_trace.cpp"
 )
-target_include_directories(zx_gs_cache_backend_under_test PUBLIC "${PS2_GS_RUNTIME_DIR}/include")
+target_include_directories(zx_gs_cache_backend_under_test PUBLIC "${PS2_GS_RUNTIME_DIR}/include" "${PS2_GS_RUNTIME_DIR}")
 target_compile_features(zx_gs_cache_backend_under_test PUBLIC cxx_std_20)
 target_compile_definitions(zx_gs_cache_backend_under_test PRIVATE PS2_RUNTIME_LOGS=0 AGRESSIVE_LOGS=0)
 target_link_libraries(zx_gs_cache_backend_under_test PUBLIC Threads::Threads)
-# The CPU renderer names and looks up texture packs' pictures (runtime/ps2_texture_pack.h, texpack1): in the
+# The CPU renderer names and looks up texture packs' pictures (runtime/texture_pack.h, texpack1): in the
 # collection's tree those come from the runtime library; a standalone build of these suites has no runtime to take
 # them from.
 if(TARGET zx_runtime)

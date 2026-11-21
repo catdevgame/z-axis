@@ -1,0 +1,60 @@
+# public_scan.py's decisions, by path glob (fnmatch: * crosses folders): GLOB <TAB> RULE (id, prefix* or *) <TAB> ok|open <TAB> why.
+# ok drops the finding. open keeps it, reported and not failing (--strict fails it): the user's decision, not yet made.
+# Paths are a z-axis tree's.
+# The first matching line wins. Nothing private is named here: the workshop's rules file names that.
+#
+# The legal question (docs/READABLE.md's readable games are written from the games' own code): the user decided on
+# 2026-11-17 that the readable code, with its game strings, names and address tables, is public.
+engine/zge/*	disc.readable	ok	the readable engine, written from the games' own code (user decision 2026-11-17: public)
+engine/host/*	disc.readable	ok	the host's services to the readable engine (user decision 2026-11-17: public)
+ps2/ee/*	disc.readable	ok	the readable code's framework (user decision 2026-11-17: public)
+ps2/sce/*	disc.readable	ok	the readable system libraries (user decision 2026-11-17: public)
+games/*	disc.readable	ok	the readable games, their overrides and tables, written from the games' own code (user decision 2026-11-17: public)
+engine/overrides/*	disc.readable	ok	the engine's overrides, written from the games' own code (user decision 2026-11-17: public)
+games/aggressive/workspace/decomp/*	disc.readable	ok	the matching decomp's tooling (user decision 2026-11-17: public)
+ps2/disc/*	disc.dump	ok	our disc reader (zx::disc: the ISO 9660 and cue sheet reader, the image formats): source code in a folder named disc, not a dump
+collection/resources/app-icon.png	disc.*	ok	our own icon, drawn by app_icon.py
+collection/resources/fonts/Michroma-Regular.ttf	disc.binary	ok	Michroma, a font under the SIL Open Font License 1.1 (Michroma-OFL.txt beside it, NOTICE 8)
+# Tables of the games' addresses with this project's names, which the build reads (public: the same decision).
+tools/readable/readable_symbols.tsv	disc.addresses	ok	the symbol table the build resolves names with (user decision 2026-11-17: public)
+tools/readable/bind/*	disc.addresses	ok	DM2's and BMX XXX's binds against AI (user decision 2026-11-17: public)
+games/*/functions.tsv	disc.addresses	ok	a game's function list (address, end, kind, name) (user decision 2026-11-17: public)
+games/*/bound.tsv	disc.addresses	ok	a game's bound functions (user decision 2026-11-17: public)
+games/*/not_ported.tsv	disc.addresses	ok	library and engine functions run as recompiled originals (user decision 2026-11-17: public)
+engine/zge/not_ported.tsv	disc.addresses	ok	the same, the engine's (user decision 2026-11-17: public)
+ps2/sce/not_ported.tsv	disc.addresses	ok	the same, the libraries' (user decision 2026-11-17: public)
+tools/readable/readable_*	disc.addresses	ok	the readable tools' name, local and lint tables (user decision 2026-11-17: public)
+tests/src/library_ports.tsv	disc.addresses	ok	the library suite's port list (user decision 2026-11-17: public)
+games/aggressive/workspace/recomp/config*.toml	disc.addresses	ok	AI's recompiler config (function stubs at their addresses) (user decision 2026-11-17: public)
+games/dm2/workspace/recomp/config*.toml	disc.addresses	ok	DM2's recompiler config (user decision 2026-11-17: public)
+games/aggressive/workspace/recomp/ghidra-functions.csv	disc.addresses	ok	the recompiler's function map (name, start, end, size): one decision with config.toml (user decision 2026-11-17: public)
+games/dm2/workspace/recomp/ghidra-functions.csv	disc.addresses	ok	DM2's function map, the same (user decision 2026-11-17: public)
+games/bmx/workspace/recomp/config*.toml	disc.addresses	ok	BMX XXX's recompiler config, as AI's and DM2's (user decision 2026-11-17: public)
+games/bmx/workspace/recomp/ghidra-functions.csv	disc.addresses	ok	BMX XXX's function map, as AI's and DM2's (user decision 2026-11-17: public)
+tools/readable/frames/*.tsv	disc.addresses	ok	each game's frame table (frame sizes, saves, call sites by address), which the build reads (user decision 2026-11-17: public)
+tools/readable/held/*.txt.xz	disc.binary	ok	each game's held-register table (xz of a text table by address), which the build reads (user decision 2026-11-17: public)
+tools/readable/held/*.txt.xz	disc.addresses	ok	the same
+tools/checks/*.tsv	disc.addresses	ok	the checkers' tables (frame stores, layering) by address (user decision 2026-11-17: public)
+tools/checks/*.txt	disc.addresses	ok	the checkers' address lists (promote aside, baselines) (user decision 2026-11-17: public)
+tools/workdb/*.txt	disc.addresses	ok	the work database's tools' address lists (rider map roles) (user decision 2026-11-17: public)
+# Upstream PS2Recomp's published SDK signature database (hashes and sizes of Sony library functions).
+recompiler/ps2xAnalyzer/include/ps2recomp/sce_symbol_database_data.h	*	ok	upstream's, published with PS2Recomp (user decision 2026-11-17: public)
+# OK: this project's own inputs and placeholders.
+tools/checks/ab_inputs/bmx-pe-session/*	disc.*	ok	our own park (custom0's six-zone park) in BMX XXX's save format: the bmx-ab pe-session input career_ab.py copies (user decision 2026-11-17: public)
+tools/checks/wlane/*.lanes.txt	disc.recording	ok	wlane.py poke's RAM words per tick, the evidence ab_allow_bmx.txt's lanes= rules read: the checks' address lists (user decision 2026-11-17: public)
+tests/src/app_support_tests.cpp	personal.home	ok	a made-up home folder (/Users/x) the test resolves paths in
+tools/checks/ab_inputs/*.txt	*	ok	pad scripts the playbot or a person played: this project's input, no game data
+ps2/runtime/games_database.cpp	private.*	ok	upstream's serial-to-title list of PS2 games (a title is not private-use work)
+# The optional hook for a workshop's own layout (its paths file, the agents' rules link): read when there,
+# nothing when not; and the scanner, whose rules and self-tests name the workshop's folders.
+tools/paths.sh	workshop.ref	ok	finds a workshop's folder and its own layout file when there (none in a public checkout)
+tools/zpaths.py	workshop.ref	ok	the same for Python
+tools/paths.env	workshop.ref	ok	says where a workshop's own layout overrides these defaults
+tools/setup/setup.sh	workshop.ref	ok	links a workshop's agent rules in its main checkout, when there
+platform/windows/make-windows.ps1	workshop.ref	ok	reads a workshop's worker folder from its layout file, when there
+tools/checks/public_scan.py	workshop.*	ok	the scanner: its rules and self-tests name the workshop's folders
+.gitignore	workshop.ref	ok	an ignore line for the agents' rules link a workshop checkout has
+*/.gitignore	workshop.ref	ok	the same
+games/dm2/overrides/dave_mirra_creator.cpp	personal.drive	ok	the DM2 developers' own source path on their S drive, as CREATEPL.DAT on the disc names it
+ps2/runtime/zaxis_estate_icon.cpp	personal.drive	ok	the AI developers' source path on their S drive, the form the game's own ZAL assets carry, which the icon written here repeats
+tests/src/zaxis_text_tests.cpp	personal.drive	ok	a test ZAL asset's source path in the games' own form (their developers' S drive)

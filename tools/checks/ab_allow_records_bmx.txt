@@ -1,0 +1,29 @@
+# render_path = records against the defaults (BMX XXX: --allow ab_allow_bmx.txt,ab_allow_records_bmx.txt).
+# The class renderers draw natively from their draw records
+# (z-axis engine/zge/host/class_draws.cpp): each draw's VU1 work (the part's packet called, its matrices,
+# bones and lights, the microprogram) is left out of the view's mesh packet; the strict encoder still runs for it
+# (its VU1 state, texture request and VU0 work), then a VIF NOP where the draw stands. Pinned: a line here is the
+# orchestrator's to accept (native1).
+#
+# What VIF1 and the GS are handed differs at every vsync with a class draw: by design.
+stream=vif1,gs the class draws' VU1 work left out of the mesh packet (render_path = records), drawn natively
+#
+# The frame packet buffers and what points into them (the mesh packet's cursor, the texture request's marker, the
+# frame fix-ups' words): fewer words for the same draws, everything after them at other places. Only the packet
+# library, the frame fix-ups and the DMA touch them (native1's watch run).
+owner=BmxRenderer.framePackets the frame packets' words (render_path = records)
+#
+# (nativedef1) A health bar shard's corners' u and v, alive or freed: healthDisplayFrame never sets its ShardTriangle's
+# corners' u and v (the original neither; untextured screen shards: material 0, flags 5), so they are the stack residue
+# at 0x1FDFBC0 + 0x20k, which spawnShardFromTriangle and spawnShards copy into the Shard. That residue is the last
+# callee frame below drawSkinned: vif1PacketAddQword's (0x22abd0, its sq of the skinned draw's matrix rows) on the
+# strict path, requestTextures' saves on records, which leaves those VU1-work calls out (ZX_WATCH32 on s-rmpg).
+# Readers (the lane watch, ZX_LANE_WATCH_BUILD, over the six words of each differing shard on s-rmpg, s-root and s-dam2-end,
+# `off` and the defaults): drawShards alone (0x1AA6B4 u, 0x1AA6BC v), every frame of the shard's life, into its vertices
+# for drawPrimitiveStrips with texture 0; nothing after it is freed until another record takes the memory and writes
+# them first (s-root t7142, s-dam2-end t9181: the words equal again from the next dump). Dumps inside a live shard's
+# frames (s-rmpg t8700, s-dam2-end t7000): those two words differ and nothing else but the frame packets' words, so the
+# strip builder's copies (the staged vertex, the packet) reach only words the frame-packet rule covers; the GS takes the
+# ST of an untextured primitive and draws without it. The walk: career_ab.py bmx_health_shard_texcoords (a record with
+# the particle's flags 1 at +0 and shardFlags 5 at +0x110; only healthDisplayFrame makes shards of flags 5).
+owner=BmxShard.healthTexcoords a health bar shard's corners' u and v: stack residue of the VU1-work calls records leaves out, read only to draw it untextured (render_path = records)

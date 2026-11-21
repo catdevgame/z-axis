@@ -4,7 +4,7 @@
 #include "../core/iop_kernel.h"
 #include "../core/iop_memory.h"
 #include "ps2x/iop/iop_host.h"
-#include "zx/disc/iso9660.h"
+#include "disc/iso9660.h"
 #include "ps2x/iop/ps2_path.h"
 
 #include <algorithm>

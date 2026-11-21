@@ -1,14 +1,33 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(ZAxisCollection)
+# The collection's version, x.y.z: the one file every build and package reads it from (VERSION.txt; not VERSION, which a
+# case-insensitive disk finds for the C++ header <version> on the root include path), the app's menu and
+# log (ZX_APP_VERSION's default), the Mac app's Info.plist, the Windows .exe's version resource and the Android
+# manifest (platform/mac/make-app.sh, platform/windows/make-windows.ps1, platform/android/build-apk.sh).
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION.txt" ZX_VERSION LIMIT_COUNT 1)
+if(NOT ZX_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION.txt holds \"${ZX_VERSION}\", not a version x.y.z")
+endif()
+project(ZAxisCollection VERSION ${ZX_VERSION})
 
-# SDL3 (runtime/cmake/zx_sdl3.cmake) has Objective-C sources; a language
+# SDL3 (third_party/cmake/zx_sdl3.cmake) has Objective-C sources; a language
 # enabled in two sibling directories breaks the second, so enable it once here.
 if(APPLE)
     enable_language(OBJC)
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# The repository's root: what a folder's CMake names outside its own folder is named from here.
+set(ZX_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+# The readable code's seven folders, in key order (games/game.cmake, tools/checks/zlayout.py READABLE), and the
+# include roots its keys are found under: #include "zge/..." (engine/), "ee/..." (ps2/), "aggressive/..." (games/).
+set(ZX_ENGINE_DIR "${ZX_ROOT}/engine")
+set(ZX_PS2_DIR "${ZX_ROOT}/ps2")
+set(ZX_GAMES_DIR "${ZX_ROOT}/games")
+set(ZX_READABLE_DIRS "${ZX_GAMES_DIR}/aggressive" "${ZX_GAMES_DIR}/bmx" "${ZX_GAMES_DIR}/dm2" "${ZX_PS2_DIR}/ee"
+    "${ZX_ENGINE_DIR}/host" "${ZX_PS2_DIR}/sce" "${ZX_ENGINE_DIR}/zge")
+set(ZX_READABLE_ROOTS "${ZX_ENGINE_DIR}" "${ZX_PS2_DIR}" "${ZX_GAMES_DIR}")
 
 # ccache, when installed, so build directories in other worktrees reuse the
 # objects of identical compiles (the generated game code above all). Set
@@ -26,11 +45,11 @@ endif()
 option(ZX_BUILD_RUNTIME "Build the runtime and the games" ON)
 option(ZX_BUILD_TEST "Build the unit tests (zx-tests)" ON)
 # The recompiler that makes each game's generated code (and its own tests) is a
-# tool: it lives in tooling/recompiler, built here unless ZX_BUILD_RECOMPILER
+# tool: it lives in recompiler, built here unless ZX_BUILD_RECOMPILER
 # is OFF (the app build and the workers' builds never run it).
-option(ZX_BUILD_RECOMPILER "Build tooling/recompiler (when it is there)" ON)
+option(ZX_BUILD_RECOMPILER "Build recompiler (when it is there)" ON)
 
-# On Android the recompiler is built only for the APK that makes each game's code on the device (android/README.md).
+# On Android the recompiler is built only for the APK that makes each game's code on the device (platform/android/README.md).
 option(ZX_ANDROID_RECOMPILER "Android: build the recompiler too (the APK's, for the game code made on the device)" OFF)
 if(ANDROID)
     message(STATUS "Android target detected, building runtime only")
@@ -112,29 +131,33 @@ if(NOT ZX_IS_ARM_TARGET AND CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|amd64")
     endif()
 endif()
 
-# SDL_GPU GS backend (runtime/src/lib/gs/GPU_BACKEND.md). SDL3 itself
-# comes with the host layer (runtime/cmake/zx_sdl3.cmake).
+# SDL_GPU GS backend (docs/GPU_BACKEND.md). SDL3 itself
+# comes with the host layer (third_party/cmake/zx_sdl3.cmake).
 option(ZX_GS_GPU "Build the SDL_GPU GS backend" ON)
 
-# The build dirs keep their old names (<build>/runtime/zx-runner,
-# <build>/tests/zx-tests): the tools and the remote workers find the
-# binaries there, and they change with the binaries' own names.
+# The build dirs keep their names (<build>/runtime/zx-runner, <build>/tests/zx-tests, <build>/iop/zx-disc): the tools
+# and the remote workers find the binaries there, whatever folder their sources are in. The build is one scope,
+# ps2/CMakeLists.txt's: the PS2 machine (ps2/), the engine (engine/), the games (games/game.cmake), the collection
+# and the platforms, and the tools built from them.
+# Our libraries, each in its folder: the disc image reader (ps2/disc), the games' .ZAL archives (engine/zal) and the
+# SPU2 (ps2/spu2). Every build has the first two (seconds): the recompiler's (ZX_BUILD_RUNTIME OFF) reads each game's
+# ELF from its disc image with zx-disc (tools/setup/recompile.sh), and with everything else OFF a build is zx-disc and
+# zal alone (docs/MODS.md "Archives").
+add_subdirectory("ps2/disc" "${CMAKE_BINARY_DIR}/disc")
+add_subdirectory("engine/zal" "${CMAKE_BINARY_DIR}/zal")
 if(ZX_BUILD_RUNTIME)
+    add_subdirectory("ps2/spu2" "${CMAKE_BINARY_DIR}/spu2")
     add_subdirectory("iop" "${CMAKE_BINARY_DIR}/iop")
-    add_subdirectory("runtime" "${CMAKE_BINARY_DIR}/runtime")
-elseif(ZX_BUILD_RECOMPILER)
-    # The disc reader's tool beside the recompiler (tooling/recompile.sh: each game's ELF from its disc image).
-    set(ZX_IOP_DISC_ONLY ON)
-    add_subdirectory("iop" "${CMAKE_BINARY_DIR}/iop")
+    add_subdirectory("ps2" "${CMAKE_BINARY_DIR}/runtime")
 endif()
 
-# (The unit tests drive the checkers' hooks: the dev flavour's alone, runtime/CMakeLists.txt ZX_DEV_CHECKS.)
+# (The unit tests drive the checkers' hooks: the dev flavour's alone, ps2/CMakeLists.txt ZX_DEV_CHECKS.)
 if(ZX_BUILD_TEST AND ZX_BUILD_RUNTIME AND NOT ZX_DEV_CHECKS)
     message(STATUS "tests: not built in the app's flavour (ZX_DEV_CHECKS OFF)")
 elseif(ZX_BUILD_TEST)
     add_subdirectory("tests" "${CMAKE_BINARY_DIR}/tests")
 endif()
 
-if(ZX_BUILD_RECOMPILER AND EXISTS "${CMAKE_SOURCE_DIR}/tooling/recompiler/CMakeLists.txt")
-    add_subdirectory("tooling/recompiler" "${CMAKE_BINARY_DIR}/recompiler")
+if(ZX_BUILD_RECOMPILER AND EXISTS "${CMAKE_SOURCE_DIR}/recompiler/CMakeLists.txt")
+    add_subdirectory("recompiler" "${CMAKE_BINARY_DIR}/recompiler")
 endif()

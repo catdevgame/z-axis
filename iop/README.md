@@ -2,21 +2,20 @@
 
 `iop` runs original IRX modules on an R3000A interpreter, with a virtual
 IOP kernel providing imports without a PS2 BIOS. The C++20 static library
-`ps2_iop` / `ps2x::iop` is linked into the runtime (`runtime/`). The games run
+`ps2_iop` / `ps2x::iop` is linked into the runtime (`ps2/runtime/`). The games run
 with the IOP stopped by default: their disc, movie, sound and save modules are
 replaced by native code (`docs/NATIVE.md`), and this path is the fallback and
 the reference for comparisons (`ZX_IOP=1`, `ZX_SOUND=spu2`, ...).
 
-It also holds the disc image reader, `zx_disc` / `zx::disc` (ISO 9660 over
-an ISO, a BIN/CUE dump, a CHD, a CSO or a ZSO), which the app uses to set a
-game up from the player's disc, and its command line, `zx-disc list | extract
-| to-iso` (`tools/disc_tool.cpp`; `-DZX_IOP_DISC_ONLY=ON` builds it alone,
-as `tooling/recompile.sh` does). Beside them, `zx_zal` / `zx::zal` reads and
-writes the games' `.ZAL` archives byte for byte as the discs have them
-(`include/zx/zal_archive.h`: the game file system puts mods' single
-entries in them), and `zal list | unpack | repack | verify`
-(`tools/zal_tool.cpp`) is its command line for modders (`docs/MODS.md`,
-"Archives").
+Beside it, in their own folders (ours): the disc image reader, `zx_disc` / `zx::disc` in `ps2/disc` (ISO 9660
+over an ISO, a BIN/CUE dump, a CHD, a CSO or a ZSO), which the CDVD module reads through and the app uses to set a
+game up from the player's disc, with its command line `zx-disc list | extract | to-iso`
+(`tools/setup/disc_tool.cpp`, which `tools/setup/recompile.sh` builds with the recompiler); the SPU2, `zx_spu2` in
+`ps2/spu2`, which the IOP's memory map and emulator drive (`spu2/spu2.h`); and `zx_zal` / `zx::zal` in `engine/zal`,
+which reads and writes the games' `.ZAL` archives byte for byte as the discs have them (the game file system puts
+mods' single entries in them), with `zal list | unpack | repack | verify` (`tools/modding/zal_tool.cpp`) its command
+line for modders (`docs/MODS.md`, "Archives"). Built alone (`cmake -S iop`), this folder takes the disc reader and
+the SPU2 in itself.
 
 ## Execution policy
 
@@ -40,8 +39,8 @@ use.
 ## SPU2
 
 The SPU2 sound processor (registers at `0x1F900000`, IOP DMA channels 4/7,
-interrupts 9, 0x24, 0x28) is emulated in `src/emulator/spu2`, ported from
-PCSX2's SPU2 (GPL-3.0+); see [src/emulator/spu2/README.md](src/emulator/spu2/README.md).
+interrupts 9, 0x24, 0x28) is emulated in `ps2/spu2` (ours, beside this folder), ported from
+PCSX2's SPU2 (GPL-3.0+); see [ps2/spu2/README.md](../ps2/spu2/README.md).
 Mixed 48 kHz stereo is delivered through `IopHost::audioSamples()`.
 
 ## Lifecycle and transport
@@ -57,7 +56,7 @@ memory accessors; SIF notifications do not mirror bytes into equal-numbered EE
 addresses. `RpcResult` describes completion and dispatch actions for the runtime.
 
 Link with `target_link_libraries(my_runtime PRIVATE ps2x::iop)`. The public API
-is [iop_subsystem.h](include/ps2x/iop/iop_subsystem.h); `PS2Runtime` owns its
+is [iop_subsystem.h](include/ps2x/iop/iop_subsystem.h); `PS2Machine` owns its
 subsystem and host adapter.
 
 ## Diagnostics and tests

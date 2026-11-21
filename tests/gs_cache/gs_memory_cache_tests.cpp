@@ -1,5 +1,5 @@
 #include "gs_test_support.h"
-#include "runtime/gs/ps2_gs_memory.h"
+#include "gs/gs_memory.h"
 
 using namespace GSTest;
 

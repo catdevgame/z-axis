@@ -3,7 +3,7 @@
 // output, the SPU2 IRQ and ADMA streaming.
 
 #include "emulator/core/iop_memory.h"
-#include "emulator/spu2/spu2.h"
+#include "spu2/spu2.h"
 
 #include <cmath>
 #include <cstdint>

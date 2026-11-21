@@ -1,0 +1,306 @@
+# DM2's rider code (SLUS_201.59), read for the rider physics port.
+# Hand-written knowledge (what each function is for), no disc bytes: tools/workdb/ridermap.py
+# joins it with the call graph and the counterparts and writes the work database's results.
+#
+# address|role|name|port|confidence|what it does
+#   role: setup, frame, state, physics, ground, air, grind, stall, lip, wallride, landing, bail,
+#         manual, crouch (the bunny hop), fakie, input, tricks, contact, collision, surface,
+#         respawn, pose, sound, fx, camera, scoring, goals, hud, replay, debug, util
+#   port: the plan for the guest rider in AI (removed 2026-11-05):
+#         port   DM2's code made readable C++ and run for the guest rider in AI
+#         adapt  DM2's game-side collision and surface API: rewritten over AI's collision
+#         host   AI's own (camera, HUD, scoring, goals, sound) does it for the guest rider
+#         skip   not needed in AI (debug draw, replay, DM2's sound banks, front end)
+#   confidence of the reading: high (state tables, strings, read through), medium (callees and
+#         a look), low (a guess from callees and callers)
+0x001A2348|setup|riderSetup|port|high|bone name hashes (0x259568..), MOTION00 into the motion table 0x2F4EE0, the physics task (FUN_001907B0)
+0x001907B0|setup|physicsInit|port|high|physics.c's task registration (__FILE__ ./src/com/physics.c)
+0x001643D8|frame|actionFrame|host|high|action.c's frame task: per rider the input record, the rider frame (FUN_001A33F0), sound, camera, game frame, replay; AI's playerUpdate drives the guest instead
+0x001A33F0|frame|riderFrame|port|high|the rider's frame: direction taps into +0x131.., out-of-bounds respawn, the action state levels (0x241E90), the physics frame (FUN_001907F8), then the rider's and bike's motions and bone points
+0x001907F8|physics|physicsFrame|port|high|per rider: the physics state's callbacks 0x241DE0 (turn), 0x241E0C (forces), 0x241E38 (move), 0x241E40 on entering bail, 0x241E64 (after); wheel spin, lean of the bars (+0x1068 / +0x106C)
+0x00192178|physics|physicsState|port|high|rider +0xFF0
+0x00192180|physics|setPhysicsState|port|high|exit (0x241D80) and enter (0x241DB0) callbacks; the enter's result is the new state
+0x00192840|ground|groundEnter|port|high|physics state 0: fakie (+0x160 bit 0x200000) when moving backwards off a grind (from 4); clears the air angles
+0x00194780|air|airEnter|port|medium|physics state 1: the take-off (launch off the face, the lip and vert tests, air time); can go on to a grind (4) at once
+0x00196018|bail|bailEnter|port|medium|physics state 2: the bail's tumbling body (the motion's bones into the engine's dynamics, FUN_00143410 / FUN_00144C88)
+0x001928F8|grind|grindApproachEnter|port|medium|physics states 3, 5, 7: search a rail edge, lip or stall target near the rider by the stick (grind / stall trick by direction), the snap path (+0x10C0 a frame for +0xFF2 frames)
+0x001941A8|grind|grindEnter|port|medium|physics state 4: onto the rail edge (snap to it, the grind trick by direction); may become a stall (6)
+0x00195D10|stall|stallEnter|port|medium|physics states 6 and 8: onto the stall or lip target
+0x00196400|wallride|wallRideEnter|port|high|physics states 9, 10: nothing (returns the state)
+0x00192778|landing|leaveAirExit|port|high|exit of states 1, 3, 5, 7: to the ground the velocity from the motion's root (+0x1230), the position from the body; sets the contact
+0x00192838|bail|bailExit|port|high|exit of state 2 (and of 0xFF)
+0x00192760|grind|grindExit|port|high|exit of state 4: clears the air angles
+0x00196408|ground|groundTurn|port|medium|state 0's turn callback: steering into the yaw rate +0x10D2 from the speed (Turn tuning at 0x259398 / 0x259434), the turn applied to the rows when riding
+0x001965F0|air|airRotate|port|medium|states 1 and 8: the spin and flip angles (+0x10D0..) applied to the rows, the alignment toward +0x1180 for +0xFF2 frames, rows made orthonormal again
+0x001970E8|grind|approachAlign|port|medium|states 3, 5, 7: the rows turned toward the target's frame (+0x1150..) by 0x259438 a frame
+0x001968B0|grind|grindBalance|port|medium|states 4 and 6: the balance (lean) and falling off the rail or lip (to the air)
+0x001971F8|wallride|wallRideTurn|port|medium|states 9, 10: the turn on the wall
+0x001972F0|air|airGravity|port|high|states 1 and 8: gravity 0x259390 into the velocity (+0x10A0), less in state 8 by the rider's stat +0x3C; the speed +0x10D8
+0x001974E8|grind|approachGravity|port|high|states 3, 5, 7: gravity into the snap velocity (+0x10C4)
+0x00197398|grind|grindSlope|port|medium|state 4: speed along the rail with the slope (the edge's direction, its tags)
+0x00198430|ground|groundMove|port|medium|state 0's move: the wheels on the ground (FUN_00197500), the slope and edges ahead (FUN_0019DAF8), hits (FUN_0019E698), impacts (FUN_0019EA48), pedalling speed, friction, the bike's tilt (FUN_001981E8), dust and skid marks; to the air (1), a bail (2) or a grind (4)
+0x0019A110|air|airMove|port|medium|states 1 and 8: the move through the air with the landing tests (FUN_001A03B8), the rotation tracked (FUN_0019FDA8), the trick not finished at landing (FUN_001A3E70); to the ground (0) or a bail (2)
+0x0019C5E0|bail|bailMove|port|medium|state 2: the tumbling body moved by the engine's dynamics, the hands on the ground (FUN_001A1310), the sound
+0x0019C0A8|grind|approachMove|port|high|states 3, 5, 7: the snap: +0x10C0 added to position and body for +0xFF2 frames, then state + 1
+0x0019C160|grind|grindMove|port|medium|state 4: along the rail edge (FUN_00192610), off its end (FUN_0019ED20); to the air (1) or a bail (2)
+0x0019C998|wallride|wallRideMove|port|medium|states 9, 10: the move on the wall (wheels on it, FUN_00197D10), off it to the air or ground
+0x0019D3F8|pose|groundAfter|port|medium|states 0, 9, 10 after the move: the bike's parts posed (FUN_00190B38), the rolling sound (FUN_001AB538)
+0x0019D5D8|pose|airAfter|port|medium|states 1, 3, 5, 7, 8 after the move: the parts posed (FUN_00190E48, FUN_0019F080), the sound
+0x0019D700|pose|grindAfter|port|medium|states 4, 6 after the move: sparks, the grind sound, rumble, the parts posed against the rail
+0x00190B38|pose|poseBikeGround|port|medium|the wheels turned by the distance, the bars by the turn, the bones set (FUN_0019F080)
+0x00190E48|pose|poseBikeAir|port|medium|the same in the air and on rails
+0x0019F080|pose|poseRiderBones|port|medium|the rider's and bike's bones from the physics (bars, cranks, wheels, the lean) set on the model (kBoneSetRotation)
+0x001981E8|ground|groundTilt|port|medium|the bike's tilt to the ground from the model's bone quaternions
+0x00197500|ground|groundProbe|port|medium|the wheels' rays down: the ground under each, its contact (FUN_001A0878), the speed into the ground, air time
+0x00197D10|wallride|wallProbe|port|medium|the same against the wall in a wall ride
+0x0019DAF8|ground|groundAhead|port|medium|rays ahead along the motion: a steeper face (ramp, wall) or the edge of a drop
+0x0019E698|ground|groundHit|port|medium|a hit with a wall or edge while riding: deflect, or bail (2)
+0x0019EA48|landing|groundImpact|port|medium|the impact with the ground: dust, rumble, a hard landing's crouch (+0x160 bit 0x80000), bail
+0x0019ED20|grind|grindEnd|port|medium|the end of the rail edge: on to the next edge or off
+0x0019EF80|grind|closestOnRail|port|high|the closest point on a grind edge (closestPointOnSegment)
+0x00192610|grind|followRail|port|medium|along the grind edge (the edge search FUN_0017B150, the next edge FUN_00192468)
+0x00192468|grind|nextRailEdge|port|medium|the edge joined to this one's end
+0x0019FDA8|air|airRotationTrack|port|medium|the rotation this frame (matrixToEuler) added to the air's spin and flip
+0x0019FE50|air|lipTest|port|low|a quarter pipe's lip under the take-off or landing
+0x001A00E0|air|landingFaceTest|port|low|the landing face's orientation against the rider
+0x001A03B8|landing|landingTest|port|medium|in the air: the ground below, its plane, the bike's alignment; land (0) or bail (2)
+0x001A3E70|bail|unfinishedTrickBail|port|high|landing in an air trick not finished: bail (physics 2, bail kind 7 or 8)
+0x001A0CC0|bail|bailBodyPose|port|low|the dynamics' bodies placed from the model
+0x001A0E18|bail|bailBodyRelease|port|low|the dynamics' body freed
+0x001A1310|bail|bailHands|port|medium|LeftHand / RightHand against the ground (FUN_001A0E48)
+0x001A0E48|bail|bailHandContact|port|medium|a hand's closest point on the faces near it
+0x00191118|respawn|resetPhysics|port|high|the physics reset: speeds and angles cleared, on the ground below, the contact set
+0x00191D88|respawn|respawnAtStart|port|medium|the spawn point (FUN_00191500, else FUN_00191AB8)
+0x00191500|respawn|spawnAtLocator|port|medium|the level's Spawn / Player / PlayerOne locator, on the ground there
+0x00191AB8|respawn|spawnAtPlayer|port|medium|the same from the Player locator
+0x001913A0|respawn|groundBelowSpawn|port|medium|the ground under a spawn point (a ray down, a usable face)
+0x00192298|contact|groundBelow|port|high|a ray down from a point to the level's bottom: the face or object hit
+0x001923E8|contact|levelBounds|port|high|the level's bounds (engine FUN_00120498)
+0x00190FC8|respawn|spawnPoint|port|medium|the Spawn locator by name hash
+0x001910E0|respawn|playerSpawnPoint|port|medium|the Player locator
+0x001AD460|respawn|locatorMatrix|port|medium|a locator's matrix by name hash
+0x001A3230|respawn|riderReset|port|high|the rider's state levels to 0, the physics reset, the model shown
+0x00192258|crouch|addImpulse|port|high|velocity += v, the speed again: the hop off the ground, a rail, a lip or a wall
+0x001A0718|contact|setContact|port|high|the contact kind +0xFF1 and its face (+0x1120; 4 bytes for an object, kind 8)
+0x001A3FD0|contact|setWheelContact|port|high|a wheel's contact record (+0xF90 + 0x20 x wheel)
+0x001A0878|contact|touchObject|adapt|medium|the object owning the face or the object hit gets a message (triggers, goals; FUN_00175BD8)
+0x001A07A8|contact|hitPlane|adapt|high|a hit's plane (point, normal toward the ray)
+0x001A0B10|contact|hitDistance|adapt|medium|distance to a hit's plane, with a moving object's speed
+0x001A0380|util|planeDistance|port|high|dot(n, p) + d
+0x001A0780|sound|surfaceSoundFlags|port|high|a surface sound's id and flags
+0x001A4058|scoring|addRideDistance|port|low|rider +0x188 += x * 0x254EF0 (a distance or time stat)
+0x0016BA60|input|moveButtons|port|high|a move's buttons held (0) or pressed (1) in the input record, from the layout table 0x21CC98 (port x 0x210 + move x 0x18)
+0x0016BAB0|input|inputUpdate|port|high|the port's input record (0x2C8B80 + port x 0x38) from the pad
+0x0016BAE0|input|inputStick|port|high|a stick of the input record (0 left, falling back to the d-pad; 1 right)
+0x0016BC50|input|inputRecord|port|high|the port's input record
+0x0016BC68|input|inputRecordUpdate|port|medium|buttons held and pressed, sticks past 0.5
+0x001A9948|input|clearTaps|port|high|the direction taps (+0x131 count, +0x132..) cleared, the stick's current one kept
+0x001A9C90|input|stickDirection|port|high|0 none .. 8 down-right from a stick (past 0.5), table 0x259558
+0x001A9A90|tricks|grindTrick|port|high|the grind trick by direction (0x245470)
+0x001A9B68|tricks|stallTrick|port|high|the stall trick by direction (0x2454C8)
+0x001A9C40|tricks|lipTrick|port|medium|a direction's trick for a lip (the stall table's)
+0x001A9D30|tricks|airTrickOneDirection|port|high|an air trick from one direction (0x241F0F)
+0x001A9F68|tricks|trickFromTaps|port|high|the trick from the last two taps (the 86 x 86 combination table 0x241F58), else the last one
+0x001A9F38|tricks|tapTrick|port|high|a tap's trick (0x259898); past 0x56 the rider's own trick slots (rider + x - 0x17)
+0x001A3C50|state|setActionState|port|high|a state level's value, the deeper ones and their frame counters cleared, rate back to 1; level 0's entry work
+0x001A3E60|state|actionState|port|high|rider +0x165 + level
+0x001A3C30|state|riderOf|port|high|the rider record of a rider index (0x2F4EA0)
+0x001A41D0|state|ridingState|port|high|action state 0: the riding sub-states (0x241EB0), into the air, grinds and stalls by the physics state
+0x001A4620|air|airState|port|high|action state 1: the air's sub-states (0x259530), a trick pressed, a grind (3), stall (5) or wall ride (9, 10) asked of the physics
+0x001A5240|grind|grindState|port|high|action state 2: the grind's sub-states (from 0x259540)
+0x001A5360|stall|stallState|port|high|action states 3 (stall) and 4 (lip trick): sub-states from 0x259548
+0x001A5498|wallride|wallRideState|port|high|action state 5: the wall ride's sub-state (0x259550)
+0x001A56E8|landing|landingState|port|high|action state 6: landed (motion 4 for 8 frames, or the hard landing's 0x21), then riding
+0x001A5A00|bail|bailState|port|high|action state 7: the bail motions (0x1FD .. 0x207) picked as each ends, the reset after it
+0x001A5E68|ground|coastState|port|high|riding sub-state 0: coasting, stopping, resting; a grind from the ground (physics 4)
+0x001A65A8|ground|pedalState|port|high|riding sub-state 1: the pedal loop, rate max(1, speed x 8)
+0x001A6808|manual|manualState|port|high|riding sub-state 2: the manual in, held (balance), out; its turn (0x14 .. 0x16)
+0x001A6B88|crouch|crouchState|port|high|riding sub-state 3: crouch, held, the hop on letting go (addImpulse, physics 1)
+0x001A6F18|fakie|fakieState|port|high|riding sub-state 4: rolling backwards, the turn round, out
+0x001A7468|state|noSubState|port|high|riding sub-state 5: nothing
+0x001A7470|air|airNoTrick|port|high|air sub-state 0: the motion the air started with, then the air loop
+0x001A7520|air|airTrick|port|high|air sub-state 1: an air trick's start, held, end (the trick from the taps, modifiers)
+0x001A7EC8|air|airTrickB|port|medium|air sub-state 2: the second trick button's air trick
+0x001A8170|air|airSubState3|port|low|air sub-state 3
+0x001A8230|grind|grindSubState|port|high|grind sub-state: onto the rail (rate 16 / frames), held with the lean blend, the hop off
+0x001A8918|stall|stallSubState|port|high|stall and lip trick sub-state: in, held with the lean, out
+0x001A9168|wallride|wallRideSubState|port|high|wall ride sub-state: in, held, off (a hop: addImpulse)
+0x001759A8|tricks|trickEvent|host|medium|a trick started or landed told to the game: the object ridden (goals), the trick list and score (FUN_001776B0, FUN_00180B90)
+0x00179C58|collision|nodeCollisionMesh|adapt|high|a scene node's collision mesh (node +0x15C +0x14)
+0x00179D18|collision|nodeRelease|adapt|low|engine FUN_00124238 on a node
+0x00179FD0|collision|faceNormalWorld|adapt|high|a face's normal in world space (faceNormal, the node's matrix)
+0x0017A050|collision|edgeHandle|adapt|medium|identity: an edge reference
+0x0017A080|collision|faceVerticesWorld|adapt|high|a face's corners in world space (faceVertices, vertexPosition, the node's matrix)
+0x0017A128|surface|faceTagRecord|adapt|high|a face's tag record (tagElementRecord)
+0x0017A208|surface|edgeTagRecord|adapt|high|an edge's tag record
+0x0017A310|surface|terrainTag|adapt|low|engine FUN_00120410 (AI 0x12D5D0)
+0x0017A340|util|nodeHandle|adapt|high|identity
+0x0017A348|util|nodeOf|adapt|high|identity
+0x0017A478|surface|faceMaterialTags|adapt|high|the face's material's tag records (AI surfaceSound's counterpart, low)
+0x0017AB80|collision|forEachEdgeNear|adapt|high|every edge of the faces a sphere query finds, to a callback
+0x0017AE50|surface|surfaceKind|adapt|medium|a face tag record's kind byte
+0x0017AF58|collision|edgeDirection|adapt|medium|an edge's direction by its face's normal
+0x0017B070|surface|terrainTagA|adapt|low|a terrain tag (used by goals)
+0x0017B0E0|surface|terrainTagB|adapt|low|a terrain tag (used by goals)
+0x0017B150|collision|railEdgesNear|adapt|high|the grind edges near a point (forEachEdgeNear with the callback 0x17AB10): DM2's rails are grind-tagged edges
+0x0017B1B8|surface|faceSurfaceKind|adapt|high|a face's surface kind (its tag record's byte)
+0x0017B208|surface|faceTagByte|adapt|medium|a face's tag byte
+0x0017B258|surface|faceTagWord|adapt|medium|a face's tag word
+0x0017B2A8|surface|edgeTagWord|adapt|medium|an edge's tag word
+0x0017B310|collision|isGroundFace|adapt|medium|a face facing up enough to stand on
+0x0017B3E8|util|alwaysTrue|adapt|high|returns 1
+0x0017B3F0|collision|faceNormalAt|adapt|medium|a face's world normal
+0x0017B498|surface|edgeGrindable|adapt|medium|an edge's grind tags
+0x0017B588|surface|faceTagWords|adapt|medium|a face's two tag words
+0x0017B640|collision|faceVertex|adapt|high|one corner of a face in world space
+0x0017B668|collision|faceNormalOf|adapt|high|a face's normal in world space
+0x0017B690|surface|faceSound|adapt|high|a face's material's sound
+0x0017B788|collision|edgePoints|adapt|high|an edge's two points in world space
+0x0017B828|collision|edgeOfHit|adapt|high|the edge record of a hit
+0x0017B8C8|collision|edgePlane|adapt|medium|the plane through an edge
+0x0017B990|surface|edgeFlag|adapt|medium|an edge's tag bit
+0x0017B9F8|surface|faceWallRidable|adapt|medium|a face's tag (wall ride, stall)
+0x0017BB08|collision|rayCast|adapt|high|a segment query (FUN_0016B360): the first hit's face or object, point, plane (record 0x2CA070)
+0x0017BC70|collision|rayCastAhead|adapt|high|the same into a second record
+0x0017BD68|collision|hitFlags|adapt|high|hit +0x20
+0x0017BD70|collision|hitFace|adapt|high|hit +0x08 (node, face)
+0x0017BD78|collision|hitPoint|adapt|high|hit +0x10
+0x0017BD90|collision|hitObject|adapt|high|hit +0x24
+0x0017BD98|collision|hitCopy|adapt|high|hit +0x30 copied
+0x0017BDC0|collision|sphereQuery|adapt|high|a sphere query's faces (FUN_0016B168)
+0x0017BE70|collision|sphereQueryFaces|adapt|medium|the faces of a sphere query's nodes
+0x0017BF20|util|stub|adapt|high|8 bytes
+0x0017BF28|collision|closestOnFace|adapt|high|the closest point on a hit face (closestPointOnTriangle)
+0x0016B168|collision|sphereQueryRaw|adapt|high|engine query FUN_0011B4A8 kind 0 (sphere), filter 0x16B070; hits copied to 0x2BC370
+0x0016B360|collision|segmentQueryRaw|adapt|high|engine query FUN_0011B4A8 kind 1 (segment)
+0x0016B0C8|collision|hitCount|adapt|high|query result: count
+0x0016B0D0|collision|hitNode|adapt|high|query result: a hit's node
+0x0016B0F8|collision|hitFaceCount|adapt|high|query result: a node's face count
+0x0016B110|collision|hitFaceIndex|adapt|high|query result: a face
+0x0016B138|collision|hitFacePoint|adapt|high|query result: a face's point
+0x0016B2E0|collision|resultCount|adapt|high|wrapper
+0x0016B300|collision|resultNode|adapt|high|wrapper
+0x0016B320|collision|resultFaceCount|adapt|high|wrapper
+0x0016B340|collision|resultFace|adapt|high|wrapper
+0x0016B458|collision|firstNode|adapt|high|wrapper
+0x0016B478|collision|firstFace|adapt|high|wrapper
+0x0016B4A0|collision|firstPoint|adapt|high|wrapper
+0x001ACE58|surface|edgeTags|adapt|high|wrapper of 0x17A208
+0x001ACE78|surface|faceTags|adapt|high|wrapper of 0x17A128
+0x001ACE98|surface|materialTags|adapt|high|wrapper of 0x17A478
+0x001ACEB8|surface|tagGrind|adapt|high|tagByte(record, 2, 5) & 1
+0x001ACEE0|surface|tagWall|adapt|medium|tag bytes
+0x001ACFA8|surface|tagEdge|adapt|medium|tag bytes
+0x001AD058|surface|tagKind|adapt|medium|tag bytes
+0x001AD0F8|surface|tagByteA|adapt|medium|tag byte
+0x001AD118|surface|tagWordA|adapt|medium|tag word
+0x001AD138|surface|tagWordB|adapt|medium|tag word
+0x001AD158|surface|tagWordC|adapt|medium|tag word
+0x001AD180|surface|tagWordD|adapt|medium|tag words
+0x001AD1D0|surface|materialSound|adapt|medium|the material's sound id
+0x0016BB80|fx|rumble|host|medium|pad vibration
+0x0016ED68|fx|sparks|host|high|the "spark" effect
+0x0016EE18|fx|dust|host|high|the "dust" effect
+0x0016F2C8|fx|skidMarks|host|high|the "skid" effect
+0x0016F750|fx|sleep|host|high|the "sleep" effect (resting long)
+0x0016FB58|debug|debugFlag|skip|high|8 bytes
+0x0016FB60|debug|debugDrawAxes|skip|high|debug lines
+0x00191DC0|debug|debugDrawRider|skip|high|the rider's collision points as debug lines (DAT_00259384 on)
+0x001AAD78|sound|soundBanks|host|high|DM2's sound banks (SFXCHR, SFXLEV ...) and streams
+0x001AB360|sound|streamUpdate|host|medium|stream volume
+0x001AB538|sound|rollSound|host|high|the rolling sound by speed (x 3600) and position
+0x001AB6D8|sound|riderSound|host|high|a rider sound effect played (37 callers)
+0x001AC290|sound|soundVoice|host|medium|a voice helper
+0x00168600|camera|followCamera|host|high|DM2's follow camera (camera.c)
+0x0016A408|camera|cameraShake|host|low|camera helper
+0x0016A638|camera|cameraReset|host|low|camera helper
+0x0016A808|camera|setCameraMode|host|medium|the camera's mode for a rider
+0x0016AAA8|camera|cameraGetter|host|low|camera helper
+0x0016AAC8|camera|cameraRespawn|host|medium|the camera after a respawn
+0x0016ADC0|camera|cameraOrbit|host|low|camera helper
+0x00163B28|hud|actionStart|host|high|the overlay (InGameUI.Overlay, OverlayToggle, OverlayReplay)
+0x00186D20|hud|overlayFrame|host|medium|the overlay's frame
+0x00186D00|hud|overlayHelper|host|low|overlay
+0x00188160|hud|overlayHelperB|host|low|overlay
+0x00188188|hud|overlayHelperC|host|low|overlay
+0x001B3B70|hud|zoverlayStub|host|low|zoverlay.c
+0x001B3C40|hud|zoverlayDraw|host|low|zoverlay.c
+0x001B52E0|hud|zoverlayHelper|host|low|zoverlay.c
+0x00173478|scoring|gameRiderFrame|host|medium|game.c per rider: the hit object's goals, the trick scoring frame (FUN_00175DC8), goals (FUN_0017F8D0)
+0x00173DC0|scoring|gameModeFrame|host|medium|the game mode's rules (5,648 bytes)
+0x00175DC8|scoring|trickScoreFrame|host|medium|the trick line's scoring
+0x00176B60|scoring|trickLineEnd|host|low|a trick line banked or lost
+0x001776B0|scoring|addTrick|host|medium|a trick added to the line
+0x001778D0|scoring|trickScore|host|low|scoring
+0x001780C8|scoring|trickText|host|low|scoring
+0x001788F8|scoring|judgeScore|host|high|the competition judge (falls, grinds, manuals, modified tricks, modifiers, stalls; GameCube messages)
+0x00178FD0|scoring|roundFrame|host|low|scoring
+0x00179A18|scoring|trickObject|host|low|scoring
+0x00179BA0|scoring|trickObjectB|host|low|scoring
+0x00176A78|scoring|scoreHelperA|host|low|scoring
+0x00176AB8|scoring|scoreHelperB|host|low|scoring
+0x00177868|scoring|scoreHelperC|host|low|scoring
+0x00175478|scoring|gameEvent|host|low|game.c
+0x00175430|scoring|gameGetterA|host|low|game.c
+0x00175440|scoring|gameGetterB|host|low|game.c
+0x00175450|scoring|gameGetterC|host|low|game.c
+0x001753D0|scoring|gameGetterD|host|low|game.c
+0x001753E0|scoring|gameGetterE|host|low|game.c
+0x00175680|scoring|gameGetterF|host|low|game.c
+0x00173AA8|scoring|gameHelperA|host|low|game.c
+0x00173AE0|scoring|gameHelperB|host|low|game.c
+0x00173DA0|scoring|gameState|host|low|game.c (40 callers)
+0x00173DA8|scoring|gameStateB|host|low|game.c
+0x00173DB8|scoring|gameStateC|host|low|game.c (42 callers)
+0x00175768|respawn|spawnPlayer|host|high|the player at PlayerOne (GameCube message)
+0x00175BD8|goals|objectTouched|host|medium|a touched object to the goals (FUN_001812E8)
+0x0017F8D0|goals|goalsFrame|host|high|goals and entities activated (GameCube message)
+0x00180930|goals|goalTrick|host|low|goals
+0x00180B90|goals|goalObjectTrick|host|low|goals
+0x001812E8|goals|goalTouch|host|low|goals
+0x00181D08|goals|goalHelper|host|low|goals
+0x00181F58|goals|activateEntity|host|high|an entity activated (GameCube message)
+0x00182498|goals|goalStub|host|low|goals
+0x00182588|goals|proSecretTricks|host|high|pro secret tricks (GameCube message)
+0x00182DE8|goals|goalHelperB|host|low|goals
+0x00182E58|goals|goalHelperC|host|low|goals
+0x00183038|goals|goalHelperD|host|low|goals
+0x001830B8|goals|goalHelperE|host|low|goals
+0x00183178|goals|levelLock|host|medium|peg grab, level lock
+0x001832C8|goals|goalTerrain|host|low|goals
+0x001838F0|goals|goalGap|host|low|goals
+0x00183D58|goals|goalHelperF|host|low|goals
+0x001845C0|goals|goalByName|host|low|goals
+0x0018DCF0|goals|careerA|host|low|career state
+0x0018DD70|goals|careerB|host|low|career state (14 callers)
+0x0018DDB0|goals|careerC|host|low|career state
+0x0018DDF0|goals|careerD|host|low|career state
+0x0017DFA8|pose|placeRiderNode|host|medium|the rider's drawn node from the physics (rotation, visible)
+0x0017E2D8|replay|gameMessage|skip|low|game messages, recorded for the replay
+0x0017E630|replay|gameMessageB|skip|low|replay
+0x0017E6D8|replay|gameMessageC|skip|low|replay
+0x0017E748|replay|gameMessageD|skip|low|replay
+0x0017E7C0|replay|gameMessageE|skip|low|replay
+0x001A1530|replay|replayUpdate|skip|high|bmxreplayUpdate (GameCube message)
+0x001A1BE8|replay|replayRecord|skip|high|replay recording (GameCube message)
+0x001A1FC0|replay|replayHelperA|skip|low|replay
+0x001A1FE8|replay|replayHelperB|skip|low|replay
+0x001A2158|replay|replayHelperC|skip|low|replay
+0x001A2240|replay|replayHelperD|skip|low|replay
+0x00164360|util|riderCount|host|low|riders
+0x00164368|util|riderModel|host|low|riders
+0x00164388|util|riderIndexOf|host|medium|the rider of a player (41 callers)
+0x00165EF8|util|gameModeIs|host|low|game mode
+0x00165F30|util|gameMode|host|low|game mode
+0x00150210|util|findNode|host|high|AI findNode's counterpart
+0x00153530|util|nodeByName|host|low|a node by name
+0x0015EA20|util|nameLookup|host|low|name hash lookup
+0x0016B980|hud|overlayInit|host|low|overlay
+0x0016C048|util|frameHelper|host|low|frame
+0x0016C780|util|riderIndex|port|low|8 bytes
+0x0016E398|fx|fxStub|host|low|fx.c
+0x0016E3A0|fx|fxStubB|host|low|fx.c
+0x0016EA40|fx|fxFrame|host|low|fx.c
+0x001AD768|util|stub|host|low|8 bytes
+0x001ACDF8|surface|terrainTagWrapA|adapt|low|wrapper of 0x17A310
+0x001ACE28|surface|terrainTagWrapB|adapt|low|wrapper of 0x17A310

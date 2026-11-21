@@ -1,5 +1,5 @@
 #include "iop_memory.h"
-#include "../spu2/spu2.h"
+#include "spu2/spu2.h"
 
 #include <algorithm>
 #include <cstring>

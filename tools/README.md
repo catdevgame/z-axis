@@ -1,0 +1,19 @@
+# tools
+
+Every tool a player, modder or contributor runs, by purpose (a tool that is one game's alone is in that game's
+`games/<game>/tools`). Game data is never here: it lives in the data folder (`ZAXIS_DATA`, by default beside the
+checkout) and is linked into the games' workspaces by `setup/setup.sh`.
+
+| Path | What it is |
+|---|---|
+| `paths.env` | The one config of paths: data, scratch, the games' workspaces and tools, worktrees (the defaults; a workshop's own layout file, when there, wins over them). `paths.sh` (shell, `source` it) and `zpaths.py` (Python) read it; an environment variable of the same name wins. A z-axis tree's folders: `zdir TREE KIND` and `zreadable TREE` in `paths.sh`, `zpaths.tree_path(tree, 'ps2', ...)` and the readable code's keys (`checks/zlayout.py`). `zpaths.use('modding', 'dm2', ...)` makes another folder's tools importable by name. |
+| `zguard.py` | Stops a tool run from, or writing into, the main checkout (paths.sh's `zguard`). |
+| `setup/` | Makes a checkout ready (`setup.sh`: the data links of `data-links.txt`; `--check` reports only); each game's generated code made from your own disc image (`recompile.sh`, `recompile.ps1`: the ELF taken from the disc with `zx-disc`, `disc_tool.cpp`, the recompiler config made, the recompiler run, the VU1 micro memory image written by `vu1_image.py`; `vu0_upload.py`). README "Building". |
+| `modding/` | For modders and the app's setup: `zal` (`zal_tool.cpp`, docs/MODS.md "Archives"), the converters (`xbox_convert.cpp`, `gc_convert.cpp`, `map_convert.cpp`, `extras_tool.cpp`), the three games' level readers and writers (`ai_level.py`, `dm2_level.py`, `bmx_level_write.py`, the glTF converters, docs/CUSTOM-LEVELS.md), the extras makers (`xbox_files.py`, `xbox_pack.py`, `dm2_xbox.py`, `bmx_releases.py`, `gc_disc.py`, `disc_image.py`, `panel_map.py`), `share/` (the texture dumper) and `xbox/` (the Xbox release's comparison tools). |
+| `readable/` | The readable code's tools and tables the build runs and reads: the symbols (`readable_symbols.py`, `readable_symbols.tsv`, `bind/`), the plain sources' entries, the frame and held-register tables (`frames/`, `held/`), the digests, the lint and its baselines, the drafts (`readable_draft.py`), `override_symbols.py`, `dead_code.py`. docs/READABLE.md. |
+| `checks/` | The checks that read a z-axis tree but that its build never runs, and the replay tools: the corpus replay (`fncheck_corpus.py`, `readable_corpus.py`; zx-fncheck's main is `ps2/ee/fncheck_main.cpp`, beside the checker it drives), the A/B (`career_ab.py`, `ab_inputs/`, the allow lists), `seqcheck.py`, the lints (`readable_args.py`, `readable_decls.py`, `readable_plaincalls.py`, `readable_layering.py`, `readable_localscan.py`, `scaffolding.py`) with their baselines, the GS and VU1 checks (`gs_replay.cpp`, `vu1_check.cpp`, `panel_shot.cpp`; docs/GS_REPLAY.md, docs/VU1_CORPUS.md), the game runs (`run-game.sh`, `run-game-dm2.sh`, `nctl.py`, `sweep.py`, `replay.py`), the bike games' corpora (`dm2corpus.py`, `dm2cov.py`, `dm2proof.py`), `public_scan.py`, `checks_test.py`. The tree they read: `ztree.py` (`ZAXIS_TREE`, else the checkout the current folder is in, else `ZAXIS_MAIN`). |
+| `playbot/` | The closed-loop player's shared core (`core.py`, `nav.py`, `parkmap.py`, `goalsteer.py`, `collection.py`, `photo.py`); each game's player is in its `games/<game>/tools/playbot`. |
+| `workdb/` | The work database (`workdb.py`: `card`, `notes`, `query`, `emit`) and the matchers that feed it (`fmatch3.py`, `xmatch.py`, `gcmatch.py`, ...; docs/MATCH3.md), with their Ghidra pipelines (`ghidra/`). |
+
+New checkout: `git clone <the repository> z-axis`, then `tools/setup/setup.sh`. A worktree:
+`git -C $ZAXIS_MAIN worktree add wt/NAME -b NAME main` (its own tools/ come with it).

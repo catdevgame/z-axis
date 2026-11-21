@@ -6,9 +6,9 @@
 
 #include "collection/settings.h"
 #include "runtime/play_recording.h"
-#include "runtime/ps2_boot_config.h"
-#include "runtime/ps2_memory.h"
-#include "runtime/ps2_settings.h"
+#include "runtime/boot_config.h"
+#include "runtime/memory.h"
+#include "runtime/settings.h"
 
 #include <atomic>
 #include <cstdint>

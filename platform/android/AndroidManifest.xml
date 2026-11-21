@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Z-Axis Collection on Android: SDLActivity (from the pinned SDL3's source)
+     and libzx-runner.so. Built by build-apk.sh, which can give the app
+     another application id (APP_ID: the classes stay in this package) and
+     writes the version (versionCode, versionName) from the native library's,
+     the tree's VERSION.txt unless the build was given another. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.github.catdevgame.zaxiscollection"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-feature android:name="android.hardware.vulkan.level" android:version="1" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:label="Z-Axis Collection"
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+        android:enableOnBackInvokedCallback="false"
+        android:hardwareAccelerated="true">
+
+        <!-- Lets adb shell's simpleperf profile the app on a stock device (not debuggable). -->
+        <profileable android:shell="true" />
+
+        <activity
+            android:name=".GameActivity"
+            android:label="Z-Axis Collection"
+            android:alwaysRetainTaskState="true"
+            android:launchMode="singleInstance"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="layoutDirection|locale|grammaticalGender|fontScale|fontWeightAdjustment|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
+            android:preferMinimalPostProcessing="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

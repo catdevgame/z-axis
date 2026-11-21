@@ -1,8 +1,8 @@
-# The library ports ps2_library_tests.cpp checks against AI's recompiled originals (tests/CMakeLists.txt builds
+# The library ports library_tests.cpp checks against AI's recompiled originals (tests/CMakeLists.txt builds
 # those, traced). name, role, the port's source:
 #   port    a readable port, run against its original on the same inputs
 #   callee  what a port or its original calls: its original, in both runs
-#   system  the system, the heap and fflush under the library: the test's own (ps2_library_tests.cpp), in both runs
+#   system  the system, the heap and fflush under the library: the test's own (library_tests.cpp), in both runs
 #   data    a global the tests read
 # DM2's and BMX XXX's unrecorded library functions (cov1, cov2) are these, AI's code (game/<g>/libraries.tsv:
 # masked words equal), but for fflush and fread: AI's recompiled code for those is the runtime's (ps2_stubs), so

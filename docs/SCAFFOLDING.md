@@ -8,11 +8,12 @@ form is, why it is there, and what removes it.
 Rules:
 
 - A new temporary form gets an entry here before it merges, and a `// Scaffolding (NAME): ...` comment where it is
-  defined (the helper, the header, the wrapper), so `grep -rn "Scaffolding (" runtime/src` finds every
+  defined (the helper, the header, the wrapper), so `grep -rn "Scaffolding (" engine ps2 games collection` finds every
   definition. A use of an existing form needs no comment of its own: the entry's `find` pattern counts it.
 - When an entry's count reaches 0, delete the form and its entry in the same change.
-- `python3 -I tooling/checks/scaffolding.py` counts every entry by folder from the `find` lines below
-  (`--json` for a machine-readable copy). It reads this file; an entry without a `find` line is counted by hand.
+- `python3 -I tools/checks/scaffolding.py` counts every entry by folder from the `find` lines below
+  (`--json` for a machine-readable copy). It reads this file; an entry without a `find` line counts its marks (the
+  `// Scaffolding (NAME)` comments), and one with no marks either is counted by hand.
 
 Not here: what is permanent. The profiler's clock words a gate counts apart (they are COP0 COUNT and differ by
 design), the dead-code manifests (docs/DEAD-CODE.md), `ee::FunctionPtr` callback tables and `ee::Global` records
@@ -23,7 +24,7 @@ design), the dead-code manifests (docs/DEAD-CODE.md), `ee::FunctionPtr` callback
 The engine's scale macro brings its factor into VU0 through t0, so t0's upper half (what the last 128-bit move
 through it left) lands in VU0's work register, where later vector code reads it. Where no vector can be named for it,
 `zge::scaleLeftover(zge::LeftBy::caller | zge::LeftBy::lastCall)` (zge/math/scale_leftover.h, pinned, framework to the
-lint) reads it as the original's code path leaves it. The user's decision ("name it in the engine").
+lint) reads it as the original's code path leaves it, named in the engine.
 
 - Why for now: DM2's only 128-bit writers of t0 are library code (sceVu0CopyMatrix's third row, the string routines,
   the IPU copies) reached through callbacks; until those are readable the leftover has no name as data.
@@ -65,8 +66,8 @@ them); the remaining ones are in functions still being converted.
 ## left-by-caller
 
 `ee::LeftByCaller<T>` (ee/plain.h): a value a caller leaves in a callee-saved register that the original reads
-without setting (AI's initZgui and finishUiImageLoad: the user's "checker supplies it"). The replay checker
-supplies the word from the recording (tools/readable_entry_reads.tsv).
+without setting (AI's initZgui and finishUiImageLoad). The replay checker
+supplies the word from the recording (tools/readable/readable_entry_reads.tsv).
 
 - Why for now: the original reads a register its callers set for their own reasons.
 - Removed by: each caller readable, so the value is passed as an argument.
@@ -93,24 +94,37 @@ of an integer register.
 
 ## frame-exact
 
-Locals kept at the original's stack-frame offsets (`ee::Local<T>` with rows in tools/readable_locals*.tsv,
-`StackFrame` sizes equal to the frame table's), and frame stores kept that nothing reads afterwards, so RAM compares
-word by word against the original (the A/B and the gates).
+Locals kept at the original's stack-frame offsets (`ee::Local<T>`, placed by ee::frameLocal, with rows in
+tools/readable_locals*.tsv where the original does not keep them in declaration order; `StackFrame` sizes equal to
+the frame table's), and frame stores kept that nothing reads afterwards, so RAM compares word by word against the
+original (the A/B and the gates). The find counts each `ee::Local` made (a declaration: a reference or pointer to one
+in a parameter is not another) and each `StackFrame`.
 
 - Why for now: the gates compare every RAM word, stack included; a leftover stack value can carry into later code
   (stale-stack reads the replay cannot see).
 - Removed by: the stale-stack reads proven absent for that function's callers, after which locals are plain C++.
   Keep while a gate compares that function's frames word by word.
-- find: `\bStackFrame\b`
+- find: `\bStackFrame\b|\bee::Local<(?:[^<>;]|<(?:[^<>;]|<(?:[^<>;]|<[^<>;]*>)*>)*>)*>\s*[A-Za-z_]`
 
 ## unnamed-field
 
 Fields and values the code uses whose meaning is not settled yet: `_NNN` padding-named fields, raw offsets read through
-a helper (BMX XXX's and DM2's riderField are gone), and flags named by their value (`kFlag8000000`). The find counts
+a helper (`riderField`), and flags named by their value (`kFlag8000000`). The find counts
 the last two; the rest carry a `// Scaffolding (unnamed-field)` comment where they are defined.
 
 - Removed by: a name from evidence (the game's code and strings, the other builds, the lineage); never a guess.
 - find: `riderField<|\bkFlag[0-9A-F]+\b`
+
+## value-named
+
+A constant the code compares or passes whose meaning is not settled, named for what it does where it is used or for
+its value: DM2's pause screen's tested pad button (`kTestedButton`), the editor's piece category that takes the
+placed start off, the overlay's action modes (action.c's, not read), the frame fade's styles (zoverlay's drawing
+code's to say), BMX XXX's replay step 7 (nothing read so far sets it). The definitions carry the mark.
+
+- Why for now: the code that gives the value its meaning (the reader of the button's answer, action.c, zoverlay's
+  drawing, the replay's steps) is not readable yet.
+- Removed by: a name from that code's evidence, never a guess; or the value proven unused and dropped.
 
 ## call-leftover-chain (framework, no code yet)
 
@@ -129,8 +143,7 @@ placed by the held-register table (ee/held.cpp: the callee-saved registers the o
 that other call. render_path = records (zge/host/class_draws.cpp): the strict encoder without its VU1 work begins the
 draw's DMA tag (`sce::vif1PacketCnt`) where the original calls the part's packet (`sce::vif1PacketCall`); without the
 placing the table loses its place there, and the class renderer's next callee with a frame (requestTextures) saves
-entry values into stack the game copies later (BMX XXX's health bar shards' texture coordinates, a heap word in career_ab's
-s-muly2 run). A runtime registration: the generated held tables are not changed by it.
+entry values into stack the game copies later (in BMX XXX, the health bar shards' texture coordinates). A runtime registration: the generated held tables are not changed by it.
 
 - Why for now: the gates compare every RAM word with the held table on, and the records path shares the readable
   encoder, whose calls the table follows through the original's sites.

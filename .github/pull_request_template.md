@@ -10,8 +10,8 @@ run the corpus replays, logic checks and A/Bs before it lands. -->
 ## Checklist
 
 - [ ] No game data: no disc files, saves, generated code, recordings, dumps, or pictures of the games.
-- [ ] `python3 -I tooling/checks/public_scan.py --added origin/main` and `--tree HEAD`: 0 failing.
+- [ ] `python3 -I tools/checks/public_scan.py --added origin/main` and `--tree HEAD`: 0 failing.
 - [ ] `zx-tests` passes.
 - [ ] Game code follows `docs/READABLE.md` (no address literals, no guessed names, no scaffolding in game logic).
-- [ ] New behaviour is behind a setting whose default keeps the game as it was.
+- [ ] New behaviour is behind a setting whose default keeps each game as it is.
 - [ ] Docs changed where the behaviour or the way to build changed.

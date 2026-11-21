@@ -1,0 +1,29 @@
+# Reference run, segment 1: fresh boot -> main menu -> Tutorial, first tip.
+# Start: right after `pcsx2pad.py launch` (fresh boot). Run from tools/:
+#   python3 pcsx2pad.py run scripts/tutorial-01-start.txt
+# Waits are on game state, not wall time (addresses: games/aggressive/docs/REFERENCE-RUN.md):
+#   0x276FE4 game mode: 0 boot/loading, 1 front end, 2 level play, 3 level message box
+#   0x240A20 zgui active panel: 0x8323E0 main menu, 0x840F90 player select,
+#            0x847700 name entry, 0x857D40 level select, 0x832CD0 box opening,
+#            0x831BB0 box waiting for X (PCSX2 heap pointers, same on every fresh boot)
+# Checkpoints (savestate slot, name): 30 ref01-main-menu, 31 ref02-level-select,
+# 32 ref03-first-tip.
+waitpolls 1
+pressuntil START 0x276FE4 u32 == 1 3600 60          # skip AKA, Z-Axis and intro movies
+waitval 0x240A20 u32 == 0x8323E0 1800               # main menu up
+wait 30
+checkpoint 30 ref01-main-menu
+pressuntil CROSS 0x240A20 u32 != 0x8323E0 600 120   # CAREER
+waitval 0x240A20 u32 == 0x840F90 900                # player select (Jaren Grob)
+wait 30
+pressuntil CROSS 0x240A20 u32 != 0x840F90 600 120
+waitval 0x240A20 u32 == 0x847700 900                # enter your name (cursor on END)
+wait 30
+pressuntil CROSS 0x240A20 u32 != 0x847700 600 120
+waitval 0x240A20 u32 == 0x857D40 900                # level select: TUTORIAL 0% complete
+wait 30
+checkpoint 31 ref02-level-select
+pressuntil CROSS 0x276FE4 u32 == 0 600 120          # start the Tutorial (loading)
+waitval 0x276FE4 u32 == 3 3600                      # first tip box opens
+waitval 0x240A20 u32 == 0x831BB0 300                # ... and waits for X
+checkpoint 32 ref03-first-tip                       # "Talking to people"

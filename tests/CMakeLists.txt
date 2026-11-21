@@ -10,159 +10,163 @@ if(BUILD_TESTING)
     add_subdirectory(gs_cache)
 endif()
 
-# The guest function table the runtime tests register (and tooling/recompiler/tests too).
+# The guest function table the runtime tests register (and recompiler/tests too).
 add_library(zx_test_function_table OBJECT
     src/test_function_table.cpp
 )
 
 target_include_directories(zx_test_function_table PRIVATE
-    ${CMAKE_SOURCE_DIR}/runtime/include
+    ${CMAKE_SOURCE_DIR}/ps2/include
+    ${CMAKE_SOURCE_DIR}/ps2
     ${CMAKE_SOURCE_DIR}/iop/include
 )
 
 add_library(zx_test_lib STATIC
     src/pad_input_tests.cpp
     src/host_input_tests.cpp
-    src/ps2_runtime_io_tests.cpp
-    src/ps2_runtime_kernel_tests.cpp
-    src/ps2_runtime_interrupt_tests.cpp
-    src/ps2_runtime_lifecycle_tests.cpp
-    src/ps2_memory_tests.cpp
-    src/ps2_async_graphics_tests.cpp
-    src/ps2_vu1_tests.cpp
-    src/ps2_vu_tests.cpp
-    src/ps2_gs_tests.cpp
-    src/ps2_iop_tests.cpp
-    src/ps2_sif_rpc_tests.cpp
-    src/ps2_sif_dma_tests.cpp
-    src/ps2_logic_check_tests.cpp
-    src/ps2_debug_control_tests.cpp
-    src/ps2_disc_image_tests.cpp
-    src/ps2_disc_formats_tests.cpp
-    src/ps2_app_support_tests.cpp
-    src/ps2_collection_tests.cpp
-    src/ps2_front_end_tests.cpp
-    src/ps2_game_setup_tests.cpp
-    src/ps2_settings_tests.cpp
+    src/io_tests.cpp
+    src/kernel_tests.cpp
+    src/interrupt_tests.cpp
+    src/machine_lifecycle_tests.cpp
+    src/memory_tests.cpp
+    src/async_graphics_tests.cpp
+    src/vu1_tests.cpp
+    src/vu0_math_tests.cpp
+    src/gs_tests.cpp
+    src/iop_tests.cpp
+    src/sif_rpc_tests.cpp
+    src/sif_dma_tests.cpp
+    src/logic_check_tests.cpp
+    src/debug_control_tests.cpp
+    src/disc_image_tests.cpp
+    src/disc_formats_tests.cpp
+    src/app_support_tests.cpp
+    src/collection_tests.cpp
+    src/front_end_tests.cpp
+    src/game_setup_tests.cpp
+    src/settings_tests.cpp
     src/zge_settings_page_tests.cpp
-    src/ps2_host_pacing_tests.cpp
+    src/host_pacing_tests.cpp
+    src/host_window_tests.cpp
     # The games' volume rows (a change read as made until the game's frame has passed it).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/zge_volumes.cpp
-    src/ps2_boot_config_tests.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_volumes.cpp
+    src/boot_config_tests.cpp
     src/play_recording_tests.cpp
     src/recordings_tests.cpp
-    src/ps2_session_tests.cpp
-    src/ps2_game_module_tests.cpp
-    src/ps2_gs_quality_tests.cpp
-    src/ps2_gs_interpolate_tests.cpp
-    src/ps2_gpu_texture_check_tests.cpp
-    src/ps2_glyph_art_tests.cpp
-    src/ps2_panel_tests.cpp
+    src/session_tests.cpp
+    src/game_module_tests.cpp
+    src/gs_quality_tests.cpp
+    src/gs_interpolate_tests.cpp
+    src/gpu_texture_check_tests.cpp
+    src/glyph_art_tests.cpp
+    src/panel_tests.cpp
     # (Aggressive Inline's capture of its RAM for the panel: the tests feed it a made-up RAM)
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/aggressive_inline_panel.cpp
+    ${CMAKE_SOURCE_DIR}/games/aggressive/overrides/aggressive_inline_panel.cpp
     # (DM2's capture of its RAM for the panel, fed a made-up RAM the same way)
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/dave_mirra_panel.cpp
-    src/ps2_photo_tests.cpp
-    src/ps2_save_store_tests.cpp
-    src/ps2_game_files_tests.cpp
+    ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_panel.cpp
+    # (and BMX XXX's)
+    ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_panel.cpp
+    src/photo_tests.cpp
+    src/save_store_tests.cpp
+    src/game_files_tests.cpp
     src/zal_tests.cpp
-    src/ps2_xbox_disc_tests.cpp
-    src/ps2_extras_tests.cpp
-    src/ps2_zaxis_xbox_tests.cpp
-    src/ps2_zaxis_zoo_tests.cpp
-    src/ps2_zaxis_estate_tests.cpp
-    src/ps2_zaxis_mesh_tests.cpp
-    src/ps2_zaxis_text_tests.cpp
-    src/ps2_texture_replace_tests.cpp
-    src/ps2_texture_pack_tests.cpp
-    src/ps2_texture_dds_tests.cpp
-    src/ps2_gs_texture_audit_tests.cpp
-    src/ps2_pss_movie_tests.cpp
-    src/ps2_spu_voice_tests.cpp
+    src/xbox_disc_tests.cpp
+    src/extras_tests.cpp
+    src/zaxis_xbox_tests.cpp
+    src/zaxis_zoo_tests.cpp
+    src/zaxis_estate_tests.cpp
+    src/zaxis_mesh_tests.cpp
+    src/zaxis_text_tests.cpp
+    src/texture_replace_tests.cpp
+    src/texture_pack_tests.cpp
+    src/texture_dds_tests.cpp
+    src/gs_texture_audit_tests.cpp
+    src/pss_movie_tests.cpp
+    src/spu_voice_tests.cpp
     # The library ports against AI's recompiled originals (library_ports.tsv; the originals below).
-    src/ps2_library_tests.cpp
-    src/ps2_readable_tests.cpp
+    src/library_tests.cpp
+    src/readable_tests.cpp
     # A traced original of two entry_ chunks, as game.cmake builds one (ee/fncheck_traced.h).
-    src/ps2_fncheck_chunks_traced.cpp
-    src/ps2_readable_script_tests.cpp
-    src/ps2_career_scripts_tests.cpp
+    src/fncheck_chunks_traced.cpp
+    src/readable_script_tests.cpp
+    src/career_scripts_tests.cpp
     # The career scripts setting's script edit (and its install, unused here).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/aggressive_inline_careerscripts.cpp
+    ${CMAKE_SOURCE_DIR}/games/aggressive/overrides/aggressive_inline_careerscripts.cpp
     # DM2's unlock cheats and Create Player's riders (the pure part).
-    src/ps2_unlock_tests.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/dave_mirra_cheats.cpp
+    src/dm2_cheats_tests.cpp
+    ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_cheats.cpp
     # The movies' form and the sound driver that goes with it.
     src/zge_movie_form_tests.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/zge_movie_form.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_movie_form.cpp
     # Exit to Collection's menu edits in DM2 and BMX XXX (and their installs, unused here).
-    src/ps2_exit_menu_tests.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/zge_exit.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/dave_mirra_exit.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/dave_mirra_restart.cpp
+    src/exit_menu_tests.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_exit.cpp
+    ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_exit.cpp
+    ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_restart.cpp
     # (its pause menu's Photo Mode line starts photo mode, its Settings line shows the Settings page)
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/dave_mirra_photo.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/dave_mirra_settings.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/zge_settings.cpp
+    ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_photo.cpp
+    ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_settings.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_settings.cpp
     # (the app's Settings... request the pause hooks consume)
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/zge_settings_open.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/zge_photo.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/zge_sites.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/bmx_xxx_exit.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/bmx_xxx_restart.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_settings_open.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_photo.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_sites.cpp
+    ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_exit.cpp
+    ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_restart.cpp
     # (its pause menu's Photo Mode line starts photo mode, its Settings line shows the Settings page, as DM2's)
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/bmx_xxx_photo.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides/bmx_xxx_settings.cpp
+    ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_photo.cpp
+    ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_settings.cpp
     # The readable game's framework (its game code is tested by zx-fncheck).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/abi.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/held.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/fiber_posix.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/fiber_windows.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/fncheck.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/fnrec_file.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/profile.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/tailcall_stats.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/cycletrace.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/readable.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/guest_calls.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/diffcall.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/abi.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/held.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/fiber_posix.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/fiber_windows.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/fncheck.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/fnrec_file.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/profile.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/tailcall_stats.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/cycletrace.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/readable.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/guest_calls.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/diffcall.cpp
     # The level scripts' machine, run on a handler written for the test.
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/aggressive/script/vm.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/aggressive/script/objects.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/aggressive/script/natives.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/text/strings.cpp
+    ${CMAKE_SOURCE_DIR}/games/aggressive/script/vm.cpp
+    ${CMAKE_SOURCE_DIR}/games/aggressive/script/objects.cpp
+    ${CMAKE_SOURCE_DIR}/games/aggressive/script/natives.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/text/strings.cpp
     # The string tables call the C string functions by name (and those libc).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/text/cstring.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libc.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/text/cstring.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libc.cpp
     # The string tables' memory comes from the heap (heapAllocate by name), the heap's regions from pools, which keep lists and pointer arrays (utilities.cpp, with the matrix and angle math its other functions call).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/memory/regions.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/memory/pool.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/utilities.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/memory/regions.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/memory/pool.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/utilities.cpp
     # (its box sweep tells the sweep's sweepPassLow by name)
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/collision/sweep.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/container/array.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/math/matrix.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/math/angle.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/collision/sweep.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/container/array.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/math/matrix.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/math/angle.cpp
     # The matrix math copies rotations with the platform's matrixCopyRotation by name (and the platform's clock
     # is the cycle counter's).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/platform/ps2_platform.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/debug/cycle_counter.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libgcc.cpp
-    # The other library ports, for ps2_library_tests.cpp.
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libm.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/mprec.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libc_strtod.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libc_printf.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libc_scanf.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libc_stdio.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/sce/libc_malloc.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/platform/platform.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/debug/cycle_counter.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libgcc.cpp
+    # The other library ports, for library_tests.cpp.
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libm.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/mprec.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libc_strtod.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libc_printf.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libc_scanf.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libc_stdio.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/sce/libc_malloc.cpp
     # GEO data read on the host (the collision chunks' reader).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/native/geo_file.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/native/geo_file.cpp
     # The level setup's load-time words made on the host (and the closest
     # point it uses).
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/native/collision_setup.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/aggressive/level/collision_setup_host.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/zge/collision/closest.cpp
-    ${CMAKE_SOURCE_DIR}/runtime/src/game/ee/suspend.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/native/collision_setup.cpp
+    ${CMAKE_SOURCE_DIR}/games/aggressive/level/collision_setup_host.cpp
+    ${CMAKE_SOURCE_DIR}/engine/zge/collision/closest.cpp
+    ${CMAKE_SOURCE_DIR}/ps2/ee/suspend.cpp
 )
 
 # The game sources above that are plain sources (plain_sources.txt) are compiled from a copy that differs from the
@@ -172,20 +176,25 @@ add_library(zx_test_lib STATIC
 # has) leaves no unresolved call. Their plain calls stay direct, as written: this binary has no function table.
 # But the libraries' (sce/): those are compiled from the build's own copy (each registered body's entry, as
 # game.cmake's), so that a port's calls go where the game's do (game::call: a function on directly, in its own
-# frame, any other through the table), which the library ports' tests (ps2_library_tests.cpp) need: their ports'
+# frame, any other through the table), which the library ports' tests (library_tests.cpp) need: their ports'
 # callees are the originals in the table.
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-set(_zx_test_game_dir "${CMAKE_SOURCE_DIR}/runtime/src/game")
-set(_zx_test_entries_tool "${CMAKE_SOURCE_DIR}/runtime/tools/readable_entries.py")
-file(STRINGS "${_zx_test_game_dir}/plain_sources.txt" _zx_test_plain_prefixes REGEX "^[a-z]")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_zx_test_game_dir}/plain_sources.txt")
+set(_zx_test_entries_tool "${CMAKE_SOURCE_DIR}/tools/readable/readable_entries.py")
+file(STRINGS "${ZX_GAMES_DIR}/plain_sources.txt" _zx_test_plain_prefixes REGEX "^[a-z]")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${ZX_GAMES_DIR}/plain_sources.txt")
 get_target_property(_zx_test_sources zx_test_lib SOURCES)
 set(_zx_test_compiled "")
 foreach(_source IN LISTS _zx_test_sources)
     set(_plain FALSE)
-    string(FIND "${_source}" "${_zx_test_game_dir}/" _at)
-    if(_at EQUAL 0)
-        file(RELATIVE_PATH _relative "${_zx_test_game_dir}" "${_source}")
+    # (a readable source: one of games/game.cmake's seven folders, known by its key; not a game's overrides)
+    set(_relative "")
+    foreach(_zx_test_dir IN LISTS ZX_READABLE_DIRS)
+        string(FIND "${_source}" "${_zx_test_dir}/" _at)
+        if(_at EQUAL 0 AND NOT _source MATCHES "^${ZX_GAMES_DIR}/[^/]+/(overrides|tools|docs|workspace)/")
+            zx_readable_key(_relative "${_source}")
+        endif()
+    endforeach()
+    if(_relative)
         foreach(_prefix IN LISTS _zx_test_plain_prefixes)
             string(LENGTH "${_prefix}" _length)
             string(SUBSTRING "${_relative}" 0 ${_length} _head)
@@ -207,7 +216,7 @@ foreach(_source IN LISTS _zx_test_sources)
     add_custom_command(
         OUTPUT "${_copy}"
         COMMAND "${Python3_EXECUTABLE}" -B "${_zx_test_entries_tool}" ${_mode} --line-root "${CMAKE_BINARY_DIR}" "${_source}" "${_copy}"
-        DEPENDS "${_source}" "${_zx_test_entries_tool}" "${CMAKE_SOURCE_DIR}/runtime/tools/readable_entry_reads.tsv"
+        DEPENDS "${_source}" "${_zx_test_entries_tool}" "${CMAKE_SOURCE_DIR}/tools/readable/readable_entry_reads.tsv"
         COMMENT "readable: the unit tests' copy of ${_relative}"
         VERBATIM)
     get_filename_component(_dir "${_source}" DIRECTORY)
@@ -222,32 +231,31 @@ endforeach()
 set_property(TARGET zx_test_lib PROPERTY SOURCES ${_zx_test_compiled})
 
 # (the generated code's headers fncheck_traced.h includes: empty, this binary has no generated code)
-set_source_files_properties(src/ps2_fncheck_chunks_traced.cpp TARGET_DIRECTORY zx_test_lib
+set_source_files_properties(src/fncheck_chunks_traced.cpp TARGET_DIRECTORY zx_test_lib
                             PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/src/traced_stub")
 
 target_include_directories(zx_test_lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_BINARY_DIR}/runtime/symbols/ai
     ${CMAKE_BINARY_DIR}/runtime/symbols/overrides
-    ${CMAKE_SOURCE_DIR}/runtime/include
-    ${CMAKE_SOURCE_DIR}/runtime/src/lib
-    ${CMAKE_SOURCE_DIR}/runtime/src/game
-    ${CMAKE_SOURCE_DIR}/runtime/src/game_overrides
+    ${CMAKE_SOURCE_DIR}/ps2/include
+    ${CMAKE_SOURCE_DIR}/ps2/runtime
+    ${ZX_READABLE_ROOTS}
 )
 
 target_link_libraries(zx_test_lib PRIVATE
     zx_runtime
     ps2_iop
     zx_miniz # (the tests write zips: src/test_zip_builder.h; and CSO images' deflate blocks)
-    zx::lz4 # (ZSO and CSO v2 images' LZ4 blocks: src/ps2_disc_formats_tests.cpp)
+    zx::lz4 # (ZSO and CSO v2 images' LZ4 blocks: src/disc_formats_tests.cpp)
     zx::zal # (the .ZAL archives: src/zal_tests.cpp)
 )
-# (the override sources it builds name their game's symbols: runtime/tools/override_symbols.py)
+# (the override sources it builds name their game's symbols: tools/readable/override_symbols.py)
 add_dependencies(zx_test_lib zx_override_symbols)
 
 # The tree's resources (the shipped font) by the source tree's path: a Ninja build writes __FILE__ relative to the
 # build folder, so a path made from it depended on the folder the tests were started in.
-target_compile_definitions(zx_test_lib PRIVATE "ZX_TEST_RESOURCES_DIR=\"${CMAKE_SOURCE_DIR}/runtime/resources\"")
+target_compile_definitions(zx_test_lib PRIVATE "ZX_TEST_RESOURCES_DIR=\"${CMAKE_SOURCE_DIR}/collection/resources\"")
 
 # The GPU renderer's tests (skipped without an SDL_GPU device).
 if(TARGET zx_gs_gpu)
@@ -280,7 +288,7 @@ endif()
 
 target_include_directories(zx-tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/runtime/include
+    ${CMAKE_SOURCE_DIR}/ps2/include
 )
 
 # The whole test library: a static archive's member that nothing references is left out by the linker (macOS's ld
@@ -293,7 +301,7 @@ target_link_libraries(zx-tests PRIVATE
 )
 
 # Two game modules of the tests' own (game_module/), built and linked as the runner's are with
-# ZX_GAME_MODULES=static: ps2_game_module_tests.cpp checks each registers its own code in one program.
+# ZX_GAME_MODULES=static: game_module_tests.cpp checks each registers its own code in one program.
 if(COMMAND zx_add_game_module AND ZX_GAME_MODULES STREQUAL "static")
     set(ZX_GAME_MODULE_TARGETS "")
     set(ZX_GAME_MODULE_IDS "")
@@ -303,10 +311,10 @@ if(COMMAND zx_add_game_module AND ZX_GAME_MODULES STREQUAL "static")
     target_compile_definitions(zx-tests PRIVATE ZX_TEST_LINKED_MODULES=1)
 endif()
 
-# The library ports' recompiled originals (ps2_library_tests.cpp): in a build with AI's generated code, every
+# The library ports' recompiled originals (library_tests.cpp): in a build with AI's generated code, every
 # function of src/library_ports.tsv (a port, or what one calls) built from its generated file with fncheck's
 # tracing and block markers, as game.cmake builds the traced originals (its _zx_traced_sources, here into this
-# folder, and tools/fncheck_traced_gen.py for the markers), and registered as AI's traced originals. Their data
+# folder, and tools/readable/fncheck_traced_gen.py for the markers), and registered as AI's traced originals. Their data
 # is AI's ELF (ZX_TEST_AI_ELF, or the environment's at run time: a build-time input, never copied into the
 # tree); without generated code or the ELF the tests say they did not run.
 set(ZX_TEST_AI_ELF "" CACHE FILEPATH "AI's ELF (SLUS_203.27) for the library ports' tests (default: disc-root/SLUS_203.27 beside ZX_RUNNER_GENERATED_DIR)")
@@ -327,7 +335,7 @@ foreach(_line IN LISTS _zx_library_lines)
     endif()
 endforeach()
 # Each name's address in AI, from the symbol table (AI's rows: no game column).
-file(STRINGS "${CMAKE_SOURCE_DIR}/runtime/tools/readable_symbols.tsv" _zx_symbol_rows REGEX "^(function|data)\t[A-Za-z_][A-Za-z0-9_]*\t0x[0-9A-Fa-f]+\t\t$")
+file(STRINGS "${CMAKE_SOURCE_DIR}/tools/readable/readable_symbols.tsv" _zx_symbol_rows REGEX "^(function|data)\t[A-Za-z_][A-Za-z0-9_]*\t0x[0-9A-Fa-f]+\t\t$")
 set(_zx_library_traced_addresses "")
 foreach(_row IN LISTS _zx_symbol_rows)
     if(_row MATCHES "^(function|data)\t([A-Za-z_][A-Za-z0-9_]*)\t0x([0-9A-Fa-f]+)\t")
@@ -342,7 +350,7 @@ foreach(_row IN LISTS _zx_symbol_rows)
 endforeach()
 foreach(_name IN LISTS _zx_library_names)
     if(NOT DEFINED _zx_library_address_${_name})
-        message(FATAL_ERROR "tests/src/library_ports.tsv: ${_name} has no AI row in runtime/tools/readable_symbols.tsv")
+        message(FATAL_ERROR "tests/src/library_ports.tsv: ${_name} has no AI row in tools/readable/readable_symbols.tsv")
     endif()
     set(_role "${_zx_library_role_${_name}}")
     string(APPEND _zx_library_rows "    {\"${_name}\", ${_zx_library_address_${_name}}u, LibraryRole::${_role}, \"${_zx_library_file_${_name}}\"},\n")
@@ -351,7 +359,7 @@ foreach(_name IN LISTS _zx_library_names)
     endif()
 endforeach()
 file(CONFIGURE OUTPUT "${_zx_library_out}/library_ports_table.h" CONTENT
-"// Generated by tests/CMakeLists.txt from src/library_ports.tsv and runtime/tools/readable_symbols.tsv:
+"// Generated by tests/CMakeLists.txt from src/library_ports.tsv and tools/readable/readable_symbols.tsv:
 // each name, its address in AI, its role and a port's source.
 #pragma once
 inline constexpr LibrarySymbol kLibrarySymbols[] = {
@@ -370,7 +378,7 @@ else()
 endif()
 if(ZX_RUNNER_GENERATED_DIR AND EXISTS "${ZX_RUNNER_GENERATED_DIR}/register_functions.cpp" AND COMMAND _zx_traced_sources)
     # (_zx_traced_sources reads these from game.cmake's scope)
-    set(ZX_SYMBOLS_TABLE "${CMAKE_SOURCE_DIR}/runtime/tools/readable_symbols.tsv")
+    set(ZX_SYMBOLS_TABLE "${CMAKE_SOURCE_DIR}/tools/readable/readable_symbols.tsv")
     set(_zx_game_number_ "0")
     set(ZX_TRACED_BLOCK_LIST "")
     set(ZX_TRACED_BLOCK_FILES "")
@@ -380,10 +388,10 @@ if(ZX_RUNNER_GENERATED_DIR AND EXISTS "${ZX_RUNNER_GENERATED_DIR}/register_funct
     add_custom_command(
         OUTPUT "${_zx_library_out}/traced_blocks.stamp"
         BYPRODUCTS ${ZX_TRACED_BLOCK_FILES} "${_zx_library_out}/stack_args_unused.cpp"
-        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_SOURCE_DIR}/runtime/tools/fncheck_traced_gen.py"
+        COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_SOURCE_DIR}/tools/readable/fncheck_traced_gen.py"
                 --list "${_zx_library_out}/traced_blocks.list" --stack-args "${_zx_library_out}/stack_args_unused.cpp"
         COMMAND "${CMAKE_COMMAND}" -E touch "${_zx_library_out}/traced_blocks.stamp"
-        DEPENDS "${CMAKE_SOURCE_DIR}/runtime/tools/fncheck_traced_gen.py" "${_zx_library_out}/traced_blocks.list"
+        DEPENDS "${CMAKE_SOURCE_DIR}/tools/readable/fncheck_traced_gen.py" "${_zx_library_out}/traced_blocks.list"
                 ${ZX_TRACED_GENERATED_FILES}
         COMMENT "library ports' tests: block markers in the recompiled originals"
         VERBATIM)
@@ -395,7 +403,7 @@ if(ZX_RUNNER_GENERATED_DIR AND EXISTS "${ZX_RUNNER_GENERATED_DIR}/register_funct
     add_library(zx_library_originals OBJECT ${_zx_library_traced} "${_zx_library_frames}")
     add_dependencies(zx_library_originals zx_library_traced_blocks zx_game_traced_blocks)
     target_link_libraries(zx_library_originals PUBLIC zx_runtime)
-    target_include_directories(zx_library_originals PRIVATE "${ZX_RUNNER_GENERATED_DIR}" "${CMAKE_SOURCE_DIR}/runtime/src/game")
+    target_include_directories(zx_library_originals PRIVATE "${ZX_RUNNER_GENERATED_DIR}" ${ZX_READABLE_ROOTS})
     target_sources(zx-tests PRIVATE $<TARGET_OBJECTS:zx_library_originals>)
     list(LENGTH _zx_library_traced _zx_library_count)
     target_compile_definitions(zx_test_lib PRIVATE ZX_LIBRARY_ORIGINALS=${_zx_library_count})
@@ -418,7 +426,7 @@ if(COMMAND zx_stage_ffmpeg_runtime_dlls)
     zx_stage_ffmpeg_runtime_dlls(zx-tests)
 endif()
 
-include("${CMAKE_SOURCE_DIR}/runtime/cmake/ReleaseMode.cmake")
+include("${CMAKE_SOURCE_DIR}/ps2/cmake/ReleaseMode.cmake")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     EnableFastReleaseMode(zx_test_lib)

@@ -1,0 +1,10 @@
+#pragma once
+
+class PS2Machine;
+
+namespace aggressive_inline
+{
+    // The Xbox release's free skate scripts for the Boardwalk and the
+    // Cannery (ZX_XBOX_FREESKATE=1): their doors, rides and hazards.
+    void installXboxFreeSkate(PS2Machine &runtime);
+}

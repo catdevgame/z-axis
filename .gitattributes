@@ -1,0 +1,6 @@
+# The licence texts every package ships, checked out byte for byte on every platform: build-ffmpeg.sh compares
+# FFmpeg's own COPYING.LGPLv2.1 with its copy here, and release.sh each package's LICENSE, NOTICE and FFmpeg licence
+# with the tree's, which a Windows checkout's autocrlf made CRLF
+LICENSE -text
+NOTICE -text
+third_party/licenses/** -text

@@ -1,7 +1,7 @@
 # Mods
 
-A mod adds to the games or changes their files. No mod is needed: with none, every game runs as it shipped. Mods go in
-the collection's **Mods** folder, in its support folder:
+A mod adds to one or more of the games or changes their files. With no mod, every game runs as it shipped.
+Mods go in the collection's **Mods** folder, in its support folder:
 
 - macOS: `~/Library/Application Support/Z-Axis Collection/Mods`
 - Windows: `%APPDATA%\Z-Axis Collection\Mods`
@@ -9,6 +9,11 @@ the collection's **Mods** folder, in its support folder:
 
 A mod is a folder there, or a `.zip`. A zip is read as it is: the app never unpacks it, so keep a mod as either the
 folder or the zip, never both. A zip of one folder (what zipping a folder makes) is read from inside that folder.
+
+On the Mac and Windows a mod's folder or zip dropped on the collection's menu is offered a place there (Add, or
+Replace for one of its name), and a map's folder with a `map.ini` alone one in the Maps folder; the copy is made beside
+the folder and moved in whole. Settings > Mods ends with Open Mods Folder, and a mod's row switches it: Left or Right
+turns it off in every game it is for, or on in all of them.
 
 ## mod.ini
 
@@ -35,10 +40,10 @@ What a mod holds is told by where its files are. They use the paths the games al
 |---|---|---|
 | `ASSETS/...`, `MOVIES/...`, any disc path | replaces that file of the game's disc (names in any case) | yes |
 | `ASSETS/UILIB.ZAL/CommonFonts.zif`: a folder named as an archive, files named as its entries | replaces just those entries of that archive (see Archives below) | yes |
-| `Music/01 Song.ogg` (`.wav`, `.opus`, `.flac`, `.mp3`) | song 01 of the soundtrack | no |
-| `tuning.ini` | Aggressive Inline's developer tuning values (docs/TUNING.md, docs/DEVTOOLS.md), and BMX XXX's (its GameCube release's TUNING rows: "tuning.ini" below); Dave Mirra BMX 2 reads none (in a mod for it alone, the page notes it) | yes (Aggressive Inline, BMX XXX) |
-| `Textures/ai/`, `Textures/dm2/`, `Textures/bmx/` | replacement pictures for the GPU renderer, PNG or DDS (SETTINGS.md "Texture packs"): PCSX2's file names, or `.xtp` packs. A PCSX2 `textures/<serial>/` folder can be copied in as it is (`Textures/SLUS-20327/`); a mod of one game may put them in `Textures/` itself | no |
-| a `[map]` section in `mod.ini` (or a `map.ini`) | a custom map for Custom Freeplay (docs/CUSTOM-LEVELS.md, SETTINGS.md "Custom Freeplay"); no other start reads it | yes |
+| `Music/01 Song.ogg` (`.wav`, `.opus`, `.flac`, `.mp3`) | song 01 of the game's soundtrack, in all three games: AI's songs 01 to 13, DM2's 01 to 10, BMX XXX's 01 to 20 | no |
+| `tuning.ini` | Aggressive Inline's developer tuning values (docs/TUNING.md, docs/DEVTOOLS.md), BMX XXX's (its GameCube release's TUNING rows: "tuning.ini" below) and Dave Mirra BMX 2's (the same rows on its own values) | yes |
+| `Textures/ai/`, `Textures/dm2/`, `Textures/bmx/` | replacement pictures for the GPU renderer, PNG or DDS (docs/SETTINGS.md "Texture packs"): PCSX2's file names, or `.xtp` packs. A PCSX2 `textures/<serial>/` folder can be copied in as it is (`Textures/SLUS-20327/`); a mod of one game may put them in `Textures/` itself | no |
+| a `[map]` section in `mod.ini` (or a `map.ini`) | a custom map for Custom Freeplay (docs/CUSTOM-LEVELS.md, docs/SETTINGS.md "Custom Freeplay"); no other start reads it | yes |
 
 Files for a game the mod does not list (say `Textures/bmx/` in a mod with `games = ai`) are not read; the mod's page
 says so. The table's last column says which parts change game logic.
@@ -76,8 +81,9 @@ entry wins over every mod before it.
 
 ### zal
 
-`zal` (a target of the build, or alone in seconds: `cmake -S iop -B out/zal -DZX_IOP_DISC_ONLY=ON` then
-`cmake --build out/zal --target zal`) turns an archive into a folder and back:
+`zal` (a target of the build, or alone in seconds: `cmake -S . -B out/zal -DZX_BUILD_RUNTIME=OFF -DZX_BUILD_TEST=OFF
+-DZX_BUILD_RECOMPILER=OFF` then `cmake --build out/zal --target zal`; its source is `engine/zal`, its command line
+`tools/modding/zal_tool.cpp`) turns an archive into a folder and back:
 
 ```
 zal list ARCHIVE                          its entries: id, size, name
@@ -86,11 +92,10 @@ zal repack DIR ARCHIVE                    the archive made from DIR's zal.txt an
 zal verify ARCHIVE [DIR]                  unpacked and packed again it is the same file; with DIR: DIR packs into it
 ```
 
-An archive unpacked and packed again with nothing changed is the same file, byte for byte: that holds for every
-`.ZAL` on the three games' PS2 discs (85 of them), and `unpack` checks it each time. Most archives keep only their
-entries' ids, not their names: `unpack` names an entry by any name whose hash is its id, found in the archive itself
-or in the files `--names` gives (the game's program, `SLUS_203.27` for Aggressive Inline, names many: 27 of `UILIB.ZAL`'s 28), and
-by `0x` and its id otherwise.
+An archive unpacked and packed again with nothing changed is the same file, byte for byte, for every `.ZAL` on the
+three games' PS2 discs; `unpack` checks it each time. Most archives keep only their entries' ids, not their names:
+`unpack` names an entry by any name whose hash is its id, found in the archive itself or in the files `--names` gives
+(the game's program names many, such as `SLUS_203.27` for Aggressive Inline), and by `0x` and its id otherwise.
 
 `zal.txt` lists the entries in the archive's order (`entry ID FILE`), with what the archive needs to be made again
 exactly: its format, its alignment, and any bytes between entries that are not zeros (`pad`). To change an entry,
@@ -108,17 +113,24 @@ or it is in a zip): every row the game has, with its value and range.
   every entry and what reading it changes is docs/TUNING.md, the format docs/DEVTOOLS.md "How to use".
 - **BMX XXX**: the PS2 release has no tuning table, but its GameCube release has a TUNING screen of 114 rows. Here
   those rows set the PS2 game's own values: one section, `[TUNING]`, the rows by their GameCube names, as in
-  `grind off balance factor = 0.2`. 87 of the 114 are paired with the PS2 value each one is, by the code that uses
-  them in both releases; 77 of those are in `tuning.ini`. The other ten are not: the eight rider abilities (air,
-  speed, spin, flip, balance, technique, manual, wall ride) are the riding rider's, made again from the
-  character's stats at each ride, so they are on the live screen alone, and the two feature flag rows are the saved
-  game's, not tuning. With the developer menu on, **F2** in a level shows the live TUNING screen, as the GameCube's:
-  up and down pick a row, left and right change its value by its step. The 27 rows not paired are on neither: the
-  ninth ability, land (no code of both releases reads it), the ten camera rows (none of the code using them could be
-  matched between the releases), and 16 more for which no PS2 code uses a value the pairing could take (such as
-  the NPC riders' rows, the far clip, the run length and the spline camera test). The PS2's values are the GameCube's defaults but for
-  three floats a last bit apart.
-- **Dave Mirra BMX 2** has no tuning table: it reads no `tuning.ini`.
+  `grind off balance factor = 0.2`. 96 of the rows are in `tuning.ini`. With the developer menu on, **F2** in a level
+  shows the live TUNING screen, as the GameCube's: up and down pick a row, left and right change its value by its
+  step. After the table's rows it has the riding rider's eight abilities (air, speed, spin, flip, balance, technique,
+  manual, wall ride): they are made again from the character's stats at each ride, so they are on the screen alone,
+  not in `tuning.ini`. The two feature flag rows are the saved game's, not tuning, and are on neither; nor is the
+  far clip, which every level's camera sets again from its own file. Seven more have no row: three the PS2 keeps
+  but never reads (rotation max - grind, grind-to-grind and wallride angle tolerance), so they would change nothing,
+  and four with no PS2 value to set: the ninth ability (land), display rider position, NPR to record and run length.
+  The ten camera rows are the follow camera's one-view type 2 (the settings the Camera Distance and Camera Height
+  options write when picked). The PS2's values are the GameCube's defaults but for three floats a last bit apart and
+  col box - air - Y (the PS2's 0.25, the GameCube's 0.7).
+- **Dave Mirra BMX 2**: no release has a tuning table. Its `tuning.ini` takes BMX XXX's GameCube TUNING rows too,
+  on DM2's own values: one section, `[TUNING]`, the same names. 60 rows are DM2 values, each found by the code that
+  reads it in both games (the work database's notes say how). With the developer menu on, **F2** shows the same
+  live TUNING screen, with the riding rider's seven abilities after the rows (DM2 has no flip ability). The rows
+  DM2 has no value for are not in it. One is the bail's bounce and friction, which DM2's bail has no values for.
+  Others are BMX XXX's own riding: the grind and wall ride speed boosts and the grind balance correction. Two
+  more are grind-to-grind and wall ride angle tolerance: DM2 keeps their GameCube defaults, but no code reads them.
 
 A tuning value can change how the game plays; without a `tuning.ini` nothing is read or written.
 
@@ -138,9 +150,9 @@ Choose one (keys, a pad, the mouse or a touch) for its page:
 A later mod's file wins over an earlier one's. A mod comes after the mods it needs whatever its place. Changes apply at
 the game's next start.
 
-## Mods from before mod.ini
+## A game's own Mods folder and the maps folder
 
-These still work, unchanged:
+Two more places are read besides the collection's Mods folder:
 
 - each game's own Mods folder (`games/<id>/Mods`): loose files there (`Mods/ASSETS/...`, `Mods/Music`,
   `Mods/tuning.ini`) are read under every mod, and each folder (or zip) there is a mod of that game alone, known by its

@@ -1,6 +1,6 @@
 #pragma once
 
-// Zips for the tests (mods packed as zips, runtime/ps2_zip_archive.h),
+// Zips for the tests (mods packed as zips, runtime/zip_archive.h),
 // written with miniz: each file deflated, or stored when asked.
 
 #include <miniz.h>

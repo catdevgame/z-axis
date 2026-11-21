@@ -1,6 +1,6 @@
 #include "MiniTest.h"
-#include "ps2_stubs.h"
-#include "ps2_syscalls.h"
+#include "stubs.h"
+#include "syscalls.h"
 #include "Stubs/Pad.h"
 
 #include <algorithm>

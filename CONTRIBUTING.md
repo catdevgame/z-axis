@@ -8,24 +8,24 @@ readable game code.
 
 Nothing from the discs goes into the repository, an issue or a pull request: no disc images or files from them,
 no executables or modules, no extracted assets, textures, sounds, movies or saves, no generated code (the
-recompiler's output, `tooling/ai/recomp/generated` and the like), no recordings, dumps or traces, no screenshots
-or videos of the games. They stay on your machine, in the data folder `tooling/setup.sh` links in (git ignores
+recompiler's output, `games/aggressive/workspace/recomp/generated` and the like), no recordings, dumps or traces, no screenshots
+or videos of the games. They stay on your machine, in the data folder `tools/setup/setup.sh` links in (git ignores
 it). The code is written from the games' own code and names its own things; it never carries their bytes.
 
 The repository has a scanner for this, and every change goes through it:
 
 ```sh
-python3 -I tooling/checks/public_scan.py --added origin/main   # the lines you added: home folders, e-mail, secrets
-python3 -I tooling/checks/public_scan.py --tree HEAD           # every committed file: disc formats, binaries, dumps
+python3 -I tools/checks/public_scan.py --added origin/main   # the lines you added: home folders, e-mail, secrets
+python3 -I tools/checks/public_scan.py --tree HEAD           # every committed file: disc formats, binaries, dumps
 ```
 
 Both must end with `0 failing`. A finding names the rule and the file; `--list-rules` explains each rule. Paths
-in code and scripts are relative or come from `tooling/paths.env` (through `tooling/paths.sh` or
-`tooling/zpaths.py`), never a folder on your own machine.
+in code and scripts are relative or come from `tools/paths.env` (through `tools/paths.sh` or
+`tools/zpaths.py`), never a folder on your own machine.
 
 ## Building
 
-README "Building" goes from a clean machine to the app: what to install, `tooling/setup.sh`, the recompile from
+README "Building" goes from a clean machine to the app: what to install, `tools/setup/setup.sh`, the recompile from
 your own discs, `make-app.sh` or `make-windows.ps1`. `docs/BRINGUP.md` covers development builds: the runner,
 a single game, the debugger, the run scripts.
 
@@ -45,20 +45,22 @@ On Windows, configure from a Visual Studio 2022 x64 developer prompt with clang-
 then build and run the same targets. Run the tests with a scratch home folder if you want your own settings and
 saves left alone (`ZX_APP_SUPPORT_DIR`, `ZX_APP_LOG_DIR`).
 
-A change to game code is checked further on the maintainers' machines before it lands: each readable function
-against every recorded call of the original (the corpus replay), each game's logic against a reference run, and
-A/B runs with the readable code on and off (`docs/READABLE.md`, "The gate"). You don't need the recordings to
+A change to game code is checked further on the maintainers' machines before it lands, for each game it touches:
+each readable function against every recorded call of the original (the corpus replay), the game's logic against
+its reference run, and A/B runs with the readable code on and off (`docs/READABLE.md`, "The gate"). You don't need the recordings to
 contribute: say in your pull request what you ran, and the maintainers run the rest.
 
 ## Writing readable code
 
 `docs/READABLE.md` is the guide. In short: no address literals (symbols, resolved per game), every name and type
 for what it is (a wrong name is worse than none, so don't guess), code organized by subsystem in named files, and
-game logic that reads as game logic, without the proof scaffolding. Identical engine code is shared across the
-three games in `runtime/src/game/zge`; each game's own code is in `runtime/src/game/aggressive`, `dm2` and `bmx`.
-The PlayStation 2 release of Aggressive Inline is the reference for behaviour. Fix causes, not symptoms.
+game logic that reads as game logic, without the proof scaffolding. Aggressive Inline is the baseline and DM2 and
+BMX XXX are version differences: identical engine code has one body for the three games in `engine/zge`,
+close code shares that body with a small per-game difference, and each game's own code is in
+`games/aggressive`, `dm2` and `bmx`. The PlayStation 2 release of Aggressive Inline is the reference for
+behaviour. Fix causes, not symptoms.
 What is known about a function (its purpose, the traps in changing it, the bugs kept, the layouts) is in the work
-database's notes: `python3 -I tooling/dm2/tools/workdb.py card NAME` (or an address, `--build dm2_ps2` for DM2's)
+database's notes: `python3 -I tools/workdb/workdb.py card NAME` (or an address; `--build dm2_ps2` or `bmx_ps2` for DM2's or BMX XXX's)
 and `workdb.py notes NAME` read their public export, no game data needed.
 
 Libraries (Sony's SDK, libc, libm, libgcc) are never rewritten: they are ported from the pinned version's source,
