@@ -753,13 +753,13 @@ namespace ps2_stubs
 
         if (port == 0 && slot == 0)
         {
-            // PS2X_PAD_TRACE=<file>: the buttons and sticks the game read, a
+            // ZX_PAD_TRACE=<file>: the buttons and sticks the game read, a
             // line "<vsync tick> <buttons> <rx> <ry> <lx> <ly>" (hex, the
             // pad's bytes) at each change: tooling/checks/career_ab.py makes a pad
             // script of a closed-loop route's run, for an A/B tick by tick.
             static std::FILE *const padTrace = []() -> std::FILE *
             {
-                const char *path = std::getenv("PS2X_PAD_TRACE");
+                const char *path = std::getenv("ZX_PAD_TRACE");
                 return path && path[0] ? std::fopen(path, "w") : nullptr;
             }();
             if (padTrace && runtime)
@@ -774,8 +774,8 @@ namespace ps2_stubs
                     std::fflush(padTrace);
                 }
             }
-            // PS2X_PAD_LOG / PS2X_PAD_DUMP (runtime/ps2_state_probe.h).
-            static ps2x::boot::PerBoot<StateProbe> padProbeOfBoot([]()
+            // ZX_PAD_LOG / ZX_PAD_DUMP (runtime/ps2_state_probe.h).
+            static zx::boot::PerBoot<StateProbe> padProbeOfBoot([]()
             {
                 StateProbe configured;
                 configured.configurePadReadFromEnvironment();
@@ -878,7 +878,7 @@ namespace ps2_stubs
                 else if (portState->actAlign[i] == kPadActLarge)
                     large = data[i];
             }
-            static const bool trace = std::getenv("PS2X_TRACE_RUMBLE") != nullptr;
+            static const bool trace = std::getenv("ZX_TRACE_RUMBLE") != nullptr;
             if (trace && (portState->motorSmall != small || portState->motorLarge != large))
                 std::printf("[rumble] port=%d small=%u large=%u\n", port, small, large);
             portState->motorSmall = small;

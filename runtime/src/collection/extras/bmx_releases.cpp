@@ -5,13 +5,14 @@
 #include "sequence_matcher.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <map>
 #include <optional>
 #include <set>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {
@@ -31,6 +32,16 @@ namespace ps2x::app::extras
         // The GameCube's levels with rows in the PS2's level table (g_levels)
         // and no files on the PS2 disc, in the PS2's formats.
         const char *const kGameCubeLevels[] = {"CMP_SCRT", "TST_FLAT", "TST_GRND", "TST_VERT"};
+        // The Competitive Edge trailers the PS2's FrameAKAdemos names and only
+        // the Xbox has (its AKA_OPT05 and AKA_OPT06 lines).
+        const char *const kTrailers[] = {"Turok", "Vexx"};
+        // The create-a-rider libraries (assets/create): the four texture
+        // libraries and the parts; a named library's entries start on this.
+        const char *const kCreateTextures[] = {"TEXTUREA", "TEXTUREB", "TEXTUREC", "TEXTURED"};
+        constexpr size_t kLibraryAlign = 32;
+        // An ASF's (a WMA's) File Properties object.
+        const uint8_t kAsfFileProperties[16] = {0xA1, 0xDC, 0xAB, 0x8C, 0x47, 0xA9, 0xCF, 0x11,
+                                                0x8E, 0xE4, 0x00, 0xC0, 0x0C, 0x20, 0x53, 0x65};
 
         uint32_t le32(const uint8_t *p)
         {
@@ -530,6 +541,9 @@ namespace ps2x::app::extras
             for (const auto &[ps2, x] : kMenuMovies)
                 jobs.push_back({std::string("movies/menu/") + x + ".xmv", std::string("ASSETS/MOVIES/MENU/") + ps2 + ".XMV"});
             jobs.push_back({"movies/zaxis.xmv", "ASSETS/MOVIES/ZAXIS.XMV"});
+            for (const char *trailer : kTrailers)
+                jobs.push_back({std::string("movies/CompEdge/") + trailer + ".xmv",
+                                std::string("ASSETS/MOVIES/COMPEDGE/") + upperAscii(trailer) + ".XMV"});
             for (const auto &[source, target] : jobs)
             {
                 const std::optional<std::string> found = xbox->find(source);
@@ -662,6 +676,624 @@ namespace ps2x::app::extras
             }
             return true;
         }
+
+        // ---- the Xbox's unused songs --------------------------------------
+
+        // A WMA's (ASF's) play time: its File Properties object's play
+        // duration (100 ns units) less its preroll (ms).
+        double asfSeconds(const Bytes &data)
+        {
+            const auto at = std::search(data.begin(), data.end(), std::begin(kAsfFileProperties), std::end(kAsfFileProperties));
+            if (at == data.end() || size_t(at - data.begin()) + 88 > data.size())
+                return 0.0;
+            const uint8_t *p = data.data() + (at - data.begin()) + 64;
+            auto le64 = [](const uint8_t *q) { return uint64_t(le32(q)) | (uint64_t(le32(q + 4)) << 32); };
+            return std::max(double(le64(p)) / 1e7 - double(le64(p + 16)) / 1000.0, 0.0);
+        }
+
+        // The wave files an Xbox music bank (ZSNDXBOX) names, lower case.
+        std::set<std::string> bankWaveNames(const Bytes &data)
+        {
+            std::set<std::string> names;
+            const std::string text = asText(data);
+            for (size_t end = text.find(".WMA"); end != std::string::npos; end = text.find(".WMA", end + 4))
+            {
+                size_t start = end;
+                while (start > 0 && text[start - 1] > 32 && text[start - 1] < 127)
+                    --start;
+                names.insert(lowerAscii(text.substr(start, end + 4 - start)));
+            }
+            return names;
+        }
+
+        // music/<NN>.WMA and music/songs.txt: the songs on the Xbox disc
+        // (audio/*.wma) its music bank (audio/music.zsd) does not name, in
+        // name order, as the disc has them (the Python tool's are MP3s; the
+        // list is the same but for the files' names).
+        bool xboxSongs(const SourceFiles *xbox, const std::filesystem::path &out, std::vector<std::string> &manifest,
+                       std::string *error)
+        {
+            Bytes bank;
+            if (!xbox || !xbox->readAny("audio/music.zsd", bank))
+            {
+                manifest.push_back(xbox ? "songs: no Xbox music bank: none" : "songs: no Xbox files: none");
+                return true;
+            }
+            const std::set<std::string> named = bankWaveNames(bank);
+            std::vector<std::string> files;
+            for (const std::string &file : xbox->files())
+            {
+                const std::string lower = lowerAscii(file);
+                if (lower.rfind("audio/", 0) == 0 && lower.find('/', 6) == std::string::npos && lower.size() > 10 &&
+                    lower.compare(lower.size() - 4, 4, ".wma") == 0 && !named.count(lower.substr(6)))
+                    files.push_back(file);
+            }
+            std::sort(files.begin(), files.end(), [](const std::string &a, const std::string &b) { return lowerAscii(a) < lowerAscii(b); });
+            std::string listing;
+            for (size_t number = 0; number < files.size(); ++number)
+            {
+                Bytes data;
+                if (!xbox->read(files[number], data))
+                {
+                    *error = "Could not read the Xbox song " + files[number] + ".";
+                    return false;
+                }
+                const std::string name = files[number].substr(6), song = format("%02zu.WMA", number + 1);
+                if (!writeFile(out / "music" / song, data, error))
+                    return false;
+                const double seconds = asfSeconds(data);
+                listing += song + "\t" + name + "\t" + name.substr(0, name.rfind('.')) + "\t" + format("%.3f", seconds) + "\n";
+                manifest.push_back(format("songs %s: %s, %.1f s", song.c_str(), name.c_str(), seconds));
+            }
+            if (files.empty())
+                return true;
+            if (!writeFile(out / "music" / "songs.txt", listing, error))
+                return false;
+            manifest.push_back(format("songs: %zu (the Xbox bank names %zu)", files.size(), named.size()));
+            return true;
+        }
+
+        // ---- create-a-rider -----------------------------------------------
+
+        // A ZDIR library's entry with its name (the create libraries' NAME
+        // chunk: the names, NUL-separated, in the entries' order).
+        struct NamedEntry
+        {
+            uint32_t key = 0;
+            uint32_t flags = 0;
+            Bytes data;
+            std::string name;
+        };
+
+        bool readNamedZdir(const Bytes &data, std::vector<NamedEntry> &out)
+        {
+            out.clear();
+            if (data.size() < 0x18 || std::memcmp(data.data(), "ZDIR", 4) != 0)
+                return false;
+            const uint32_t count = le32(data.data() + 0x10);
+            const size_t grid = 0x18, lengths = grid + 8 + 4 * size_t(count), offsets = lengths + 8 + 4 * size_t(count),
+                         names = offsets + 8 + 4 * size_t(count);
+            if (names + 8 > data.size() || std::memcmp(data.data() + grid, "GRID", 4) != 0 ||
+                std::memcmp(data.data() + lengths, "DLEN", 4) != 0 || std::memcmp(data.data() + offsets, "OFST", 4) != 0 ||
+                std::memcmp(data.data() + names, "NAME", 4) != 0)
+                return false;
+            const size_t namesEnd = std::min(data.size(), names + 8 + size_t(le32(data.data() + names + 4)));
+            size_t at = names + 8;
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                NamedEntry entry;
+                entry.key = le32(data.data() + grid + 8 + 4 * i);
+                const uint32_t word = le32(data.data() + lengths + 8 + 4 * i);
+                entry.flags = word >> 28;
+                const size_t from = le32(data.data() + offsets + 8 + 4 * i), size = word & 0x0FFFFFFF;
+                if (from + size > data.size())
+                    return false;
+                entry.data.assign(data.begin() + long(from), data.begin() + long(from + size));
+                const size_t end = std::find(data.begin() + long(std::min(at, namesEnd)), data.begin() + long(namesEnd), 0) -
+                                   data.begin();
+                entry.name.assign(data.begin() + long(std::min(at, namesEnd)), data.begin() + long(end));
+                at = end + 1;
+                out.push_back(std::move(entry));
+            }
+            return true;
+        }
+
+        // A ZDIR library with its NAME chunk, each entry at kLibraryAlign, the
+        // file padded to it (zeros).
+        Bytes writeNamedZdir(const std::vector<NamedEntry> &entries)
+        {
+            const uint32_t count = uint32_t(entries.size());
+            Bytes names;
+            for (const NamedEntry &entry : entries)
+            {
+                names.insert(names.end(), entry.name.begin(), entry.name.end());
+                names.push_back(0);
+            }
+            names.resize((names.size() + 3) & ~size_t{3}, 0);
+            Bytes body;
+            auto tag = [&](const char *name, uint32_t size)
+            {
+                body.insert(body.end(), name, name + 4);
+                put32(body, size);
+            };
+            tag("DIDF", 8);
+            put32(body, count);
+            put32(body, 0);
+            tag("GRID", 4 * count);
+            for (const NamedEntry &entry : entries)
+                put32(body, entry.key);
+            tag("DLEN", 4 * count);
+            for (const NamedEntry &entry : entries)
+                put32(body, (entry.flags << 28) | uint32_t(entry.data.size()));
+            const size_t offsets = 8 + body.size() + 8;
+            tag("OFST", 4 * count);
+            body.resize(body.size() + 4 * size_t(count), 0);
+            tag("NAME", uint32_t(names.size()));
+            body.insert(body.end(), names.begin(), names.end());
+            Bytes out;
+            out.insert(out.end(), {'Z', 'D', 'I', 'R'});
+            put32(out, uint32_t(body.size()));
+            out.insert(out.end(), body.begin(), body.end());
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                out.resize((out.size() + kLibraryAlign - 1) & ~(kLibraryAlign - 1), 0);
+                const uint32_t at = uint32_t(out.size());
+                for (int b = 0; b < 4; ++b)
+                    out[offsets + 4 * i + size_t(b)] = uint8_t(at >> (8 * b));
+                out.insert(out.end(), entries[i].data.begin(), entries[i].data.end());
+            }
+            out.resize((out.size() + kLibraryAlign - 1) & ~(kLibraryAlign - 1), 0);
+            return out;
+        }
+
+        // A part's model (FMDL > MODL): its chunks (TXRC, TGEO, TGIN), or
+        // none.
+        std::optional<std::vector<std::pair<std::string, Bytes>>> modelChunks(const Bytes &blob)
+        {
+            if (blob.size() < 16 || std::memcmp(blob.data(), "FMDL", 4) != 0 || std::memcmp(blob.data() + 8, "MODL", 4) != 0)
+                return std::nullopt;
+            const size_t end = std::min(blob.size(), 16 + size_t(le32(blob.data() + 12)));
+            std::vector<std::pair<std::string, Bytes>> out;
+            for (size_t at = 16; at + 8 <= end;)
+            {
+                const size_t size = le32(blob.data() + at + 4);
+                if (at + 8 + size > blob.size())
+                    return std::nullopt;
+                out.push_back({std::string(blob.begin() + long(at), blob.begin() + long(at + 4)),
+                               Bytes(blob.begin() + long(at + 8), blob.begin() + long(at + 8 + size))});
+                at += 8 + size;
+            }
+            return out;
+        }
+
+        Bytes modelBlob(const std::vector<std::pair<std::string, Bytes>> &chunks)
+        {
+            Bytes body;
+            for (const auto &[tag, data] : chunks)
+            {
+                body.insert(body.end(), tag.begin(), tag.end());
+                put32(body, uint32_t(data.size()));
+                body.insert(body.end(), data.begin(), data.end());
+            }
+            Bytes modl{'M', 'O', 'D', 'L'};
+            put32(modl, uint32_t(body.size()));
+            modl.insert(modl.end(), body.begin(), body.end());
+            Bytes out{'F', 'M', 'D', 'L'};
+            put32(out, uint32_t(modl.size()));
+            out.insert(out.end(), modl.begin(), modl.end());
+            return out;
+        }
+
+        // The part a create-a-rider texture goes on, as
+        // createAModelGetFilteredListOfAssetsInLibrary groups them: "G" for
+        // the texture's "T", up to its second underscore (TMHat_Bunny_Bk_03 ->
+        // GMHat_Bunny), lower case.
+        std::string partGroup(const std::string &texture)
+        {
+            const size_t first = texture.find('_');
+            if (first == std::string::npos || texture.empty())
+                return {};
+            const size_t second = texture.find('_', first + 1);
+            return lowerAscii("G" + texture.substr(1, (second == std::string::npos ? texture.size() : second) - 1));
+        }
+
+        // ---- a GameCube part made the PS2's -------------------------------
+
+        using Chunks = std::vector<std::pair<std::string, Bytes>>;
+
+        // A run of chunks (4-byte tag, 32-bit size).
+        Chunks iffChunks(const Bytes &data)
+        {
+            Chunks out;
+            for (size_t at = 0; at + 8 <= data.size();)
+            {
+                const size_t size = le32(data.data() + at + 4), end = std::min(data.size(), at + 8 + size);
+                out.push_back({std::string(data.begin() + long(at), data.begin() + long(at + 4)),
+                               Bytes(data.begin() + long(at + 8), data.begin() + long(end))});
+                at += 8 + size;
+            }
+            return out;
+        }
+
+        Bytes iffBlob(const Chunks &chunks)
+        {
+            Bytes out;
+            for (const auto &[tag, data] : chunks)
+            {
+                out.insert(out.end(), tag.begin(), tag.end());
+                put32(out, uint32_t(data.size()));
+                out.insert(out.end(), data.begin(), data.end());
+            }
+            return out;
+        }
+
+        const Bytes *chunkOf(const Chunks &chunks, const char *tag)
+        {
+            for (const auto &[t, data] : chunks)
+                if (t == tag)
+                    return &data;
+            return nullptr;
+        }
+
+        // A strip group (TGFM, zge/render/part.h): its word and entries.
+        // GX's strips: an entry with kStripStart starts one, the triangles'
+        // winding alternating along it; the PS2's (zge/native/strips.h): an
+        // entry with kStripStart draws nothing, one with kStripFlipped draws
+        // its triangle the other way round.
+        constexpr uint16_t kStripStart = 0x8000, kStripFlipped = 0x4000, kStripVertex = 0x3FFF;
+        constexpr size_t kPs2GroupEntries = 60; // a PS2 strip group's most entries (every PS2 create part's at most)
+        using StripGroups = std::vector<std::pair<uint16_t, std::vector<uint16_t>>>;
+
+        StripGroups readStripGroups(const Bytes &data)
+        {
+            StripGroups groups;
+            for (size_t at = 0; at + 4 <= data.size();)
+            {
+                const uint16_t head = uint16_t(data[at] | data[at + 1] << 8), count = uint16_t(data[at + 2] | data[at + 3] << 8);
+                std::vector<uint16_t> entries;
+                for (size_t i = 0; i < count && at + 6 + 2 * i <= data.size(); ++i)
+                    entries.push_back(uint16_t(data[at + 4 + 2 * i] | data[at + 5 + 2 * i] << 8));
+                groups.push_back({head, std::move(entries)});
+                at += (size_t(count) * 2 + 7) & ~size_t{3};
+            }
+            return groups;
+        }
+
+        Bytes writeStripGroups(const StripGroups &groups)
+        {
+            Bytes out;
+            for (const auto &[head, entries] : groups)
+            {
+                for (const uint16_t v : {head, uint16_t(entries.size())})
+                {
+                    out.push_back(uint8_t(v));
+                    out.push_back(uint8_t(v >> 8));
+                }
+                for (const uint16_t v : entries)
+                {
+                    out.push_back(uint8_t(v));
+                    out.push_back(uint8_t(v >> 8));
+                }
+                out.resize((out.size() + 3) & ~size_t{3}, 0);
+            }
+            return out;
+        }
+
+        // GX's strip groups as the PS2's: each strip's entries with the flag
+        // of their triangle's turn, a strip longer than a group cut (the next
+        // part starting again from the two entries before), packed whole into
+        // groups of at most kPs2GroupEntries by their word.
+        StripGroups gcStripsToPs2(const StripGroups &groups)
+        {
+            StripGroups out;
+            for (const auto &[head, entries] : groups)
+            {
+                std::vector<std::vector<uint16_t>> strips;
+                std::vector<uint16_t> current;
+                uint32_t turn = 0;
+                for (const uint16_t entry : entries)
+                {
+                    if (entry & kStripStart)
+                    {
+                        if (!current.empty() && !(current.back() & kStripStart))
+                        {
+                            strips.push_back(current);
+                            current.clear();
+                        }
+                        turn = 0;
+                        current.push_back(uint16_t(kStripStart | (entry & kStripVertex)));
+                        continue;
+                    }
+                    current.push_back(uint16_t((entry & kStripVertex) | (current.size() >= 2 && turn % 2 ? kStripFlipped : 0)));
+                    ++turn;
+                }
+                if (!current.empty())
+                    strips.push_back(current);
+                for (std::vector<uint16_t> strip : strips)
+                {
+                    while (strip.size() > kPs2GroupEntries)
+                    {
+                        out.push_back({head, std::vector<uint16_t>(strip.begin(), strip.begin() + long(kPs2GroupEntries))});
+                        std::vector<uint16_t> rest = {uint16_t(kStripStart | (strip[kPs2GroupEntries - 2] & kStripVertex)),
+                                                      uint16_t(kStripStart | (strip[kPs2GroupEntries - 1] & kStripVertex))};
+                        rest.insert(rest.end(), strip.begin() + long(kPs2GroupEntries), strip.end());
+                        strip = std::move(rest);
+                    }
+                    if (!out.empty() && out.back().first == head && out.back().second.size() + strip.size() <= kPs2GroupEntries)
+                        out.back().second.insert(out.back().second.end(), strip.begin(), strip.end());
+                    else
+                        out.push_back({head, strip});
+                }
+            }
+            return out;
+        }
+
+        // The triangles strip groups draw, each in its winding from its
+        // smallest vertex, sorted.
+        std::vector<std::array<uint16_t, 3>> stripTriangles(const StripGroups &groups, bool gamecube)
+        {
+            std::vector<std::array<uint16_t, 3>> out;
+            for (const auto &[head, entries] : groups)
+            {
+                uint32_t turn = 0;
+                for (size_t k = 0; k < entries.size(); ++k)
+                {
+                    if (entries[k] & kStripStart)
+                    {
+                        turn = 0;
+                        continue;
+                    }
+                    if (k < 2)
+                        continue;
+                    const uint16_t a = entries[k - 2] & kStripVertex, b = entries[k - 1] & kStripVertex, c = entries[k] & kStripVertex;
+                    const bool flipped = gamecube ? turn % 2 == 1 : (entries[k] & kStripFlipped) != 0;
+                    ++turn;
+                    if (a == b || b == c || a == c)
+                        continue;
+                    std::array<uint16_t, 3> t = flipped ? std::array<uint16_t, 3>{b, a, c} : std::array<uint16_t, 3>{a, b, c};
+                    while (t[0] > t[1] || t[0] > t[2])
+                        t = {t[1], t[2], t[0]};
+                    out.push_back(t);
+                }
+            }
+            std::sort(out.begin(), out.end());
+            return out;
+        }
+
+        // A material table (TGEO > TMTB): MATI records of 168 bytes, each a
+        // layer count and its 28-byte layers, whose render words are each
+        // release's own (the rest of a material is the same).
+        constexpr size_t kMaterialRecord = 168, kMaterialLayersAt = 8 + 44, kMaterialLayer = 28;
+        using MaterialLayers = std::map<Bytes, Bytes>;
+
+        std::optional<std::vector<size_t>> materialLayers(const Bytes &table)
+        {
+            std::vector<size_t> out;
+            for (size_t at = 0; at < table.size(); at += kMaterialRecord)
+            {
+                if (at + kMaterialRecord > table.size() || std::memcmp(table.data() + at, "MATI", 4) != 0)
+                    return std::nullopt;
+                const size_t count = le32(table.data() + at + kMaterialLayersAt);
+                if (kMaterialLayersAt + 4 + count * kMaterialLayer > kMaterialRecord)
+                    return std::nullopt;
+                for (size_t i = 0; i < count; ++i)
+                    out.push_back(at + kMaterialLayersAt + 4 + i * kMaterialLayer);
+            }
+            return out;
+        }
+
+        std::optional<Bytes> partMaterials(const Bytes &blob)
+        {
+            const auto chunks = modelChunks(blob);
+            if (!chunks || chunks->size() < 2)
+                return std::nullopt;
+            const Chunks geo = iffChunks((*chunks)[1].second);
+            if (const Bytes *table = chunkOf(geo, "TMTB"))
+                return *table;
+            return std::nullopt;
+        }
+
+        // GameCube material layer -> the PS2's: the PS2 layer the parts both
+        // releases have give most for it (a tie: the greater bytes).
+        MaterialLayers learnMaterialLayers(const std::vector<NamedEntry> &ps2Parts, const std::vector<NamedEntry> &gcParts)
+        {
+            std::map<std::string, const NamedEntry *> gc;
+            for (const NamedEntry &part : gcParts)
+                gc[lowerAscii(part.name)] = &part;
+            std::map<Bytes, std::map<Bytes, int>> found;
+            for (const NamedEntry &part : ps2Parts)
+            {
+                const auto it = gc.find(lowerAscii(part.name));
+                if (it == gc.end())
+                    continue;
+                const auto mine = partMaterials(part.data), theirs = partMaterials(it->second->data);
+                if (!mine || !theirs || mine->size() != theirs->size())
+                    continue;
+                const auto layers = materialLayers(*mine);
+                if (!layers || layers != materialLayers(*theirs))
+                    continue;
+                for (const size_t at : *layers)
+                    ++found[Bytes(theirs->begin() + long(at), theirs->begin() + long(at + kMaterialLayer))]
+                           [Bytes(mine->begin() + long(at), mine->begin() + long(at + kMaterialLayer))];
+            }
+            MaterialLayers out;
+            for (const auto &[theirs, counts] : found)
+            {
+                const auto best = std::max_element(counts.begin(), counts.end(), [](const auto &a, const auto &b)
+                                                   { return a.second != b.second ? a.second < b.second : a.first < b.first; });
+                out[theirs] = best->first;
+            }
+            return out;
+        }
+
+        // A GameCube create part (FMDL > MODL: TXRC, TGEO, TGIN) in the PS2's
+        // (tools/bmx_releases.py gc_part_to_ps2): its 8x8 texture the PS2's
+        // placeholder, its strip groups the PS2's (the TGPH's group count with
+        // them), its material layers the PS2's. None when it is not such a
+        // part, has a layer no shared part shows, or the strips would draw
+        // other triangles.
+        std::optional<Bytes> gcPartToPs2(const Bytes &blob, const Bytes &placeholder, const MaterialLayers &layers)
+        {
+            const auto chunks = modelChunks(blob);
+            if (!chunks || chunks->size() != 3 || (*chunks)[0].first != "TXRC" || (*chunks)[1].first != "TGEO" ||
+                (*chunks)[2].first != "TGIN")
+                return std::nullopt;
+            Chunks geo = iffChunks((*chunks)[1].second);
+            const Bytes *partBytes = chunkOf(geo, "TGPT");
+            const Bytes *table = chunkOf(geo, "TMTB");
+            if (!partBytes)
+                return std::nullopt;
+            Bytes materials = table ? *table : Bytes();
+            const auto offsets = materialLayers(materials);
+            if (!offsets)
+                return std::nullopt;
+            for (const size_t at : *offsets)
+            {
+                const auto it = layers.find(Bytes(materials.begin() + long(at), materials.begin() + long(at + kMaterialLayer)));
+                if (it == layers.end())
+                    return std::nullopt;
+                std::copy(it->second.begin(), it->second.end(), materials.begin() + long(at));
+            }
+            Chunks part = iffChunks(*partBytes);
+            const Bytes *head = chunkOf(part, "TGPH");
+            const Bytes *faces = chunkOf(part, "TGFM");
+            if (!head || !faces || head->size() < 12)
+                return std::nullopt;
+            const StripGroups groups = readStripGroups(*faces);
+            const StripGroups ps2 = gcStripsToPs2(groups);
+            if (le32(head->data() + 8) != groups.size() || stripTriangles(ps2, false) != stripTriangles(groups, true))
+                return std::nullopt;
+            for (auto &[tag, data] : part)
+            {
+                if (tag == "TGPH")
+                    for (int b = 0; b < 4; ++b)
+                        data[8 + size_t(b)] = uint8_t(ps2.size() >> (8 * b));
+                else if (tag == "TGFM")
+                    data = writeStripGroups(ps2);
+            }
+            for (auto &[tag, data] : geo)
+            {
+                if (tag == "TGPT")
+                    data = iffBlob(part);
+                else if (tag == "TMTB")
+                    data = materials;
+            }
+            return modelBlob({{"TXRC", placeholder}, {"TGEO", iffBlob(geo)}, (*chunks)[2]});
+        }
+
+        bool readLibrary(const SourceFiles &files, const std::string &path, std::vector<NamedEntry> &entries,
+                         std::string *error)
+        {
+            Bytes data;
+            if (!files.readAny(path, data) || !readNamedZdir(data, entries))
+            {
+                *error = "Could not read " + path + ".";
+                return false;
+            }
+            return true;
+        }
+
+        // create/PARTS.ZAL and create/TEXTURE[A-D].ZAL: the PS2's libraries
+        // with the entries the other releases have after them (the parts:
+        // the GameCube's, its 8x8 texture the PS2's), so every PS2 entry
+        // keeps its place; create/added.txt names the textures added.
+        bool createARider(const SourceFiles &ps2, const std::vector<const SourceFiles *> &others,
+                          const std::filesystem::path &out, std::vector<std::string> &manifest, std::string *error)
+        {
+            std::vector<NamedEntry> parts;
+            if (!readLibrary(ps2, "create/parts.zal", parts, error))
+                return false;
+            const size_t ps2Parts = parts.size();
+            std::optional<Bytes> placeholder;
+            if (const auto chunks = parts.empty() ? std::nullopt : modelChunks(parts.front().data))
+                for (const auto &[tag, data] : *chunks)
+                    if (tag == "TXRC")
+                        placeholder = data;
+            std::set<std::string> have, otherParts;
+            for (const NamedEntry &part : parts)
+                have.insert(lowerAscii(part.name));
+            std::string addedParts;
+            for (const SourceFiles *other : others)
+            {
+                std::vector<NamedEntry> theirs;
+                if (!other || !other->find("create/parts.zal") || !readLibrary(*other, "create/parts.zal", theirs, error))
+                    continue;
+                const std::vector<NamedEntry> ps2Only(parts.begin(), parts.begin() + long(ps2Parts));
+                const MaterialLayers layers = learnMaterialLayers(ps2Only, theirs);
+                for (NamedEntry &part : theirs)
+                {
+                    otherParts.insert(lowerAscii(part.name));
+                    auto chunks = modelChunks(part.data);
+                    if (have.count(lowerAscii(part.name)) || !chunks || chunks->size() != 3 || (*chunks)[0].first != "TXRC" ||
+                        (*chunks)[1].first != "TGEO" || (*chunks)[2].first != "TGIN" || !placeholder)
+                        continue;
+                    std::map<std::string, int> kinds;
+                    std::vector<std::string> order;
+                    textureKinds((*chunks)[0].second, 0, (*chunks)[0].second.size(), kinds, order);
+                    if (!kinds.count("TDDS"))
+                        continue; // (not a GameCube part)
+                    const std::optional<Bytes> made = gcPartToPs2(part.data, *placeholder, layers);
+                    if (!made)
+                        continue;
+                    part.data = *made;
+                    have.insert(lowerAscii(part.name));
+                    addedParts += (addedParts.empty() ? "" : ", ") + part.name;
+                    parts.push_back(std::move(part));
+                }
+            }
+            if (!writeFile(out / "create" / "PARTS.ZAL", writeNamedZdir(parts), error))
+                return false;
+            manifest.push_back(format("create PARTS.ZAL: %zu parts (the PS2's %zu), added after them: %s", parts.size(),
+                                      ps2Parts, addedParts.empty() ? "none" : addedParts.c_str()));
+            std::string added;
+            size_t addedCount = 0, greenSkins = 0, topless = 0;
+            for (const char *library : kCreateTextures)
+            {
+                const std::string path = std::string("create/") + library + ".zal";
+                std::vector<NamedEntry> mine;
+                if (!readLibrary(ps2, path, mine, error))
+                    return false;
+                const size_t ps2Count = mine.size();
+                std::set<std::string> names;
+                for (const NamedEntry &entry : mine)
+                    names.insert(lowerAscii(entry.name));
+                std::string leftOut;
+                size_t leftOutCount = 0;
+                for (const SourceFiles *other : others)
+                {
+                    std::vector<NamedEntry> theirs;
+                    if (!other || !other->find(path) || !readLibrary(*other, path, theirs, error))
+                        continue;
+                    for (NamedEntry &entry : theirs)
+                    {
+                        if (!names.insert(lowerAscii(entry.name)).second)
+                            continue;
+                        const std::string group = partGroup(entry.name);
+                        if (otherParts.count(group) && !have.count(group))
+                        {
+                            leftOut += (leftOut.empty() ? "" : ", ") + entry.name;
+                            ++leftOutCount;
+                            continue;
+                        }
+                        added += entry.name + "\n";
+                        ++addedCount;
+                        const std::string upper = upperAscii(entry.name);
+                        greenSkins += upper.find("_HUL") != std::string::npos;
+                        topless += upper.find("_TOPLESS") != std::string::npos;
+                        mine.push_back(std::move(entry));
+                    }
+                }
+                if (!writeFile(out / "create" / (std::string(library) + ".ZAL"), writeNamedZdir(mine), error))
+                    return false;
+                manifest.push_back(format("create %s.ZAL: %zu textures (the PS2's %zu)", library, mine.size(), ps2Count) +
+                                   (leftOutCount ? format(", %zu left out (no part): ", leftOutCount) + leftOut : std::string()));
+            }
+            if (!writeFile(out / "create" / "added.txt", added, error))
+                return false;
+            manifest.push_back(format("create added.txt: %zu textures (%zu green skin _Hul, %zu _Topless)", addedCount,
+                                      greenSkins, topless));
+            return true;
+        }
     }
 
     bool makeBmxReleases(const SourceFiles &ps2, const SourceFiles *xbox, const SourceFiles *gc,
@@ -675,7 +1307,8 @@ namespace ps2x::app::extras
         std::vector<std::string> manifest;
         if (!challenges(ps2, {xbox, gc}, out, manifest, log, error) || !stringTables(ps2, xbox, gc, out, manifest, error) ||
             !editorPieces(ps2, {gc, xbox}, out, manifest, error) || !movies(xbox, out, manifest, error) ||
-            !gameCubeLevels(gc, out, manifest, error))
+            !gameCubeLevels(gc, out, manifest, error) || !createARider(ps2, {xbox, gc}, out, manifest, error) ||
+            !xboxSongs(xbox, out, manifest, error))
             return false;
         std::string text;
         for (const std::string &line : manifest)

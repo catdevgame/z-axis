@@ -13,8 +13,8 @@
 //     ee::jumpDispatch(points::target, true); // the target starts an entry block
 //
 // On a fiber with safe points on the readable function leaves there as the
-// original does and goes on in the target's mode; under ps2xFnCheck (and with
-// PS2X_READABLE_SAFEPOINTS=0) only the dispatch's 8 cycles are charged, as
+// original does and goes on in the target's mode; under zx-fncheck (and with
+// ZX_READABLE_SAFEPOINTS=0) only the dispatch's 8 cycles are charged, as
 // the traced original's IndirectJump is.
 //
 // (Kept out of ee/abi.h, which every traced original includes.)

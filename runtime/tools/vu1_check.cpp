@@ -1,9 +1,9 @@
-// ps2xVu1Check: replays a VU1 run corpus recorded with PS2X_VU1_RECORD
+// zx-vu1check: replays a VU1 run corpus recorded with ZX_VU1_RECORD
 // through VU1Interpreter and compares every run bit for bit with the
 // recording: registers and flags out, all 16 KiB of data memory out, cycle
 // count, and every PATH1 packet.
 //
-//   ps2xVu1Check <corpus.vu1r>... [options]
+//   zx-vu1check <corpus.vu1r>... [options]
 //
 // Options:
 //   --stop          stop at the first run that differs
@@ -14,7 +14,7 @@
 //   --profile       per start PC: runs, cycles, packets and replay time
 //   --trace <seq>   print pc, cycle and VI registers of every pair of run <seq>
 //   --dump <seq> <prefix>  write <prefix>.code/.data-in/.data-out/.regs-in
-//                  (vudis.py / PS2X_VU1_DUMP layout) and <prefix>.state-in /
+//                  (vudis.py / ZX_VU1_DUMP layout) and <prefix>.state-in /
 //                  .state-out (StateImage) for run <seq>
 //   --poke <qword> <lane> <hex>  every run starts with that lane of that data
 //                  qword (0 x .. 3 w) holding the value, and the recorded data
@@ -78,7 +78,7 @@ namespace
 #if defined(_WIN32)
         return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 #else
-        return ps2x::currentThreadCpuSeconds();
+        return zx::currentThreadCpuSeconds();
 #endif
     }
 
@@ -306,7 +306,7 @@ int main(int argc, char **argv)
         else if (arg == "--module" && index + 1 < argc)
         {
             std::string error;
-            if (!ps2x::game_module::load(argv[++index], error))
+            if (!zx::game_module::load(argv[++index], error))
             {
                 std::fprintf(stderr, "%s\n", error.c_str());
                 return 2;
@@ -317,7 +317,7 @@ int main(int argc, char **argv)
     }
     if (paths.empty())
     {
-        std::fprintf(stderr, "usage: ps2xVu1Check <corpus.vu1r>... [--stop] [--quiet] [--time] [--repeat n] "
+        std::fprintf(stderr, "usage: zx-vu1check <corpus.vu1r>... [--stop] [--quiet] [--time] [--repeat n] "
                              "[--profile] [--dump seq prefix] [--poke qword lane hex] [--reads qword] [--chain "
                              "[--poke-range first last lane hex [--poke-top] [--poke-if qword lane hex]] [--poke-pc pc]] "
                              "[--module path]\n");

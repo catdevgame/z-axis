@@ -36,6 +36,16 @@ All code is in z-axis `runtime/src/game` unless a path says otherwise.
   $PY -I $W query "SELECT * FROM stale_verified"      # tables and views: `tables`, `schema TABLE`
   ```
 
+  The database is built from the discs, so a public clone has none: there `card` and `notes` (plain
+  `python3 -I tooling/dm2/tools/workdb.py card NAME|ADDR`, no duckdb) read the notes' public export,
+  `tooling/dm2/tools/workdb_notes.jsonl` (text only: each note on the function the database puts it in, keyed by that
+  function's `ghidra-functions.csv` name, whose bounds, without the map's `entry_` rows, are the database's; addresses,
+  sizes and names come from the public tables, counterparts from the bind tables; a note in no function, a global's or a function the map has only as `entry_`
+  labels, is kept under the readable name of its address, `card NAME` finds it). `workdb.py export-notes` writes
+  it from the database, held to `public_scan.py`'s rules (sources left out, a private token or an address no public
+  table has replaced), and `export-notes --check` says whether the committed one is current. `WORKDB_PUBLIC=1` reads
+  the export with the database there.
+
 - Per-function findings go into the database as `note` results
   (`workdb.py emit FILE note addr=0x... topic=bug-kept text="..." run=NAME generator=NAME agent=NAME source=PATH_OR_COMMIT`
   into `$ZAXIS_SCRATCH/workdb/results/<name>/`; the next `build` ingests them,
@@ -44,29 +54,29 @@ All code is in z-axis `runtime/src/game` unless a path says otherwise.
   progress site) shows each game's functions by what runs for them (readable and proven, AI's body tried,
   generated only) per layer and per folder, the source plan's steps (edited when work
   merges or starts) with each step's measured number, the checks of every batch, the scaffolding counts and the
-  trends. `STATUS_NO_BUILD=1` keeps the database as it is; `status.py OUT_DIR --no-history` builds without pushing.
+  trends.
 - `docs/DEAD-CODE.md`: the functions no game path reaches and what they are for.
 
 ## Statuses
 
-Set in the registration (`READABLE_FUNCTION(0x00148408, stringTableText, Tested);`,
+Set in the registration (`READABLE_FUNCTION(stringTableText, Tested);`,
 `READABLE_FUNCTION_WAITS`, `READABLE_FUNCTION_VU0`, `READABLE_PLANNED`):
 
 | Status | Means |
 |---|---|
 | `Planned` | recorded only: the registration makes the recorder keep its calls, nothing runs |
 | `Draft` | written (by hand or by the generator), not yet proven on every recorded call |
-| `Tested` | identical on every recorded call (`ps2xFnCheck`, all verdicts pass) |
+| `Tested` | identical on every recorded call (`zx-fncheck`, all verdicts pass) |
 | `Verified` | Tested, and logiccheck 21/21 MATCH with it on; on by default |
 
 Verified needs real recordings: the game's own routes, or guest calls on real game objects in states the game itself produces. Made-up data or generated calls earn Tested at most (`resolveBodyContact`: a route's holds from the dead `newBodyContactRecord`, on a real ragdoll, are made-up data).
 
-A Draft no route reaches can also carry generated-call evidence (`diffcall.py`, the `evidence` notes, the coverage page): the original against the readable on generated arguments from real game states. It is not a status: nothing is promoted or turned on by it. A pass there is weak evidence: on the code before quar1's fixes the generated calls of `trickRelease` and `__svfscanf` all passed, and neither of those two real bugs showed.
+A Draft no route reaches can also carry generated-call evidence (`diffcall.py`, the `evidence` notes, the coverage page): the original against the readable on generated arguments from real game states. It is not a status: nothing is promoted or turned on by it. A pass there is weak evidence: on the code before two real bugs in `trickRelease` and `__svfscanf` were fixed, their generated calls all passed, and neither bug showed.
 
-`PS2X_READABLE` changes what runs: `off`, `tested`, `all`, names or addresses,
+`ZX_READABLE` changes what runs: `off`, `tested`, `all`, names or addresses,
 `-name` to leave one out, `on,0x..,0x..` adds addresses to the defaults,
 `tested,-0x..` takes them away (see `ee/readable.h`). Record with
-`PS2X_READABLE=off`. A function stays Draft for a reason, and the reason is a note
+`ZX_READABLE=off`. A function stays Draft for a reason, and the reason is a note
 (`notes ADDR`, topic caveat) and the sweep's newest failure class (`card`).
 Defaults must not change game logic; new behaviour goes behind a setting.
 
@@ -76,7 +86,7 @@ Current numbers: the database's `readable` table counts registrations by status
 coverage, `stale_verified` the Verified functions whose source changed since their
 last pass. `runtime/tools/readable_coverage.py [--profile file.csv]` counts the
 game's functions (the Ghidra map without its entry_* rows), the named ones and the
-readable ones per address area, and with a `PS2X_FNPROF` profile lists the functions
+readable ones per address area, and with a `ZX_FNPROF` profile lists the functions
 that take EE time. `tooling/checks/readable_names_count.py [--json] [--by-file]`
 counts the machine-shaped symbols left (fn_XXXX, kFunXXXX, g_XXXX, field_0x, param_N,
 register-named locals) in the swept drafts and in the hand-written sources. The
@@ -87,18 +97,19 @@ engine 2,648, game 2,728 (of 6,324).
 
 ```
 src/game/
-  game.cmake, game_headers.cmake   built into the runner and ps2xFnCheck; every header compiled on its own
+  game.cmake, game_headers.cmake   built into the runner and zx-fncheck; every header compiled on its own
   ee/        the framework: ee.h (EE RAM: ee::at, the guest map's base + address (runtime/guest_map.h: RAM at every
              address the runtime folds onto it, the scratchpad at its two), ee::Ptr<T>, ee::Global<T, address>,
              ee::Float), abi.h/.cpp (the
              calling convention: ee::entry<&fn>, ee::call<R>(address, ...), ee::StackFrame, ee::chargeCycles),
              suspend.cpp + fiber*.cpp (suspendable calls on host fibers), vu0.h (VU0 macro-mode lane arithmetic),
-             readable.h/.cpp (the registry, PS2X_READABLE, install), fncheck*.h/.cpp (call recording, the recording
-             format, traced originals, block tables, digests), fncheck_main.cpp (ps2xFnCheck), io.h (I/O registers
-             from readable code), dispatch.h (tableJump), profile.cpp (PS2X_FNPROF), cycletrace.cpp (PS2X_FNCYCLES)
+             readable.h/.cpp (the registry, ZX_READABLE, install), fncheck*.h/.cpp (call recording, the recording
+             format, traced originals, block tables, digests), fncheck_main.cpp (zx-fncheck), io.h (I/O registers
+             from readable code), dispatch.h (tableJump), profile.cpp (ZX_FNPROF), cycletrace.cpp (ZX_FNCYCLES)
   zge/       the Z-Axis ZGE3 engine (0x100100-0x171000): math, text (strings, fonts, the script token reader), memory
              (record pools, small heaps, handle regions), containers, assets (IFF, GEO/TXR/MATI loaders, geometry objects, tag tables, images, zfile, the RAM disk), sound, native (assets read on the host:
-             textures, GEO meshes, collision parts), render (the display's frame loop and video mode, the renderer,
+             textures, GEO meshes, collision parts), zgui (zgui.c's start and end and file tokens, the UI tree and its script interpreter), editor
+             (the park editor AI and BMX XXX link, one body), render (the display's frame loop and video mode, the renderer,
              parts, materials and their kinds and MATI states, texture levels and cache, draw submission and its draw
              records, class renderers, shadow volumes; render/ps2 the strict encoders the PS2 draws with: the DMA
              channels, the frame packets and their fix-ups, the display's GS side and libgraph's buffers, the class
@@ -117,8 +128,7 @@ src/game/
              native draws at their place in the GS stream)
   aggressive/  the game itself (0x171000-0x202800): globals, follow camera, tuning table, NPC types and pickups,
              pads, camera, game_frame, effects, replay; fx/ (particles); level/ (scene objects, traffic, props, bodies,
-             dynamics, park editor); sound/; script/ (the level scripts' stack machine); zgui/ (zgui.c's start and end and file tokens, the UI tree and its
-             script interpreter); skater/ (the player, the state table, every state's files, tricks, score); hud/
+             dynamics, park editor); sound/; script/ (the level scripts' stack machine); skater/ (the player, the state table, every state's files, tricks, score); hud/
   sce/       libraries linked into the ELF, one file per library, each ported from its pinned version's source: newlib
              1.8.2's libm and libc (libc, libc_stdio, libc_malloc, libc_strtod, libc_scanf, libc_printf, mprec; newlib.h
              has its records), GCC 2.95's libgcc (with __main). What the EE toolchain changed and no source on disk has
@@ -149,7 +159,7 @@ A host form (ee/host_form.h) is an engine function as the host platform runs it,
 the PS2 form the readable game proves (zge/host/disc_device.cpp's dvdOpenOnHost for
 zge/assets/dvd_device.cpp's dvdOpen): readable C++ at the game's symbols, one body in every
 game's instance, registered with `HOST_FORM(system, sym::fn, fnOnHost)` and installed by its
-system's own switch (`[host] disc = native`, the default), never by PS2X_READABLE, so the A/B's
+system's own switch (`[host] disc = native`, the default), never by ZX_READABLE, so the A/B's
 two sides run the same form. It is not recorded or replayed: the gate's runs prove it; the PS2
 form keeps its replay proof under `[host] disc = ps2`.
 
@@ -178,7 +188,7 @@ The rules:
   the guest stack, in declaration order from the frame's bottom; `tools/readable_locals.tsv` names the place of
   one the original keeps elsewhere, by ordinal: the count of the function's Locals alive where it is made (a Local
   of a block that has ended counts no more, so sibling blocks share an ordinal; a lambda's or a plain helper's count
-  on from where it is called), each Local with its own row. `tools/readable_locals_order.py` (lanecheck, merge-check)
+  on from where it is called), each Local with its own row. `tools/readable_locals_order.py` (run at every merge)
   checks every row against the source. A local no game code sees is a plain C++ local. Vector arithmetic is
   zge/math/vec.h: each operator runs on VU0, so what it leaves is what the original leaves. A vector operation loads the
   aligned quadword its operand sits in, as VU0 does. A store is plain C++ and does not: where the destination may sit off a
@@ -186,10 +196,11 @@ The rules:
   original loads it with LQC2 or LQ: a plain word load stays a field read.
 - Game code calls a game function by its name, in the original's order with its arguments: the checker requires the
   same calls. In a plain source (`src/game/plain_sources.txt`: sce, zge/math, container, memory, text, input, assets,
-  platform, sound, movie, collision, render, scene, zgui, debug, zge/utilities.cpp, and game/aggressive, its level/ folder file by file) a function
+  platform, sound, movie, collision, render, scene, zgui, debug, editor, zge/utilities.cpp, game/aggressive, its level/ folder file by file, and game/dm2 and
+  game/bmx) a function
   is defined, declared and called by its plain name with its own types, `vec3Length(&v->xyz())`, and registered
   `READABLE_FUNCTION(name, Verified)`. The build compiles a copy of the file (`tools/readable_entries.py`,
-  `<build>/readable_entries/`) where the definition is `name_` and `name` is its entry
+  `<build>/runtime/readable_entries/`) where the definition is `name_` and `name` is its entry
   (`game::detail::Route<&name_>::at<sym::name>`: the replay's answers, a hook, a function switched off, a fiber, the
   callee's frame), so the source never says any of that. Arguments are what the parameters say: an object in game
   memory goes as `&object`, a Vec4 to a Vec3 parameter as `&v.xyz()`, an `ee::Local` or `ee::Ptr` converts to the
@@ -206,14 +217,14 @@ The rules:
   with a trailing underscore, is registered `READABLE_FUNCTION(sym::name, name_, Verified)`, and has
   `GAME_CALL(name);` after its declaration (ee/readable.h): `orthonormalize(a, b, c)`, or `zge::heapFree(p)` from
   another namespace, does what `game::call` does, so hooks, a function switched off and the replay's answers all
-  hold; the function's name everywhere else (PS2X_READABLE, the tables) has no underscore. Anything else (a
+  hold; the function's name everywhere else (ZX_READABLE, the tables) has no underscore. Anything else (a
   recompiled callee, a readable one the file does not declare) has one typed line in `namespace { }` above its
   first caller, over `ee::game` or `game::call`; `ee::Address` is a parameter several kinds of address reach. A
   tail call keeps its form (`tail::name` when the plain name is taken). A call whose callee's register leftovers
   are read after it stays `ee::call`. `name_(...)` called directly skips all of that: only where the original's
   was no call. Several registrations with identical code fold into one host function on lld-link: they keep
   `game::callAt<&fn, sym::name>`.
-- A game function held as data (a callback, a table's entry, a class's hook) is `ee::FunctionPtr<R(A...)>` (ee/function_ptr.h): 32 bits as the game stores it, 0 is none, and `pool->allocate(bytes, mask)` is the original's jump through the pointer. Its parameters say what the callee takes. `readable_args.py` scans for `ee::call`, so it does not see these calls.
+- A game function held as data (a callback, a table's entry, a class's hook) is `ee::FunctionPtr<R(A...)>` (ee/function_ptr.h): 32 bits as the game stores it, 0 is none, and `pool->allocate(bytes, mask)` is the original's jump through the pointer. Its parameters say what the callee takes. `readable_args.py` checks these calls as indirect calls, the pointer's signature saying which words are floats.
 - COP0 reads: `ee::io::cop0Count()` is `mfc0 rt, Count` (the EE cycle counter, as the recompiled
   instruction reads it), `cop0Status()`, `cop0Perf()`, and `cop0Register(rd)` / `setCop0Register(rd,
   value)` for the rest, with the recompiler's masks. Recordings keep Count at the call (record
@@ -231,11 +242,11 @@ The rules:
   `PS2_*` forms on `ee::Qword`, SA, HI:LO).
 - A register the original only hands on unchanged (to a callee or a tail jump: a variadic
   one's a3-t3) is not a parameter: pass the caller's on with `ee::callerRegister(ee::reg::t0)`.
-  A parameter too many makes every drafted caller pass a leftover (zgehand10's formatString
+  A parameter too many makes every drafted caller pass a leftover (formatString
   with eight made newAppInstanceNode's draft take t0-t3, and spawnDebris failed the check).
   That holds for a register nothing reads. One a table's method reads (a jalr shows the drafter no arguments) is a named parameter, and pass it: once a row is
   hand-written, drafted callers call it as `game::call<&fn>` with the signature's arguments, `ee::callerRegister` and the context then hold the caller's own, and the replay
-  answers such calls from the recording, so only the game shows it (gamehand25: activateEditTool's a1, updateEditTool's f12; the editor A/B hung).
+  answers such calls from the recording, so only the game shows it (activateEditTool's a1, updateEditTool's f12: the editor A/B hung).
 - A local the original never initialises (a kept bug: initZgui's and finishUiImageLoad's material flags) holds what
   the caller left in the register its compiler gave it: `const ee::LeftByCaller<int32_t> flags;` (ee/plain.h), read
   like the value it had at entry. The register is the function's row of `tools/readable_entry_reads.tsv`, which the
@@ -257,11 +268,11 @@ The rules:
   between two calls run as a small program where it loops (a value only when the run went the
   original's way to the site). Game
   code has no part in it. A value it cannot give (a loop that stores, an operation not
-  modelled: `<build>/fncheck_build/readable_held_unknown.tsv`) is the entry value, the replay's
+  modelled: `<build>/runtime/fncheck_build/readable_held_unknown.tsv`) is the entry value, the replay's
   `saves_differ` / `held_differ` notes; a draft's `ee::calleeSaves` still wins. That is no proof
   of the value: the original may have changed the register, and the entry value is right only
   while every readable level above hands on what the original held (DM2's showGameScreen's s4,
-  a select since held2, went to actionStart as runScript's). Of several sites a call can be, the
+  before the table gave it as a select, went to actionStart as runScript's). Of several sites a call can be, the
   case's checks (the call's arguments as the original makes them, loads included, read only to
   choose, and in the game only) pick one, and so do the branch conditions its path met since the
   previous call; a load that cannot be read rules its case out. A value
@@ -269,9 +280,9 @@ The rules:
   site set compared by that value) is given only when one of the
   case's checks was worked out and held, else the entry value. The table's programs and each case's values
   and checks are also generated as code from the same nodes (`tools/readable_held_code.py`, `ee/held_program.h`:
-  one meaning per node for both), which the runtime runs; `PS2X_READABLE_HELD_CODE=0` works the rows and nodes
-  instead, `=check` both, compared. `PS2X_READABLE_HELD=0` leaves the
-  table out. AI's app runs without it (`PS2X_READABLE_LEAN=1`, its boot's default there: a third of the EE thread in
+  one meaning per node for both), which the runtime runs; `ZX_READABLE_HELD_CODE=0` works the rows and nodes
+  instead, `=check` both, compared. `ZX_READABLE_HELD=0` leaves the
+  table out. AI's app runs without it (`ZX_READABLE_LEAN=1`, its boot's default there: a third of the EE thread in
   AI's levels; DM2 and BMX XXX keep it until the words it alone gives them are proven unused); the A/B, the replay and the logic checks keep it, so what it alone gives (the bits a guest
   function takes from a register it never set, stack lanes a record copies) stays the original's there.
 - A callee that can wait (a file read, a semaphore) or yield: register with
@@ -291,7 +302,7 @@ The rules:
   out. `readable_marks.py --check BUILD` lists what is owed.
   Where the drafter does not finish (`Planned`, "the generator does not finish"), write it from
   the listing (decomp/asm) with the entry blocks recomp/generated's `entry_*` files name.
-  After a drafter change, `readable_sweep.py manifest-redraft --build DIR --target ps2_game_readable`
+  After a drafter change, `readable_sweep.py manifest-redraft --build DIR --target zx_game_readable`
   drafts every Planned row again with no run state (a draft that does not compile goes back to
   Planned with the error). `--add --only @LIST --why WHY` adds functions in no manifest.
 - Verified code holds no open item: a draft with a `TODO`, an inline `/* TODO ... */` or an
@@ -323,23 +334,23 @@ READABLE_FUNCTION(memoryFill, Verified);                     // the address is t
 READABLE_FUNCTION_IN(dm2, sym::dm2::riderFrame, riderFrame, Verified);  // DM2's own, outside game/dm2
 ```
 
-- `tools/readable_symbols.tsv`: kind, name, address, function (a point's), game (empty: AI's). Names and addresses only, the same kind of data as `readable_names.tsv`; committed so AI builds without the work database. `generate` makes it: AI's functions and data from the work database (registrations, `readable_names.tsv`, the sources' constants and globals), each resume point from the machine code; a name a source uses stays as it is (`rename` changes one, in the table and the sources), so only an address no source names takes the database's name as it stands. `generate --drafts <build>/ps2xRuntime/readable_sweep --check` says the committed file is what the database gives. Rows of game `dm2` (`bmx`) are addresses of that game's own: in its folder (game/dm2, compiled in DM2's instance only, its sources including `sym/dm2/...`) they are plain `sym::name`, `points::fn` and `READABLE_FUNCTION(fn, Verified)`, which the tools read as DM2's (`literal_view` gives `READABLE_FUNCTION_IN(dm2, ...)`); anywhere else `sym::dm2::name`. `convert` makes them, `generate` keeps them and adds the database's DM2 function names.
+- `tools/readable_symbols.tsv`: kind, name, address, function (a point's), game (empty: AI's). Names and addresses only, the same kind of data as `readable_names.tsv`; committed so AI builds without the work database. `generate` makes it: AI's functions and data from the work database (registrations, `readable_names.tsv`, the sources' constants and globals), each resume point from the machine code; a name a source uses stays as it is (`rename` changes one, in the table and the sources), so only an address no source names takes the database's name as it stands. `generate --drafts <build>/runtime/readable_sweep --check` says the committed file is what the database gives. Rows of game `dm2` (`bmx`) are addresses of that game's own: in its folder (game/dm2, compiled in DM2's instance only, its sources including `sym/dm2/...`) they are plain `sym::name`, `points::fn` and `READABLE_FUNCTION(fn, Verified)`, which the tools read as DM2's (`literal_view` gives `READABLE_FUNCTION_IN(dm2, ...)`); anywhere else `sym::dm2::name`. `convert` makes them, `generate` keeps them and adds the database's DM2 function names.
 - A new symbol: a name for an unnamed datum goes in `readable_names.tsv` (`datum 0xADDRESS name confidence evidence`, for this table only; `global` rows also drive the drafter's output; `part 0xADDRESS name+0x10 ...` for an address inside a named object, written `(sym::name + 0x10)`), for anything else `readable_symbols.py add function NAME 0xADDRESS`, `add data ...`, `add point NAME 0xADDRESS FUNCTION`, `--game dm2`; or write the code with literals and run `convert FILE`, which names what it can and lists the rest. `rename OLD NEW` follows a rename through the table and the sources.
 - A point's name is a pure function of the code: `afterStrcat`, `loop`, `join`, `taken`, `notTaken`, `done`, `next`, numbered in address order over all the function's instructions, so a name does not change with which points a source uses. These are role names; a person replaces them, or marks leave the source, and they go with them.
-- `runtime/tools/bind/<game>.tsv`, the game's bind table, and `<game>.layout.tsv` beside it: generated and committed, so a commit builds with its own tables on every host and a lane changes them in its own branch. `readable_symbols.py bind --write` makes both from the work database as its last `workdb.py build` left it, the two ELFs (paths.env's workspaces) and the tree's sources, and writes the ones that differ (the venv's python, which it starts itself; a second); `bind --check`, which lanecheck runs, fails when a committed one is not what they make: a work database built since with other pairs, or a level-2 function whose fields changed. A table's first line names the database build it was made from. Every build of the commit uses these (game.cmake: `PS2X_BIND_DIR` set, whatever it names, is this folder; rcheck's jobs build from the checkout's), never a shared copy; a commit from before tools39 still builds from paths.env's `GAME_BIND_LEGACY`. The table (`table --game dm2 --elf-game ELF --out FILE`, what `bind` runs) walks every pair the database calls identical word by word (a pair that fails is an `entry`), and each pair's `jal`, `lui`/low and gp-relative words prove where the game has AI's callees and data. `body` rows rebase every address inside the function, `entry` rows only its start. A pair the match got wrong, read in both games' machine code, is a `pair` result (`workdb.py emit FILE pair addr=AI build=ai_ps2 b_build=dm2_ps2 b_addr=GAME method=read cls=identical|close|drifted confidence=high ...`, with its evidence in a note; `b_addr=0`: no counterpart): the next `build` takes it in place of the match's.
+- `runtime/tools/bind/<game>.tsv`, the game's bind table, and `<game>.layout.tsv` beside it: generated and committed, so a commit builds with its own tables on every host and a branch changes them with its code. `readable_symbols.py bind --write` makes both from the work database as its last `workdb.py build` left it, the two ELFs (paths.env's workspaces) and the tree's sources, and writes the ones that differ (the venv's python, which it starts itself; a second); `bind --check`, which every merge runs, fails when a committed one is not what they make: a work database built since with other pairs, or a level-2 function whose fields changed. A table's first line names the database build it was made from. Every build of the commit uses these (game.cmake: `ZX_BIND_DIR` set, whatever it names, is this folder; remote checks build from the checkout's), never a shared copy; an older commit with no `tools/bind` still builds from paths.env's `GAME_BIND_LEGACY`. The table (`table --game dm2 --elf-game ELF --out FILE`, what `bind` runs) walks every pair the database calls identical word by word (a pair that fails is an `entry`), and each pair's `jal`, `lui`/low and gp-relative words prove where the game has AI's callees and data. `body` rows rebase every address inside the function, `entry` rows only its start. A pair the match got wrong, read in both games' machine code, is a `pair` result (`workdb.py emit FILE pair addr=AI build=ai_ps2 b_build=dm2_ps2 b_addr=GAME method=read cls=identical|close|drifted confidence=high ...`, with its evidence in a note; `b_addr=0`: no counterpart): the next `build` takes it in place of the match's.
 - `game/<game>/bound.tsv`: AI's symbols a game has where no pair of the table names them (a callee a drifted caller reaches, a datum only close code uses, a function inside another's body), one row each with the evidence read in that game's machine code (an identical pair's walk the table did not take, the same words found once in each ELF, a recording's call, the same bytes): kind, AI's name, the game's address, the evidence. A close function's resume point is a `point` row named `FUNCTION::NAME` (the source's `points::FUNCTION::NAME`, `here::NAME`), its function bound and the point after its start. `Bind` adds them to the table; a row the table names otherwise stops it. An address with no such evidence stays unbound.
 - Pairs settle against each other (`settle_votes`): an identical pair is only proven by the words a link does not change, so a row its callers contradict is corrected from the call sites, and a pair that contradicts a sure row (a pair read in the machine code, a long identical pair, or most callers) stays an entry and shares no body; a read that the game has no counterpart is sure too, so no call site or alignment gives that function a row (BMX XXX's nodeNameHash). Every pair of equal size is walked, moves carry a `lui`'s high half, and a `lui` hoisted over a branch is followed into both arms. What a close pair's instructions line up with (runs of 6, matched by kind) gives `aligned` rows for addresses no walk names, and corrects a position-found row that no walk names (BMX XXX's freeMaterial: a drifted pair's alignment named another function where an identical caller's walk names the right one). Where close pairs disagree on a datum, an alignment that makes it an address an identical walk names as another AI datum's loses (BMX XXX's g_animalCarrierTree had no row while a mispaired function voted it the animators' tree); and two globals in another order, used in that order, walk word for word: where at least two close pairs align a datum to an address the walk names as another datum, and outnumber its walkers, those walkers stay entries (BMX XXX's carrier and attachment pools, freed in the other order by its freeCarriedAnimals).
 - Each source includes its own header, `#include "sym/zge/text/cstring.cpp.h"`: generated at build time per source and game (`headers`), written only when its text changes, so a new symbol recompiles the files that name it. The constants are compile-time: AI's objects come out byte for byte.
-- A game's instance: its own folder (game/dm2, game/bmx), which no other instance compiles (AI's is zge, sce and game/aggressive), and `PS2X_GAME_INSTANCE_SOURCES_<game>` in game.cmake, the shared sources compiled again for that game (`PS2X_BIND_DIR` set; DM2's is every source of `game/dm2/instance_sources.txt`, the engine it has, in every build with its bind table), with its headers and `zge`, `sce`, `sweep` renamed (`-Dzge=zge_dm2`), so every function, inline and constant is that game's own. Each registered function gets a level: 2 its body runs there (identical word by word, every symbol it names bound, every readable callee at least level 1), 1 only its address is known (registered Planned: `game::call<&fn>` reaches the recompiled function), 0 no such function there. A game folder that is a plain source (game/dm2 in `plain_sources.txt`) calls its engine by name (`zge::vec3Negate(...)`, its instance's entries) and is built only with that instance: a build with no bind table has none of that game's code. `<build>/symbols/<game>/levels.tsv` lists the instance's functions with the reason. The instance renames `sym` and `points` too: their constants are `inline`, and one passed by reference would be a weak symbol shared with AI's objects. A status is per game, in `game/<game>/symbols_status.tsv`: nothing is on in another game because it is on in AI; it is proven on that game's recordings first. A shared body a game cannot run is a `Planned` row there with its reason (its level is 1), never a registration under `#if` in zge.
+- A game's instance: its own folder (game/dm2, game/bmx), which no other instance compiles (AI's is zge, sce and game/aggressive), and `ZX_GAME_INSTANCE_SOURCES_<game>` in game.cmake, the shared sources compiled again for that game (`ZX_BIND_DIR` set; DM2's is every source of `game/dm2/instance_sources.txt`, the engine it has, in every build with its bind table), with its headers and `zge`, `sce`, `sweep` renamed (`-Dzge=zge_dm2`), so every function, inline and constant is that game's own. Each registered function gets a level: 2 its body runs there (identical word by word, every symbol it names bound, every readable callee at least level 1), 1 only its address is known (registered Planned: `game::call<&fn>` reaches the recompiled function), 0 no such function there. A game folder that is a plain source (game/dm2 in `plain_sources.txt`) calls its engine by name (`zge::vec3Negate(...)`, its instance's entries) and is built only with that instance: a build with no bind table has none of that game's code. `<build>/runtime/symbols/<game>/levels.tsv` lists the instance's functions with the reason. The instance renames `sym` and `points` too: their constants are `inline`, and one passed by reference would be a weak symbol shared with AI's objects. A status is per game, in `game/<game>/symbols_status.tsv`: nothing is on in another game because it is on in AI; it is proven on that game's recordings first. A shared body a game cannot run is a `Planned` row there with its reason (its level is 1), never a registration under `#if` in zge.
 - Layouts: `layouts` takes the struct fields a level-2 function uses and the offsets the game's own machine code uses; the instance has them as `static_assert`s (`sym/<source>.layout.h`, included at the end of the source). A field that differs in a game fails there; the struct then gets a per-game difference, which an instance can have at compile time.
-- Per-game differences: `game::readable::perGame(ai, dm2)` for a constant, `game::readable::kIsDm2` for a step, `#if PS2X_GAME_DM2` for a struct's fields (an instance's macro; each field at the offset that game's machine code uses). `game/<game>/close.tsv`: functions whose words differ and which were read as the same logic, one row each with what differs; they get level 2 and are proven on that game's recordings like any other. An address two AI functions share (DM2 calls `heapAllocate` where AI calls `allocateSized`) registers one body. A field only one game's struct has (ZGE4's emitter burst, DM2's primitives switch) is reached through an accessor named for what it returns (`emitterBurst(data).rate`, `primitivesOnWord(words)`), defined in the header in a `#if PS2X_GAME_BMX` block beside the fields with the other games' stubs in its `#else` (pool.h's clearMostInUse is the pattern): the block holds accessors and fields only, never logic, and the shared body uses the accessor under `kIsBmx`, so it compiles in every game's build and no `#if` enters a .cpp.
-- A function only one engine version has, with no AI function to bind (ZGE2's `lengthSquared`, which ZGE3 and ZGE4 square inline): `READABLE_FUNCTION_ONLY(dm2, lengthSquared, Draft);` (`_WAITS_ONLY`, `_VU0_ONLY`; ee/readable_waits.h) in the shared file of the code around it, its body defined `inline` there (`headers` stops otherwise) and its symbol the game's own row (`sym::dm2::x`, `sym::bmx::x`). AI's build registers nothing and emits nothing of it, so AI's objects are what they were; that game's instance binds it at level 2 (1 when something it names is not bound there) with its `symbols_status.tsv` status, another instance not at all. The tools read it as that game's `_IN` registration (the lint counts it with the game's folder); it is not `reg_in`. Callers reach it through its symbol, as the original's `jal` does.
+- Per-game differences: `game::readable::perGame(ai, dm2)` for a constant, `game::readable::kIsDm2` for a step, `#if ZX_GAME_DM2` for a struct's fields (an instance's macro; each field at the offset that game's machine code uses). `game/<game>/close.tsv`: functions whose words differ and which were read as the same logic, one row each with what differs; they get level 2 and are proven on that game's recordings like any other. An address two AI functions share (DM2 calls `heapAllocate` where AI calls `allocateSized`) registers one body. A field only one game's struct has (ZGE4's emitter burst, DM2's primitives switch) is reached through an accessor named for what it returns (`emitterBurst(data).rate`, `primitivesOnWord(words)`), defined in the header in a `#if ZX_GAME_BMX` block beside the fields with the other games' stubs in its `#else` (pool.h's clearMostInUse is the pattern): the block holds accessors and fields only, never logic, and the shared body uses the accessor under `kIsBmx`, so it compiles in every game's build and no `#if` enters a .cpp.
+- A function only one engine version has, with no AI function to bind (ZGE2's `lengthSquared`, which ZGE3 and ZGE4 square inline): `READABLE_FUNCTION_ONLY(dm2, lengthSquared);` (`_WAITS_ONLY`, `_VU0_ONLY`; ee/readable_waits.h) in the shared file of the code around it, its body defined `inline` there (`headers` stops otherwise) and its symbol the game's own row (`sym::dm2::x`, `sym::bmx::x`). AI's build registers nothing and emits nothing of it, so AI's objects are what they were; that game's instance binds it at level 2 (1 when something it names is not bound there) with its `symbols_status.tsv` status, another instance not at all. The tools read it as that game's `_IN` registration (the lint counts it with the game's folder); it is not `reg_in`. Callers reach it through its symbol, as the original's `jal` does.
 - A version's own implementation under the shared symbol (different logic): `READABLE_FUNCTION_OWN(fn, Verified, dm2, ownName[, bmx, ownName2]);` (ee/readable_waits.h), the own body named for what it does in the same file. It is its game's alone: the build copy makes it inline elsewhere and its entry that game's (`READABLE_ONLY_DEFINE`), so AI's objects have none of it; that game's code calls it by its name, with its own parameter list (DM2's `shapeBoundsOverlapBox`, ZGE2's queryOverlapsBox).
 - A shared function one version has far from the others, whose own body is that game's (game/bmx/debug's drawColouredDebugText for drawDebugText): `READABLE_EXCEPT(bmx, READABLE_FUNCTION(drawDebugText, Verified));` (ee/readable_waits.h) registers it in every build but that game's instance, which registers only the game's own body at the address (its row, `READABLE_FUNCTION(drawColouredDebugText, Draft)` in the game folder, or an _ONLY function the bind's pair put the shared name on); `headers` gives the shared name level 0 there ("not registered here"), and the shared name's entry calls what the game has at the address. Without it the instance has two registrations at one address and `readable::find` takes whichever links first.
 - One body whose versions take other words (ee/readable_waits.h): a parameter only some versions have is written after the one before it, with no comma between, and its value in the other versions' bodies, `void skinnedColourWord(Packet packet, ee::Ptr<ZgePart> part, uint32_t vertex READABLE_PARAM_ONLY(bmx, uint32_t colourShift = 1))` (`READABLE_PARAM_EXCEPT(dm2, uint32_t flags = kNodeKeepsRegion)` for all versions but one; a header's declaration names it without the value); a call passes it the same way, `skinnedColourWord(packet, part, vertex READABLE_PARAM_ONLY(bmx, colourShift))`; a result only some versions have is `READABLE_RESULT_ONLY(dm2, uint32_t) addRigidColours(...)` (void in the others) with `return READABLE_RETURN_ONLY(dm2, vuAddress);`. AI's build sees exactly its own words. A first parameter one version has not, another order of the first words, or other logic is an own body. The tools read a game's view through `readable_symbols.version_view`; `readable_layering` counts each form (`per_game_word`).
 - The layering: one engine, three games. zge holds the engine once, whichever games use a function: a game that lacks one does not call it (or its instance leaves the file out), and a difference goes inside the one body (`perGame`, struct fields side by side in the header, `if constexpr` for a step one game skips; never an `#if` in a .cpp). A game folder holds its game's code, and only game code may have a second copy (BMX XXX's park editor beside AI's). Engine or game is a question of evidence: each original links the engine library (`../ngengine/ZGE*`) first and the game's own sources (`./src/com`, `../GameTools`) after, so where a function sits in each game's ELF and where its counterparts sit in the others' says which it is. `tooling/checks/readable_layering.py --check` counts, by folder, game conditionals (`pp_game`; their lines in a .cpp, `pp_lines`, and in a header, `layout_lines`), `kIsDm2`-style branches, `perGame` values and layout checks, another game's registrations outside its folder (`reg_in`), game/aggressive functions a zge file names (`up_ref`), game code in zge (`game_in_zge`), engine code in a game folder (`engine_in_game`), and functions whose evidence disagrees, not yet judged (`split_in_zge`, `split_in_game`). The evidence is `readable_layering_games.tsv` (`readable_layering.py games`, from the work database: each AI function's block, its counterparts' classes and blocks); a verdict given one function at a time goes in `readable_layering_judged.txt` with its evidence. Where the engine calls into the game (engineMain's `gameStartup`, the scene database's packed library reader), `zge/game.h` declares the function in the engine's namespace and each game defines it: AI in game/aggressive (a plain source, so the call is its entry), DM2 and BMX XXX in their folders (`game_main.cpp`: their originals by address until each has a body); `up_ref` does not count those. Counts only go down (`--rebaseline` refuses a rise), except once when a new game joins ee/game_id.h. The collection (the third layer: `runtime/src/collection`, `include/collection`: the app and its game picker, the shared settings, the bottom screen, mods) is counted over `runtime/src` and `runtime/include` by the headers each file includes: `collection_in_engine` and `collection_in_game` (an engine or game file including `collection/`: never), `collection_reach` (a collection file including an engine's or a game's header that is not an interface: `zge/native/*.h`, the engine's readers made for the host, and `zge/game.h`; what the collection needs of a game goes through the runtime's contracts, such as the settings registry and `runtime/panel_snapshot.h`, which a game's override fills and the panel reads) and `collection_in_runtime` (the runtime reading the collection's game table: a ratchet).
-- Game overrides (`runtime/src/game_overrides`, the host code that hooks a game) name its functions and data the same way, from the same table: a file that includes `#include "sym/game_overrides/<file>.h"` writes `sym::dm2::g_cameraSettings`, `sym::bmx::drawWidget`, `points::dm2::showPauseScreen::itemsSet` (a game's own resume point, a return address), `sym::name` for AI's. Every game's overrides are built into one runner (a unity build joins several), so another game's names are always qualified. `tools/override_symbols.py headers` writes them into `<build>/ps2xRuntime/symbols/overrides` (the game's own row first, else AI's name where the game's bind table and `bound.tsv` put it; a name the table does not bind fails the build, and a build with no bind table gets UNBOUND, as the readable sources do), and its `lint` fails an address literal in a file that includes its header. It is not a checker: it reads `readable_symbols.py`'s table and `Bind` and changes neither.
-- Drafts: `readable_draft.py --manifest` writes its batch files with symbols, by the same code and with no ELF: the words come from the generated sources' comments, data from the table. A row the table has not got goes to `<build>/ps2xRuntime/readable_sweep/symbols-extra.tsv`; `generate --drafts <that folder>` commits it. Data with no row stays a literal and fails the lint: name it.
+- Game overrides (`runtime/src/game_overrides`, the host code that hooks a game) name its functions and data the same way, from the same table: a file that includes `#include "sym/game_overrides/<file>.cpp.h"` writes `sym::dm2::g_cameraSettings`, `sym::bmx::drawWidget`, `points::dm2::introStateEnter::scriptFunctionSlots` (a point in a game's own function), `sym::name` for AI's. Every game's overrides are built into one runner (a unity build joins several), so another game's names are always qualified. `tools/override_symbols.py headers` writes them into `<build>/runtime/symbols/overrides` (the game's own row first, else AI's name where the game's bind table and `bound.tsv` put it; a name the table does not bind fails the build, and a build with no bind table gets UNBOUND, as the readable sources do), and its `lint` fails an address literal in a file that includes its header. It is not a checker: it reads `readable_symbols.py`'s table and `Bind` and changes neither.
+- Drafts: `readable_draft.py --manifest` writes its batch files with symbols, by the same code and with no ELF: the words come from the generated sources' comments, data from the table. A row the table has not got goes to `<build>/runtime/readable_sweep/symbols-extra.tsv`; `generate --drafts <that folder>` commits it. Data with no row stays a literal and fails the lint: name it.
 - Register mirrors: `readable_pass.py run mirrors` takes out a read of a callee-saved register the original never reads as it found it; `tools/readable_entry_reads.tsv` lists the ones it does. A result no caller reads in the ELF is `void`; a variadic function's words are `ee::VarArg` parameters, defaulted in its declaration (`ee::VarArg first = {}`, ee/plain.h), so each call names the words its format reads and only those are passed. `readable_lint.py` fails a guest address in any comment.
 - `lint` runs in every build at zero: any address in code (a number in the image's range, its uncached mirror, or a `fn_123456`-shaped name) fails it, in the sources and the drafts, and so does a `FUN_`, `DAT_`, `LAB_` or `fn_` reference in a comment, reported apart, and a source's own `#include "sym/..."` under a preprocessor conditional (the other platforms would have no symbols; `convert` moves it). A number that only looks like an address is written another way (`1u << 20`) or says so on its line (`// not an address`). Addresses in comments are not linted; game/dm2's cite both games and other builds.
 - Tools that scan sources for addresses read them through `readable_symbols.literal_view()`: registrations, marks, constants and digests look as they did, whatever a symbol's called, with `ee::high`, `ee::uncached`, parts and number forms folded back to the number. A digest does not change with a rename. A game folder's registration of an AI name is written at the game's address its bind table gives (as its instance registers it), never AI's; with no bind table it is left as written.
@@ -348,28 +359,28 @@ READABLE_FUNCTION_IN(dm2, sym::dm2::riderFrame, riderFrame, Verified);  // DM2's
 
 ## How a function is proven
 
-1. Record real calls: `PS2X_FNREC=<names, addresses, @file, or all> PS2X_FNREC_DIR=<scratch>` with
-   `PS2X_READABLE=off`. The registered functions are built a second time from `recomp/generated`
+1. Record real calls: `ZX_FNREC=<names, addresses, @file, or all> ZX_FNREC_DIR=<scratch>` with
+   `ZX_READABLE=off`. The registered functions are built a second time from `recomp/generated`
    with every load, store and call traced (`fncheck_traced.h`). A recorded call keeps the registers
    at entry and return, every byte it read as it was at entry, every byte it or its callees wrote,
    each call it made (target, arguments, returned registers, RAM changes), I/O register accesses in
    order, and the EE cycles its own code charged. Sampling caps calls per function and per vsync
-   (`PS2X_FNREC_MAX`, `_PER_VSYNC`, `_MIN_CALLS`, `_FROM`, `_ATOMIC`, `_WAITS`); callee writes are
+   (`ZX_FNREC_MAX`, `_PER_VSYNC`, `_MIN_CALLS`, `_FROM`, `_ATOMIC`, `_WAITS`); callee writes are
    found by page protection. A function that never returns (a card job's end that deletes its own
-   thread, a thread's endless loop) is recorded to a stop with `PS2X_FNREC_STOPS=1`: the functions of
+   thread, a thread's endless loop) is recorded to a stop with `ZX_FNREC_STOPS=1`: the functions of
    the table in `fncheck_stops.h`, each call kept up to the callee that never comes back (the thread
    ended in it, or the first wait `_STOP_FRAMES` vsyncs in), RAM and registers as at that call. The
    checker replays such a record to that call, checks it as any call and judges RAM and the calls
    made there. Stop recordings go in route folders of their own (`stop-ROUTE`). Recordings are game
    data: scratch only, never a repository. Files are compressed with zstd, a frame a record
-   (`ee/fnrec_file.h`; `PS2X_FNREC_PLAIN=1` writes plain ones); every reader takes either form, and
+   (`ee/fnrec_file.h`; `ZX_FNREC_PLAIN=1` writes plain ones); every reader takes either form, and
    `zstd -d` gives the plain file back. `tooling/checks/fnrec_pack.py CORPUS` compresses a corpus's
    plain files in place, keeping each one's name, mtime and verdict-cache key.
-   Readable code off is enforced: the recorder refuses (the run ends, exit 2) unless `PS2X_READABLE=off`
-   or a test's `PS2X_FNREC_ALLOW_READABLE=1`. `PS2X_FNREC_NEW_BLOCKS=3` keeps the capped sample as
+   Readable code off is enforced: the recorder refuses (the run ends, exit 2) unless `ZX_READABLE=off`
+   or a test's `ZX_FNREC_ALLOW_READABLE=1`. `ZX_FNREC_NEW_BLOCKS=3` keeps the capped sample as
    unset does and, past it, every call that runs a block of the original no kept call ran (nor
-   `PS2X_FNREC_COVERED`'s), so a route keeps its late branches; 1 keeps only those.
-2. Check: `ps2xFnCheck <recordings>` replays each call from its entry state in an empty RAM against
+   `ZX_FNREC_COVERED`'s), so a route keeps its late branches; 1 keeps only those.
+2. Check: `zx-fncheck <recordings>` replays each call from its entry state in an empty RAM against
    the traced original (which must give the recording back) and against the readable version twice
    (unrecorded memory filled with 0xA5, then 0x5A). A call passes when the result by its C++ return
    type, the RAM afterwards byte for byte, the callee-saved registers, the calls made (same order,
@@ -387,23 +398,23 @@ READABLE_FUNCTION_IN(dm2, sym::dm2::riderFrame, riderFrame, Verified);  // DM2's
    `orig`, `rec` and `checker`, so a pass counts only for the code it was made against
    (`stale_verified`). Verified does not mean every path ran.
 5. Corpus: `readable_corpus.py` records every registered function over a fixed set of routes
-   (`tools/routes.py`, the logiccheck and careercheck inputs, the cov- routes for paths no other route
+   (`tooling/ai/tools/routes.py`, the logiccheck and careercheck inputs, the cov- routes for paths no other route
    reaches), once per recorder version, into `$ZAXIS_SCRATCH/reccorpus/v<N>/<route>/`.
    `fncheck_corpus.py run --incremental` replays every recording against the build with a verdict
    cache and replays only what changed; `compare`, `same`, `coverage`, `saves`, `emit` (workdb
    lines), `prune-plan`. It caps its own memory (`--max-mem-gb`, `--jobs auto`).
    DM2 has its own corpus, `reccorpus/dm2-v1` (`tooling/dm2/tools/dm2corpus.py`, routes in `dm2routes.py`; BMX XXX's with `--game bmx`, routes in `bmxroutes.py`): a
-   build with `PS2X_GAME_CORPUS=dm2` (and `PS2X_BIND_DIR`) has all of DM2's 4,527 functions (`game/dm2/functions.tsv`)
+   build with `ZX_GAME_CORPUS=dm2` (and `ZX_BIND_DIR`) has all of DM2's 4,527 functions (`game/dm2/functions.tsv`)
    traced and registered Planned, and an instance of every shared engine source (`game/dm2/instance_sources.txt`), the
    level 1 bodies registered Draft for the replay to judge (`headers --try-close`). `readable_locals_dm2.tsv` and `readable_args_dead_dm2.tsv` hold its rows of word-identical functions. `dm2cov.py` says what the routes
-   reach (`PS2X_FNPROF` needs no traced build), `dm2proof.py` what a replay proves by level.
-6. Integrate: `tools/lc-when-free.sh NAME`, 21/21 MATCH with the defaults and with
-   `PS2X_READABLE=tested`, each against `off` at the same clock; the career A/B (`tooling/checks/career_ab.py`:
-   nine inputs unpaced with the null GS, defaults against `off` at 4096x, always readable off on one side:
+   reach (`ZX_FNPROF` needs no traced build), `dm2proof.py` what a replay proves by level.
+6. Integrate: `tooling/ai/tools/lc-when-free.sh NAME`, 21/21 MATCH with the defaults and with
+   `ZX_READABLE=tested`, each against `off` at the same clock; the career A/B (`tooling/checks/career_ab.py`:
+   every input of its GATE_INPUTS, 18, unpaced with the null GS, defaults against `off` at 4096x, always readable off on one side:
    every state field at every tick equal, 0 RAM words outside dead stack and `ab_allow.txt`, the scratchpad's hash
-   equal, the streams equal but for the words nothing reads; `PS2X_FNCYCLES`, `_WATCH`, `_VU0` and `PS2X_TRACE_EE` find the first divergence when not;
-   DEVTOOLS.md); `dm2logic` 6/6 for DM2, and `career_ab.py gate --game dm2` (its routes, `ab_allow_dm2.txt`). A function that passes everything is
-   promoted (`readable_sweep.py promotable`, `manifest-verify`), and the unit tests (`ps2x_tests`
+   equal, the streams equal but for the words nothing reads; `ZX_FNCYCLES`, `_WATCH`, `_VU0` and `ZX_TRACE_EE` find the first divergence when not;
+   DEVTOOLS.md); `dm2logic` 6/6 for DM2 and `bmxlogic` 17/17 for BMX XXX, and `career_ab.py gate --game dm2` and `--game bmx` (each game's routes and allow lists, `ab_allow_dm2.txt`, `ab_allow_bmx.txt`). A function that passes everything is
+   promoted (`readable_sweep.py promotable`, `manifest-verify`), and the unit tests (`zx-tests`
    from the z-axis worktree root) pass.
 
 What the check cannot see: registers that are dead after
@@ -425,8 +436,8 @@ state there, following its calls, until the first byte the replay does not hold,
 own code (`g_untracedCode`: a library stub, a syscall), an I/O access or a cap; when the folder has the callee's own
 recording of that very call (all general registers and the vsync match), it runs on that record to its return instead.
 The bytes read on the way that hold the original's memory at the call must be the same at the readable version's call
-(bugs1's contact record, dead stack after the return). It is a lower bound: the result line's `callee_probes` ...
-`callee_buckets` say how far it got (`--no-callee-reads` turns it off, `PS2X_FNCHECK_PROBES=1` prints each call).
+(a contact record, dead stack after the return). It is a lower bound: the result line's `callee_probes` ...
+`callee_buckets` say how far it got (`--no-callee-reads` turns it off, `ZX_FNCHECK_PROBES=1` prints each call).
 A probe stops at the callee's first global the caller's recording does not hold, so a record the caller builds on its
 stack for a callee is read by the recording instead (recorder version 7): the recorder keeps, per call, the bytes of the
 caller's frame the callee read before anything wrote them (fncheck.h `Call::reads`). A recorded callee runs traced at
@@ -434,7 +445,7 @@ every call that hands it a pointer into a recorded caller's frame, kept or not, 
 its reads. Those bytes the original's replay holds with the recorded value must be the same at the readable version's
 call (`callee_read`, "in the caller's frame, as the recording has the callee read it"; `callee_frame_read_calls`,
 `_bytes` count them); there is no run again, so read is enough. Older recordings have none, and a callee the recorder
-does not record or a pointer left in memory gives none (portbmx4's beginObjectiveBlock: a handler in the wrong slot of
+does not record or a pointer left in memory gives none (BMX XXX's beginObjectiveBlock: a handler in the wrong slot of
 the set-up registerBlockClass copies).
 
 What a function leaves in its own frame is compared too: its working values there outlive the return, and a
@@ -454,8 +465,8 @@ recordings, their originals and the checker.
 A call is only as good as the registers it hands over. `ee::call` sets the arguments it names; `game::call`
 reaches its callee as C++ and sets none, so a function that leaves a register for a callee (`ee::call(method)`
 with a0 still the caller's, f12 still `seconds`) is right when a table call enters it and wrong from a
-`game::call`, with every replay passing. gamehand25's activateEditTool hung the EE that way at tick 4480.
-`ps2xFnCheck` follows where each argument register's value comes from: `args_left` (another value than the
+`game::call`, with every replay passing. activateEditTool hung the EE that way at tick 4480.
+`zx-fncheck` follows where each argument register's value comes from: `args_left` (another value than the
 original's) fails, `entry_left` (an entry value left in place) fails a function some `game::call` names;
 `readable_args.py --check --build BUILD`
 looks at every call site, recorded or not, against what the listing says the callee reads, through indirect
@@ -465,7 +476,7 @@ with the reason, a read the code never uses in readable_args_dead.tsv.
 
 ### The gate
 
-What a merge has to pass (`merge-check.sh`, `batchS.sh`). Verified says a function works, `readable_lint.py`
+What a merge has to pass. Verified says a function works, `readable_lint.py`
 says a person can read it; they are reported apart and neither implies the other.
 
 - The pins first: every file that decides a verdict is pinned
@@ -477,8 +488,8 @@ says a person can read it; they are reported apart and neither implies the other
   function that passed may not stop passing. The lint follows helpers: a function with no registration of its own, in the
   same file or a thin wrapper in an included header, answers for its raw addresses and offsets, VU0 work, selfCall and
   scaffolding, and so does every function that reaches it (`via NAME: LABEL`); ee/ and zge/math/vec.h are not charged. A
-  register in a function's comments or a local named for one fails it too. When a rule gets stricter, the orchestrator
-  alone lowers the file: `--rebaseline REASON`, its own commit, the reason and every function dropped kept in its comments.
+  register in a function's comments or a local named for one fails it too. When a rule gets stricter, the maintainers
+  alone lower the file: `--rebaseline REASON`, its own commit, the reason and every function dropped kept in its comments.
 - `readable_args.py --check` and the unit tests. A variadic call's jal is told by its first argument (a text's address,
   read from the code), and a `dropped` row in readable_args_ok.tsv names its jal, so another site that loses an argument
   is a new hit. A wrapper or helper in another file counts for its callers. A call through ee::FunctionPtr or ee::Callback
@@ -493,10 +504,10 @@ says a person can read it; they are reported apart and neither implies the other
   function reads it (`frame_residue_read`, above), I/O in order, and the VU0 lanes below. Time, marks and interruption do not count. A function that calls itself runs its body directly (recordings hold
   no call for that, generated code runs it inline), so a recursive call is written as a typed call and what it does inside
   is checked against the recording in order.
-- Logiccheck at the gate's clock: `PS2X_EE_SCALE=4096`, `off` first, then the defaults and `PS2X_READABLE=tested` with
+- Logiccheck at the gate's clock: `ZX_EE_SCALE=4096`, `off` first, then the defaults and `ZX_READABLE=tested` with
   `LC_OFF=<the off run>`: a checkpoint passes if it matches the reference, or differs from it exactly as `off` at
   the same clock does (`logiccheck.py compare NAME --off OFFNAME`; such a row says so). Nothing else is let through.
-  The same three runs again with the app's menus (`PS2X_GAME_SETTINGS_MENUS=1`, logiccheck's menus route: the same
+  The same three runs again with the app's menus (`ZX_GAME_SETTINGS_MENUS=1`, logiccheck's menus route: the same
   input, the zgui panels at their menus-on addresses), so the gate judges what the app runs too.
 - The A/B at that clock: `career_ab.py gate`, every input, `off` against the defaults, same runner. At 4096x no frame
   overruns its vsync, so what differs is logic: every state field at every tick, the scratchpad, the streams, VU0,
@@ -507,14 +518,14 @@ says a person can read it; they are reported apart and neither implies the other
   each dump, and a word the walk does not find is compared. A record left in dead memory after its owner went has no list:
   that rule tests the record's shape, and is named as such. A stack's frames: the `frame` lines are a table of
   functions, the chain of saved return addresses is walked through it to the stack's top, and only the slots listed count.
-  DM2's and BMX XXX's `menus` input runs the app's Settings page in the game's menus (PS2X_GAME_SETTINGS_MENUS=1 on both
+  DM2's and BMX XXX's `menus` input runs the app's Settings page in the game's menus (ZX_GAME_SETTINGS_MENUS=1 on both
   sides) from Options and from the pause menu, Right then Left on every row: its keys read back and are the same on both
   sides (career_ab.py PAGE_INPUTS). A change made on that page reaches the game before the game goes on
   (ps2_settings.h, the FromGame calls), so the run repeats exactly whenever the window thread runs.
-- dm2logic.
+- dm2logic and bmxlogic.
 
 A value left on the stack has no gate of its own: the replay answers calls and the A/B sees only dumps and streams.
-`PS2X_STACK_POISON=1` fills the stack below each readable function's sp with 0x5A: a run with it against a run without,
+`ZX_STACK_POISON=1` fills the stack below each readable function's sp with 0x5A: a run with it against a run without,
 same runner, shows every read of a value left there on an input's path, by the function or by a callee through a pointer
 into its frame. Lanes nothing reads move too (a vector's w, 0x24C9EC). `career_ab.py stale` is that compare over every
 input: fields, scratchpad, GIF, VU0 and every voice call's arguments; a quad's w lane, the VIF1 stream and RAM are counted,
@@ -542,7 +553,7 @@ reads what its callee reads and sets what the callee sets on every path), and `-
 original's that the callee reads at a call or that is live at the return. In AI: vf6.w and vf9.w, vf2.w and vf3.w
 (the sphere's w drawScene and drawNodeTree store into a NodeView), and the view's culling registers vf16 to vf27,
 which loadViewCulling sets and drawScene and drawNodeTree read. In DM2: vf6.w and vf9.w. A QMFC2 that an MTC1 takes
-the low word of reads x only, VSUB x, x, x (orthonormalize's vf6.w) reads nothing. To find a function that leaves vf6 or vf9 alone in the middle of a frame: `PS2X_FNCYCLES_VU0=6,9`
+the low word of reads x only, VSUB x, x, x (orthonormalize's vf6.w) reads nothing. To find a function that leaves vf6 or vf9 alone in the middle of a frame: `ZX_FNCYCLES_VU0=6,9`
 with every readable function traced, on both sides, and the first event where a register differs that only
 one side has.
 
@@ -560,8 +571,8 @@ one side has.
   library's, in not_ported.tsv, and the build no longer generates drafts (game.cmake has no sweep step;
   a new manifest needs that step back).
 - A draft gets committed source with `readable_adopt.py` (`ee/route.h` for the calls a plain name cannot make, `readable_place.py` for its file): `move` carries it to the end of its named file's namespace and takes its row out of the manifest, `readable_pass.py run ... --only NAMES --files FILES --units` takes it through the passes (`--only` leaves other bodies alone), `routed`, `records` (a struct of the layout table no header defines, from what the functions read) and `typed` go on from there, and what is still below the bar goes `back` to generated. From then on the source is edited by hand. `hand FILE` replaces functions by name. Run it on a full staged tree and finish from a snapshot of it: a function that goes back takes the calls to it with it.
-- Hand-written rounds replace drafts with readable code in order of live-play self time
-  (`PS2X_FNPROF`, the coverage page): engine in `zge/`, game in `aggressive/`. A hand-written function is
+- Hand-written code replaces drafts in order of live-play self time
+  (`ZX_FNPROF`, the coverage page): engine in `zge/`, game code in its game's folder (`aggressive/`, `dm2/`, `bmx/`). A hand-written function is
   checked like a draft; its notes (purpose, cut, bug-kept) go to the database.
 - Names: `readable_names.py` and its tables name the swept drafts at build time from the evidence above;
   `readable_names_count.py` measures what is left. `readable_names.tsv` holds `function`, `global`,
@@ -602,7 +613,7 @@ one side has.
   no parameter's), then `readable_names.py check`. `python3 -I readable_names.py sync-hand` after a merge gives
   function, global and parameter rows of hand-written code the sources' names; a name another
   function has is a CLASH line and exit 1: names are unique across layers (`ee::readable` and
-  `PS2X_READABLE` find functions by name), so rename one of the two where it is written. A layout `result` row (`STRUCT result CALLEE:N=VALUE`) types
+  `ZX_READABLE` find functions by name), so rename one of the two where it is written. A layout `result` row (`STRUCT result CALLEE:N=VALUE`) types
   and names a call's variable by an argument (the park editor's `editObjectPart(object,
   "EditRailTool")`: an object's part per class). A float read from .lit4 is written as its literal:
   the build knows the words the manifests' `elf` column pins (`readable_names.py pin-literals
@@ -616,7 +627,7 @@ one side has.
   the three PS2 builds, three Xbox and three GameCube builds are paired in the work database (`card`
   counterparts, confidence high and medium dependable, low a lead; MATCH3.md in `tooling/dm2`). A game's instance of the shared sources is "Symbols" above;
   DM2's corpus and checks are "How a function is proven" item 5.
-- BMX XXX (SLUS-20415) is game 2 of the collection runner (`game/bmx`, `game_overrides/bmx_xxx.cpp`): its `generated-ns` (27,112 files from the match3 Ghidra map, namespace `bmx`, made by `tooling/recompile.sh --bmx` (`tooling/bmx/recomp/recompile.py`) into paths.env's `BMX_RECOMP`) in `PS2X_RUNNER_EXTRA_GENERATED_DIRS`, its instance of the shared sources with `PS2X_BIND_DIR` (`runtime/tools/bind/bmx.tsv`), its differences as `kIsBmx` / `perGame(ai, dm2, bmx)` and `PS2X_GAME_BMX` layouts. What runs readable is its status file's Verified rows; it is played by `tools/playbot/bmx.py` and ships in the collection app (`GAMES="ai dm2 bmx"` make-app.sh).
+- BMX XXX (SLUS-20415) is game 2 of the collection runner (`game/bmx`, `game_overrides/bmx_xxx.cpp`): its `generated-ns` (27,112 files from the match3 Ghidra map, namespace `bmx`, made by `tooling/recompile.sh --bmx` (`tooling/bmx/recomp/recompile.py`) into paths.env's `BMX_RECOMP`) in `ZX_RUNNER_EXTRA_GENERATED_DIRS`, its instance of the shared sources with `ZX_BIND_DIR` (`runtime/tools/bind/bmx.tsv`), its differences as `kIsBmx` / `perGame(ai, dm2, bmx)` and `ZX_GAME_BMX` layouts. What runs readable is its status file's Verified rows; it is played by `tooling/ai/tools/playbot/bmx.py` and ships in the collection app (`GAMES="ai dm2 bmx"` make-app.sh).
 - Native assets: texture libraries of both releases, GEO meshes and collision parts are made on the host from
   the files at build time (`zge/native`); Xbox textures are the HD default (docs/NATIVE.md).
 - Suspendable calls: `READABLE_FUNCTION_WAITS` runs a function on a host fiber
@@ -628,11 +639,11 @@ one side has.
 
 | Tool | Where | What |
 |---|---|---|
-| `ps2xFnCheck` | z-axis build dir | the differential checker (above) |
-| `logiccheck.py`, `lc-when-free.sh` | `tools/` | 21 checkpoints against the PCSX2 reference run; `compare NAME` |
-| `careercheck.py` | `tools/` | the career input for the A/B runs |
-| `run-game.sh NAME SECS [RUNNER]` | `tools/` | a scratch-HOME unpaced run; `STOP_TICK=<vsync>` |
-| `routes.py`, `nctl.py`, `sweep.py` | `tools/` | closed-loop routes over `PS2X_CONTROL` (DEVTOOLS.md) |
+| `zx-fncheck` | z-axis build dir | the differential checker (above) |
+| `logiccheck.py`, `lc-when-free.sh` | `tooling/ai/tools/` | 21 checkpoints against the PCSX2 reference run; `compare NAME` |
+| `careercheck.py` | `tooling/ai/tools/` | the career input for the A/B runs |
+| `run-game.sh NAME SECS [RUNNER]` | `tooling/ai/tools/` | a scratch-HOME unpaced run; `STOP_TICK=<vsync>` |
+| `routes.py`, `nctl.py`, `sweep.py` | `tooling/ai/tools/` | closed-loop routes over `ZX_CONTROL` (DEVTOOLS.md) |
 | `diffcall.py`, `diffcall_search.py` | `tooling/checks/` | generated calls from real game states, a coverage-guided search over them, for what no recording reaches (DEVTOOLS.md): evidence below Tested, never Verified |
 | `readable_lint.py`; `readable_place.py`, `readable_adopt.py` | `runtime/tools/`; `tooling/checks/` | the user's bar per function, the ratchet in the build, reported apart from Verified; every swept row's named file; a draft into committed source |
 | `readable_corpus.py`, `fncheck_corpus.py` | `tooling/checks/` | record the corpus; replay it with verdicts and coverage |
@@ -642,13 +653,13 @@ one side has.
 | `readable_digest.py`, `fncheck_traced_gen.py` | `runtime/tools/` | source digests; traced originals, block tables, frame table |
 | `readable_coverage.py`; `readable_names_count.py` | `runtime/tools/`; `tooling/checks/` | counts per area; symbols left |
 | `workdb.py` | `tooling/dm2/tools/` | the database: `build`, `card`, `notes`, `query`, `emit`, `check-results` |
-| `dead_code.py` | `tools/` | the dead-flagged functions by group (DEAD-CODE.md) |
+| `dead_code.py` | `tooling/ai/tools/` | the dead-flagged functions by group (DEAD-CODE.md) |
 
-Runtime knobs for readable work: `PS2X_READABLE`, `PS2X_FNREC*`, `PS2X_FNPROF` (`_FROM`, `_FOR`),
-`PS2X_FNCYCLES` (`_FROM`, `_ARGS`), `PS2X_TRACE_EE`, `PS2X_SAFEPOINT_TRACE`, `PS2X_GUEST_CALL`,
-`PS2X_UNPACED`. Test-run helpers (`PS2X_DEV_UNLOCK_ALL`, `PS2X_DEV_START_LEVEL`, routes) are in DEVTOOLS.md.
+Runtime knobs for readable work: `ZX_READABLE`, `ZX_FNREC*`, `ZX_FNPROF` (`_FROM`, `_FOR`),
+`ZX_FNCYCLES` (`_FROM`, `_ARGS`), `ZX_TRACE_EE`, `ZX_SAFEPOINT_TRACE`, `ZX_GUEST_CALL`,
+`ZX_UNPACED`. Test-run helpers (`ZX_DEV_UNLOCK_ALL`, `ZX_DEV_START_LEVEL`, routes) are in DEVTOOLS.md.
 
 ## What to read for what
 
-A function: `workdb.py card ADDR`, `workdb.py notes ADDR`: the facts of every round about it are notes in the work
+A function: `workdb.py card ADDR`, `workdb.py notes ADDR`: every fact known about it is a note in the work
 database (prefer `notes` to grep).

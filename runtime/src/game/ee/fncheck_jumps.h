@@ -5,7 +5,7 @@
 // generated fncheck_stack_args.cpp): the whole function runs the case in
 // place, but from an entry block a target outside it is dispatchGuestBranch's
 // IndirectJump, 8 cycles more than the scheduler's dispatch of the target
-// (ps2xFnCheck's SliceEmu; the readable side is ee::tableJump, ee/dispatch.h;
+// (zx-fncheck's SliceEmu; the readable side is ee::tableJump, ee/dispatch.h;
 // drafter23). Kept out of fncheck_tables.h, which readable code includes.
 
 #include <cstddef>

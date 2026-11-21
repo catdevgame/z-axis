@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-namespace gq = ps2x::gs_quality;
-namespace gm = ps2x::gs_mips;
+namespace gq = zx::gs_quality;
+namespace gm = zx::gs_mips;
 
 void register_ps2_gs_quality_tests()
 {
@@ -39,7 +39,7 @@ void register_ps2_gs_quality_tests()
         tc.Run("settings.ini [graphics] quality keys round trip", [](TestCase &t)
         {
             std::vector<std::string> warnings;
-            const ps2x::app::Settings s = ps2x::app::parseSettings(
+            const zx::app::Settings s = zx::app::parseSettings(
                 "[graphics]\nanti_aliasing = off\ntexture_filtering = 4x\nfog = original\nperspective_correct = false\n", &warnings);
             t.IsTrue(warnings.empty(), "no warnings");
             t.Equals(s.quality[static_cast<size_t>(gq::Option::AntiAliasing)], 0, "anti_aliasing off");
@@ -47,7 +47,7 @@ void register_ps2_gs_quality_tests()
             t.Equals(s.quality[static_cast<size_t>(gq::Option::Fog)], 0, "fog original");
             t.Equals(s.quality[static_cast<size_t>(gq::Option::Shadows)], 1, "shadows left at the default");
             t.Equals(s.quality[static_cast<size_t>(gq::Option::Perspective)], 0, "perspective off");
-            const ps2x::app::Settings back = ps2x::app::parseSettings(ps2x::app::formatSettings(s), &warnings);
+            const zx::app::Settings back = zx::app::parseSettings(zx::app::formatSettings(s), &warnings);
             t.IsTrue(back.quality == s.quality, "formatSettings writes them back");
         });
 

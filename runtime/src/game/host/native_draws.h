@@ -2,9 +2,9 @@
 
 // The host's service to the class draws' host form (zge/host/class_draws.cpp): native draws of the meshes the class
 // renderers draw, made from their draw records (zge/render/draw.h) instead of the VU1 packets the strict encoder
-// writes, each at its place in the GS stream. One boot's state (ps2x::session).
+// writes, each at its place in the GS stream. One boot's state (zx::session).
 //
-// Render path (settings.ini [graphics] render_path, PS2X_RENDER_PATH; the game's override says which at boot,
+// Render path (settings.ini [graphics] render_path, ZX_RENDER_PATH; the game's override says which at boot,
 // attach): `records` draws natively from the records; `native` has the override observe the packets and substitute
 // their VU1 work (aggressive_inline_native.cpp, dave_mirra_native.cpp); `strict` sends every mesh through VIF1, VU1
 // and the GS. Unset (`auto`, the app's native) is each game's native form: Aggressive Inline's the override on the GPU
@@ -19,7 +19,7 @@
 // its triangles go to the GS there (GS::drawNative): on the GPU renderer from vertex buffers, on the CPU renderer as
 // GS primitives. Game RAM differs from the other paths only in the mesh packet's bytes.
 //
-// PS2X_TRACE_NATIVE=1: the counts below every 20,000 draws; 2: also each part left without a mesh or rebuilt from
+// ZX_TRACE_NATIVE=1: the counts below every 20,000 draws; 2: also each part left without a mesh or rebuilt from
 // changed streams, once, and why.
 
 #include "runtime/gs/gs_native.h"
@@ -33,23 +33,23 @@ class PS2Runtime;
 namespace game::host::native_draws
 {
     // The boot's runtime, whether its class renderers draw from their records (render_path = records), what its
-    // rigid packet builder sends and its clipping program draws (ps2x::zaxis::RigidDrawForm) and what its skinned
-    // packet builder sends (ps2x::zaxis::SkinnedDrawForm: the skin weights, the material table's order).
+    // rigid packet builder sends and its clipping program draws (zx::zaxis::RigidDrawForm) and what its skinned
+    // packet builder sends (zx::zaxis::SkinnedDrawForm: the skin weights, the material table's order).
     // followInterpolation: a game whose own render path leaves meshes on VU1 that frame interpolation
     // (runtime/gs/gs_interpolate.h) cannot move (DM2's riders, every mesh of BMX XXX): its records drawn whenever
     // interpolation is on, as with render_path = records, unless the Native Meshes row is off (setMeshesOn).
-    void attach(PS2Runtime &runtime, bool records, const ps2x::zaxis::RigidDrawForm &rigidDraw,
-                const ps2x::zaxis::SkinnedDrawForm &skinnedDraw, bool followInterpolation = false);
+    void attach(PS2Runtime &runtime, bool records, const zx::zaxis::RigidDrawForm &rigidDraw,
+                const zx::zaxis::SkinnedDrawForm &skinnedDraw, bool followInterpolation = false);
     // The game's rigid and skinned packet forms (attach).
-    const ps2x::zaxis::RigidDrawForm &rigidDraw();
-    const ps2x::zaxis::SkinnedDrawForm &skinnedDraw();
+    const zx::zaxis::RigidDrawForm &rigidDraw();
+    const zx::zaxis::SkinnedDrawForm &skinnedDraw();
     // Records switched off (the Native Meshes row: strict) and on again.
     void setRecords(bool on);
     // The Native Meshes row on or off (off: no records for interpolation either).
     void setMeshesOn(bool on);
     // Records drawn now: render_path = records, or frame interpolation on (attach's followInterpolation).
     bool recordsWanted();
-    // Whether the class renderers draw from their records now: wanted, attached, in the game (not ps2xFnCheck's
+    // Whether the class renderers draw from their records now: wanted, attached, in the game (not zx-fncheck's
     // replay of one function).
     bool fromRecords();
 
@@ -91,9 +91,9 @@ namespace game::host::native_draws
         kCount
     };
     void count(Count what);
-    // A part left to the strict encoder for want of a mesh, and why: PS2X_TRACE_NATIVE=2 prints the first of each.
+    // A part left to the strict encoder for want of a mesh, and why: ZX_TRACE_NATIVE=2 prints the first of each.
     void noteNoMesh(uint32_t partAddress, uint32_t renderType, const char *why);
-    // A part whose packet was rebuilt from changed streams (the part's rebuild bits): PS2X_TRACE_NATIVE=2 prints it
+    // A part whose packet was rebuilt from changed streams (the part's rebuild bits): ZX_TRACE_NATIVE=2 prints it
     // once.
     void noteStreamsChanged(uint32_t partAddress, uint32_t renderType, uint32_t streams);
     // Every draw the host form was given (drawn or left to the strict encoder): an override that wraps a class

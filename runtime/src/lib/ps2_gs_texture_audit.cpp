@@ -10,7 +10,7 @@
 #include <sstream>
 #include <vector>
 
-namespace ps2x::gs_texture_audit
+namespace zx::gs_texture_audit
 {
     bool Audit::setLevel(const std::string &label)
     {
@@ -209,7 +209,7 @@ namespace ps2x::gs_texture_audit
 
     bool enabled()
     {
-        const char *v = std::getenv("PS2X_GSMEM_AUDIT");
+        const char *v = std::getenv("ZX_GSMEM_AUDIT");
         return v && v[0] && v[0] != '0';
     }
 
@@ -227,7 +227,7 @@ namespace ps2x::gs_texture_audit
         State &s = state();
         if (s.original)
             return true;
-        s.verbose = std::atoi(std::getenv("PS2X_GSMEM_AUDIT"));
+        s.verbose = std::atoi(std::getenv("ZX_GSMEM_AUDIT"));
         s.cache = cache;
         s.name = std::move(name);
         if (!runtime.hasFunction(cache.levelAllocator) ||

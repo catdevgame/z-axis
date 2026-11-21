@@ -12,7 +12,7 @@
 //   bit set means LZ4, clear deflate.
 //   ZSO: the high bit set means stored, else LZ4.
 //
-// Deflate is libchdr's miniz (ps2x_chdr.cmake), LZ4 the pinned LZ4 1.10.0.
+// Deflate is libchdr's miniz (zx_chdr.cmake), LZ4 the pinned LZ4 1.10.0.
 #include "disc_image_formats.h"
 
 #define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
@@ -24,7 +24,7 @@
 #include <cstring>
 #include <vector>
 
-namespace ps2x::iop::disc_formats
+namespace zx::disc::formats
 {
     namespace
     {

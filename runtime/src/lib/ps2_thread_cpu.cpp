@@ -17,7 +17,7 @@
 #endif
 #endif
 
-namespace ps2x
+namespace zx
 {
 #if defined(_WIN32)
     namespace

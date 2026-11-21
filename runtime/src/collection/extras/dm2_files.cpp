@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <numeric>
 
-namespace ps2x::app::extras::dm2
+namespace zx::app::extras::dm2
 {
     namespace
     {

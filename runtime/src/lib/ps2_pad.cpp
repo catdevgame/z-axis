@@ -27,21 +27,21 @@ namespace
 {
     constexpr uint8_t kPadAnalogMarker = 0x73;
 
-    // PS2X_PAD_SCRIPT: scripted port-0 input for automated runs, see
-    // runtime/ps2_pad_script.h. PS2X_PAD_SCRIPT_CLOCK=vsync counts script
+    // ZX_PAD_SCRIPT: scripted port-0 input for automated runs, see
+    // runtime/ps2_pad_script.h. ZX_PAD_SCRIPT_CLOCK=vsync counts script
     // time in emulated vsyncs (at 59.94 Hz) from the first pad read, so
     // scripts follow game time even when the runtime runs slower than real
     // time; the default is wall time. Each boot its own (its BootConfig).
     PadScript &padScript()
     {
-        static ps2x::boot::PerBoot<PadScript> script([]()
+        static zx::boot::PerBoot<PadScript> script([]()
         {
             PadScript parsed;
-            if (const char *value = ps2x::boot::text("PS2X_PAD_SCRIPT"))
+            if (const char *value = zx::boot::text("ZX_PAD_SCRIPT"))
             {
                 std::vector<std::string> warnings;
                 std::string spec = value;
-                if (!spec.empty() && spec[0] == '@') // PS2X_PAD_SCRIPT=@file: the script's text from a file
+                if (!spec.empty() && spec[0] == '@') // ZX_PAD_SCRIPT=@file: the script's text from a file
                 {
                     std::ifstream file(spec.substr(1));
                     std::stringstream text;
@@ -52,23 +52,23 @@ namespace
                 }
                 parsed.parse(spec, &warnings);
                 for (const std::string &item : warnings)
-                    std::fprintf(stderr, "[pad] PS2X_PAD_SCRIPT: ignoring unknown entry '%s'\n", item.c_str());
+                    std::fprintf(stderr, "[pad] ZX_PAD_SCRIPT: ignoring unknown entry '%s'\n", item.c_str());
             }
             return parsed;
         });
         return script.get();
     }
 
-    // PS2X_HOST_INPUT=0: the host's keyboard, mouse and gamepads give the
+    // ZX_HOST_INPUT=0: the host's keyboard, mouse and gamepads give the
     // game nothing (scripted check runs: a key or a click reaching the
     // runner's window as it opened came in at the game's first pad reads and
     // armed the boot screen's skip, so a career A/B started differing at tick
     // 190 in a few runs of each runner; drafter25).
     bool hostInputOff()
     {
-        static ps2x::boot::PerBoot<bool> off([]()
+        static zx::boot::PerBoot<bool> off([]()
         {
-            const char *value = ps2x::boot::text("PS2X_HOST_INPUT");
+            const char *value = zx::boot::text("ZX_HOST_INPUT");
             return value && value[0] == '0';
         });
         return off.get();
@@ -76,9 +76,9 @@ namespace
 
     bool scriptUsesVsyncClock()
     {
-        static ps2x::boot::PerBoot<bool> vsync([]()
+        static zx::boot::PerBoot<bool> vsync([]()
         {
-            const char *value = ps2x::boot::text("PS2X_PAD_SCRIPT_CLOCK");
+            const char *value = zx::boot::text("ZX_PAD_SCRIPT_CLOCK");
             return value && std::strcmp(value, "vsync") == 0;
         });
         return vsync.get();
@@ -93,7 +93,7 @@ namespace
         bool axisActive[4]{};
     };
 
-    // Advances PS2X_PAD_SCRIPT on port 0 (other ports read the same script
+    // Advances ZX_PAD_SCRIPT on port 0 (other ports read the same script
     // moment) and evaluates SYNC anchors.
     ScriptFrame applyScript(int port, const std::atomic<uint64_t> *vsyncTick, const uint8_t *rdram)
     {
@@ -119,12 +119,12 @@ namespace
             }
             else
             {
-                static ps2x::boot::PerBoot<std::chrono::steady_clock::time_point> origin(
+                static zx::boot::PerBoot<std::chrono::steady_clock::time_point> origin(
                     []() { return std::chrono::steady_clock::now(); });
                 clock = std::chrono::duration<double>(std::chrono::steady_clock::now() - origin.get()).count() *
                         PadScript::kVsyncsPerSecond;
             }
-            static ps2x::boot::PerBoot<bool> reportedOrigin([]() { return false; });
+            static zx::boot::PerBoot<bool> reportedOrigin([]() { return false; });
             if (!reportedOrigin.get())
             {
                 reportedOrigin.get() = true;
@@ -171,7 +171,7 @@ namespace
         bool focused = true;
         hi::GamepadState gamepad;
         // Player 2's own gamepad (slot 1, for port 1; not present: port 1
-        // is empty, or mirrors port 0 with PS2X_PAD_PORT1=mirror) and how
+        // is empty, or mirrors port 0 with ZX_PAD_PORT1=mirror) and how
         // many gamepads are connected.
         hi::GamepadState gamepad2;
         int gamepadCount = 0;
@@ -274,25 +274,25 @@ namespace
         return mask;
     }
 
-    // PS2X_PAD_PORT1=mirror: the old routing for developer runs (port 1
+    // ZX_PAD_PORT1=mirror: the old routing for developer runs (port 1
     // always has a pad: player 2's own, else a copy of port 0, and the pad
-    // script, PS2X_CONTROL and a game override's presses reach every port).
+    // script, ZX_CONTROL and a game override's presses reach every port).
     // Default: port 1 is player 2's gamepad alone, an empty port without
     // one (hi::routePort).
     bool mirrorPort1()
     {
         static const bool mirror = []()
         {
-            const char *value = std::getenv("PS2X_PAD_PORT1");
+            const char *value = std::getenv("ZX_PAD_PORT1");
             const bool on = value && std::strcmp(value, "mirror") == 0;
             if (on)
-                std::fprintf(stderr, "[pad] PS2X_PAD_PORT1=mirror: port 1 copies port 0 without a pad of its own\n");
+                std::fprintf(stderr, "[pad] ZX_PAD_PORT1=mirror: port 1 copies port 0 without a pad of its own\n");
             return on;
         }();
         return mirror;
     }
 
-    // PS2X_PROMPTS=keyboard|playstation|xbox|nintendo: a fixed device for
+    // ZX_PROMPTS=keyboard|playstation|xbox|nintendo: a fixed device for
     // the prompts (-1: follow the input).
     std::atomic<int> g_promptOverride{-1}; // PSPadBackend::forcePromptDevice
 
@@ -302,7 +302,7 @@ namespace
             return over;
         static const int forced = []()
         {
-            const char *value = std::getenv("PS2X_PROMPTS");
+            const char *value = std::getenv("ZX_PROMPTS");
             const std::string v = value ? value : "";
             if (v == "keyboard")
                 return static_cast<int>(PSPadBackend::InputDevice::Keyboard);
@@ -317,10 +317,10 @@ namespace
         return forced;
     }
 
-    // [gamepad] prompts: one style always, unless PS2X_PROMPTS (tests) fixes it.
+    // [gamepad] prompts: one style always, unless ZX_PROMPTS (tests) fixes it.
     void applyPromptStyle(hi::PromptStyle style)
     {
-        if (const char *env = std::getenv("PS2X_PROMPTS"); env && env[0])
+        if (const char *env = std::getenv("ZX_PROMPTS"); env && env[0])
             return;
         PSPadBackend::forcePromptDevice(hi::promptStyleName(style));
     }
@@ -475,7 +475,7 @@ namespace
 
     std::string controlsPath(const std::string &appName)
     {
-        if (const char *path = ps2x::boot::text("PS2X_CONTROLS_INI"); path && path[0])
+        if (const char *path = zx::boot::text("ZX_CONTROLS_INI"); path && path[0])
             return path;
         const std::string dir = hi::userConfigDir(appName);
         if (dir.empty())
@@ -484,15 +484,15 @@ namespace
     }
 
     // Loads controls.ini (writing the documented defaults on first run) and
-    // PS2X_HOST_INPUT_SCRIPT. Caller holds hub().mutex.
+    // ZX_HOST_INPUT_SCRIPT. Caller holds hub().mutex.
     void configureLocked(HostInputHub &h)
     {
-        // Each boot reads its own (PS2X_CONTROLS_INI, PS2X_HOST_INPUT_SCRIPT
+        // Each boot reads its own (ZX_CONTROLS_INI, ZX_HOST_INPUT_SCRIPT
         // of its BootConfig).
-        if (h.configured && h.configuredBoot == ps2x::boot::generation())
+        if (h.configured && h.configuredBoot == zx::boot::generation())
             return;
         h.configured = true;
-        h.configuredBoot = ps2x::boot::generation();
+        h.configuredBoot = zx::boot::generation();
         h.script = hi::HostInputScript{};
         h.scripted = false;
         h.haveLastTick = false;
@@ -534,18 +534,18 @@ namespace
         if (h.config.prompts != hi::PromptStyle::Auto)
             applyPromptStyle(h.config.prompts);
 
-        if (const char *spec = ps2x::boot::text("PS2X_HOST_INPUT_SCRIPT"); spec && spec[0])
+        if (const char *spec = zx::boot::text("ZX_HOST_INPUT_SCRIPT"); spec && spec[0])
         {
             std::vector<std::string> warnings;
             h.script.parse(spec, &warnings);
             for (const std::string &item : warnings)
-                std::fprintf(stderr, "[input] PS2X_HOST_INPUT_SCRIPT: ignoring '%s'\n", item.c_str());
+                std::fprintf(stderr, "[input] ZX_HOST_INPUT_SCRIPT: ignoring '%s'\n", item.c_str());
             h.scripted = true;
             std::fprintf(stderr, "[input] host input script: %zu key, %zu mouse, %zu focus entries "
                                  "(keyboard, mouse and focus come from the script only)\n",
                          h.script.keys().size(), h.script.motions().size(), h.script.focus().size());
         }
-        if (const char *trace = std::getenv("PS2X_TRACE_HOST_INPUT"); trace && trace[0] == '1')
+        if (const char *trace = std::getenv("ZX_TRACE_HOST_INPUT"); trace && trace[0] == '1')
             h.trace = true;
     }
 
@@ -810,7 +810,7 @@ namespace
         hi::RawHostInput raw;
         if (h.scripted)
         {
-            // The PS2X_PAD_SCRIPT clock when there is a pad script (so its
+            // The ZX_PAD_SCRIPT clock when there is a pad script (so its
             // SYNC/WAIT anchors move these events too), else vsyncs since
             // the first pad read.
             double now = 0.0;
@@ -846,7 +846,7 @@ namespace
         if (h.freeInput.load())
         {
             // Everything to takeFreeInput; the game gets the gamepad alone
-            // (readState adds the script and PS2X_CONTROL, notes the pad
+            // (readState adds the script and ZX_CONTROL, notes the pad
             // and sends the game an idle one).
             PSPadBackend::FreeInput &f = h.freeSince;
             f.down |= raw.down;
@@ -932,7 +932,7 @@ namespace
 
 namespace
 {
-    namespace st = ps2x::settings;
+    namespace st = zx::settings;
 
     // A [section] key = number setting of controls.ini.
     void addControlsNumber(HostInputHub &h, st::Setting setting, float hi::HostInputConfig::*field, float scale,
@@ -1221,7 +1221,7 @@ namespace
                 addCaptureRow(h, "controls.pad." + key, label, kCaptureGamepad + target, padHelp);
         }
 
-        // The shortcuts as settings too, for PS2X_CONTROL (`set
+        // The shortcuts as settings too, for ZX_CONTROL (`set
         // hotkey.screenshot 1`), every game's; no page shows the "hotkey."
         // group.
         for (int i = 0; i < hi::kHotkeyCount; ++i)
@@ -1398,11 +1398,11 @@ void PSPadBackend::pollHost()
     }
     if (!h.mappingsLoaded)
     {
-        // The user's own gamecontrollerdb.txt: PS2X_GAMEPAD_MAPPINGS (the
+        // The user's own gamecontrollerdb.txt: ZX_GAMEPAD_MAPPINGS (the
         // collection's, one for every game), else next to controls.ini
         // (SDL remaps pads it covers that are already connected).
         h.mappingsLoaded = true;
-        if (const char *mappings = ps2x::boot::text("PS2X_GAMEPAD_MAPPINGS"); mappings && mappings[0])
+        if (const char *mappings = zx::boot::text("ZX_GAMEPAD_MAPPINGS"); mappings && mappings[0])
             ps2_host::loadGamepadMappings(mappings);
         else if (!controlsFile.empty())
             ps2_host::loadGamepadMappings(
@@ -1614,7 +1614,7 @@ bool PSPadBackend::readState(int port, int /*slot*/, uint8_t *data, size_t size)
     // Host keyboard/mouse/gamepad through controls.ini. Port 1 reads
     // player 2's own gamepad when one is connected; without one the port
     // is empty (portConnected; the pad stubs report no pad and do not read
-    // it), or mirrors the last port-0 report with PS2X_PAD_PORT1=mirror
+    // it), or mirrors the last port-0 report with ZX_PAD_PORT1=mirror
     // (hi::routePort).
     const hi::PadReport report = hostInputOff() ? hi::PadReport{} : port == 0 ? sampleHost(m_vsyncTick) : [port]()
     {
@@ -1630,9 +1630,9 @@ bool PSPadBackend::readState(int port, int /*slot*/, uint8_t *data, size_t size)
         }
         return source.mirrorPort0 ? h.lastReport : hi::PadReport{};
     }();
-    // The developer inputs below (pad script, PS2X_CONTROL, a game
+    // The developer inputs below (pad script, ZX_CONTROL, a game
     // override's presses) are player 1's: port 0 only, unless
-    // PS2X_PAD_PORT1=mirror (then every port, as before).
+    // ZX_PAD_PORT1=mirror (then every port, as before).
     const bool developerInput = port == 0 || mirrorPort1();
 
     uint16_t pressed = report.buttons;
@@ -1640,11 +1640,11 @@ bool PSPadBackend::readState(int port, int /*slot*/, uint8_t *data, size_t size)
     data[5] = report.sticks[hi::kRy];
     data[6] = report.sticks[hi::kLx];
     data[7] = report.sticks[hi::kLy];
-    // PS2X_PAD_STICK_CENTER=<n>: report idle sticks as n instead of 0x80
+    // ZX_PAD_STICK_CENTER=<n>: report idle sticks as n instead of 0x80
     // (debug aid for comparing against other pad sources).
-    static ps2x::boot::PerBoot<uint8_t> stickCenterOfBoot([]()
+    static zx::boot::PerBoot<uint8_t> stickCenterOfBoot([]()
     {
-        const char *value = ps2x::boot::text("PS2X_PAD_STICK_CENTER");
+        const char *value = zx::boot::text("ZX_PAD_STICK_CENTER");
         return value && value[0] ? static_cast<uint8_t>(std::strtoul(value, nullptr, 0)) : PadScript::kStickCenter;
     });
     const uint8_t stickCenter = stickCenterOfBoot.get();
@@ -1655,7 +1655,7 @@ bool PSPadBackend::readState(int port, int /*slot*/, uint8_t *data, size_t size)
     uint8_t pressure[hi::kPadButtonCount];
     std::memcpy(pressure, report.pressure.data(), sizeof(pressure));
 
-    // PS2X_PAD_SCRIPT on top: its buttons press at full pressure, its
+    // ZX_PAD_SCRIPT on top: its buttons press at full pressure, its
     // stick entries override the host sticks.
     const ScriptFrame script = developerInput ? applyScript(port, m_vsyncTick, m_rdram) : ScriptFrame{};
     pressed = static_cast<uint16_t>(pressed | script.buttons);
@@ -1665,7 +1665,7 @@ bool PSPadBackend::readState(int port, int /*slot*/, uint8_t *data, size_t size)
     for (int i = 0; i < 4; ++i)
         if (script.axisActive[i])
             data[4 + i] = script.sticks[i];
-    // PS2X_CONTROL (runtime/ps2_debug_control.h) on top of both, on the
+    // ZX_CONTROL (runtime/ps2_debug_control.h) on top of both, on the
     // same ports as the script.
     if (developerInput && ps2_debug_control::enabled())
     {
@@ -1676,7 +1676,7 @@ bool PSPadBackend::readState(int port, int /*slot*/, uint8_t *data, size_t size)
                 pressure[bit] = 0xFFu;
         ps2_debug_control::sticks(data + 4);
     }
-    // PS2X_PLAY_LINK (runtime/ps2_play_link.h): a player in lock step.
+    // ZX_PLAY_LINK (runtime/ps2_play_link.h): a player in lock step.
     if (port == 0 && ps2_play_link::enabled())
     {
         ps2_play_link::onPadRead(m_rdram, m_vsyncTick ? m_vsyncTick->load(std::memory_order_acquire) : 0u,
@@ -1865,7 +1865,7 @@ void PSPadBackend::setOverrideButtons(uint16_t mask)
     overrideButtons().store(mask);
 }
 
-// PS2X_CONTROL padport: the pad taken out of port 0 and put back, as a player
+// ZX_CONTROL padport: the pad taken out of port 0 and put back, as a player
 // pulling the cable; the game sees libpad's state go.
 void setPadPort0Connected(bool connected)
 {

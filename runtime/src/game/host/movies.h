@@ -2,11 +2,11 @@
 
 // The host's services to the engine's movie player on the host (zge/host/
 // movie_stream.cpp): a movie file decoded into pictures and sound. One boot's
-// state (ps2x::session): a game booted after another in the same process
+// state (zx::session): a game booted after another in the same process
 // starts with none.
 //
 // The movie the game opens is its file as the disc device would serve it
-// (the Mods folder over the game's own files; PS2X_MODS_DIR), decoded by
+// (the Mods folder over the game's own files; ZX_MODS_DIR), decoded by
 // FFmpeg (runtime/ps2_pss_movie.h): its pictures as RGBA at the stream's
 // size and rate, its sound (a PSS's, 48 kHz 16-bit) mixed into the game's
 // output in emulated time (runtime/ps2_audio_mix.h) while it plays, at the
@@ -17,10 +17,10 @@
 // is marked skipped the first time it opens, so the player ends it at its
 // first frame; a later play of the same file (an Extras menu) runs as ever.
 //
-// Xbox movies (a game whose Game has xboxMovies: AI's; PS2X_XBOX_PACK/movies,
+// Xbox movies (a game whose Game has xboxMovies: AI's; ZX_XBOX_PACK/movies,
 // made at build time from the user's Xbox disc by tools/xbox_pack.py: the
 // Bink file for each PS2 movie, named after its PS2 path): when the setting is
-// on (settings row display.xbox_movies, else PS2X_XBOX_MOVIES, default on) the
+// on (settings row display.xbox_movies, else ZX_XBOX_MOVIES, default on) the
 // Bink file plays in place of the PS2 one. The pictures the game gets are at
 // the PS2 movie's size (512x256, scaled down from 640x480), so its buffers and
 // texture stay as they are; the full 640x480 picture of each frame goes to the
@@ -30,7 +30,7 @@
 // frame. Sound: the Bink file's (48 kHz), for movies the game plays with
 // sound.
 //
-// PS2X_TRACE_MOVIES=1 logs movie starts, ends and dropped frames.
+// ZX_TRACE_MOVIES=1 logs movie starts, ends and dropped frames.
 
 #include <cstddef>
 #include <cstdint>
@@ -42,7 +42,7 @@ namespace game::host::movies
     struct Game
     {
         const char *name = "";   // for the log
-        // The Xbox release's movies (PS2X_XBOX_PACK/movies) in place of the
+        // The Xbox release's movies (ZX_XBOX_PACK/movies) in place of the
         // PS2's, with their pictures at full size for the GPU renderer.
         bool xboxMovies = false;
         // Skip Intro Movies: the boot chain's movies by file name
@@ -70,7 +70,7 @@ namespace game::host::movies
     // ones go to the GPU renderer, as the Xbox movies' do; its sound plays
     // for a movie the game plays with sound.
     void setHostMovie(const std::string &gamePath, const std::string &file, int width, int height);
-    // Whether the host plays the games' movies (not PS2X_MOVIES=hle, where
+    // Whether the host plays the games' movies (not ZX_MOVIES=hle, where
     // the PS2's own decoder does and a host movie cannot play).
     bool playedOnHost();
     // The size of the games' PS2 movies, which host movies are scaled to.
@@ -125,7 +125,7 @@ namespace game::host::movies
 
     // ---- the log ----------------------------------------------------------------
 
-    // (PS2X_TRACE_MOVIES) The movie opened, with sound or not; played again;
+    // (ZX_TRACE_MOVIES) The movie opened, with sound or not; played again;
     // ended (after how many pictures).
     void traceOpened(bool withSound);
     void tracePlayAgain();

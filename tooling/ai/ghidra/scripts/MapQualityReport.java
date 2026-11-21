@@ -2,7 +2,7 @@
 // Args: <report_dir>
 // Writes: <report_dir>/quality.txt, gaps.csv, error-bookmarks.csv, jumptables.csv,
 //         source-paths.csv, source-paths.json, function-source.csv
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;

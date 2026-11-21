@@ -35,13 +35,13 @@ namespace zge
     struct DisplaySetup
     {
         uint32_t flags;             // +0x00 DisplayFlags (the low word of a 64-bit field)
-#if !PS2X_GAME_DM2 // (the offsets here are AI's; DM2 has neither of these two words, nor the two PSMs below, see the end)
+#if !ZX_GAME_DM2 // (the offsets here are AI's; DM2 has neither of these two words, nor the two PSMs below, see the end)
         uint32_t fieldMode;         // +0x04 sceGsResetGraph's frame / field argument (1: field rendering)
         int32_t videoMode;          // +0x08 kVideoModeNtsc or kVideoModePal
 #endif
         ee::Float width;            // +0x0C (DM2 +0x04) 640
         ee::Float height;           // +0x10 (DM2 +0x08) 448 (512 in PAL)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t vsyncsPerSecond;   // BMX +0x14: 50 in PAL, else 60 (ZGE4's resetGraphics; resetDisplayMode writes the next word at +0x18)
 #endif
         // +0x14, +0x18 (DM2 +0x0C, +0x10; BMX +0x18, +0x1C) the GS depth at
@@ -63,7 +63,7 @@ namespace zge
         int32_t offsetX;
         int32_t offsetY;
         uint8_t clearColour[4];     // +0x3C (DM2 +0x34, BMX +0x40) R, G, B, A of the frame's clear (setClearColour)
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t framePsm;          // +0x40 (BMX +0x44) 0: PSMCT32
         uint32_t depthPsm;          // +0x44 (BMX +0x48) 0x3A: PSMZ16S
 #endif
@@ -73,7 +73,7 @@ namespace zge
         ee::Float guardBand;        // +0x54 (DM2 +0x44, BMX +0x58) 200 [inferred: the projection's guard band]
         ee::Float maxLines;         // +0x58 (DM2 +0x48, BMX +0x5C) 512
         uint32_t shadowBufferWord;  // +0x5C (DM2 +0x4C, BMX +0x60) the first GS word after the frame and Z buffers (the shadow buffer: shadow.cpp)
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t drawBuffer;        // DM2 +0x50 the double buffer's half drawn to (0, 1)
         uint32_t _54[3];
         GsDoubleBuffer buffers;     // DM2 +0x60 sceGsSetDefDBuff's
@@ -84,12 +84,12 @@ namespace zge
         int32_t videoMode;
 #else
         uint32_t frameParity;       // +0x60 (BMX +0x64) flipped each frame (finishRenderFrame)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t lastFrameParity;   // BMX +0x68: BMX XXX's own word, frameParity before finishRenderFrame's flip
 #endif
         uint32_t drawBuffer;        // +0x64 (DM2 +0x50, BMX +0x6C) the double buffer's half drawn to (0, 1)
         int32_t oddField;           // +0x68 (DM2 +0x290, BMX +0x70) sceGsSyncV's field, flipped (the field the next frame is for)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _74[3];            // BMX +0x74
 #else
         uint32_t _6c;               // +0x6C
@@ -106,7 +106,7 @@ namespace zge
         int8_t finishingFrame;      // +0x3B3 (BMX +0x3C3) 1 while renderFrame finishes a frame
         uint8_t _3b4[0x3C];         // +0x3B4 (BMX +0x3C4) the view's words (+0x3B8 .. +0x3E8; zge/scene/camera.cpp)
     };
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline void keepVsyncsPerSecond(DisplaySetup &display, uint32_t perSecond) { display.vsyncsPerSecond = perSecond; }
     inline uint32_t vsyncsPerSecond(const DisplaySetup &display) { return display.vsyncsPerSecond; }
 #else
@@ -158,7 +158,7 @@ namespace zge
     // billboard effects count their frames by. ZGE2's and ZGE3's displays keep no such word (never asked).
     inline uint32_t vsyncsASecond([[maybe_unused]] const DisplaySetup &display)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return display.vsyncsPerSecond;
 #else
         return 0;
@@ -167,7 +167,7 @@ namespace zge
     // finishRenderFrame's flip: BMX XXX's display keeps the parity from before it.
     inline void keepLastFrameParity([[maybe_unused]] DisplaySetup &display)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         display.lastFrameParity = display.frameParity;
 #endif
     }
@@ -175,7 +175,7 @@ namespace zge
     // before the flip at -1 (none yet); ZGE2's and ZGE3's initDisplay leave them.
     inline void startFrameParities([[maybe_unused]] DisplaySetup &display)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         display.lastFrameParity = ~0u;
         display.frameParity = 0;
 #endif
@@ -187,14 +187,14 @@ namespace zge
     // scales.
     struct FrameState
     {
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t _00;
 #endif
         uint32_t quitRequested;     // +0x04 (DM2 +0x00) g_quitRequested
         uint32_t renderingFrame;    // +0x08 (DM2 +0x04) g_renderingFrame
         int32_t width;              // +0x0C (DM2 +0x08) g_screenWidth
         int32_t height;             // +0x10 (DM2 +0x0C) g_screenHeight
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         int32_t renderedFrameCount; // +0x14 g_renderedFrameCount
 #endif
         ee::Float horizontalScale;  // +0x18 (DM2 +0x10) the display's depthScale (g_defaultFieldOfView)

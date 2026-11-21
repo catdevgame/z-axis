@@ -37,14 +37,14 @@ namespace ee::held
 
         uint32_t returnAddressSlot() { return 1u << savedSlot(reg::ra); }
 
-        // PS2X_READABLE_HELD_TRACE=1: each call's place on stderr (the function, the callee, the
+        // ZX_READABLE_HELD_TRACE=1: each call's place on stderr (the function, the callee, the
         // site it was taken for, the slots given and those not known, the callee's sp, the values
         // given, then the entry values handed on as e<slot>); =LO-HI[,LO-HI...]: the same for the functions in
         // those ranges only; =count: how many
         // calls were placed and not, at exit.
         const char *traceMode()
         {
-            static const char *const value = std::getenv("PS2X_READABLE_HELD_TRACE");
+            static const char *const value = std::getenv("ZX_READABLE_HELD_TRACE");
             return value;
         }
         bool tracing()
@@ -52,7 +52,7 @@ namespace ee::held
             static const bool value = traceMode() && std::strcmp(traceMode(), "count") != 0;
             return value;
         }
-        // The functions PS2X_READABLE_HELD_TRACE names: =LO-HI[,LO-HI...], any of the ranges (all without one).
+        // The functions ZX_READABLE_HELD_TRACE names: =LO-HI[,LO-HI...], any of the ranges (all without one).
         bool tracedHere(uint32_t address)
         {
             if (!tracing())
@@ -77,7 +77,7 @@ namespace ee::held
             return std::any_of(ranges.begin(), ranges.end(), [address](const auto &r)
                                             { return address >= r.first && address < r.second; });
         }
-        // PS2X_READABLE_HELD_TRACE=count (read once).
+        // ZX_READABLE_HELD_TRACE=count (read once).
         bool counting()
         {
             static const bool value = traceMode() && std::strcmp(traceMode(), "count") == 0;
@@ -256,7 +256,7 @@ namespace ee::held
             g_indirectSites[i] = n;
         }
         workOutSuccessors(t);
-        if (const char *v = std::getenv("PS2X_READABLE_HELD_SUCCESSORS"); v && std::strcmp(v, "check") == 0)
+        if (const char *v = std::getenv("ZX_READABLE_HELD_SUCCESSORS"); v && std::strcmp(v, "check") == 0)
             checkSuccessors(t);
     }
 
@@ -274,7 +274,7 @@ namespace ee::held
     {
         static const bool value = []
         {
-            const char *v = std::getenv("PS2X_READABLE_HELD");
+            const char *v = std::getenv("ZX_READABLE_HELD");
             return !(v && v[0] == '0') && framesOn();
         }();
         return value;
@@ -369,7 +369,7 @@ namespace ee::held
     namespace
     {
         // Where a program runs: inside a loop program (kLoop) the values it carries, which kCarried reads (null
-        // outside one), and how many loops deep; whether a recording answers the calls (ps2xFnCheck).
+        // outside one), and how many loops deep; whether a recording answers the calls (zx-fncheck).
         struct Scope
         {
             const uint64_t *carried = nullptr;
@@ -434,7 +434,7 @@ namespace ee::held
 
     namespace
     {
-        // PS2X_READABLE_HELD_CODE (default 1): the programs and cases generated as code run (Value::program,
+        // ZX_READABLE_HELD_CODE (default 1): the programs and cases generated as code run (Value::program,
         // Case::valuesCode, checksCode); 0: the table's rows and nodes are worked through instead (what the code
         // buys); programs: the programs' code alone; values: and the cases' values' (their checks' rows worked
         // through); check: both at every call, and a value, a known, an unreadable, a fit or a proof the two work out
@@ -443,7 +443,7 @@ namespace ee::held
         enum CodeMode : uint8_t { kInterpret, kCodePrograms, kCodeValues, kCode, kCodeChecked };
         CodeMode codeMode()
         {
-            const char *v = std::getenv("PS2X_READABLE_HELD_CODE");
+            const char *v = std::getenv("ZX_READABLE_HELD_CODE");
             return !v ? kCode : v[0] == '0' ? kInterpret : std::strcmp(v, "check") == 0 ? kCodeChecked
                  : std::strcmp(v, "programs") == 0 ? kCodePrograms : std::strcmp(v, "values") == 0 ? kCodeValues : kCode;
         }
@@ -663,7 +663,7 @@ namespace ee::held
 
     namespace
     {
-        // PS2X_READABLE_HELD_RANGE=[!]LO-HI[,...] (a bisect's): only the functions at LO <= address < HI of
+        // ZX_READABLE_HELD_RANGE=[!]LO-HI[,...] (a bisect's): only the functions at LO <= address < HI of
         // the ranges given use the table (every function when none is), less those of a !range; the others
         // enter with no row, as with the table off.
         bool inRange(uint32_t address)
@@ -676,7 +676,7 @@ namespace ee::held
             static const std::vector<Range> ranges = []
             {
                 std::vector<Range> list;
-                const char *v = std::getenv("PS2X_READABLE_HELD_RANGE");
+                const char *v = std::getenv("ZX_READABLE_HELD_RANGE");
                 while (v && *v)
                 {
                     const bool out = *v == '!';
@@ -700,7 +700,7 @@ namespace ee::held
             return !any || in;
         }
 
-        // The table's row of each frame-table row (PS2X_READABLE_HELD_RANGE's functions), worked out once: what
+        // The table's row of each frame-table row (ZX_READABLE_HELD_RANGE's functions), worked out once: what
         // find() gives depends on the tables alone, and every readable entry asks. By the frame row's place in the
         // frame table (ee::frameRowNumber's, here: no call for it).
         struct RowsOfFrameRows
@@ -887,12 +887,12 @@ namespace ee::held
 
     namespace
     {
-        // PS2X_READABLE_HELD_ENTRY_LOADS=0: no entry or return load is read (what they cost).
+        // ZX_READABLE_HELD_ENTRY_LOADS=0: no entry or return load is read (what they cost).
         bool loadsOn()
         {
             static const bool value = []
             {
-                const char *v = std::getenv("PS2X_READABLE_HELD_ENTRY_LOADS");
+                const char *v = std::getenv("ZX_READABLE_HELD_ENTRY_LOADS");
                 return !(v && v[0] == '0');
             }();
             return value;
@@ -925,7 +925,7 @@ namespace ee::held
         if (s.function->flags & kReadsEntryArguments)
             enterArguments(frame, s, arguments);
         // (in a replay none is read, as a check's load: a recording does not say which bytes it holds, so
-        // they are not known and their values are the entry's; PS2X_READABLE_HELD_ENTRY_LOADS=0: none, to
+        // they are not known and their values are the entry's; ZX_READABLE_HELD_ENTRY_LOADS=0: none, to
         // measure what they cost)
         if (!s.function->entryLoadCount || thread.callHandler || !loadsOn())
             return;
@@ -987,11 +987,11 @@ namespace ee::held
         frame.held().entryLoads = 0;
     }
 
-#if ZAXIS_DEV_CHECKS
+#if ZX_DEV_CHECKS
     namespace
     {
-        // PS2X_READABLE_HELD_CODE=check's sweep: every program and case the table has as code, run both ways
-        // (code, rows and nodes) PS2X_READABLE_HELD_CODE_ROUNDS times (default 16) on states and calls made up
+        // ZX_READABLE_HELD_CODE=check's sweep: every program and case the table has as code, run both ways
+        // (code, rows and nodes) ZX_READABLE_HELD_CODE_ROUNDS times (default 16) on states and calls made up
         // from `frame`'s and `regs` (masks, registers, arguments, pointers into RAM, the call's counts), so that
         // what a game's run never reaches is compared too. Through the checked paths above (g_codeChecks).
         void sweepCode(const Frame &frame, const CallRegs &regs)
@@ -999,7 +999,7 @@ namespace ee::held
             const Table &t = table();
             if (!t.programs)
                 return;
-            const char *roundsText = std::getenv("PS2X_READABLE_HELD_CODE_ROUNDS");
+            const char *roundsText = std::getenv("ZX_READABLE_HELD_CODE_ROUNDS");
             const uint32_t rounds = roundsText ? static_cast<uint32_t>(std::strtoul(roundsText, nullptr, 0)) : 16u;
             std::mt19937_64 rng(0x48454C44u);
             const auto word = [&rng]() -> uint64_t
@@ -1184,7 +1184,7 @@ namespace ee::held
             return owns && (own + 1 == last || own[1].target != target) ? own : nullptr;
         }
 
-        // PS2X_READABLE_HELD_SUCCESSORS=check: every place of every function, with each target its sites have
+        // ZX_READABLE_HELD_SUCCESSORS=check: every place of every function, with each target its sites have
         // and two they do not (0, and one no function is at), its picks from the successors against the search.
         void checkSuccessors(const Table &t)
         {
@@ -1387,7 +1387,7 @@ namespace ee::held
         if (!fn)
             return;
         const Table &t = table();
-#if ZAXIS_DEV_CHECKS
+#if ZX_DEV_CHECKS
         if (g_codeMode == kCodeChecked)
         {
             static bool swept = false;

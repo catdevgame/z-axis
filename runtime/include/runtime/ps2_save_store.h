@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::saves
+namespace zx::saves
 {
     using Bytes = std::vector<uint8_t>;
     using Validator = std::function<bool(const Bytes &)>;

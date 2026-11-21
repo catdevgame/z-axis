@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """diffcall.py: evidence for functions no recording reaches, from generated calls.
 
-A running game (PS2X_DIFFCALL, game/ee/diffcall.cpp) stops at snapshots; this
+A running game (ZX_DIFFCALL, game/ee/diffcall.cpp) stops at snapshots; this
 tool looks at the snapshot, makes plausible arguments for each target, and has
 the game run each case in a forked copy of itself with the recorder on. The
-recordings go through the usual ps2xFnCheck replay (fncheck_corpus.py run): the
+recordings go through the usual zx-fncheck replay (fncheck_corpus.py run): the
 traced original against the readable version, registers, memory, calls, cycles,
 safe points, markers. Only that comparison decides a verdict; a case where the
 original faults, hangs or waits is an invalid input and is dropped.
@@ -1021,18 +1021,18 @@ def read_targets(spec):
 
 def start_runner(a, work, env_extra):
     build = a.build
-    runner = os.path.join(build, 'ps2xRuntime', 'ps2EntryRunner')
+    runner = os.path.join(build, 'runtime', 'zx-runner')
     for sub in ('home', 'cwd', 'app', 'shots'):
         os.makedirs(os.path.join(work, sub), exist_ok=True)
     card = os.path.join(work, 'mc0')
     if not os.path.isdir(card):
         shutil.copytree(os.path.join(WORKSPACE, 'recomp', 'run', 'mc0'), card)
     env = dict(os.environ)
-    env.update({'HOME': os.path.join(work, 'home'), 'PS2X_APP_SUPPORT_DIR': os.path.join(work, 'app'),
-                'PS2X_APP_LOG_DIR': os.path.join(work, 'app'), 'PS2X_SCREENSHOT_DIR': os.path.join(work, 'shots'),
-                'PS2X_MC_ROOT': card, 'PS2X_GS_BACKEND': 'cpu', 'PS2X_DEBUG_UI': '0',
-                'PS2X_UNPACED': '1', 'PS2X_GS_NULL': '1', 'PS2X_VU1_SKIP': '1', 'PS2X_SAVES': 'card',
-                'PS2X_READABLE': 'off', 'PS2X_DEV_UNLOCK_ALL': '1', 'PS2X_DIFFCALL_BANK': '1'})
+    env.update({'HOME': os.path.join(work, 'home'), 'ZX_APP_SUPPORT_DIR': os.path.join(work, 'app'),
+                'ZX_APP_LOG_DIR': os.path.join(work, 'app'), 'ZX_SCREENSHOT_DIR': os.path.join(work, 'shots'),
+                'ZX_MC_ROOT': card, 'ZX_GS_BACKEND': 'cpu', 'ZX_DEBUG_UI': '0',
+                'ZX_UNPACED': '1', 'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1', 'ZX_SAVES': 'card',
+                'ZX_READABLE': 'off', 'ZX_DEV_UNLOCK_ALL': '1', 'ZX_DIFFCALL_BANK': '1'})
     env.update(env_extra)
     log = open(os.path.join(work, 'runner.log'), 'wb')
     return subprocess.Popen([runner, ELF], env=env, cwd=os.path.join(work, 'cwd'), stdout=log, stderr=subprocess.STDOUT), env
@@ -1418,14 +1418,14 @@ def cmd_steps(a):
     dirn = os.path.join(run, 'dc')
     os.makedirs(dirn)
     routes = os.path.join(WORKSPACE, 'tools', 'routes.py')
-    runner = os.path.join(a.build, 'ps2xRuntime', 'ps2EntryRunner')
+    runner = os.path.join(a.build, 'runtime', 'zx-runner')
     env = dict(os.environ, RUNNER=runner, ROUTES_DIR=os.path.join(run, 'routes'), PYTHONPATH=os.path.join(WORKSPACE, 'tools'),
                ROUTES_SLOW='8')
-    keys = {'PS2X_UNPACED': '1', 'PS2X_GS_NULL': '1', 'PS2X_VU1_SKIP': '1', 'PS2X_SAVES': 'card', 'PS2X_READABLE': 'off',
-            'PS2X_DEV_UNLOCK_ALL': '1', 'PS2X_DEBUG_UI': '0', 'PS2X_DIFFCALL': a.hook + '@trigger', 'PS2X_DIFFCALL_DIR': dirn,
-            'PS2X_DIFFCALL_BANK': '1', 'PS2X_DIFFCALL_PATHS': '1'}
+    keys = {'ZX_UNPACED': '1', 'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1', 'ZX_SAVES': 'card', 'ZX_READABLE': 'off',
+            'ZX_DEV_UNLOCK_ALL': '1', 'ZX_DEBUG_UI': '0', 'ZX_DIFFCALL': a.hook + '@trigger', 'ZX_DIFFCALL_DIR': dirn,
+            'ZX_DIFFCALL_BANK': '1', 'ZX_DIFFCALL_PATHS': '1'}
     if a.case_ms:
-        keys['PS2X_DIFFCALL_CASE_MS'] = str(a.case_ms)
+        keys['ZX_DIFFCALL_CASE_MS'] = str(a.case_ms)
     for line in a.env or []:
         k, _, v = line.partition('=')
         keys[k] = v
@@ -1486,17 +1486,17 @@ def cmd_run(a):
     hunts = prepare_hunts(a, analysis)
     dirn = os.path.join(run, 'dc')
     os.makedirs(dirn)
-    env = {'PS2X_DIFFCALL_DIR': dirn, 'PS2X_DIFFCALL_PATHS': '1'}
+    env = {'ZX_DIFFCALL_DIR': dirn, 'ZX_DIFFCALL_PATHS': '1'}
     if a.case_ms:
-        env['PS2X_DIFFCALL_CASE_MS'] = str(a.case_ms)
+        env['ZX_DIFFCALL_CASE_MS'] = str(a.case_ms)
     if a.vsyncs:
-        env['PS2X_DIFFCALL'] = '%s@%s' % (a.hook, a.vsyncs)
+        env['ZX_DIFFCALL'] = '%s@%s' % (a.hook, a.vsyncs)
     names = [str(i) for i in range(len(a.vsyncs.split(',')))] if a.vsyncs else []
     if a.pad:
         tool = {'career': 'careercheck', 'lc': 'logiccheck'}[a.pad]
-        env['PS2X_PAD_SCRIPT'] = subprocess.run([sys.executable, os.path.join(WORKSPACE, 'tools', tool + '.py'), 'script'],
+        env['ZX_PAD_SCRIPT'] = subprocess.run([sys.executable, os.path.join(WORKSPACE, 'tools', tool + '.py'), 'script'],
                                                 capture_output=True, text=True, cwd=WORKSPACE).stdout.strip()
-        env['PS2X_PAD_SCRIPT_CLOCK'] = 'vsync'
+        env['ZX_PAD_SCRIPT_CLOCK'] = 'vsync'
     proc, _ = start_runner(a, run, env)
     t0 = time.time()
     next_id = a.first_id
@@ -1571,7 +1571,7 @@ def drop_crashing_calls(fncheck, path, log):
 
 
 def cmd_check(a):
-    fncheck = os.path.join(a.build, 'ps2xRuntime', 'ps2xFnCheck')
+    fncheck = os.path.join(a.build, 'runtime', 'zx-fncheck')
     os.makedirs(a.out, exist_ok=True)
     cmd = [sys.executable, '-I', os.path.join(HERE, 'fncheck_corpus.py'), 'run', '--fncheck', fncheck, '--out', a.out,
            '--corpus', a.corpus, '--jobs', str(a.jobs), '--max-mem-gb', '4', '--no-cache', '--build', a.build,
@@ -1814,7 +1814,7 @@ def cmd_report(a):
 
 
 def cmd_upper(a):
-    """The file ps2xFnCheck --upper reads."""
+    """The file zx-fncheck --upper reads."""
     elf = Elf(ELF)
     rows = [(int(r['addr']), int(r['end_addr'])) for r in query("SELECT addr, end_addr FROM functions WHERE build='ai_ps2'")]
     got = search.upper_reads(elf, rows)

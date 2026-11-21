@@ -8,22 +8,22 @@
 #include <cmath>
 #include <cstring>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     namespace
     {
         // The movie readers read through the games' file system: the file's
         // folder as a disc of one file.
-        std::shared_ptr<ps2x::game_files::GameFile> openHostFile(const std::filesystem::path &file)
+        std::shared_ptr<zx::game_files::GameFile> openHostFile(const std::filesystem::path &file)
         {
-            ps2x::game_files::GameFileRoots roots;
+            zx::game_files::GameFileRoots roots;
             roots.disc = file.parent_path();
-            ps2x::game_files::GameFileSystem files(std::move(roots));
+            zx::game_files::GameFileSystem files(std::move(roots));
             return files.open(file.filename().string());
         }
 
         // A movie's picture as the canvas's (both RGBA bytes, R first).
-        void toImage(const ps2x::movie::Picture &picture, Image &out)
+        void toImage(const zx::movie::Picture &picture, Image &out)
         {
             out.width = picture.width;
             out.height = picture.height;
@@ -36,12 +36,12 @@ namespace ps2x::collection
         }
     }
 
-    std::unique_ptr<ps2x::movie::PssVideo> openMovieVideo(const std::filesystem::path &file)
+    std::unique_ptr<zx::movie::PssVideo> openMovieVideo(const std::filesystem::path &file)
     {
-        std::shared_ptr<ps2x::game_files::GameFile> opened = openHostFile(file);
+        std::shared_ptr<zx::game_files::GameFile> opened = openHostFile(file);
         if (!opened)
             return nullptr;
-        return std::make_unique<ps2x::movie::PssVideo>(std::move(opened));
+        return std::make_unique<zx::movie::PssVideo>(std::move(opened));
     }
 
     // ---- MenuScene -------------------------------------------------------------
@@ -90,7 +90,7 @@ namespace ps2x::collection
         if (m_shown < 0 || m_ended || now < m_nextAt || (!m_moving && !m_picture.empty()))
             return false;
         const FrontGame &game = (*m_games)[static_cast<size_t>(m_shown)];
-        ps2x::movie::Picture picture;
+        zx::movie::Picture picture;
         // The loops one after another: at the end of one the next, over
         // and over (a loop that gives no picture at all ends the movie).
         for (size_t tries = 0; tries <= game.loops.size(); ++tries)
@@ -159,14 +159,14 @@ namespace ps2x::collection
         m_sound.reset();
         if (clip.empty())
             return false;
-        std::shared_ptr<ps2x::game_files::GameFile> file = openHostFile(clip.movie);
+        std::shared_ptr<zx::game_files::GameFile> file = openHostFile(clip.movie);
         if (!file)
             return false;
-        m_video = std::make_unique<ps2x::movie::PssVideo>(file);
-        auto sound = std::make_shared<ps2x::movie::PssAudio>(file);
+        m_video = std::make_unique<zx::movie::PssVideo>(file);
+        auto sound = std::make_shared<zx::movie::PssAudio>(file);
         if (sound->hasSound())
             m_sound = std::move(sound);
-        ps2x::movie::Picture picture;
+        zx::movie::Picture picture;
         if (!m_video->next(picture))
         {
             m_video.reset();
@@ -192,7 +192,7 @@ namespace ps2x::collection
             return false;
         // The pictures due by now (a late frame skips to the one due).
         const size_t due = static_cast<size_t>(at * m_fps) + 1;
-        ps2x::movie::Picture picture;
+        zx::movie::Picture picture;
         bool more = true;
         while (m_shown < due && (more = m_video->next(picture)))
         {

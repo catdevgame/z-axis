@@ -5,7 +5,7 @@
 #include <system_error>
 #include <utility>
 
-namespace ps2x::app
+namespace zx::app
 {
     namespace fs = std::filesystem;
 

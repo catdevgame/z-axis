@@ -2,7 +2,7 @@
 
 // A dual-screen handheld's bottom screen in single player: a live map of the level with
 // the goals and tricks beside it. Everything here is plain C++ with no
-// platform or game dependency, so the Mac harness (ps2xPanelShot) and the
+// platform or game dependency, so the Mac harness (zx-panelshot) and the
 // tests run the same code the phone does.
 //
 // Who calls what (the Android side owns the threads):
@@ -64,16 +64,18 @@ namespace panel
         Panel(const Panel &) = delete;
         Panel &operator=(const Panel &) = delete;
 
-        // The folder of the packaged panel files (<FOLDER>.pmap, UI.pmap).
-        // Level files load on the draw that first needs them.
-        void setDataFolder(const std::string &folder);
+        // The folder of the packaged panel files (<FOLDER>.pmap, UI.pmap),
+        // and the one each file is read from when the folder has none of it
+        // or has it in another version ("" none). Level files load on the
+        // draw that first needs them.
+        void setDataFolder(const std::string &folder, const std::string &fallback = {});
 
         void touch(const TouchEvent &event);
         void draw(const Snapshot &snapshot, double seconds, const Surface &surface);
 
         // Each goal's title and progress line as the goal list shows them
         // (after a draw of this snapshot): for checks against the game's own
-        // counts (ps2xPanelShot --goal-lines). Empty when the level file's
+        // counts (zx-panelshot --goal-lines). Empty when the level file's
         // goals are not the loaded script's.
         struct GoalLine
         {

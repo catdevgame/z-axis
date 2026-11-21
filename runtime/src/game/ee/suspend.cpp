@@ -89,7 +89,7 @@ namespace ee
         // FunctionPtr's visit) run on it with no check of their depth, and a
         // recursion goes as deep as the guest's: DM2's in-order walk of a
         // level's waypoint tree overran 512 KB on Park Quest's Woodward
-        // (PS2X_READABLE=tested). Reserved, not committed (fiber_posix.cpp,
+        // (ZX_READABLE=tested). Reserved, not committed (fiber_posix.cpp,
         // fiber_windows.cpp): a fiber uses what it touches.
         constexpr std::size_t kFiberStackBytes = 8u * 1024u * 1024u;
         // A callee runs on its caller's fiber while this much of the stack is
@@ -170,7 +170,7 @@ namespace ee
                 resume(rdram, ctx, runtime);
                 return;
             }
-            const auto table = g_returnSlots.find(ps2x::function_table::active().table);
+            const auto table = g_returnSlots.find(zx::function_table::active().table);
             if (table != g_returnSlots.end())
                 if (const auto slot = table->second.find(pc); slot != table->second.end() && slot->second.previous)
                 {
@@ -191,7 +191,7 @@ namespace ee
         {
             if (!address || !g_resumePc)
                 return false;
-            auto &slots = g_returnSlots[ps2x::function_table::active().table];
+            auto &slots = g_returnSlots[zx::function_table::active().table];
             const auto it = slots.find(address);
             if (it != slots.end())
                 return it->second.usable;
@@ -212,10 +212,10 @@ namespace ee
         // waiting there can never be resumed: the guest stack it waits on is
         // in use again (its thread went on elsewhere, e.g. ended or restarted
         // while it waited), so the newer one takes the key.
-        // PS2X_SAFEPOINT_TRACE=1: every safe-point yield and resume on stderr.
+        // ZX_SAFEPOINT_TRACE=1: every safe-point yield and resume on stderr.
         bool traceOn()
         {
-            static const bool on = [] { const char *v = std::getenv("PS2X_SAFEPOINT_TRACE"); return v && v[0] == '1'; }();
+            static const bool on = [] { const char *v = std::getenv("ZX_SAFEPOINT_TRACE"); return v && v[0] == '1'; }();
             return on;
         }
 
@@ -514,13 +514,13 @@ namespace ee
             }
         }
 
-        // PS2X_READABLE_FIBER_CALLS=0: every readable callee on a fiber of
+        // ZX_READABLE_FIBER_CALLS=0: every readable callee on a fiber of
         // its own, as before callOnFiber.
         bool fiberCallsOn()
         {
             static const bool on = []
             {
-                const char *v = std::getenv("PS2X_READABLE_FIBER_CALLS");
+                const char *v = std::getenv("ZX_READABLE_FIBER_CALLS");
                 return safePointsOn() && !(v && v[0] == '0');
             }();
             return on;
@@ -873,7 +873,7 @@ namespace ee
         // free or already these (an earlier install in this table; each game
         // has its own table, put back as generated when it is chosen again),
         // so the same three for a game however many runs and games came first.
-        const ps2x::function_table::View table = ps2x::function_table::active();
+        const zx::function_table::View table = zx::function_table::active();
         uint32_t found[3] = {};
         int n = 0;
         for (uint32_t address = table.base + 4u; address < table.end && n < 3; address += 4u)
@@ -918,7 +918,7 @@ namespace ee
         // The return slots set up while it ran, in the table it ran in: back
         // to what they had (a later run sets them up again as it needs them).
         size_t slots = 0;
-        if (const auto table = g_returnSlots.find(ps2x::function_table::active().table); table != g_returnSlots.end())
+        if (const auto table = g_returnSlots.find(zx::function_table::active().table); table != g_returnSlots.end())
             for (const auto &[address, slot] : table->second)
                 if (slot.usable && slot.previous && runtime.tableEntry(address) == &returned)
                 {

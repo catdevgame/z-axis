@@ -24,8 +24,8 @@
 // on from where it was.
 //
 // Widgets: zgui's widget draw is wrapped in bmx_xxx_gameplay.cpp (hidesUi).
-// On with the app's settings (PS2X_GAME_SETTINGS_MENUS=1), as the gameplay
-// pages; `set photo.mode 1` on PS2X_CONTROL for checks.
+// On with the app's settings (ZX_GAME_SETTINGS_MENUS=1), as the gameplay
+// pages; `set photo.mode 1` on ZX_CONTROL for checks.
 
 #include "bmx_xxx.h"
 #include "sym/game_overrides/bmx_xxx_photo.cpp.h"
@@ -49,8 +49,8 @@ namespace bmx_xxx::photo
     namespace
     {
         namespace hi = ps2_host_input;
-        namespace ph = ps2x::photo;
-        namespace st = ps2x::settings;
+        namespace ph = zx::photo;
+        namespace st = zx::settings;
 
         // An action camera (game/bmx/camera/action_camera.h), as the host
         // reads it: the record, and what it shows (CameraView).
@@ -109,7 +109,7 @@ namespace bmx_xxx::photo
             uint32_t camera = 0;      // the player's camera's record
             uint8_t savedCamera[kActionCameraBytes] = {};
         };
-        Photo &photo() { return ps2x::session::state<Photo>(); }
+        Photo &photo() { return zx::session::state<Photo>(); }
 
         uint8_t readByte(const uint8_t *rdram, uint32_t address)
         {
@@ -372,7 +372,7 @@ namespace bmx_xxx::photo
             if ((value != 0) != (photo().state.load() == State::Active))
                 PSPadBackend::triggerHotkey(hi::kHotkeyPhotoMode);
         };
-        ps2x::session::addSetting(open);
+        zx::session::addSetting(open);
         exit_menu::addPhotoLine(runtime);
         std::cout << "[bmx-xxx] photo mode: the pause menu line and the photo_mode key" << std::endl;
         return true;

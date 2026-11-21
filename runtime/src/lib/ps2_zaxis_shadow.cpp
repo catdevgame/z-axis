@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     namespace
     {

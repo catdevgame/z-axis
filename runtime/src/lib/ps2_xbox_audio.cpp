@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace ps2x::xbox_audio
+namespace zx::xbox_audio
 {
     namespace
     {

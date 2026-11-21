@@ -32,7 +32,7 @@ namespace ee::held::program
 
     // What an expression is worked out with: the running function's frame and place, the call about to be made,
     // whether memory may be read (loads), where a load that cannot be read is said (unreadable, a check's), and
-    // whether a recording answers the calls (replaying: ps2xFnCheck; a check's load is then not read).
+    // whether a recording answers the calls (replaying: zx-fncheck; a check's load is then not read).
     struct Context
     {
         const Frame &frame;

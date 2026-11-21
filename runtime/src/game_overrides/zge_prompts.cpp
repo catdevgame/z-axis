@@ -24,18 +24,17 @@ namespace zge_host::prompts
 {
     namespace
     {
-        namespace gl = ps2x::glyphs;
+        namespace gl = zx::glyphs;
         namespace hi = ps2_host_input;
-        namespace zx = ps2x::zaxis;
 
         constexpr int kRegA0 = 4, kRegA1 = 5, kRegA2 = 6, kRegA3 = 7, kRegSp = 29, kRegRa = 31;
 
         struct Installed
         {
             const Game *game = nullptr;
-            int trace = 0; // PS2X_TRACE_PROMPTS=1, 2: every texture, 3: every text drawn
+            int trace = 0; // ZX_TRACE_PROMPTS=1, 2: every texture, 3: every text drawn
         };
-        Installed &installed() { return ps2x::session::state<Installed>(); }
+        Installed &installed() { return zx::session::state<Installed>(); }
 
         uint32_t readWord(const uint8_t *rdram, uint32_t address)
         {
@@ -73,9 +72,9 @@ namespace zge_host::prompts
             bool captured = false;
             gl::Font label;                                  // key cap and button labels
             std::array<std::map<int, gl::Image>, kDevices> buttons; // by device, by physical button (kDPadArt)
-            std::map<std::string, zx::LibraryFont> fonts;    // by atlas texture name
+            std::map<std::string, zx::zaxis::LibraryFont> fonts;    // by atlas texture name
         };
-        Art &art() { return ps2x::session::state<Art>(); }
+        Art &art() { return zx::session::state<Art>(); }
 
         const gl::Image *artFor(Device device, int button)
         {
@@ -85,7 +84,7 @@ namespace zge_host::prompts
         }
 
         // A glyph of a font as a picture of its own.
-        gl::Image glyphImage(const zx::LibraryFont &font, const zx::FontGlyph &g)
+        gl::Image glyphImage(const zx::zaxis::LibraryFont &font, const zx::zaxis::FontGlyph &g)
         {
             gl::Image image(g.width, g.height);
             for (int y = 0; y < g.height; ++y)
@@ -335,7 +334,7 @@ namespace zge_host::prompts
             PS2Runtime::RecompiledFunction origFree = nullptr;
             PS2Runtime::RecompiledFunction origText = nullptr;
         };
-        TexturesInRam &ramTextures() { return ps2x::session::state<TexturesInRam>(); }
+        TexturesInRam &ramTextures() { return zx::session::state<TexturesInRam>(); }
 
         size_t pixelBytes(const Texture &t)
         {
@@ -585,12 +584,12 @@ namespace zge_host::prompts
                     // The cells, and the palette entries the rest of the atlas uses.
                     struct Cell
                     {
-                        const zx::FontGlyph *glyph;
+                        const zx::zaxis::FontGlyph *glyph;
                         Picture picture;
                     };
                     std::vector<Cell> targets;
                     for (const auto &[c, picture] : cells->second)
-                        if (const zx::FontGlyph *g = font->second.glyph(c); g && (!playstation || remapped(picture.button)))
+                        if (const zx::zaxis::FontGlyph *g = font->second.glyph(c); g && (!playstation || remapped(picture.button)))
                             targets.push_back({g, picture});
                     if (targets.empty() && playstation)
                     {
@@ -864,9 +863,9 @@ namespace zge_host::prompts
         {
             uint32_t base = 0;
             int next = 0;
-            std::set<std::string> traced; // PS2X_TRACE_PROMPTS: each changed text once
+            std::set<std::string> traced; // ZX_TRACE_PROMPTS: each changed text once
         };
-        TextBuffers &textBuffers() { return ps2x::session::state<TextBuffers>(); }
+        TextBuffers &textBuffers() { return zx::session::state<TextBuffers>(); }
 
         // The text argument changed for the device, or 0 to leave it.
         uint32_t textFor(uint8_t *rdram, uint32_t text)
@@ -1069,13 +1068,13 @@ namespace zge_host::prompts
 
     // ---- the art --------------------------------------------------------------
 
-    ps2x::glyphs::Font labelFont()
+    zx::glyphs::Font labelFont()
     {
         std::lock_guard<std::mutex> lock(art().mutex);
         return art().label;
     }
 
-    bool atlasFont(const std::string &atlas, ps2x::zaxis::LibraryFont &font)
+    bool atlasFont(const std::string &atlas, zx::zaxis::LibraryFont &font)
     {
         std::lock_guard<std::mutex> lock(art().mutex);
         const auto it = art().fonts.find(atlas);
@@ -1085,7 +1084,7 @@ namespace zge_host::prompts
         return true;
     }
 
-    static void captureArt(const std::vector<ps2x::zaxis::ArchiveEntry> &entries)
+    static void captureArt(const std::vector<zx::zaxis::ArchiveEntry> &entries)
     {
         const Game *game = installed().game;
         Art &a = art();
@@ -1098,15 +1097,15 @@ namespace zge_host::prompts
             if (!pictures.count(source.button))
                 pictures[source.button] = std::move(image);
         };
-        for (const zx::ArchiveEntry &entry : entries)
+        for (const zx::zaxis::ArchiveEntry &entry : entries)
         {
-            std::vector<zx::LibraryTexture> textures;
-            std::vector<zx::LibraryFont> fonts;
-            if (!zx::readLibrary(entry.data, &textures, &fonts))
+            std::vector<zx::zaxis::LibraryTexture> textures;
+            std::vector<zx::zaxis::LibraryFont> fonts;
+            if (!zx::zaxis::readLibrary(entry.data, &textures, &fonts))
                 continue;
-            for (const zx::LibraryTexture &t : textures)
+            for (const zx::zaxis::LibraryTexture &t : textures)
             {
-                const std::string file = zx::sourceFileName(t.source);
+                const std::string file = zx::zaxis::sourceFileName(t.source);
                 if (game->padPhoto && file == game->padPhoto->file)
                 {
                     // The PlayStation pad's: what a loaded texture is compared with.
@@ -1122,12 +1121,12 @@ namespace zge_host::prompts
                         keep(game->art[i], std::move(image));
                     }
             }
-            for (zx::LibraryFont &f : fonts)
+            for (zx::zaxis::LibraryFont &f : fonts)
             {
-                const std::string file = zx::sourceFileName(f.source);
+                const std::string file = zx::zaxis::sourceFileName(f.source);
                 for (size_t i = 0; i < game->artCount; ++i)
                     if (game->art[i].character != 0 && file == game->art[i].file)
-                        if (const zx::FontGlyph *g = f.glyph(game->art[i].character))
+                        if (const zx::zaxis::FontGlyph *g = f.glyph(game->art[i].character))
                             keep(game->art[i], glyphImage(f, *g));
                 if (file == game->labelFont)
                     a.label = gl::fontFrom(f);
@@ -1187,7 +1186,7 @@ namespace zge_host::prompts
     bool install(PS2Runtime &runtime, const Game &game)
     {
         installed().game = &game;
-        const char *trace = std::getenv("PS2X_TRACE_PROMPTS");
+        const char *trace = std::getenv("ZX_TRACE_PROMPTS");
         installed().trace = trace ? std::atoi(trace) : 0;
         TexturesInRam &ram = ramTextures();
         ram.origAlloc = runtime.lookupFunction(game.newLoadedTexture);
@@ -1211,11 +1210,11 @@ namespace zge_host::prompts
         // The art, from the UI library as the game reads it (after the
         // patches registered before this one: another language's fonts),
         // left as it is.
-        ps2x::disc_patch::registerPatch("UILIB.ZAL",
+        zx::disc_patch::registerPatch("UILIB.ZAL",
                                         [](std::vector<uint8_t> &bytes)
                                         {
-                                            std::vector<zx::ArchiveEntry> entries;
-                                            if (zx::readArchive(bytes, entries))
+                                            std::vector<zx::zaxis::ArchiveEntry> entries;
+                                            if (zx::zaxis::readArchive(bytes, entries))
                                                 captureArt(entries);
                                             return false;
                                         });

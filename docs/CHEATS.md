@@ -2,8 +2,8 @@
 
 How to use: Aggressive Inline's Options > Cheats keyboard takes the codes below (on the host keyboard `w a s d`
 are the arrow keys). The game compares typed text (`inlineMenuCheat` 0x1AA628, codes in .sdata
-0x2758D0-0x275968), so they work in the app and in the developer runner. `PS2X_DEV_UNLOCK_ALL=1` does the two
-unlock codes' work for test runs (DEVTOOLS.md). Dave Mirra BMX 2's cheats are button sequences read by
+0x2758D0-0x275968), so they work in the app and in the developer runner. `ZX_DEV_UNLOCK_ALL=1` does what Unlock
+Everything does (the two unlock codes' work and the Media Viewer cutscenes) for test runs (DEVTOOLS.md). Dave Mirra BMX 2's cheats are button sequences read by
 `bmxCheckCheat` 0x1ADF60; they need the second pad port empty, which it is without a second gamepad.
 
 ## The cheat codes

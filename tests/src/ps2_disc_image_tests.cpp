@@ -4,7 +4,7 @@
 #include "ps2_stubs.h"
 #include "Kernel/Stubs/MemoryCard.h"
 #include "Kernel/Stubs/CD.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 #include "runtime/ps2_vfs.h"
 #include "test_iso_builder.h"
 
@@ -23,7 +23,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = std::filesystem::temp_directory_path() / ("ps2x-disc-" + std::to_string(now));
+            path = std::filesystem::temp_directory_path() / ("zx-disc-" + std::to_string(now));
             std::filesystem::create_directories(path);
         }
         ~TempDir()
@@ -68,7 +68,7 @@ void register_ps2_disc_image_tests()
             const auto iso = dir.path / "disc.iso";
             const auto lsns = test_iso::write(iso, sampleFiles(), "AGGRESSIVE_INLINE");
 
-            ps2x::iop::Iso9660Image image;
+            zx::disc::Iso9660Image image;
             std::string error;
             t.IsTrue(image.open(iso, &error), "open should accept the image: " + error);
             t.Equals(image.volumeId(), std::string("AGGRESSIVE_INLINE"), "volume id is read from the PVD");
@@ -102,7 +102,7 @@ void register_ps2_disc_image_tests()
                 std::ofstream out(small, std::ios::binary);
                 out << "not a disc";
             }
-            ps2x::iop::Iso9660Image image;
+            zx::disc::Iso9660Image image;
             std::string error;
             t.IsFalse(image.open(small, &error), "a tiny file is not an image");
             t.IsFalse(error.empty(), "an error message is given");
@@ -126,7 +126,7 @@ void register_ps2_disc_image_tests()
             PS2Vfs vfs;
             PS2RomDevice rom;
             PS2VfsMounts mounts;
-            mounts.cdImage = ps2x::iop::Iso9660Image::shared(iso);
+            mounts.cdImage = zx::disc::Iso9660Image::shared(iso);
             t.IsTrue(mounts.cdImage != nullptr, "shared image opens");
 
             const int32_t fd = vfs.open("cdrom0:\\ASSETS\\APPDISCTEST.BIN;1", PS2_FIO_O_RDONLY, mounts, rom);
@@ -195,7 +195,7 @@ void register_ps2_disc_image_tests()
             PS2Runtime::IoPaths paths = oldPaths;
             // An absolute path on every platform (a drive letter on Windows).
             const std::filesystem::path cards =
-                (std::filesystem::temp_directory_path() / "ps2x-cards" / "memcards").lexically_normal();
+                (std::filesystem::temp_directory_path() / "zx-cards" / "memcards").lexically_normal();
             paths.mcRoot = cards / "slot1";
             PS2Runtime::setIoPaths(paths);
             const auto snapshot = ps2_stubs::getMemoryCardDebugSnapshot();

@@ -14,7 +14,7 @@
 // run" does (bmxoverlayRoundOverHandler): close the screen
 // (showGameScreen(0)) and start the round again (setRoundPhase(3), which
 // resets every rider's run state and places them at the start).
-// PS2X_RESTART=0: no Restart line.
+// ZX_RESTART=0: no Restart line.
 //
 // With photo mode (dave_mirra_photo.cpp), a PHOTO MODE line after RESTART,
 // whose index is kept as Exit to Collection's is: choosing it starts photo
@@ -92,7 +92,7 @@ namespace dave_mirra::restart
     constexpr int kRegA0 = 4, kRegA1 = 5, kRegA2 = 6, kRegSp = 29, kRegRa = 31;
 
     // One boot's originals and whether its pause menu got the Restart line
-    // (made at the boot's first use, the install: ps2x::boot::PerBoot).
+    // (made at the boot's first use, the install: zx::boot::PerBoot).
     struct State
     {
         PS2Runtime::RecompiledFunction setProperty = nullptr;
@@ -101,7 +101,7 @@ namespace dave_mirra::restart
         PS2Runtime::RecompiledFunction showPauseScreen = nullptr;
         bool building = false; // the pause menu's builder is running
         bool keyPending = false; // the Restart key was pressed (VBlank and the play frame: both the EE thread)
-        bool restart = false;    // the Restart line wanted (PS2X_RESTART is not 0)
+        bool restart = false;    // the Restart line wanted (ZX_RESTART is not 0)
         bool collection = false; // the Exit to Collection line wanted
         bool photo = false;      // the Photo Mode line wanted
         bool settings = false;   // the Settings line wanted
@@ -114,7 +114,7 @@ namespace dave_mirra::restart
 
     State &state()
     {
-        static ps2x::boot::PerBoot<State> ofBoot([] { return State{}; });
+        static zx::boot::PerBoot<State> ofBoot([] { return State{}; });
         return ofBoot.get();
     }
 
@@ -407,7 +407,7 @@ namespace dave_mirra
     {
         using namespace restart;
         State &st = state();
-        const char *v = std::getenv("PS2X_RESTART");
+        const char *v = std::getenv("ZX_RESTART");
         st.restart = !(v && v[0] == '0');
         st.collection = zge_host::inCollection();
         if (!st.restart && !st.collection)

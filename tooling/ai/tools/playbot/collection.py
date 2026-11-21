@@ -5,12 +5,12 @@
 
 APP: the collection app's executable (a copy of make-app.sh's, e.g. "Z-Axis Collection.app/Contents/MacOS/Z-Axis
 Collection"). VISITS: the games in the order played, comma separated, from dm2, ai, bmx (the menu's order); each one is
-booted from the collection's menu (PS2X_MENU_SCRIPT: game:<id>, the menu's own step to that game's card, then Enter), played from its title
+booted from the collection's menu (ZX_MENU_SCRIPT: game:<id>, the menu's own step to that game's card, then Enter), played from its title
 to a level and TICKS of riding there (the playbot players: ai.py's career_level, player_dm2 for DM2 and BMX XXX), then
 left by the game's own Exit to Collection: DM2 and BMX XXX from the pause menu's last line, Aggressive Inline from its
 main menu's Quit (the pause's EXIT first). The last visit ends in its level (the run stops there).
 
-The game running is the app log's last `[app] ID: running` (PS2X_APP_LOG_DIR); a game left is its `left for the menu`.
+The game running is the app log's last `[app] ID: running` (ZX_APP_LOG_DIR); a game left is its `left for the menu`.
 Menus in DM2 and BMX XXX are dm2routes' and bmxroutes' scripts played closed loop (their SYNCs waited on the game's
 words); AI's are ai.py's. Numbers per visit: the game's own (DM2/BMX: score, tricks, distance via dm2.Meter; AI: score,
 challenge points), and whether it left. Scratch: $PLAYCOLL (runs/NAME, NAME.json).
@@ -187,7 +187,7 @@ def pause_exit(v, tries=3):
 
 def photo_step(v, line, close):
     """(COLL_PHOTO=1) The pause menu's PHOTO MODE (`line` lines below CONTINUE, as the game's log says), the camera
-    moved, Cross (the app's Screenshot: a picture in PS2X_SCREENSHOT_DIR), Circle; back up to CONTINUE and `close`."""
+    moved, Cross (the app's Screenshot: a picture in ZX_SCREENSHOT_DIR), Circle; back up to CONTINUE and `close`."""
     def taps(b, n, gap=20):
         for _ in range(n):
             for p in [pad(b)] * 6 + [NOTHING] * gap:
@@ -318,8 +318,8 @@ def menu_script(visits):
 
 def play(name, app, visits, ticks=3000, seed=1):
     os.makedirs(os.path.join(SCRATCH, 'runs'), exist_ok=True)
-    env = {'PS2X_MENU_SCRIPT': menu_script(visits), 'PS2X_EE_SCALE': '4096', 'PS2X_HEADLESS': '1',
-           'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy', 'PS2X_MC_FD_BASE0': '1'}
+    env = {'ZX_MENU_SCRIPT': menu_script(visits), 'ZX_EE_SCALE': '4096', 'ZX_HEADLESS': '1',
+           'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy', 'ZX_MC_FD_BASE0': '1'}
     cfg = core.RunConfig(name=name, runner=app, elf='', root=os.path.join(SCRATCH, 'runs'), env=env,
                          max_secs=600 + ticks * len(visits) // 10, script='99999999v:SELECT:1v',
                          gs=os.environ.get('COLL_GS') == '1')     # (COLL_GS=1: drawn, for the pictures photo mode saves)

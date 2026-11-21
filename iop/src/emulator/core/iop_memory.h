@@ -9,10 +9,13 @@
 #include <unordered_map>
 #include <vector>
 
-namespace ps2x::iop::detail
+namespace zx
 {
     class Spu2;
+}
 
+namespace ps2x::iop::detail
+{
     class IopMemory
     {
     public:
@@ -66,8 +69,8 @@ namespace ps2x::iop::detail
         void setInterruptControl(uint32_t value) noexcept { m_interruptControl = value & 1u; }
 
         // SPU2 registers (0x1F900000..) and IOP DMA channels 4/7 are emulated by the SPU2.
-        [[nodiscard]] Spu2 &spu2() noexcept { return *m_spu2; }
-        [[nodiscard]] const Spu2 &spu2() const noexcept { return *m_spu2; }
+        [[nodiscard]] zx::Spu2 &spu2() noexcept { return *m_spu2; }
+        [[nodiscard]] const zx::Spu2 &spu2() const noexcept { return *m_spu2; }
         [[nodiscard]] std::span<const uint8_t> ram() const noexcept { return m_ram; }
 
         [[nodiscard]] static uint32_t physicalAddress(uint32_t address) noexcept;
@@ -86,6 +89,6 @@ namespace ps2x::iop::detail
         uint32_t m_interruptStatus = 0;
         uint32_t m_interruptMask = 0;
         uint32_t m_interruptControl = 1;
-        std::unique_ptr<Spu2> m_spu2;
+        std::unique_ptr<zx::Spu2> m_spu2;
     };
 }

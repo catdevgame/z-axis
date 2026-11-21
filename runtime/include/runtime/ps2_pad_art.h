@@ -18,7 +18,7 @@
 
 #include <string>
 
-namespace ps2x::glyphs
+namespace zx::glyphs
 {
     // The controls of the pad, by place.
     enum class PadControl : int

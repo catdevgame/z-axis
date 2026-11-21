@@ -1,6 +1,6 @@
 #pragma once
 
-// Texture packs: PNG pictures a player drops in that the renderers draw in
+// Texture packs: PNG or DDS pictures a player drops in that the renderers draw in
 // place of the game's own textures, named the way PCSX2 names its texture
 // dumps and replacements, so a pack made with PCSX2 (or with PCSX2's dump
 // tools) works here unchanged and a dump made here works in PCSX2.
@@ -11,6 +11,8 @@
 //   <texture hash>-<bits>.png               a texture without one
 //   ...-r<w>x<h>-<bits>.png                 a region of one (from CLAMP)
 //   ...-mip<n>.png                          its mip level n (optional)
+// with .png or .dds alike (a DDS holds its own mip levels: -mip<n> files
+// are a PNG's; runtime/ps2_texture_dds.h reads DDS files as PCSX2 does).
 // The texture hash is XXH3-64 of the GS memory blocks under the texture
 // (the indices or colours read out when the texture is smaller than a
 // block, has 16 or 24-bit texels or is a region), the CLUT hash XXH3-64 of
@@ -24,7 +26,8 @@
 // folder's picture of the same name wins. The pictures are indexed by name
 // when the packs are set, read on loader threads (on first use, and all of
 // them ahead when they fit the memory budget) and given to the renderers
-// as texture_replace::Picture (RGBA8 with a mip chain). The PS2 texture is
+// as texture_replace::Picture (RGBA8 with a mip chain, or a DDS's BC1, BC2,
+// BC3 or BC7 blocks with the levels it has). The PS2 texture is
 // drawn until its picture is ready. A picture's alpha is the PS2's (0x80 is
 // opaque), as PCSX2's dumps have it.
 //
@@ -46,7 +49,7 @@
 
 struct GSTexaReg;
 
-namespace ps2x::texture_pack
+namespace zx::texture_pack
 {
     // ---- names -------------------------------------------------------------
 
@@ -151,9 +154,9 @@ namespace ps2x::texture_pack
 
     // ---- packs -------------------------------------------------------------
 
-    // The boot's packs and dump folder: PS2X_TEXTURE_PACKS (the folders,
+    // The boot's packs and dump folder: ZX_TEXTURE_PACKS (the folders,
     // game_files::kModsSeparator between them, lowest first: the collection
-    // sets it from the game's mods) and PS2X_TEXTURE_DUMP (a folder: dump
+    // sets it from the game's mods) and ZX_TEXTURE_DUMP (a folder: dump
     // mode). Read again only when the boot changes. Renderers call it when
     // they are made.
     void configureFromBoot();
@@ -183,9 +186,9 @@ namespace ps2x::texture_pack
     void dump(const Name &name, uint32_t width, uint32_t height, std::vector<uint32_t> colors);
 
     // Reads every picture ahead, up to the budget (on by default:
-    // PS2X_TEXTURE_PRELOAD=0 reads each at its first use only).
+    // ZX_TEXTURE_PRELOAD=0 reads each at its first use only).
     void setPreload(bool on);
-    // Bytes of pictures kept (RGBA8 and mips) before the least recently
+    // Bytes of pictures kept (texels and mips) before the least recently
     // used are dropped: 1 GiB on desktops, 256 MiB on Android.
     void setBudget(size_t bytes);
     size_t defaultBudget();
@@ -197,7 +200,7 @@ namespace ps2x::texture_pack
         size_t folders = 0;
         size_t names = 0;        // pictures the packs have
         size_t loaded = 0;       // held in memory now
-        size_t bytes = 0;        // their RGBA8 and mips
+        size_t bytes = 0;        // their texels (RGBA8 or blocks) and mips
         size_t failed = 0;       // files that would not decode
         size_t requests = 0;     // find() calls that queued a read
         size_t dumped = 0;       // files written by dump mode
@@ -209,6 +212,6 @@ namespace ps2x::texture_pack
 
     // A picture at the PS2's size: box-filtered to width x height from its
     // nearest level at least as large (the CPU renderer draws at the PS2's
-    // resolution). RGBA, R in the low byte.
+    // resolution; a block format's level decoded). RGBA, R in the low byte.
     std::vector<uint32_t> colorsAt(const texture_replace::Picture &picture, uint32_t width, uint32_t height);
 }

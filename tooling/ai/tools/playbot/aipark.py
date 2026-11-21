@@ -516,7 +516,7 @@ def build(name):
         yield from save_park(bot)
         yield from wait(bot, 120)
 
-    run = run_session(name, behaviour, 60000, env={'PS2X_SAVES': None})
+    run = run_session(name, behaviour, 60000, env={'ZX_SAVES': None})
     saves = []
     for root, _, files in os.walk(run.dir):
         for f in files:
@@ -915,7 +915,7 @@ def ride(name, parks, ticks, seed=1):
         if s.mode == ai.PLAY and s.placed:
             reached.tick(s.pos, 'grind' if s.grinding else 'wall' if s.st == ai.WALL_RIDE else 'air' if s.air else None)
 
-    e = {'PS2X_HEADLESS': '1', 'PS2X_DEV_UNLOCK_ALL': '1', 'PS2X_SAVES': None, 'PS2X_SAVES_DIR': saves}
+    e = {'ZX_HEADLESS': '1', 'ZX_DEV_UNLOCK_ALL': '1', 'ZX_SAVES': None, 'ZX_SAVES_DIR': saves}
     with core.Run(ai.config(name, e, secs=max(900, ticks // 10), gs=SHOTS)) as run:
         bot = ai.Player(run, behaviour, seed)
         try:
@@ -937,7 +937,7 @@ def ride(name, parks, ticks, seed=1):
 
 
 def run_session(name, behaviour, ticks, gs=False, env=None):
-    e = {'PS2X_HEADLESS': '1', 'PS2X_DEV_UNLOCK_ALL': '1'}
+    e = {'ZX_HEADLESS': '1', 'ZX_DEV_UNLOCK_ALL': '1'}
     e.update(env or {})
     with core.Run(ai.config(name, e, secs=max(600, ticks // 15), gs=gs or SHOTS)) as run:
         bot = ai.Player(run, behaviour, 1)

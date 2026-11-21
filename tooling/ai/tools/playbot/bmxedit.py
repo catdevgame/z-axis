@@ -3,7 +3,7 @@
 
     bmxedit.py play NAME [SEED [EDITS]]   a session into $BMXCORPUS/sessions/NAME (script.txt, meta.json, stats.json,
                                           play.log), as bmx.py's sessions: bmxroutes plays it back as a route
-    BMXEDIT_MENU=1: in by the app's main menu line (PS2X_BMX_PARK_EDITOR=1) instead of the poke, the park saved as a
+    BMXEDIT_MENU=1: in by the app's main menu line (ZX_BMX_PARK_EDITOR=1) instead of the poke, the park saved as a
     native file, and after EXIT the park ridden from PARK EDITOR, RIDE PARK. GS=1: pictures at the menus.
 
 The editor is AI's ParkEditor in BMX's game mode 2 (the mode table at 0x258778: init 0x1927a8, frame 0x1928c8);
@@ -20,7 +20,7 @@ on it is the editor's own menus and tools, closed on the game's state (the mode 
 - CLEAR PARK, and EXIT to the main menu.
 
 Its numbers: pieces placed and deleted, terrain moves, the test run's distance and jumps, the park file's size on the
-card (the run's mc0), and the editor's own count (showEditMemory 0x2197c0's argument, PS2X_FNCYCLES_ARGS).
+card (the run's mc0), and the editor's own count (showEditMemory 0x2197c0's argument, ZX_FNCYCLES_ARGS).
 """
 import json
 import os
@@ -41,7 +41,7 @@ PARK_EDITOR = 2
 
 
 def entry_env(at=ENTRY):
-    return {'PS2X_POKE_SCRIPT': '%x:%x=%x,%x:%x=0' % (at, GAME_MODE, 0x10000 | PARK_EDITOR, at, GAME_MODE + 4)}
+    return {'ZX_POKE_SCRIPT': '%x:%x=%x,%x:%x=0' % (at, GAME_MODE, 0x10000 | PARK_EDITOR, at, GAME_MODE + 4)}
 
 
 class Bot:
@@ -205,7 +205,7 @@ class Bot:
             self.log(self.st, 'shot', self.run.shot(what))
 
     def menu_entry(self):
-        """(BMXEDIT_MENU=1) The main menu's PARK EDITOR line (PS2X_BMX_PARK_EDITOR=1: third, after MULTIPLAYER), NEW
+        """(BMXEDIT_MENU=1) The main menu's PARK EDITOR line (ZX_BMX_PARK_EDITOR=1: third, after MULTIPLAYER), NEW
         PARK, the first theme: the game's own way into the editor."""
         yield from self.until(lambda s: s.mode == 1, 3000)
         yield from self.wait(240)
@@ -287,11 +287,11 @@ def play_session(name, seed=1, edits=16, max_secs=1500):
     os.makedirs(d, exist_ok=True)
     if os.environ.get('BMXEDIT_MENU') == '1':
         # the retail way in (the main menu's PARK EDITOR line, the app's setting) and the app's native park files
-        env = dict(PS2X_EE_SCALE='4096', PS2X_BMX_PARK_EDITOR='1')
+        env = dict(ZX_EE_SCALE='4096', ZX_BMX_PARK_EDITOR='1')
     else:
-        env = dict(entry_env(), PS2X_EE_SCALE='4096', PS2X_SAVES='card')
+        env = dict(entry_env(), ZX_EE_SCALE='4096', ZX_SAVES='card')
     trace_args = os.path.join(d, 'memory-args.txt')
-    run_env = dict(env, PS2X_FNCYCLES='0x%x:%s' % (SHOW_EDIT_MEMORY, os.path.join(d, 'memory-calls.txt')), PS2X_FNCYCLES_ARGS=trace_args)
+    run_env = dict(env, ZX_FNCYCLES='0x%x:%s' % (SHOW_EDIT_MEMORY, os.path.join(d, 'memory-calls.txt')), ZX_FNCYCLES_ARGS=trace_args)
     cfg = bmx.run_config(name, menu.text(), env=run_env, max_secs=max_secs, gs=os.environ.get('GS') == '1')
     import player_dm2
     log = player_dm2.Log(os.path.join(d, 'play.log'))

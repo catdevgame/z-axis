@@ -36,12 +36,12 @@ namespace dave_mirra
     bool installRestartKey(PS2Runtime &runtime);
 
     // The gameplay pages (Camera, Assists, Cheats) and keys (Hide HUD, Restart), Aggressive Inline's at DM2's
-    // code; with the app's settings (PS2X_GAME_SETTINGS_MENUS=1;
+    // code; with the app's settings (ZX_GAME_SETTINGS_MENUS=1;
     // dave_mirra_gameplay.cpp).
     void installGameplay(PS2Runtime &runtime);
 
     // The developer menu: F1 turns the game's debug display on and off
-    // (PS2X_DEV_MENU=1; dave_mirra_devtools.cpp).
+    // (ZX_DEV_MENU=1; dave_mirra_devtools.cpp).
     void installDevTools(PS2Runtime &runtime);
 
     // Exit to Collection in the front end's main menu, in the collection
@@ -53,7 +53,7 @@ namespace dave_mirra
     // The Settings page in the front end's Options (dave_mirra_settings.cpp).
     void installSettingsMenus(PS2Runtime &runtime);
     // Create Player, the cut menu, with its created riders
-    // (PS2X_DM2_CREATE_PLAYER=1; dave_mirra_creator.cpp). After the readable
+    // (ZX_DM2_CREATE_PLAYER=1; dave_mirra_creator.cpp). After the readable
     // install: not added unless the readable newRider runs.
     bool installCreatePlayer(PS2Runtime &runtime);
     // Whether Create Player can be added at the next boot: the readable
@@ -68,23 +68,23 @@ namespace dave_mirra
     bool installMouseLook(PS2Runtime &runtime);
 
     // DM2's Xbox-only levels in the level select, made at build time
-    // (PS2X_DM2_XBOX_LEVELS_DIR; dave_mirra_xboxlevel.cpp).
+    // (ZX_DM2_XBOX_LEVELS_DIR; dave_mirra_xboxlevel.cpp).
     bool installXboxLevels(PS2Runtime &runtime);
     // The park editor's Xbox-only themes, Desert and Highway, after the
-    // stock ones (PS2X_DM2_XBOX_THEMES=1, made at build time in
-    // PS2X_DM2_XBOX_LEVELS_DIR/themes; dave_mirra_xboxthemes.cpp).
+    // stock ones (ZX_DM2_XBOX_THEMES=1, made at build time in
+    // ZX_DM2_XBOX_LEVELS_DIR/themes; dave_mirra_xboxthemes.cpp).
     bool installXboxThemes(PS2Runtime &runtime);
-    // The Retro movie as the movie gallery's last line (PS2X_DM2_RETRO_MOVIE=1,
-    // made at build time in PS2X_DM2_XBOX_LEVELS_DIR/movies; dave_mirra_gallery.cpp).
+    // The Retro movie as the movie gallery's last line (ZX_DM2_RETRO_MOVIE=1,
+    // made at build time in ZX_DM2_XBOX_LEVELS_DIR/movies; dave_mirra_gallery.cpp).
     bool installRetroMovie(PS2Runtime &runtime);
     // The attract demo at the main menu, as on the Xbox and GameCube
-    // (PS2X_DM2_ATTRACT_DEMO=1; dave_mirra_demo.cpp).
+    // (ZX_DM2_ATTRACT_DEMO=1; dave_mirra_demo.cpp).
     bool installAttractDemo(PS2Runtime &runtime);
 
     // Level meshes drawn natively: from the draw records by default, with
     // the packet override on the GPU renderer for what they do not reach
-    // (dave_mirra_native.cpp; the render path: PS2X_RENDER_PATH, or
-    // PS2X_DM2_NATIVE=1 / 0).
+    // (dave_mirra_native.cpp; the render path: ZX_RENDER_PATH, or
+    // ZX_DM2_NATIVE=1 / 0).
     bool installNative(PS2Runtime &runtime);
 
     // The Xbox levels' career (ProQuest goals, gaps, rewards) in Woodward
@@ -92,15 +92,15 @@ namespace dave_mirra
     bool installXboxCareer(PS2Runtime &runtime);
 
     // Every level open in the level select and every trick open (developers:
-    // PS2X_DEV_UNLOCK_ALL=1, or PS2X_DM2_OPEN_LEVELS=1 / PS2X_DM2_OPEN_TRICKS=1
+    // ZX_DEV_UNLOCK_ALL=1, or ZX_DM2_OPEN_LEVELS=1 / ZX_DM2_OPEN_TRICKS=1
     // for one of them; dave_mirra_devlevels.cpp).
     bool installOpenLevels(PS2Runtime &runtime);
 
     // The game save as a native file, no card dialogs; a park from a host
-    // file for the park loads (PS2X_DM2_PARK_FILE; dave_mirra_saves.cpp).
+    // file for the park loads (ZX_DM2_PARK_FILE; dave_mirra_saves.cpp).
     bool installNativeSaves(PS2Runtime &runtime);
 
-    // From boot straight into a FREERIDE level (PS2X_DEV_START_LEVEL:
+    // From boot straight into a FREERIDE level (ZX_DEV_START_LEVEL:
     // developers, the collection's Custom Freeplay; dave_mirra_devstart.cpp).
     void installDevStart(PS2Runtime &runtime);
 
@@ -111,7 +111,7 @@ namespace dave_mirra
     // sound without SDRDRV); true when installed (dave_mirra_movies.cpp).
     bool installNativeMovies(PS2Runtime &runtime);
 
-    // The GS texture memory audit (PS2X_GSMEM_AUDIT=1, developers;
+    // The GS texture memory audit (ZX_GSMEM_AUDIT=1, developers;
     // runtime/ps2_gs_texture_audit.h; dave_mirra_gsmem.cpp).
     void installGsTextureAudit(PS2Runtime &runtime);
 

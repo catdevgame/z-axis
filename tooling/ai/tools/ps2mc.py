@@ -2,7 +2,7 @@
 """Read and write PS2 memory card images (PCSX2 .ps2, 8 MB with ECC).
 
 Used to compare saves written by the native build (a host folder per card,
-PS2X_MC_ROOT, see docs/BRINGUP.md) with saves written by PCSX2, and to
+ZX_MC_ROOT, see docs/BRINGUP.md) with saves written by PCSX2, and to
 move saves between the two.
 
   python3 tools/ps2mc.py info CARD                 # superblock, free clusters

@@ -65,8 +65,8 @@
 // Photo mode (bmx_xxx_photo.cpp) is installed with the pages; while it is on
 // no widget is drawn.
 //
-// Settings are kept in PS2X_GAMEPLAY_INI (the app: gameplay.ini in the
-// game's support folder). On with the app's settings (PS2X_GAME_SETTINGS_MENUS=1).
+// Settings are kept in ZX_GAMEPLAY_INI (the app: gameplay.ini in the
+// game's support folder). On with the app's settings (ZX_GAME_SETTINGS_MENUS=1).
 
 #include "bmx_xxx.h"
 #include "sym/game_overrides/bmx_xxx_gameplay.cpp.h"
@@ -84,13 +84,14 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace bmx_xxx::gameplay
 {
     namespace
     {
         namespace gp = zge_host::gameplay;
-        namespace st = ps2x::settings;
+        namespace st = zx::settings;
 
         // A CameraSettings row (game/bmx/camera/action_camera.h), as the
         // host reads it.
@@ -176,7 +177,7 @@ namespace bmx_xxx::gameplay
             PS2Runtime *runtime = nullptr;
             State() { options.define(kOptions, kOptionCount, kHeader); }
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         int option(Option o) { return state().options.value(o); }
 
@@ -303,7 +304,7 @@ namespace bmx_xxx::gameplay
             std::atomic<bool> unlocked{false};
             std::atomic<int64_t> armedUntil{0}; // ms, steady clock
         };
-        Unlocking &unlocking() { return ps2x::session::state<Unlocking>(); }
+        Unlocking &unlocking() { return zx::session::state<Unlocking>(); }
 
         int64_t nowMs()
         {
@@ -486,7 +487,7 @@ namespace bmx_xxx::gameplay
             std::atomic<bool> hidden{false};
             std::atomic<uint32_t> skipped{0}; // groups not drawn
         };
-        Hud &hud() { return ps2x::session::state<Hud>(); }
+        Hud &hud() { return zx::session::state<Hud>(); }
 
         void drawWidgetHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
@@ -537,32 +538,32 @@ namespace bmx_xxx::gameplay
         void registerSettings()
         {
             gp::Options &o = state().options;
-            ps2x::session::addSetting(
+            zx::session::addSetting(
                 o.rangeRow(kFov, "Field of View", 42, 102, 5, "", "Wider shows more. The game's is 62."));
-            ps2x::session::addSetting(
+            zx::session::addSetting(
                 o.rangeRow(kDistanceShare, "Camera Distance", 50, 250, 10, "%", "How far behind the rider."));
-            ps2x::session::addSetting(
+            zx::session::addSetting(
                 o.rangeRow(kHeightShare, "Camera Height", 50, 300, 10, "%", "How high above the rider."));
-            ps2x::session::addSetting(o.rangeRow(kGrindTip, "Grind Balance Loss", 0, 100, 25, "%",
+            zx::session::addSetting(o.rangeRow(kGrindTip, "Grind Balance Loss", 0, 100, 25, "%",
                                                  "How fast a grind, stall or lip trick tips over."));
-            ps2x::session::addSetting(o.rangeRow(kManualTip, "Manual Balance Loss", 0, 100, 25, "%",
+            zx::session::addSetting(o.rangeRow(kManualTip, "Manual Balance Loss", 0, 100, 25, "%",
                                                  "How fast a manual, wheelie or flatland trick tips over."));
-            ps2x::session::addSetting(o.row(kPerfectGrind, "Perfect Grind", "Grinds, stalls and lip tricks never tip over."));
-            ps2x::session::addSetting(o.row(kPerfectManual, "Perfect Manual", "Manuals, wheelies and flatland never tip over."));
-            ps2x::session::addSetting(unlockRow());
+            zx::session::addSetting(o.row(kPerfectGrind, "Perfect Grind", "Grinds, stalls and lip tricks never tip over."));
+            zx::session::addSetting(o.row(kPerfectManual, "Perfect Manual", "Manuals, wheelies and flatland never tip over."));
+            zx::session::addSetting(unlockRow());
         }
     }
 
     void install(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         uint8_t *rdram = runtime.memory().getRDRAM();
         if (!rdram)
             return;
         State &s = state();
         s.runtime = &runtime;
-        if (const char *file = ps2x::boot::text("PS2X_GAMEPLAY_INI"); file && file[0])
+        if (const char *file = zx::boot::text("ZX_GAMEPLAY_INI"); file && file[0])
             s.options.setFile(file);
         s.options.load();
         takeCameraValues(rdram);
@@ -590,6 +591,38 @@ namespace bmx_xxx
     void installGameplay(PS2Runtime &runtime)
     {
         gameplay::install(runtime);
+    }
+
+    bool cameraTuningChanged()
+    {
+        return gameplay::option(gameplay::kDistanceShare) != 100 || gameplay::option(gameplay::kHeightShare) != 100;
+    }
+
+    void holdGameCameraTuning(uint8_t *rdram, bool game)
+    {
+        // The behind types' offsets and swing distances and the air heights: the game's own in the tables while
+        // `game`, else the settings' as they were.
+        static std::vector<float> kept;
+        gameplay::State &s = gameplay::state();
+        std::vector<zge_host::gameplay::GameFloat *> values;
+        for (uint32_t n = 0; n < gameplay::kBehindRows; ++n)
+            values.insert(values.end(), {&s.forward[n], &s.distance[n], &s.up[n]});
+        for (zge_host::gameplay::GameFloat &height : s.airHeight)
+            values.push_back(&height);
+        if (game)
+            kept.assign(values.size(), 0.0f);
+        for (size_t i = 0; i < values.size(); ++i)
+        {
+            if (!values[i]->address)
+                continue;
+            if (game)
+            {
+                kept[i] = zge_host::gameplay::readFloat(rdram, values[i]->address);
+                zge_host::gameplay::writeFloat(rdram, values[i]->address, values[i]->game);
+            }
+            else if (i < kept.size())
+                zge_host::gameplay::writeFloat(rdram, values[i]->address, kept[i]);
+        }
     }
 
     float drawnFieldOfView(const uint8_t *, float gameDegrees)

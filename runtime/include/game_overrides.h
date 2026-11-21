@@ -36,7 +36,7 @@ namespace ps2_game_overrides
     // Called by the front ends (runner, app) after PS2Runtime::run()
     // returns, with the guest stopped and its memory still there. These are
     // the process's (the developer tools' reports); a game module's own (one
-    // saving progress on quit) is its session's, ps2x::session::addShutdownHook
+    // saving progress on quit) is its session's, zx::session::addShutdownHook
     // (runtime/ps2_session.h), run after these.
     using ShutdownFn = void (*)(PS2Runtime &runtime);
     void addShutdownHook(ShutdownFn fn);

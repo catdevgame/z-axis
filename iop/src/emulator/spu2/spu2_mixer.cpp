@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace ps2x::iop::detail::spu2
+namespace zx::spu2
 {
     // LOOP/END sets the ENDX bit and sets NAX to LSA, and the voice is muted if LOOP is not set
     // LOOP seems to only have any effect on the block with LOOP/END set, where it prevents muting the voice

@@ -86,7 +86,7 @@ namespace zge
         // original, so it reads and writes them as one doubleword with
         // object (LD / SD); the same bytes either way.
         uint32_t changed;
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t object;            // DM2 +0x00C the scene object it belongs to (ZGE2 keeps no owner or area word)
 #else
         uint32_t object;            // +0x00C the scene object it belongs to
@@ -114,7 +114,7 @@ namespace zge
         uint8_t fogColour[4];       // +0x058 (DM2 +0x050) R, G, B, A (setCameraFogColour)
         ee::Float fogStart;         // +0x05C (DM2 +0x054) (setCameraFogStart)
         ee::Float fogEnd;           // +0x060 (DM2 +0x058) (setCameraFogEnd)
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t _05c;              // DM2 +0x05C
 #else
         uint8_t _064[0x0C];         // +0x064
@@ -124,7 +124,7 @@ namespace zge
         Vec4 down;                  // +0x0C0 (DM2 +0x0B0)
         Vec4 forward;               // +0x0D0 (DM2 +0x0C0)
         Vec4 position;              // +0x0E0 (DM2 +0x0D0)
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint8_t _0f0[0x80];         // +0x0F0
         uint32_t viewStale;         // +0x170 cleared when the matrix is set [unknown: what sets it]
         uint8_t _174[0x0C];         // +0x174
@@ -173,7 +173,7 @@ namespace zge
         ee::Float sphereScaleX;
         ee::Float sphereScaleY;
         ee::Float focalLength;      // +0x4E8 (DM2 +0x448) in GS pixels: the viewport's half width / tan(fieldOfView / 2)
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t _44c;              // DM2 +0x44C, the record's last word (no DM2 code reads it)
         // ZGE2's camera ends here (0x450 bytes, kCameraRecordBytes): it has no motion blur, owner, area or
         // viewStale word (DM2's newSceneRecord and setCameraMatrix write none, and no DM2 code reads past +0x448).
@@ -186,7 +186,7 @@ namespace zge
         ee::Float motionBlurScale[2];
         ee::Float motionBlurExtra[2]; // +0x4F8 kept clamped to -1 .. 1; no code reads them
         uint8_t motionBlurColour[4]; // +0x500 RGBA; alpha (+0x503) is the tuning table's "Normal Blur"
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint8_t _504[0x0C];         // +0x504
 #endif
 

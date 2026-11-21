@@ -25,7 +25,7 @@ namespace ps2_host
         // Retina: a swapchain in pixels instead of points.
         bool highDpi = false;
         // No window, no GPU device, nothing presented: a run that shows
-        // nothing (PS2X_GS_NULL, PS2X_HEADLESS) works where no swapchain can
+        // nothing (ZX_GS_NULL, ZX_HEADLESS) works where no swapchain can
         // exist, such as an SSH session on Windows.
         bool headless = false;
     };
@@ -167,7 +167,7 @@ namespace ps2_host
     // drives the pad in slot n; nothing if there is none): low = large
     // (left) motor, high = small (right) motor, 0-0xFFFF. A request lasts
     // ~250 ms unless repeated, so the motors stop when the guest stops
-    // updating them (pause, stall). PS2X_RUMBLE=0 turns it off.
+    // updating them (pause, stall). ZX_RUMBLE=0 turns it off.
     void setRumble(int port, uint16_t low, uint16_t high);
     // Settings > Controls > Test Rumble: each connected pad in turn runs
     // its large (low-frequency) motor, then its small one, through the same
@@ -213,7 +213,7 @@ namespace ps2_host
 
     bool audioReady();
     uint32_t audioDevice(); // SDL_AudioDeviceID, 0 if none
-    // SDL's audio driver ("coreaudio", "wasapi", ...; "dummy" when the sound is off: ZAXIS_AUDIO=off or an unpaced
+    // SDL's audio driver ("coreaudio", "wasapi", ...; "dummy" when the sound is off: ZX_AUDIO=off or an unpaced
     // run), "" if none.
     const char *audioDriver();
     // Master volume of everything played (0 = silent, 1 = as mixed). Any thread.
@@ -228,7 +228,7 @@ namespace ps2_host
     // follows; off, the window shows the newest frame at each refresh of a
     // fixed rate. Only for a display with variable refresh (on another, a
     // game frame is shown at the next refresh after it is ready, with no
-    // phase lock). ZAXIS_VRR=1 at start, or the app's setting.
+    // phase lock). ZX_VRR=1 at start, or the app's setting.
     void setVariableRefresh(bool on);
     bool variableRefresh();
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Aggressive Inline booted with no memory card in either slot (routes1): the boot's autoload finds none and asks
 (Retry, or go on without saving); the question is left up a while (the job polls the slots every round), then the
-game goes on without saving to the main menu. The runner's PS2X_MC_SLOT1/2=none (MemoryCard.cpp), the card's own
-jobs (PS2X_SAVES=card).
+game goes on without saving to the main menu. The runner's ZX_MC_SLOT1/2=none (MemoryCard.cpp), the card's own
+jobs (ZX_SAVES=card).
 
     ainocard.py NAME [WAIT]     WAIT: ticks the question stays up (900)
 
@@ -29,7 +29,7 @@ MAIN_MENU_FLAG, FRONT_END_PANEL = 0x276FE4, 0x240A20
 
 
 def play(name, wait=900, ticks=12000):
-    env = {'PS2X_MC_SLOT1': 'none', 'PS2X_MC_SLOT2': 'none'}
+    env = {'ZX_MC_SLOT1': 'none', 'ZX_MC_SLOT2': 'none'}
     cfg = ai.config(name, env=env, secs=1500)
     d = os.path.join(ai.SCRATCH, 'sessions', name)
     os.makedirs(d, exist_ok=True)

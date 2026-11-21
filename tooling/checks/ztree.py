@@ -4,8 +4,7 @@ The checks live here in the tooling, the tree they read is a z-axis checkout (th
 The tree is, in this order:
 
   1. $ZAXIS_TREE (lanecheck.sh, merge-check.sh, batchS.sh and the remote jobs set it);
-  2. the git worktree the current folder is in, when it is a z-axis tree (it has runtime/src/game, or ps2xRuntime/src/game
-     in a tree from before tools17's renames: zlayout.py);
+  2. the git worktree the current folder is in, when it is a z-axis tree (it has runtime/src/game);
   3. ZAXIS_MAIN (tooling/paths.env, zpaths.py).
 
 Importing this puts the tree's runtime/tools on sys.path, after this folder: the build's own tools the checks
@@ -84,7 +83,7 @@ TREE = find()
 
 
 def folder(kind):
-    """The tree's name of a top-level folder: 'runtime', or 'ps2xRuntime' in a tree from before tools17."""
+    """The tree's name of a top-level folder (zlayout.py)."""
     return zlayout.folder(TREE, kind)
 
 

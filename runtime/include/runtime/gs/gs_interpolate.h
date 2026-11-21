@@ -23,14 +23,14 @@
 #include <chrono>
 #include <cstdint>
 
-namespace ps2x::gs_interpolate
+namespace zx::gs_interpolate
 {
     // Row vectors, as the games and GSNativeDraw: [x y z 1] * m.
     using Matrix = float[4][4];
 
     // ---- the setting ----------------------------------------------------------------------------------------
 
-    // [display] frame_interpolation (ZAXIS_INTERPOLATION=on|off), read by the window loop and the renderer.
+    // [display] frame_interpolation (ZX_INTERPOLATION=on|off), read by the window loop and the renderer.
     bool enabled();
     void setEnabled(bool on);
 
@@ -120,7 +120,7 @@ namespace ps2x::gs_interpolate
     // ---- counts -----------------------------------------------------------------------------------------------
 
     // Why a refresh showed a game frame as it is instead of a picture between two (a run log line per second with
-    // PS2X_PERF_LOG, and at exit).
+    // ZX_PERF_LOG, and at exit).
     enum class Skip : uint32_t
     {
         Exact,        // the refresh fell on a frame (alpha within kSnap of 0 or 1)

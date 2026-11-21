@@ -251,7 +251,7 @@ public:
     // Initialize memory
     bool initialize(size_t ramSize = PS2_RAM_SIZE);
     // VU0's micro and data memory alone, zeroed, and VIF0's registers, for a host that has none of the rest of the
-    // machine: ps2xFnCheck, whose replays start VU0 microprograms (VCALLMS) after it sends the game's own upload
+    // machine: zx-fncheck, whose replays start VU0 microprograms (VCALLMS) after it sends the game's own upload
     // through processVIF0Data. initialize() makes them with everything else.
     void initializeVu0Memory();
     // VU0's code and data memory (initialized) set to these copies of theirs, PS2_VU0_CODE_SIZE and
@@ -313,7 +313,7 @@ public:
     using Vu1MscntCallback = std::function<void(uint32_t top, uint32_t itop)>;
     void setVu1MscntCallback(Vu1MscntCallback cb) { m_vu1MscntCallback = std::move(cb); }
 
-    // Asynchronous graphics (PS2X_VU1_ASYNC): VIF1 streams, VU1 runs, the
+    // Asynchronous graphics (ZX_VU1_ASYNC): VIF1 streams, VU1 runs, the
     // GIF arbiter and PATH3 run in order on one worker, the GS packet
     // processing they feed on a second one. The EE drains them (syncVif1 /
     // syncGraphics) before it observes anything they change, so it sees the
@@ -451,7 +451,7 @@ public:
     void processVIF1Data(const uint8_t *data, uint32_t sizeBytes);
     // Tests: UNPACK always through the general per-lane loop (no fast path).
     static inline bool s_vif1GeneralUnpack = false;
-    // Debug (PS2X_VIF1_PREFETCH=1): read a whole VIF1 transfer at the kick,
+    // Debug (ZX_VIF1_PREFETCH=1): read a whole VIF1 transfer at the kick,
     // as before chains were fetched as VIF1 consumes them, so the part behind
     // an interrupt stall does not see what the handler wrote.
     static inline bool s_vif1PrefetchChain = false;

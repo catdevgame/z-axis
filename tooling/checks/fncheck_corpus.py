@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""ps2xFnCheck over the whole recording corpus (docs/READABLE.md, "How a
+"""zx-fncheck over the whole recording corpus (docs/READABLE.md, "How a
 function is proven"): every recording of every route, verdicts,
 coverage summed per function, and the work database's result lines.
 
-    fncheck_corpus.py run --fncheck BUILD/ps2xRuntime/ps2xFnCheck --out DIR
+    fncheck_corpus.py run --fncheck BUILD/runtime/zx-fncheck --out DIR
                           [--corpus DIR ...] [--jobs N|auto] [--only ADDR,...|@FILE] [--chunk N]
                           [--incremental] [--extras-changed] [--extras-for ADDR,...|@FILE]
                           [--verify SHARE] [--cache DIR] [--no-cache] [--build DIR] [--max-mem-gb GB]
                           [--semantic] [--frame-index DIR]
-                          (each ps2xFnCheck in a process group of its own, killed whole on a timeout,
+                          (each zx-fncheck in a process group of its own, killed whole on a timeout,
                           Ctrl-C or above --max-mem-gb, default 4: then its file is a fault with phase
                           `memory` and the chunk goes on; --jobs auto counts free memory at the cap
                           per job and the cores the load leaves; on Windows a job object instead of the
@@ -26,7 +26,7 @@ coverage summed per function, and the work database's result lines.
     fncheck_corpus.py coverage DIR [DIR ...] [--status Verified] [--worst 20] [--json]
                           [--covered-out FILE] [--route-prefix P]
     fncheck_corpus.py emit DIR --run NAME [--results DIR] [--registry FILE]
-    fncheck_corpus.py generate --fncheck BUILD/ps2xRuntime/ps2xFnCheck --out DIR FN[:N] ...
+    fncheck_corpus.py generate --fncheck BUILD/runtime/zx-fncheck --out DIR FN[:N] ...
     fncheck_corpus.py markers DIR [DIR ...]          (--markers lines summed over the files)
     fncheck_corpus.py safepoints DIR [DIR ...] [--all] (--safepoints lines per function)
     fncheck_corpus.py saves DIR [DIR ...] [--only ADDR,...|@FILE] [--held]
@@ -36,7 +36,7 @@ coverage summed per function, and the work database's result lines.
 `run` replays every *.fnrec under the corpus' route folders (default
 $ZAXIS_SCRATCH/reccorpus/v5; more folders with --corpus, a DM2
 recording folder among them) with `--cycles`, one process per chunk of a
-route's files, and keeps every ps2xFnCheck line for tools ([fncheck:result],
+route's files, and keeps every zx-fncheck line for tools ([fncheck:result],
 [fncheck:coverage], [fncheck:fault], [fncheck:build], [fncheck:markers]) in DIR/lines.jsonl, one
 JSON object per line with the route. A memory fault ends a process: the
 file is recorded as a fault and the files after it go on in another.
@@ -59,15 +59,18 @@ this binary's checker= digest), so lines.jsonl is what a full run writes
 (sorted by route, file and kind). `--verify` (default 0.01) replays that share
 of the cached files too and fails the run if one differs (a missed input).
 Another game's recordings (dm2-, bmx-) are keyed in that game's instance
-(ps2_game_readable_<game>: the shared engine sources and the game's folder,
+(zx_game_readable_<game>: the shared engine sources and the game's folder,
 compiled with its symbol headers, which the bind tables make): the same
 closure over those objects, the headers' chunks the names reach (a symbol's
 address, level and status), and the registrations as the binary lists them
-(--list: the game's address, Planned or a body). The base also has the tables
-ps2xFnCheck is built with (fncheck_build: stack arguments, frames) and the
+(--list: the game's address, Planned or a body), each found in the build's copy of
+its file by the copy's #line (relative to the build since pubprep1). A
+registration whose body the key cannot find has every readable source and
+header in its key, and the run says how many (cachekey1). The base also has the tables
+zx-fncheck is built with (fncheck_build: stack arguments, frames) and the
 recompiled code's headers. An address registered more than once keys the
 registrations' order (readable::find runs the first), and a run with one of the
-checker's switches set (ENV_KEYED: PS2X_READABLE_FRAMES and the like) keys it in
+checker's switches set (ENV_KEYED: ZX_READABLE_FRAMES and the like) keys it in
 every file (tools40).
 The keys are a host's own (the base has the compiler and the compile commands, a file's key its path), but the
 verdicts are not: the Linux worker's checker and the Windows worker's one gave the same result lines on every one of
@@ -82,14 +85,14 @@ cache when its source and original are unchanged even if the checker changed
 them (promotion candidates). The binary must be the build's (byte-identical)
 and newer than its sources.
 
-`run --semantic` (or `--fncheck-arg --semantic`) is the gate: ps2xFnCheck
+`run --semantic` (or `--fncheck-arg --semantic`) is the gate: zx-fncheck
 --semantic in place of --cycles, with no --markers or --safepoints. A call
 passes on what it does (results, RAM, calls and their arguments, args_left,
 entry_left, the VU0 lanes later code reads); each line says mode=semantic, and
 readable_bad still counts the readable side alone, original_bad the original's.
 
 `run --frame-index DIR` (tools23) makes the folders' index of leftover reads first: every
-recording's original replayed alone (ps2xFnCheck --frame-reads-only --frame-reads-out DIR), each
+recording's original replayed alone (zx-fncheck --frame-reads-only --frame-reads-out DIR), each
 call's reads of its own frame before it writes them, with their values; then the replay itself with
 --frame-reads-in DIR, where residue a readable version leaves in its frame unlike the original
 that the folder's next leftover read finds fails (frame_residue_read). A file's cache key holds
@@ -117,10 +120,10 @@ blocks total, hit, the share and the uncovered blocks' addresses.
 --route-prefix keeps only routes whose name starts with one of P (comma
 separated; `-P` leaves them out). --covered-out writes the blocks hit, a line
 a function (`0x00125be0 0x125be0,0x125c00,...`), the seed the recorder's
-PS2X_FNREC_COVERED reads (only calls that run a block not in it are kept with
-PS2X_FNREC_NEW_BLOCKS=1).
+ZX_FNREC_COVERED reads (only calls that run a block not in it are kept with
+ZX_FNREC_NEW_BLOCKS=1).
 
-`generate` runs ps2xFnCheck --generate (the pure vector routines checked on
+`generate` runs zx-fncheck --generate (the pure vector routines checked on
 generated inputs, default 20000 calls) and keeps its [fncheck:coverage] lines
 in DIR/lines.jsonl (route `generate`), so `coverage DIR_A DIR` counts the
 paths those calls checked with the recordings'.
@@ -202,7 +205,7 @@ def corpus_files(folders, only=None):
                 if only and int(m.group(2), 16) not in only:
                     continue
                 path = os.path.join(folder, name)
-                # (Windows: '/' separators, which its file APIs take; ps2xFnCheck's
+                # (Windows: '/' separators, which its file APIs take; zx-fncheck's
                 # result lines would print a '\\' as "'", and run_chunk matches
                 # the files it gave by their printed names)
                 out.append((route, path.replace('\\', '/') if WINDOWS else path))
@@ -214,10 +217,10 @@ MAXRSS = re.compile(r'^\s*(\d+)\s+maximum resident set size', re.M)
 
 # ---- the children: process groups and the memory cap -------------------------
 #
-# Each ps2xFnCheck runs in a session (process group) of its own, with
+# Each zx-fncheck runs in a session (process group) of its own, with
 # /usr/bin/time around it when stats are on; a timeout, the memory cap, an
 # error or Ctrl-C kills the whole group, never only `time` (the 2026-10-26
-# kernel panic: five orphaned ps2xFnCheck processes, 45 to 113 GB, on a 48 GB
+# kernel panic: five orphaned zx-fncheck processes, 45 to 113 GB, on a 48 GB
 # Mac). The group's memory (macOS: every member's phys_footprint, resident and
 # compressed, as memguard.py reads it; Linux: VmRSS) is polled twice a second;
 # above MAX_MEM_BYTES (--max-mem-gb, default 4) the group is killed and the
@@ -331,12 +334,12 @@ def run_child(cmd, timeout):
 
 # ---- Windows: job objects instead of process groups (remote1) ----------------
 #
-# No process groups, killpg or /usr/bin/time there. Each ps2xFnCheck goes into
+# No process groups, killpg or /usr/bin/time there. Each zx-fncheck goes into
 # a job object of its own (whatever it starts joins it), killed whole with
 # TerminateJobObject on a timeout, the memory cap, an error or Ctrl-C, and by
 # Windows itself when this process ends first (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE:
 # no orphan outlives the run, whatever kills it). The memory polled is the
-# members' private bytes (PrivateUsage, what ps2xFnCheck's own --max-mem-mb
+# members' private bytes (PrivateUsage, what zx-fncheck's own --max-mem-mb
 # reads there). The job also has a hard commit limit at twice the cap: a
 # runaway faster than the poll has an allocation refused there instead of the
 # desktop's memory taken, and its file is a fault with phase `memory` as well.
@@ -452,7 +455,7 @@ if WINDOWS:
                 if not self.h:
                     return
                 if self.joined:
-                    _k32.TerminateJobObject(self.h, 137)   # (not 0 or 1, ps2xFnCheck's own exits)
+                    _k32.TerminateJobObject(self.h, 137)   # (not 0 or 1, zx-fncheck's own exits)
                     return
             if self.pid:
                 subprocess.run(['taskkill', '/T', '/F', '/PID', str(self.pid)], capture_output=True)
@@ -553,11 +556,11 @@ def _win_auto_jobs(cap):
 
 
 # Windows (remote1): the Windows worker's corpus is on a hard disk, where 16
-# ps2xFnCheck processes reading their files in small pieces at once made the
+# zx-fncheck processes reading their files in small pieces at once made the
 # replay seek-bound (7.5 MB/s read, 10 % CPU, 24 chunks in 12 minutes). So a
 # chunk's files are first read into the file cache in 8 MB pieces, one chunk
 # at a time across the jobs (a chunk's files lie together on the disk, as the
-# corpus sync wrote them), and ps2xFnCheck then reads them from memory.
+# corpus sync wrote them), and zx-fncheck then reads them from memory.
 PREFETCH = WINDOWS
 PREFETCH_LOCK = threading.Lock()
 
@@ -579,7 +582,7 @@ _OWN_CAP_LOCK = threading.Lock()
 
 
 def own_cap_flags(fncheck):
-    """ps2xFnCheck's own memory cap (--max-mem-mb, round drafter23), set a
+    """zx-fncheck's own memory cap (--max-mem-mb, round drafter23), set a
     little under the group's (MAX_MEM_BYTES), so the child ends itself as a
     fault with its phase before the poll here has to kill it; [] for a binary
     without the option (an older build)."""
@@ -691,70 +694,70 @@ CORE_FLAGS = ['--cycles', '--show', '1']   # (run --semantic: SEMANTIC_FLAGS in 
 SEMANTIC_FLAGS = ['--semantic', '--show', '1']
 SYSTEM = ('/Library/Developer/', '/Applications/Xcode', '/usr/include/')   # (see Tree.is_system)
 ON_WINDOWS = sys.platform == 'win32'
-# The checker's target by its CMake name (a phony for ps2xRuntime/ps2xFnCheck,
+# The checker's target by its CMake name (a phony for runtime/zx-fncheck,
 # .exe on Windows): the same inputs and commands on every platform.
-FNCHECK_TARGET = 'ps2xFnCheck'
+FNCHECK_TARGET = 'zx-fncheck'
 
-# The replay's environment (tools40). ps2xFnCheck inherits the run's, and the switches the checker's own code reads
+# The replay's environment (tools40). zx-fncheck inherits the run's, and the switches the checker's own code reads
 # from it change how a readable call runs or is judged, which no source, header or flag of the key says: a run with
-# PS2X_READABLE_FRAMES=0 exported was served the lines of a run with frames on. A switch set (not empty) is in
+# ZX_READABLE_FRAMES=0 exported was served the lines of a run with frames on. A switch set (not empty) is in
 # every key of the run as `env:NAME=VALUE` (unset, the keys are as before); run.json keeps them for cache-import.
-# A name the key's sources read (a "PS2X_..." or "ZAXIS_..." literal in a base or readable file, Tree.env_names)
+# A name the key's sources read (a "ZX_..." or "ZAXIS_..." literal in a base or readable file, Tree.env_names)
 # that neither table below names is keyed too, and the log says so: unclear is in.
 ENV_KEYED = {
-    'PS2X_READABLE_FRAMES': 'ee::framesOn: the frame model a readable call runs in (0: none)',
-    'PS2X_READABLE_HELD': 'held::wanted: the held-register table on or off',
-    'PS2X_READABLE_HELD_CODE': 'held.cpp codeMode: the held programs interpreted, compiled or checked both ways',
-    'PS2X_READABLE_HELD_RANGE': 'held.cpp: the held table only in (or out of) these functions',
-    'PS2X_READABLE_HELD_ENTRY_LOADS': 'held.cpp loadsOn: the entry loads of the held table',
-    'PS2X_READABLE_HELD_SUCCESSORS': 'held.cpp: =check checks the table\'s successors (aborts on a bad one)',
-    'PS2X_READABLE_HELD_CODE_ROUNDS': 'held.cpp sweepCode: rounds of made-up states each program runs (fails on one)',
-    'PS2X_READABLE_SAFEPOINTS': 'ee::safePointsOn: safe points, so the fibers a readable call runs on',
-    'PS2X_READABLE_FIBER_CALLS': 'suspend.cpp fiberCallsOn: guest calls on a fiber of their own',
-    'PS2X_READABLE_RETURNS': 'ee::returnsOn: guest calls return through the published ra, or the runtime\'s slots',
-    'PS2X_READABLE_LEAN': 'abi.cpp readLeanParts (ps2x::boot::text): the proof scaffolding\'s parts off',
-    'PS2X_READABLE_LEAN_RANGE': 'abi.cpp leanInRange: lean only in these functions',
-    'PS2X_STACK_POISON': 'abi.cpp poisonDeadStack: a dead frame filled with 0x5A (what a residue read finds)',
-    'PS2X_FNCHECK_PROBE_VERIFY': 'fncheck_main lookAtCallee: what a probe left in RAM put back (what the replay reads)',
-    'PS2X_JOB_RETURNS': 'zge saveJobReturnsForRecording: a readable function\'s own branch',
-    'PS2X_NATIVE_COLLISION': 'zge/native collision_data.cpp: the native collision a readable caller can reach',
-    'PS2X_NATIVE_COLLISION_CHECK': 'zge/native collision_check.cpp: the native collision checked against the game\'s',
-    'PS2X_NATIVE_COLLISION_POISON': 'zge/native collision_data.cpp: the game\'s collision memory poisoned',
-    'PS2X_NATIVE_MESHES_CHECK': 'zge/native geo_meshes.cpp: the native meshes checked against the game\'s',
-    'PS2X_NATIVE_TEXTURES': 'zge/native native_textures.cpp: native textures in place of the game\'s',
+    'ZX_READABLE_FRAMES': 'ee::framesOn: the frame model a readable call runs in (0: none)',
+    'ZX_READABLE_HELD': 'held::wanted: the held-register table on or off',
+    'ZX_READABLE_HELD_CODE': 'held.cpp codeMode: the held programs interpreted, compiled or checked both ways',
+    'ZX_READABLE_HELD_RANGE': 'held.cpp: the held table only in (or out of) these functions',
+    'ZX_READABLE_HELD_ENTRY_LOADS': 'held.cpp loadsOn: the entry loads of the held table',
+    'ZX_READABLE_HELD_SUCCESSORS': 'held.cpp: =check checks the table\'s successors (aborts on a bad one)',
+    'ZX_READABLE_HELD_CODE_ROUNDS': 'held.cpp sweepCode: rounds of made-up states each program runs (fails on one)',
+    'ZX_READABLE_SAFEPOINTS': 'ee::safePointsOn: safe points, so the fibers a readable call runs on',
+    'ZX_READABLE_FIBER_CALLS': 'suspend.cpp fiberCallsOn: guest calls on a fiber of their own',
+    'ZX_READABLE_RETURNS': 'ee::returnsOn: guest calls return through the published ra, or the runtime\'s slots',
+    'ZX_READABLE_LEAN': 'abi.cpp readLeanParts (zx::boot::text): the proof scaffolding\'s parts off',
+    'ZX_READABLE_LEAN_RANGE': 'abi.cpp leanInRange: lean only in these functions',
+    'ZX_STACK_POISON': 'abi.cpp poisonDeadStack: a dead frame filled with 0x5A (what a residue read finds)',
+    'ZX_FNCHECK_PROBE_VERIFY': 'fncheck_main lookAtCallee: what a probe left in RAM put back (what the replay reads)',
+    'ZX_JOB_RETURNS': 'zge saveJobReturnsForRecording: a readable function\'s own branch',
+    'ZX_NATIVE_COLLISION': 'zge/native collision_data.cpp: the native collision a readable caller can reach',
+    'ZX_NATIVE_COLLISION_CHECK': 'zge/native collision_check.cpp: the native collision checked against the game\'s',
+    'ZX_NATIVE_COLLISION_POISON': 'zge/native collision_data.cpp: the game\'s collision memory poisoned',
+    'ZX_NATIVE_MESHES_CHECK': 'zge/native geo_meshes.cpp: the native meshes checked against the game\'s',
+    'ZX_NATIVE_TEXTURES': 'zge/native native_textures.cpp: native textures in place of the game\'s',
 }
-_GAME_RUN = 'read by game::readable::install (readable.cpp), which a game run calls and ps2xFnCheck never does'
-_HOST = 'read by PS2Runtime::initialize or the host (window, GS, VU1, IOP, pacing), which ps2xFnCheck never runs'
+_GAME_RUN = 'read by game::readable::install (readable.cpp), which a game run calls and zx-fncheck never does'
+_HOST = 'read by PS2Runtime::initialize or the host (window, GS, VU1, IOP, pacing), which zx-fncheck never runs'
 _SAID = 'a trace or count on stderr: no line the run keeps ([fncheck:...] on stdout)'
 _PLACE = 'where a host file or folder is (a job\'s scratch HOME): a replay opens none, its memory is the recording\'s'
 ENV_NOT_KEYED = dict(
     [(n, _GAME_RUN) for n in (
-        'PS2X_READABLE', 'PS2X_FNREC', 'PS2X_FNREC_ATOMIC', 'PS2X_FNREC_COVERED', 'PS2X_FNREC_DIR', 'PS2X_FNREC_EFFECTS',
-        'PS2X_FNREC_FROM', 'PS2X_FNREC_MAX', 'PS2X_FNREC_MAX_MB', 'PS2X_FNREC_MIN_CALLS', 'PS2X_FNREC_NEW_BLOCKS',
-        'PS2X_FNREC_PER_VSYNC', 'PS2X_FNREC_UNWOUND', 'PS2X_FNREC_WAITS', 'PS2X_GUEST_CALL', 'PS2X_GUEST_STRINGS',
-        'PS2X_DIFFCALL', 'PS2X_DIFFCALL_BANK', 'PS2X_DIFFCALL_CASE_MB', 'PS2X_DIFFCALL_CASE_MS', 'PS2X_DIFFCALL_DEBUG',
-        'PS2X_DIFFCALL_DIR', 'PS2X_DIFFCALL_PATH_KEEP', 'PS2X_DIFFCALL_PATHS', 'PS2X_DIFFCALL_WAIT',
-        'PS2X_STACK_POISON_STORES', 'PS2X_STACK_POISON_FRAMES', 'PS2X_FNPROF', 'PS2X_FNPROF_FROM', 'PS2X_FNPROF_FOR',
-        'PS2X_FNCYCLES', 'PS2X_FNCYCLES_ARGS', 'PS2X_FNCYCLES_FROM', 'PS2X_FNCYCLES_VU0', 'PS2X_FNCYCLES_WATCH',
-        'PS2X_TAILCALL_STATS')] +
+        'ZX_READABLE', 'ZX_FNREC', 'ZX_FNREC_ATOMIC', 'ZX_FNREC_COVERED', 'ZX_FNREC_DIR', 'ZX_FNREC_EFFECTS',
+        'ZX_FNREC_FROM', 'ZX_FNREC_MAX', 'ZX_FNREC_MAX_MB', 'ZX_FNREC_MIN_CALLS', 'ZX_FNREC_NEW_BLOCKS',
+        'ZX_FNREC_PER_VSYNC', 'ZX_FNREC_UNWOUND', 'ZX_FNREC_WAITS', 'ZX_GUEST_CALL', 'ZX_GUEST_STRINGS',
+        'ZX_DIFFCALL', 'ZX_DIFFCALL_BANK', 'ZX_DIFFCALL_CASE_MB', 'ZX_DIFFCALL_CASE_MS', 'ZX_DIFFCALL_DEBUG',
+        'ZX_DIFFCALL_DIR', 'ZX_DIFFCALL_PATH_KEEP', 'ZX_DIFFCALL_PATHS', 'ZX_DIFFCALL_WAIT',
+        'ZX_STACK_POISON_STORES', 'ZX_STACK_POISON_FRAMES', 'ZX_FNPROF', 'ZX_FNPROF_FROM', 'ZX_FNPROF_FOR',
+        'ZX_FNCYCLES', 'ZX_FNCYCLES_ARGS', 'ZX_FNCYCLES_FROM', 'ZX_FNCYCLES_VU0', 'ZX_FNCYCLES_WATCH',
+        'ZX_TAILCALL_STATS')] +
     [(n, _HOST) for n in (
-        'PS2X_WIDESCREEN', 'PS2X_ASPECT', 'PS2X_MOTION_BLUR', 'PS2X_DRAW_DISTANCE', 'PS2X_HEADLESS', 'PS2X_GS_BACKEND',
-        'PS2X_GS_SCALE', 'PS2X_GS_DEFER', 'PS2X_GS_DUMP', 'PS2X_GS_DUMP_COUNT', 'PS2X_GS_DUMP_FRAME', 'PS2X_SHOT_AT',
-        'PS2X_DUMP_AT_FRAME', 'PS2X_DUMP_PREFIX', 'PS2X_DUMP_RAM_ON_EXIT', 'PS2X_VU1_ASYNC', 'PS2X_VU1_DUMP',
-        'PS2X_VU1_DUMP_AT', 'PS2X_VU1_DUMP_MATCH', 'PS2X_VU1_RECORD', 'PS2X_VU1_RECORD_FROM', 'PS2X_VU1_RECORD_RUNS',
-        'PS2X_VU1_RECORD_VSYNCS', 'PS2X_VU1_SKIP', 'PS2X_VU1_STATS', 'PS2X_VIF1_PREFETCH', 'PS2X_VIF1_SHADOW_CHECK',
-        'PS2X_SOUND_PCM', 'PS2X_LOAD_ALL_IOP_MODULES', 'PS2X_VSYNC_PHASE', 'PS2X_THREAD_PLACEMENT', 'PS2X_PERF_LOG',
-        'PS2X_PERF_FRAMES', 'PS2X_WATCH32', 'ZAXIS_FRAME_QUEUE')] +
+        'ZX_WIDESCREEN', 'ZX_ASPECT', 'ZX_MOTION_BLUR', 'ZX_DRAW_DISTANCE', 'ZX_HEADLESS', 'ZX_GS_BACKEND',
+        'ZX_GS_SCALE', 'ZX_GS_DEFER', 'ZX_GS_DUMP', 'ZX_GS_DUMP_COUNT', 'ZX_GS_DUMP_FRAME', 'ZX_SHOT_AT',
+        'ZX_DUMP_AT_FRAME', 'ZX_DUMP_PREFIX', 'ZX_DUMP_RAM_ON_EXIT', 'ZX_VU1_ASYNC', 'ZX_VU1_DUMP',
+        'ZX_VU1_DUMP_AT', 'ZX_VU1_DUMP_MATCH', 'ZX_VU1_RECORD', 'ZX_VU1_RECORD_FROM', 'ZX_VU1_RECORD_RUNS',
+        'ZX_VU1_RECORD_VSYNCS', 'ZX_VU1_SKIP', 'ZX_VU1_STATS', 'ZX_VIF1_PREFETCH', 'ZX_VIF1_SHADOW_CHECK',
+        'ZX_SOUND_PCM', 'ZX_LOAD_ALL_IOP_MODULES', 'ZX_VSYNC_PHASE', 'ZX_THREAD_PLACEMENT', 'ZX_PERF_LOG',
+        'ZX_PERF_FRAMES', 'ZX_WATCH32', 'ZX_FRAME_QUEUE')] +
     [(n, _SAID) for n in (
-        'PS2X_FNCHECK_PROBES', 'PS2X_SAFEPOINT_TRACE', 'PS2X_READABLE_HELD_TRACE', 'PS2X_FNREC_WAITS_DEBUG',
-        'PS2X_COLLISION_TRACE', 'PS2X_COLLISION_TIME', 'PS2X_COMPARE_TOTALS', 'PS2X_NATIVE_COLLISION_DEBUG',
-        'PS2X_NATIVE_MESHES_DEBUG', 'PS2X_TRACE_CALLS', 'PS2X_TRACE_DMA', 'PS2X_TRACE_DRAW_RECORDS',
-        'PS2X_TRACE_NATIVE_TEXTURES', 'PS2X_TRACE_PACKETS', 'PS2X_TRACE_RPC', 'PS2X_TRACE_SAVES', 'PS2X_TRACE_THREADS',
-        'PS2X_TRACE_VU1', 'PS2X_TRACE_WIDESCREEN')] +
+        'ZX_FNCHECK_PROBES', 'ZX_SAFEPOINT_TRACE', 'ZX_READABLE_HELD_TRACE', 'ZX_FNREC_WAITS_DEBUG',
+        'ZX_COLLISION_TRACE', 'ZX_COLLISION_TIME', 'ZX_COMPARE_TOTALS', 'ZX_NATIVE_COLLISION_DEBUG',
+        'ZX_NATIVE_MESHES_DEBUG', 'ZX_TRACE_CALLS', 'ZX_TRACE_DMA', 'ZX_TRACE_DRAW_RECORDS',
+        'ZX_TRACE_NATIVE_TEXTURES', 'ZX_TRACE_PACKETS', 'ZX_TRACE_RPC', 'ZX_TRACE_SAVES', 'ZX_TRACE_THREADS',
+        'ZX_TRACE_VU1', 'ZX_TRACE_WIDESCREEN')] +
     [(n, _PLACE) for n in (
-        'PS2X_SAVES_DIR', 'PS2X_SAVE_PROFILE', 'PS2X_MODS_DIR', 'PS2X_XBOX_PACK', 'PS2X_XBOX_MOVIES',
-        'PS2X_APP_SUPPORT_DIR', 'PS2X_APP_LOG_DIR', 'PS2X_SCREENSHOT_DIR')])   # (job.ps1 sets the last three)
-ENV_NAME = re.compile(rb'"((?:PS2X|ZAXIS)_[A-Z0-9_]+)"')
+        'ZX_SAVES_DIR', 'ZX_SAVE_PROFILE', 'ZX_MODS_DIR', 'ZX_XBOX_PACK', 'ZX_XBOX_MOVIES',
+        'ZX_APP_SUPPORT_DIR', 'ZX_APP_LOG_DIR', 'ZX_SCREENSHOT_DIR')])   # (job.ps1 sets the last three)
+ENV_NAME = re.compile(rb'"((?:ZX|ZAXIS)_[A-Z0-9_]+)"')
 
 
 def replay_env(names=()):
@@ -852,7 +855,7 @@ def sha(*parts):
 
 
 def split_flags(extra):
-    """(core options, {part: options}) of a run's ps2xFnCheck options."""
+    """(core options, {part: options}) of a run's zx-fncheck options."""
     core, parts, i = [], {}, 0
     while i < len(extra):
         if extra[i] == '--safepoints':
@@ -1189,12 +1192,12 @@ def header_chunks(code):
 
 
 def generated_dirs(cmake_cache):
-    """The recompiled code's folders a build was configured with (PS2X_RUNNER_GENERATED_DIR, then
-    PS2X_RUNNER_EXTRA_GENERATED_DIRS), as norm_path makes them: their files are labelled G<n>/."""
+    """The recompiled code's folders a build was configured with (ZX_RUNNER_GENERATED_DIR, then
+    ZX_RUNNER_EXTRA_GENERATED_DIRS), as norm_path makes them: their files are labelled G<n>/."""
     out = []
     try:
         for line in open(cmake_cache, errors='replace'):
-            m = re.match(r'^PS2X_RUNNER_(?:EXTRA_)?GENERATED_DIRS?:[^=]*=(.*)$', line.rstrip('\n'))
+            m = re.match(r'^ZX_RUNNER_(?:EXTRA_)?GENERATED_DIRS?:[^=]*=(.*)$', line.rstrip('\n'))
             if m:
                 out += [norm_path(x) for x in m.group(1).split(';') if x.strip()]
     except OSError:
@@ -1203,7 +1206,7 @@ def generated_dirs(cmake_cache):
 
 
 def linked_folders(cmake_cache):
-    """[(alias, real)] for the folders a build's recompiled-code paths (PS2X_RUNNER_*GENERATED*, the VU1 code, the
+    """[(alias, real)] for the folders a build's recompiled-code paths (ZX_RUNNER_*GENERATED*, the VU1 code, the
     function list) reach through a link above their own last part, longest first: a Linux worker slot's sN/recomp is a link to the shared recomp/, so slot N's build commands name
     sN/recomp/generated where slot 1's name recomp/generated, and the base digest differed by slot (tools7: slot 7's
     replays missed every line slot 1's had cached). The commands are keyed with the real folder. A path whose own
@@ -1216,7 +1219,7 @@ def linked_folders(cmake_cache):
     except OSError:
         return []
     for line in lines:
-        m = re.match(r'^PS2X_(?:RUNNER_\w*GENERATED\w*|VU1_AOT_DIR|GHIDRA_FUNCTIONS_CSV):(?:PATH|FILEPATH|STRING)=(.*)$', line)
+        m = re.match(r'^ZX_(?:RUNNER_\w*GENERATED\w*|VU1_AOT_DIR|GHIDRA_FUNCTIONS_CSV):(?:PATH|FILEPATH|STRING)=(.*)$', line)
         for v in (m.group(1).split(';') if m else []):
             if not v.startswith('/'):
                 continue
@@ -1365,8 +1368,7 @@ class Tree:
             elif line.startswith('CMAKE_CXX_COMPILER:'):
                 self.compiler = line.split('=', 1)[1].strip()
         self.home = norm_path(home) if home else home
-        # (the built tree's runtime folder: runtime, or ps2xRuntime in a tree from before tools17's renames; the build
-        # dir's own folders kept the old names in both, B/ps2xRuntime/...)
+        # (the built tree's runtime folder)
         self.rt = zlayout.folder(home, 'runtime') if home else 'runtime'
         self.generated = generated_dirs(os.path.join(self.build, 'CMakeCache.txt'))
         self.links = linked_folders(os.path.join(self.build, 'CMakeCache.txt'))
@@ -1427,7 +1429,7 @@ class Tree:
             return 'D/' + path.split('/_deps/', 1)[1]   # the fetched dependencies, wherever fetched
         for i, g in enumerate(self.generated):
             if path.startswith(g + '/'):
-                return 'G%d/%s' % (i, path[len(g) + 1:])   # the recompiled code (PS2X_RUNNER_*GENERATED_DIR*)
+                return 'G%d/%s' % (i, path[len(g) + 1:])   # the recompiled code (ZX_RUNNER_*GENERATED_DIR*)
         if path.startswith(self.build + '/'):
             return 'B/' + path[len(self.build) + 1:]
         if self.home and path.startswith(self.home + '/'):
@@ -1441,15 +1443,15 @@ class Tree:
         runtime's types), and the runtime code a replay runs (memory, the
         runtime's registers and COP0, the syscalls a function's own code
         makes). Not the rest of the runtime (GS, audio, IOP, movies, SDL),
-        which ps2xFnCheck links but no replay runs (drafter23: any merge that
+        which zx-fncheck links but no replay runs (drafter23: any merge that
         touched one of those 3,449 files missed the whole cache)."""
         # (Windows: the labels are case folded, as norm_path makes the paths; the names here likewise, tools8: the Windows
         # worker's base had 4 files of the Linux worker's 132, so a runtime change there would have missed no cached line)
         name = self.label(path).lower() if ON_WINDOWS else self.label(path)
         if name.startswith('G') and name.endswith(('.h', '.hpp')):
             return True   # the recompiled code's headers the traced originals include (a recompiler change)
-        if name.startswith(_ci('B/ps2xRuntime/fncheck_build/')):
-            # the tables ps2xFnCheck and the readable functions are built with (fncheck_traced_gen.py: the callees'
+        if name.startswith(_ci('B/runtime/fncheck_build/')):
+            # the tables zx-fncheck and the readable functions are built with (fncheck_traced_gen.py: the callees'
             # stack arguments, the frames; from the generated code and readable_locals*, readable_args_dead*.tsv),
             # not the digests' table, which only names impl=
             return not name.endswith('/readable_digests.cpp')
@@ -1461,12 +1463,8 @@ class Tree:
         return rel.startswith(_ci(('src/game/', 'src/lib/Kernel/Syscalls/'))) or rel in _ci(RUNTIME_SOURCES)
 
     def source_folder(self, sub):
-        """The tree's folder of a build subfolder: the build dirs kept the old names (ps2xRuntime, ps2xTest,
-        ps2xIOP) when tools17 renamed the tree's (runtime, tests, iop)."""
-        head, _, rest = sub.replace('\\', '/').partition('/')
-        for kind, (new, old) in zlayout.FOLDERS.items():
-            if head.lower() == old.lower():
-                return '/'.join(x for x in (zlayout.folder(self.home, kind), rest) if x)
+        """The tree's folder of a build subfolder: the build dir's folders are named as the tree's (runtime, tests,
+        iop) since naming1."""
         return sub
 
     def abs(self, path):
@@ -1547,24 +1545,24 @@ class Tree:
         inputs = set(self.abs(x) for x in self.ninja('-t', 'inputs', FNCHECK_TARGET).split('\n') if x)
         # (only those the checker links: on Windows fiber_posix.cpp is a target
         # that is never built, so it has no dependency record)
-        self.readable_objs = [o for o in objs if '/ps2_game_readable.dir/' in o and self.abs(o) in inputs]
-        # Another game's instance (game.cmake: ps2_game_readable_<game>, the shared engine compiled again with that
+        self.readable_objs = [o for o in objs if '/zx_game_readable.dir/' in o and self.abs(o) in inputs]
+        # Another game's instance (game.cmake: zx_game_readable_<game>, the shared engine compiled again with that
         # game's symbol headers, and its own folder): its readable files, keyed as that game's (Tree.view).
         self.game_objs = collections.defaultdict(list)
         for o in objs:
-            m = re.search(r'/ps2_game_readable_([a-z0-9]+)\.dir/', o.replace('\\', '/'))
+            m = re.search(r'/zx_game_readable_([a-z0-9]+)\.dir/', o.replace('\\', '/'))
             if m and self.abs(o) in inputs:
                 self.game_objs[m.group(1)].append(o)
         in_games = set(o for v in self.game_objs.values() for o in v)
-        traced = sorted(o for o in objs if '/ps2_game_traced' in o)
+        traced = sorted(o for o in objs if '/zx_game_traced' in o)
         # (the checker's other objects: those its link takes, not every input ninja lists for it. `ninja -t inputs`
-        # follows order-only edges too: the header units (game_headers.cmake: ps2_game_headers, one unit per
+        # follows order-only edges too: the header units (game_headers.cmake: zx_game_headers, one unit per
         # readable header, an order-only dependency of the readable objects) are built before them and linked into
         # nothing, and through them every readable header was whole in the base, so a change to any one moved every
         # key of every game: pace1, b127 and b128's whole-corpus replays. A readable header is in a function's key
         # as the chunks its closure reaches (header_part).)
         linked = self.linked_objects()
-        others = [o for o in objs if o not in self.readable_objs and o not in in_games and '/ps2_game_traced' not in o
+        others = [o for o in objs if o not in self.readable_objs and o not in in_games and '/zx_game_traced' not in o
                   and self.abs(o) in inputs and (linked is None or self.abs(o) in linked) and 'readable_digests.cpp' not in o]
         sample = traced[::max(1, len(traced) // 30)] + traced[-1:]
         d = self.deps(self.readable_objs + sorted(in_games) + others + sample)
@@ -1600,8 +1598,8 @@ class Tree:
         for o in others:
             if o not in run:
                 self.base_dropped |= set(x for x in d.get(o, []) if x not in self.base_files)
-        # (the tables ps2xFnCheck is built with: readable_frames.cpp is compiled into the readable objects)
-        fb = os.path.join(self.build, 'ps2xRuntime', 'fncheck_build')
+        # (the tables zx-fncheck is built with: readable_frames.cpp is compiled into the readable objects)
+        fb = os.path.join(self.build, 'runtime', 'fncheck_build')
         self.base_files |= set(norm_path(os.path.join(fb, n)) for n in (os.listdir(fb) if os.path.isdir(fb) else ())
                                if n.endswith('.cpp') and n != 'readable_digests.cpp')
         missing = [o for o in self.readable_deps if not self.readable_deps[o]]
@@ -1706,7 +1704,18 @@ class Tree:
         return text
 
     def code_text(self, path):
-        return self.unpath(open(path, encoding='utf-8', errors='replace').read())
+        with open(path, encoding='utf-8', errors='replace') as f:
+            return self.unpath(self.line_absolute(f.read()))
+
+    def line_absolute(self, text):
+        """text with a plain copy's first-line #line path (relative to the build dir since pubprep1: --line-root) made
+        absolute, so unpath writes it $H/ as before: kept relative, it named the checkout as seen from the build,
+        ../../wt/<name>/..., and every AI key of a plain source differed between two build dirs of one tree whose
+        checkouts are named apart (cachekey1: ck1ai's and ck2ai's desktop builds, 0 of 137 files from the cache)."""
+        m = LINE_DIRECTIVE.match(text[:4096])
+        if not m or os.path.isabs(m.group(1)) or re.match(r'^[A-Za-z]:[/\\]', m.group(1)) or m.group(1).startswith('$'):
+            return text
+        return text[:m.start(1)] + norm_path(os.path.join(self.build, m.group(1))) + text[m.end(1):]
 
     def file_digest(self, path):
         try:
@@ -1718,7 +1727,7 @@ class Tree:
             return c[2]
         data = open(path, 'rb').read()
         if path.endswith(CODE_EXT):
-            text = self.unpath(data.decode('utf-8', 'replace'))
+            text = self.unpath(self.line_absolute(data.decode('utf-8', 'replace')))
             dg = sha(self.rd.normal(key_strip(text)))
         else:
             dg = sha(data)
@@ -1750,6 +1759,8 @@ class Tree:
         hids = {}
         ee_dir = norm_path(self.home + '/' + self.rt + '/src/game/ee') + '/'   # (case folded on Windows, as src is)
         self.sources = {}                               # the source a registration names (__FILE__) -> the file compiled
+        self.unresolved = []                            # [(game, addr, name, file)]: bodies not found (unresolved_body)
+        self._every = None
         for o in objs:
             deps = self.readable_deps[o]
             src = object_source(o, deps)
@@ -1765,7 +1776,14 @@ class Tree:
             # source's copy, so no body of a plain source was in a DM2 or BMX key: eng1's drawSky came from the cache
             # with ZGE2's step changed; tools7b)
             named = named and re.sub(r'^\$([HB])/', lambda m: (self.home if m.group(1) == 'H' else self.build) + '/', named.group(1))
-            self.sources[self.label(norm_path(named)) if named else src] = src
+            if named and not os.path.isabs(named) and not re.match(r'^[A-Za-z]:[/\\]', named):
+                # (since pubprep1 the copy's #line is relative to --line-root, the build's top folder: kept as written,
+                # the relative path was no registration's label, so no --list row found its source and every DM2 and
+                # BMX XXX function, and AI's _OWN ones (drawScene), had no body in its key; cachekey1: rng1's cullNode
+                # change came whole from the cache)
+                named = os.path.join(self.build, named)
+            # (a source compiled as it is, by its label too: what the registrations' paths are looked up by)
+            self.sources[self.label(norm_path(named)) if named else self.label(src)] = src
             raw = self.lv(text)
             code = key_strip(raw)
             kinds = brace_kinds(code)
@@ -1849,9 +1867,13 @@ class Tree:
             self._listed_registrations(game)
         else:
             self._listed_bodies()
+        if self.unresolved:
+            g, a, n, f = self.unresolved[0]
+            log('keys: %d of %s\'s registrations run a body the key finds no definition of (%s:%08x %s in %s ...): '
+                'every readable source is in their keys' % (len(self.unresolved), game, g, a, n, f))
 
     def listed_registrations(self):
-        """[(game, addr, status, name, file, notes)] of every registration in the binary (ps2xFnCheck --list):
+        """[(game, addr, status, name, file, notes)] of every registration in the binary (zx-fncheck --list):
         what a game's instance registers at that game's addresses, at the level and status its symbol headers
         (from the bind table) give, which the sources alone do not say."""
         if self.listed is None:
@@ -1890,9 +1912,19 @@ class Tree:
             # (Planned is a status, not "no body": a corpus build's --try-close registers a level 1 body at level 2
             # with its status row's status, Planned for DM2's zfloatToText and vectorToText, and the replay runs it;
             # tools6: their cached faults outlived Node::valueAs's DM2 layout. The level its symbol header gives.)
-            planned = status == 'planned' and (src is None or self.instance_level(game, src, name) in (0, 1))
+            # A READABLE_PLANNED registration has no definition of its name in its file: no C++ to run, its row alone;
+            # so is one in a file of no readable source (the build's record_only.cpp: game.cmake's READABLE_PLANNED_IN
+            # rows). One in a source of the tree that no readable object was found for is unclear (unresolved_body
+            # below, as a body's: before cachekey1 no listed file was found and every Planned row was taken for one
+            # with no body).
+            planned = status == 'planned' and (
+                (src is None and not self.tree_source(file)) or
+                (src is not None and (self.instance_level(game, src, name) in (0, 1) or
+                                      not any((src, n) in self.defs for n in (name, name + '_')))))
             text = '%s:%s %s %s' % (game, name, 'planned' if planned else 'body', notes)
             self.regs[(g, addr)].append((src or self.label(listed_path(self.home, file)), None, text))
+            if src is None and not planned:
+                self.unresolved_body(g, addr, name, file)
             # (an address listed twice: the first registration is the one the replay checks and its lines name,
             # DM2's allocateSized (Planned) before heapAllocate, BMX's pointerArrayCount before cursorArrayCapacity)
             if (g, addr) not in self.status:
@@ -1912,9 +1944,34 @@ class Tree:
                         # (no definition found: the source file whole, so a change to it is a change of the key)
                         self.regs[(g, addr)].append((src, None, 'own %s unfound %s' % (own, self.file_digest(src))))
                     continue
-                for n in (name, name + '_'):
-                    if (src, n) in self.defs:
-                        self.regs[(g, addr)].append((src, n, ''))
+                found = [n for n in (name, name + '_') if (src, n) in self.defs]
+                for n in found:
+                    self.regs[(g, addr)].append((src, n, ''))
+                if not found:
+                    self.unresolved_body(g, addr, name, file)
+
+    def unresolved_body(self, game, addr, name, file):
+        """A registration that runs a body the key cannot find (its file among no readable source's, or no definition
+        of its name in it): every readable source and header of the view in its key, so any change misses it (unclear
+        is in), and the run says how many (cachekey1: pubprep1's relative #line left every DM2 and BMX XXX body out of
+        its key, silently, for two days). A file of the base (ee/: whole in every key) needs none."""
+        path = listed_path(self.home, file)
+        if path in self.base_files:
+            return
+        self.unresolved.append((game, addr, name, self.label(path)))
+        self.regs[(game, addr)].append(('?', None, 'unresolved %s %s' % (name, self.every_source())))
+
+    def tree_source(self, file):
+        """Whether a --list row's file is a code file of the tree (H/, not the build's)."""
+        path = listed_path(self.home, file)
+        return self.label(path).startswith('H/') and path.endswith(CODE_EXT) and os.path.isfile(path)
+
+    def every_source(self):
+        """The digest of every readable source the view compiles and every header they include (unresolved_body)."""
+        if getattr(self, '_every', None) is None:
+            files = set(self.sources.values()).union(*self.headers.values())
+            self._every = sha(*sorted('%s=%s' % (self.label(f), self.file_digest(f)) for f in files))
+        return self._every
 
     def own_bodies(self, src):
         """{(NAME, game): OWN} of the _OWN registrations in src (OWN_REG): the body game's instance runs for NAME. The
@@ -1941,7 +1998,7 @@ class Tree:
         """The level game's instance registers name at in src: what the symbol headers src includes from
         B/symbols/<game>/ say (sym::level, or sym::level::<game> for an _ONLY function; 2 a body, 1 an entry, 0 none),
         the highest if several do; None if none says (then its body is in the key: unclear is in)."""
-        root = norm_path(os.path.join(self.build, 'ps2xRuntime', 'symbols', game)) + '/'
+        root = norm_path(os.path.join(self.build, 'runtime', 'symbols', game)) + '/'
         if not hasattr(self, '_levels'):
             self._levels = {}
         found = None
@@ -1968,12 +2025,14 @@ class Tree:
             if g != 'ai' or status == 'planned' or any(r[1] for r in self.regs.get((g, addr), ())):
                 continue
             src = self.sources.get(self.label(listed_path(self.home, file)))
-            for n in (name, name + '_'):
-                if src and (src, n) in self.defs:
-                    self.regs[(g, addr)].append((src, n, 'ai:%s body %s' % (n, notes)))
+            found = [n for n in (name, name + '_') if src and (src, n) in self.defs]
+            for n in found:
+                self.regs[(g, addr)].append((src, n, 'ai:%s body %s' % (n, notes)))
+            if not found:
+                self.unresolved_body(g, addr, name, file)
 
     def view(self, game):
-        """The tree as game's instance compiles it (ps2_game_readable_<game>: the shared sources and the game's own
+        """The tree as game's instance compiles it (zx_game_readable_<game>: the shared sources and the game's own
         folder, with the symbol headers of B/symbols/<game>/ that its bind table makes): the same digests over those
         objects, their sources read as they are (the symbols are the headers' chunks in the key, not AI's
         addresses), the registrations from the binary. AI's, or a game this build has no instance of: the tree."""
@@ -2008,7 +2067,7 @@ class Tree:
         self.base_count = len(files)
 
     def env_names(self):
-        """The environment's names the key's sources read (ENV_NAME: a "PS2X_..." or "ZAXIS_..." literal in a base
+        """The environment's names the key's sources read (ENV_NAME: a "ZX_..." or "ZAXIS_..." literal in a base
         file or a readable object's source or header, any game's): replay_env keys those no table classes."""
         if getattr(self, '_env_names', None) is None:
             names = set()
@@ -2020,13 +2079,13 @@ class Tree:
                     data = open(f, 'rb').read()
                 except OSError:
                     continue
-                if b'"PS2X_' in data or b'"ZAXIS_' in data:
+                if b'"ZX_' in data or b'"ZAXIS_' in data:
                     names |= set(n.decode() for n in ENV_NAME.findall(data))
             self._env_names = names
         return self._env_names
 
     def is_frame_table(self, path):
-        return self.label(path) == _ci('B/ps2xRuntime/fncheck_build/readable_frames.cpp')
+        return self.label(path) == _ci('B/runtime/fncheck_build/readable_frames.cpp')
 
     def frames_digest(self, path):
         """The frame table's part of the base (fncheck_traced_gen.py frame_table: each scanned function's frame size,
@@ -2080,7 +2139,7 @@ class Tree:
                 for a in sorted(addrs) if (game, a) in self.frame_locals]
 
     def commands(self):
-        """ps2xFnCheck's build commands, paths and file lists made alike."""
+        """zx-fncheck's build commands, paths and file lists made alike."""
         cmds = set()
         for line in self.ninja('-t', 'commands', FNCHECK_TARGET).split('\n'):
             # (the paths of the tree and the build named alike in every worktree;
@@ -2104,7 +2163,7 @@ class Tree:
             for alias, real in self.links:
                 line = line.replace(alias + '/', real + '/')
             # (a path with a '..' in it as the file it names: a build dir configured before a CMakeLists change
-            # keeps PS2X_GHIDRA_FUNCTIONS_CSV as recomp/generated/../ghidra-functions.csv, a new one has
+            # keeps ZX_GHIDRA_FUNCTIONS_CSV as recomp/generated/../ghidra-functions.csv, a new one has
             # recomp/ghidra-functions.csv, and the Linux worker's slots differed by that alone; tools7)
             line = re.sub(r'\S*/\.\./\S*', lambda m: posixpath.normpath(m.group(0)), line)
             if ON_WINDOWS:
@@ -2125,7 +2184,7 @@ class Tree:
             line = re.sub(r'(-iquote)\s*\S+', r'\1 _', line)
             if ON_WINDOWS:
                 # (clang-cl has no -iquote: CMake gives the plain copy's folder as an -I below src/game)
-                line = re.sub(r'(?<!\S)-I\$H/(?:ps2x)?runtime/src/game/\S+', '-I_', line, flags=re.I)   # (either name: tools17)
+                line = re.sub(r'(?<!\S)-I\$H/runtime/src/game/\S+', '-I_', line, flags=re.I)
             if ON_WINDOWS:
                 # (clang-cl's /Fo, /Fd, /Fe: as -o on the Mac)
                 line = re.sub(r'(?<!\S)([/-]F[ode])\S+', r'\1_', line)
@@ -2247,9 +2306,25 @@ class Tree:
         self.closure[k] = (seen, files)
         return v
 
+    def checker_impls(self):
+        """{(game, addr): the impl= this binary's result lines give} from the build's digest table (readable_digest.py
+        --cpp: fncheck_build/readable_digests.cpp, the checker's readableDigest), {} without one. Keys.stale checks a
+        cached line's impl= against it: a second key, readable_digest's own closure (the function and the functions
+        of its file it calls), so a change the cache key misses there is replayed, not served (cachekey1: the key had
+        no body for drawScene, and only the 1 % check saw its cached lines' old impl=)."""
+        if getattr(self, '_impls', None) is None:
+            path = os.path.join(self.build, 'runtime', 'fncheck_build', 'readable_digests.cpp')
+            try:
+                text = open(path, encoding='utf-8', errors='replace').read()
+            except OSError:
+                text = ''
+            self._impls = dict(((GAME_NAMES.get(int(g), g), int(a, 16)), d) for g, a, d in
+                               re.findall(r'\{(\d+)u, (0x[0-9a-fA-F]+)u, "([0-9a-f]+)"\}', text))
+        return self._impls
+
     def orig(self, game, addr):
         folder = 'fncheck_traced' if game == 'ai' else 'fncheck_traced_' + game
-        traced = os.path.join(self.build, 'ps2xRuntime', folder, 'traced_%x.cpp' % addr)
+        traced = os.path.join(self.build, 'runtime', folder, 'traced_%x.cpp' % addr)
         try:
             text = open(traced, 'rb').read()
         except OSError:
@@ -2379,7 +2454,7 @@ class Snapshot:
 
 
 def frame_index_name(path):
-    """A recording's folder in the index of leftover reads (ps2xFnCheck frameIndexName): <corpus>__<folder>."""
+    """A recording's folder in the index of leftover reads (zx-fncheck frameIndexName): <corpus>__<folder>."""
     folder = os.path.dirname(os.path.abspath(path))
     return os.path.basename(os.path.dirname(folder)) + '__' + os.path.basename(folder)
 
@@ -2477,6 +2552,15 @@ class Keys:
         return k, self.fn[k]
 
 
+    def stale(self, path, lines):
+        """Whether cached lines name another impl= than this binary gives the function (Tree.checker_impls; a tree
+        without the table: never): the key missed a change of its source."""
+        impls = self.tree.checker_impls() if hasattr(self.tree, 'checker_impls') else {}
+        if not impls or not lines:
+            return False
+        now = impls.get(self.function(path)[0], '-')
+        return any(l.get('kind') == 'result' and l.get('impl') not in (None, now) for l in lines)
+
     def restatus(self, path, lines):
         """Cached lines with the function's current status (the key leaves it out)."""
         status = getattr(self.tree, 'status', {}).get(self.function(path)[0])
@@ -2513,7 +2597,7 @@ def cmd_digests(a):
 
 
 def is_timeout(f):
-    """A fault line of a timeout (the runner's or ps2xFnCheck's own)."""
+    """A fault line of a timeout (the runner's or zx-fncheck's own)."""
     return f.get('kind') == 'fault' and (f.get('phase') == 'timeout' or
                                          bool(re.search(r'\(timeout\b', f.get('phase') or '')))
 
@@ -2538,7 +2622,7 @@ HOST_TIME_FIELDS = ('callee_ms', 'callee_index_ms')
 
 def cache_rows(keys, path, parts, faulted, wanted):
     """The cache rows of one replayed file (none for a timeout or the memory
-    cap, the runner's or ps2xFnCheck's own: they depend on the machine and the
+    cap, the runner's or zx-fncheck's own: they depend on the machine and the
     cap, not only on the inputs; a runaway is the inputs' and is kept)."""
     allp = [l for p in parts.values() for l in p]
     if any(l.get('kind') == 'fault' and (l.get('phase') in ('timeout', 'memory') or
@@ -2570,7 +2654,7 @@ def map_corpus(lines, spec):
 
 
 def cmd_cache_import(a):
-    """Fill the cache from a full run's lines (run with this build's ps2xFnCheck, or another host's of the same
+    """Fill the cache from a full run's lines (run with this build's zx-fncheck, or another host's of the same
     commit with --map-corpus: its files named as this host's copy of the corpus has them)."""
     run = json.load(open(os.path.join(a.dir, 'run.json')))
     if a.digests:
@@ -2673,7 +2757,7 @@ def write_replace(path, obj, **kw):
 
 
 def checker_of(cache_dir, fncheck, lines):
-    """The checker digest ps2xFnCheck prints (a hash of its bytes): from this
+    """The checker digest zx-fncheck prints (a hash of its bytes): from this
     run's result lines, else remembered per binary in the cache folder."""
     path = os.path.join(cache_dir, 'checkers.json')
     st = os.stat(fncheck)
@@ -2695,8 +2779,8 @@ def checker_of(cache_dir, fncheck, lines):
 
 
 def built_checker(build):
-    """The build's ps2xFnCheck (.exe on Windows)."""
-    return os.path.join(build, 'ps2xRuntime', 'ps2xFnCheck' + ('.exe' if ON_WINDOWS else ''))
+    """The build's zx-fncheck (.exe on Windows)."""
+    return os.path.join(build, 'runtime', 'zx-fncheck' + ('.exe' if ON_WINDOWS else ''))
 
 
 def same_build(fncheck, build):
@@ -2705,7 +2789,7 @@ def same_build(fncheck, build):
     return os.path.abspath(fncheck) == os.path.abspath(built) or filecmp.cmp(fncheck, built, shallow=False)
 
 
-PEAK_MB = 350          # ps2xFnCheck's peak resident memory a process (round corpusfast: 100 to 303 MB)
+PEAK_MB = 350          # zx-fncheck's peak resident memory a process (round corpusfast: 100 to 303 MB)
 FREE_FLOOR = 0.30      # the share of memory left free: nothing more starts below 30% (the Mac's limit)
 
 
@@ -2740,7 +2824,7 @@ def auto_jobs(cap):
 # build, no --try-close) registers the replayed function at: 2 its C++ body runs, 1 only its address is known,
 # 0 not there. It is readable_symbols.py's Levels for the game, a shared source's only when the source is in
 # the game's instance_sources.txt (as promote.py's app_levels), and 2 for a registration in the game's own
-# folder; AI's are 2. The registration is the one the replay checks, the address's first in ps2xFnCheck
+# folder; AI's are 2. The registration is the one the replay checks, the address's first in zx-fncheck
 # --list. A census counts a verdict for the app only at app_level 2 (cov2 and cov4 counted BMX's
 # freeAnimateRecord, level 1, as a Draft with a recording). Not in the verdict cache's lines: added as the
 # run writes lines.jsonl, so the cache and its checks are as before.
@@ -2752,7 +2836,7 @@ def app_levels(fncheck, build):
         for line in open(os.path.join(build, 'CMakeCache.txt'), errors='replace'):
             if line.startswith('CMAKE_HOME_DIRECTORY:'):
                 home = line.split('=', 1)[1].strip()
-            elif line.startswith('PS2X_BIND_DIR:'):
+            elif line.startswith('ZX_BIND_DIR:'):
                 bind_dir = line.split('=', 1)[1].strip()
         if not home:
             raise RuntimeError('no CMAKE_HOME_DIRECTORY in %s' % build)
@@ -2770,7 +2854,7 @@ def app_levels(fncheck, build):
         levels = {}
         if games:
             if not bind_dir:
-                raise RuntimeError('no PS2X_BIND_DIR in %s' % build)
+                raise RuntimeError('no ZX_BIND_DIR in %s' % build)
             sys.path.insert(0, os.path.join(rt, 'tools'))
             import readable_symbols as rs
             game_dir = os.path.join(rt, 'src', 'game')
@@ -2841,9 +2925,9 @@ def run_corpus(a):
     if use_cache:
         build = a.build or os.path.dirname(os.path.dirname(os.path.abspath(a.fncheck)))
         if not os.path.exists(os.path.join(build, 'CMakeCache.txt')):
-            raise SystemExit('run: the cache needs the build ps2xFnCheck was built in (--build DIR, or --no-cache)')
+            raise SystemExit('run: the cache needs the build zx-fncheck was built in (--build DIR, or --no-cache)')
         if not same_build(a.fncheck, build):
-            raise SystemExit('run: %s is not the build\'s ps2xFnCheck (%s)' % (a.fncheck, build))
+            raise SystemExit('run: %s is not the build\'s zx-fncheck (%s)' % (a.fncheck, build))
         tree = Tree(build, a.cache, a.fncheck)
     frame_index = None
     if a.frame_index:
@@ -2860,6 +2944,9 @@ def run_corpus(a):
         for route, path in files:
             k = keys.of(path)
             got = keys.restatus(path, cache.get(k['all'][0]) if a.incremental else None)
+            if got is not None and keys.stale(path, got):
+                hits['stale impl'] += 1
+                got = None
             if got is not None:
                 cached[path] = got
                 hits['all'] += 1
@@ -2872,6 +2959,9 @@ def run_corpus(a):
                 if got is None and part != 'core' and a.extras_changed and keys.function(path)[0] not in listed:
                     got = keys.restatus(path, cache.get_relaxed(relaxed))
                     how = 'relaxed ' + part
+                if got is not None and keys.stale(path, got):
+                    hits['stale impl'] += 1
+                    got = None
                 if got is None:
                     missing.append(part)
                 else:
@@ -3344,7 +3434,7 @@ def cmd_safepoints(a):
 
 def cmd_saves(a):
     """Per function: the calls whose callee gets another value of a
-    callee-saved register than the original held there (ps2xFnCheck's
+    callee-saved register than the original held there (zx-fncheck's
     saves_differ: one the callee's prologue saves, a missing or wrong
     ee::calleeSaves; held_differ: any other), with the first of each."""
     only = address_list(a.only) if a.only else None
@@ -3375,7 +3465,7 @@ def cmd_saves(a):
 
 
 def cmd_args(a):
-    """Per function: the calls that leave out a register their callee reads (ps2xFnCheck's
+    """Per function: the calls that leave out a register their callee reads (zx-fncheck's
     args_left: with another value than the original's; direct_left: of a game::call), and that
     rely on an entry value left in the context (entry_left: a failure when a game::call names the
     function, direct_called=1), and a direct callee's leftover (ee::leftByCall) a callee reads
@@ -3407,7 +3497,7 @@ def cmd_args(a):
 
 def cmd_vu0(a):
     """Per function not registered _VU0: the calls that leave a VU0 lane or Q unlike the
-    original (ps2xFnCheck's vu0_left), every lane seen and the first. A note: a lane nothing reads
+    original (zx-fncheck's vu0_left), every lane seen and the first. A note: a lane nothing reads
     does no harm, but a later VMULx.xyz keeps a stale lane and an SQC2 stores it (abdiff1)."""
     only = address_list(a.only) if a.only else None
     per = {}
@@ -3706,16 +3796,16 @@ def main():
                    'holds at %d MB a process, at most --max-jobs' % (FREE_FLOOR * 100, PEAK_MB))
     r.add_argument('--max-jobs', type=int, default=2)
     r.add_argument('--max-mem-gb', type=float, default=4.0,
-                   help='a ps2xFnCheck process group above this footprint is killed, its file a fault with phase '
+                   help='a zx-fncheck process group above this footprint is killed, its file a fault with phase '
                         'memory (default %(default)s; 0: no cap)')
     r.add_argument('--chunk', type=int, default=150)
     r.add_argument('--timeout', type=int, default=3600)
     r.add_argument('--only', help='ADDR,... or @FILE')
-    r.add_argument('--fncheck-arg', action='append', help='more ps2xFnCheck options (one string)')
+    r.add_argument('--fncheck-arg', action='append', help='more zx-fncheck options (one string)')
     r.add_argument('--semantic', action='store_true', help='the semantic verdict in place of --cycles (the merge gate)')
     r.add_argument('--frame-index', metavar='DIR', help='first the folders\' index of leftover reads in DIR, then the '
                    'replay with it: frame residue a later function reads fails (frame_residue_read)')
-    r.add_argument('--build', help='the build ps2xFnCheck comes from (default: the one it is in)')
+    r.add_argument('--build', help='the build zx-fncheck comes from (default: the one it is in)')
     r.add_argument('--emit', metavar='RUN', help='after the replay, the work database\'s check and coverage '
                    'results as RESULTS/RUN/{check,coverage}.jsonl (fncheck_corpus.py emit)')
     r.add_argument('--results', default=RESULTS, help='with --emit: the results folder (default %(default)s)')

@@ -1,4 +1,4 @@
-// PS2X_FNPROF=<file.csv>: a profile of the game's functions, for planning
+// ZX_FNPROF=<file.csv>: a profile of the game's functions, for planning
 // what to port next (runtime/tools/readable_coverage.py reads it).
 //
 // Every function start in the dispatch table (each recompiled function,
@@ -11,8 +11,8 @@
 //
 //     address,calls,inclusive_ns,self_ns
 //
-// PS2X_FNPROF_FROM=<vsync>: start counting at this vsync (e.g. once the
-// level runs), PS2X_FNPROF_FOR=<vsyncs>: stop after that many.
+// ZX_FNPROF_FROM=<vsync>: start counting at this vsync (e.g. once the
+// level runs), ZX_FNPROF_FOR=<vsyncs>: stop after that many.
 
 #include "readable.h"
 
@@ -165,14 +165,14 @@ namespace game::profile
 
     void install(PS2Runtime &runtime)
     {
-        const char *path = std::getenv("PS2X_FNPROF");
+        const char *path = std::getenv("ZX_FNPROF");
         if (!path || !*path)
             return;
         static Profiler profiler;
         profiler.path = path;
-        if (const char *from = std::getenv("PS2X_FNPROF_FROM"))
+        if (const char *from = std::getenv("ZX_FNPROF_FROM"))
             profiler.from = std::strtoull(from, nullptr, 0);
-        if (const char *span = std::getenv("PS2X_FNPROF_FOR"))
+        if (const char *span = std::getenv("ZX_FNPROF_FOR"))
             profiler.until = profiler.from + std::strtoull(span, nullptr, 0);
         g_profiler = &profiler;
         PS2Runtime *rt = &runtime;

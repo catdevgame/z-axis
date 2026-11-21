@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace ps2x::zaxis::xbox
+namespace zx::zaxis::xbox
 {
     namespace
     {

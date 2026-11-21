@@ -111,8 +111,8 @@ namespace
     class IsoOpenFile final : public IPS2OpenFile
     {
     public:
-        IsoOpenFile(std::shared_ptr<const ps2x::iop::Iso9660Image> image, const ps2x::iop::IsoEntry &entry)
-            : m_image(std::move(image)), m_offset(static_cast<uint64_t>(entry.lsn) * ps2x::iop::Iso9660Image::kSectorSize), m_size(entry.size) {}
+        IsoOpenFile(std::shared_ptr<const zx::disc::Iso9660Image> image, const zx::disc::IsoEntry &entry)
+            : m_image(std::move(image)), m_offset(static_cast<uint64_t>(entry.lsn) * zx::disc::Iso9660Image::kSectorSize), m_size(entry.size) {}
 
         int64_t read(void *destination, size_t size) override
         {
@@ -149,7 +149,7 @@ namespace
         }
 
     private:
-        std::shared_ptr<const ps2x::iop::Iso9660Image> m_image;
+        std::shared_ptr<const zx::disc::Iso9660Image> m_image;
         uint64_t m_offset = 0u;
         uint64_t m_size = 0u;
         uint64_t m_position = 0u;
@@ -226,7 +226,7 @@ int32_t PS2Vfs::open(std::string_view path, uint32_t flags, const PS2VfsMounts &
         const uint32_t access = flags & PS2_FIO_O_RDWR;
         if (access != PS2_FIO_O_RDONLY || (flags & (PS2_FIO_O_CREAT | PS2_FIO_O_TRUNC)) != 0u)
             return -1;
-        const std::optional<ps2x::iop::IsoEntry> entry = mounts.cdImage->find(parsed.path);
+        const std::optional<zx::disc::IsoEntry> entry = mounts.cdImage->find(parsed.path);
         if (!entry || entry->directory)
             return -1;
         file = std::make_unique<IsoOpenFile>(mounts.cdImage, *entry);
@@ -307,7 +307,7 @@ bool PS2Vfs::stat(std::string_view path, const PS2VfsMounts &mounts, const PS2Ro
     }
     if (parsed.device == ps2x::iop::Ps2PathDevice::Cdrom && mounts.cdImage)
     {
-        const std::optional<ps2x::iop::IsoEntry> entry = mounts.cdImage->find(parsed.path);
+        const std::optional<zx::disc::IsoEntry> entry = mounts.cdImage->find(parsed.path);
         if (!entry)
             return false;
         result.directory = entry->directory;

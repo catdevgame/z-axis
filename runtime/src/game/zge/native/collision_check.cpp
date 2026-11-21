@@ -48,7 +48,7 @@ namespace zge::native
         {
             static const int v = []
             {
-                const char *e = std::getenv("PS2X_NATIVE_COLLISION_CHECK");
+                const char *e = std::getenv("ZX_NATIVE_COLLISION_CHECK");
                 return e && *e ? std::atoi(e) : 0;
             }();
             return v;

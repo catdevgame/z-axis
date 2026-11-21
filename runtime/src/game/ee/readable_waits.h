@@ -9,7 +9,7 @@
 //
 // READABLE_FUNCTION_VU0_IN: another game's readable function whose callers
 // read the VU0 state it leaves (READABLE_FUNCTION_VU0 for _IN; DM2's
-// closestOnRail): ps2xFnCheck compares its VU0 registers, Q and flags.
+// closestOnRail): zx-fncheck compares its VU0 registers, Q and flags.
 //
 //     READABLE_FUNCTION_VU0_IN(dm2, ADDRESS, closestOnRail, Draft);
 //
@@ -42,7 +42,7 @@
 
 #include "readable.h"
 
-#if defined(PS2X_GAME_INSTANCE)
+#if defined(ZX_GAME_INSTANCE)
 #define READABLE_ONLY(GAME, FN, WAITS, VU0)                                                                        \
     static const ::game::readable::Bound READABLE_JOIN(g_readableRegistration_, __LINE__) =                        \
         ::game::readable::bind<&FN, sym::GAME::FN, sym::level::GAME::FN, sym::status::GAME::FN, WAITS, VU0>(#FN,   \
@@ -58,7 +58,7 @@
 // READABLE_ONLY_AT(GAME, NAME, FN, ...): the symbol's name apart from the body's, for the build copy
 // readable_entries.py makes (the body renamed NAME_, NAME defined inline as its entry at sym::GAME::NAME, so a
 // plain call of it goes where the original's jal goes). Sources write the _ONLY forms, never _ONLY_AT.
-#if defined(PS2X_GAME_INSTANCE)
+#if defined(ZX_GAME_INSTANCE)
 #define READABLE_ONLY_AT(GAME, NAME, FN, WAITS, VU0)                                                               \
     static const ::game::readable::Bound READABLE_JOIN(g_readableRegistration_, __LINE__) =                        \
         ::game::readable::bind<&FN, sym::GAME::NAME, sym::level::GAME::NAME, sym::status::GAME::NAME, WAITS, VU0>( \
@@ -73,12 +73,12 @@
 // external function of GAME's instance (game::detail::Route at the game's own symbol), so a caller in any file
 // of that instance calls it by name; another build has none, so AI's objects are what they were (an entry
 // there would emit the body), and its callers (steps the build discards) need none.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
 #define READABLE_ONLY_DEFINE_dm2(...) __VA_ARGS__
 #else
 #define READABLE_ONLY_DEFINE_dm2(...)
 #endif
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
 #define READABLE_ONLY_DEFINE_bmx(...) __VA_ARGS__
 #else
 #define READABLE_ONLY_DEFINE_bmx(...)
@@ -113,21 +113,21 @@
 // forms do not say (a first parameter one version has not, another order, other logic) is an own body (_OWN below):
 // its parameter list is its own, its declaration a plain one, and its version's callers call it by its name (DM2's
 // shapeBoundsOverlapBox, ZGE2's queryOverlapsBox with the shape and no matrix).
-#if defined(PS2X_GAME_INSTANCE)
+#if defined(ZX_GAME_INSTANCE)
 #define READABLE_IN_ai(...)
 #define READABLE_NOT_IN_ai(...) __VA_ARGS__
 #else
 #define READABLE_IN_ai(...) __VA_ARGS__
 #define READABLE_NOT_IN_ai(...)
 #endif
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
 #define READABLE_IN_dm2(...) __VA_ARGS__
 #define READABLE_NOT_IN_dm2(...)
 #else
 #define READABLE_IN_dm2(...)
 #define READABLE_NOT_IN_dm2(...) __VA_ARGS__
 #endif
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
 #define READABLE_IN_bmx(...) __VA_ARGS__
 #define READABLE_NOT_IN_bmx(...)
 #else
@@ -201,7 +201,7 @@ namespace game::readable
 // READABLE_OWN_AT(NAME, FN, ...): the symbol's name apart from the body's, for the build copy readable_entries.py
 // makes (the bodies renamed NAME_ and OWN_, their names defined as entries), as READABLE_FUNCTION_AT is for the
 // plain form. Sources write the _OWN forms, never _OWN_AT.
-#if defined(PS2X_GAME_INSTANCE)
+#if defined(ZX_GAME_INSTANCE)
 #define READABLE_OWN2_AT(NAME, FN, STATUS, WAITS, VU0, GAME, OWN, GAME2, OWN2)                                     \
     static const ::game::readable::Bound READABLE_JOIN(g_readableRegistration_, __LINE__) =                        \
         ::game::readable::bind<::game::readable::ownBody<&FN, ::game::games::GAME, &OWN, ::game::games::GAME2,    \

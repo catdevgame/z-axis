@@ -134,8 +134,8 @@ and released jumps.
 
 `refvalues` writes `scripts/dm2-ref-run1-values.txt` from the checkpoint RAM images
 (`recomp/dumps/ref`, not committed); `run NAME` runs the native runner with the padscript,
-`PS2X_PAD_SCRIPT_CLOCK=vsync`, `PS2X_DUMP_WHEN` at the checkpoints' script times, scratch
-HOME / app support / memory cards under `$ZAXIS_SCRATCH/dm2logic` (DM2_SCRATCH), `PS2X_GS_NULL=1` by default, and
+`ZX_PAD_SCRIPT_CLOCK=vsync`, `ZX_DUMP_WHEN` at the checkpoints' script times, scratch
+HOME / app support / memory cards under `$ZAXIS_SCRATCH/dm2logic` (DM2_SCRATCH), `ZX_GS_NULL=1` by default, and
 stops when all six dumps exist; `compare NAME` prints the table.
 
 Run 1: all 6 checkpoints match within 0.01 (about 95 s wall). The SYNC anchors move the native clock

@@ -19,9 +19,9 @@
 // position w at 1 in moveByVelocity's sum.
 //
 // The data: the part's faces, positions and face normals and the face tree
-// are read from the game's RAM, or, with PS2X_NATIVE_COLLISION (on by default), from the
+// are read from the game's RAM, or, with ZX_NATIVE_COLLISION (on by default), from the
 // host's copy made from the GEO file (zge/native/collision_data.h; the same
-// bytes, PS2X_NATIVE_COLLISION_CHECK shows). What the original hands on
+// bytes, ZX_NATIVE_COLLISION_CHECK shows). What the original hands on
 // keeps its EE address either way: tree leaves go to the sorted list by
 // their address in the game's tree, and the triangle test gets the
 // vertices' addresses when it runs as a game call.

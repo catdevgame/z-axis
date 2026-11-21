@@ -63,7 +63,7 @@ namespace zge_host::xbox_textures
     // same translation unit.
     namespace pack
     {
-        namespace tr = ps2x::texture_replace;
+        namespace tr = zx::texture_replace;
         namespace fs = std::filesystem;
 
         struct XboxTextures
@@ -97,7 +97,7 @@ namespace zge_host::xbox_textures
             }
         };
 
-        XboxTextures &packState() { return ps2x::session::state<XboxTextures>(); }
+        XboxTextures &packState() { return zx::session::state<XboxTextures>(); }
 
         bool readPackFile(const fs::path &file, std::vector<uint8_t> &out)
         {
@@ -187,7 +187,7 @@ namespace zge_host::xbox_textures
                 std::string name = rel.generic_string();
                 if (name.size() <= 4u || name.compare(name.size() - 4u, 4u, ".xtp") != 0)
                     continue;
-                s.covered.insert(ps2x::game_files::normalizePath(name.substr(0, name.size() - 4u)));
+                s.covered.insert(zx::game_files::normalizePath(name.substr(0, name.size() - 4u)));
             }
         }
     }
@@ -196,7 +196,7 @@ namespace zge_host::xbox_textures
 
     namespace objects_notes
     {
-        namespace tr = ps2x::texture_replace;
+        namespace tr = zx::texture_replace;
         // The game's placeTextureLevel (a0 = texture object + 0x30, a1 = its level record).
         uint32_t placeTextureLevelOf(game::Game game)
         {
@@ -229,7 +229,7 @@ namespace zge_host::xbox_textures
         struct Objects
         {
             PS2Runtime::RecompiledFunction origAlloc = nullptr;
-            int trace = 0; // PS2X_TRACE_XBOX_OBJECTS=1: each note, 2: and each key
+            int trace = 0; // ZX_TRACE_XBOX_OBJECTS=1: each note, 2: and each key
             bool pack = false; // a pack is there (its sources may load later)
             std::function<bool(uint32_t, uint32_t, uint64_t)> keepOff; // keepTexturesOff
             uint64_t notes = 0;
@@ -237,7 +237,7 @@ namespace zge_host::xbox_textures
 
             std::unordered_map<uint32_t, Key> keyCache; // by texture object
         };
-        Objects &objects() { return ps2x::session::state<Objects>(); }
+        Objects &objects() { return zx::session::state<Objects>(); }
 
         uint32_t u32At(const uint8_t *rdram, uint32_t address)
         {
@@ -368,10 +368,10 @@ namespace zge_host::xbox_textures
             objects().pack = objects().pack || pack;
             if (objects().origAlloc)
                 return;
-            if (const char *v = std::getenv("PS2X_TRACE_XBOX_OBJECTS"))
+            if (const char *v = std::getenv("ZX_TRACE_XBOX_OBJECTS"))
                 objects().trace = std::atoi(v);
-            if (const char *v = std::getenv("PS2X_XBOX_OBJECTS"); v && v[0] == '0')
-                return; // debugging: textures not named (PS2X_TEXTURE_REPLACE_CONTENT=1 finds them by content)
+            if (const char *v = std::getenv("ZX_XBOX_OBJECTS"); v && v[0] == '0')
+                return; // debugging: textures not named (ZX_TEXTURE_REPLACE_CONTENT=1 finds them by content)
             const uint32_t placeTextureLevel = placeTextureLevelOf(game);
             objects().origAlloc = runtime.lookupFunction(placeTextureLevel);
             if (!objects().origAlloc || !runtime.replaceFunction(placeTextureLevel, &placeTextureLevelHook))
@@ -384,17 +384,17 @@ namespace zge_host::xbox_textures
 
     using namespace pack;
 
-    ps2x::settings::Setting setting(std::function<void(bool)> save)
+    zx::settings::Setting setting(std::function<void(bool)> save)
     {
-        ps2x::settings::Setting row;
+        zx::settings::Setting row;
         row.key = kSettingKey;
         row.label = "Xbox Textures";
         row.help = "Sharper Xbox textures.";
         row.current = []()
-        { return ps2x::texture_replace::enabled() ? 1 : 0; };
+        { return zx::texture_replace::enabled() ? 1 : 0; };
         row.apply = [save](int value)
         {
-            ps2x::texture_replace::setEnabled(value != 0);
+            zx::texture_replace::setEnabled(value != 0);
             if (save)
                 save(value != 0);
         };
@@ -403,7 +403,7 @@ namespace zge_host::xbox_textures
 
     std::string packFolder()
     {
-        const char *pack = ps2x::boot::text("PS2X_XBOX_PACK");
+        const char *pack = zx::boot::text("ZX_XBOX_PACK");
         if (!pack || !pack[0])
             return {};
         std::error_code ec;
@@ -418,9 +418,9 @@ namespace zge_host::xbox_textures
     void install(PS2Runtime &runtime, game::Game game)
     {
         XboxTextures &s = packState();
-        if (const char *v = std::getenv("PS2X_TRACE_XBOX"))
+        if (const char *v = std::getenv("ZX_TRACE_XBOX"))
             s.trace = std::atoi(v);
-        const char *on = ps2x::boot::text("PS2X_XBOX_TEXTURES");
+        const char *on = zx::boot::text("ZX_XBOX_TEXTURES");
         tr::setEnabled(!(on && on[0] == '0'));
         const std::string pack = packFolder();
         if (!pack.empty())
@@ -433,8 +433,8 @@ namespace zge_host::xbox_textures
         objects_notes::install(runtime, game, !s.covered.empty());
         if (pack.empty())
         {
-            if (ps2x::boot::text("PS2X_XBOX_PACK"))
-                std::cerr << "[xbox] PS2X_XBOX_PACK is not a folder" << std::endl;
+            if (zx::boot::text("ZX_XBOX_PACK"))
+                std::cerr << "[xbox] ZX_XBOX_PACK is not a folder" << std::endl;
             return;
         }
         if (s.covered.empty())
@@ -447,9 +447,9 @@ namespace zge_host::xbox_textures
         s.started = true;
         s.worker = std::thread(packWorker, std::ref(s));
         // The app adds the row with settings.ini behind it; the developer
-        // runner gets one without (PS2X_CONTROL "set display.xbox_textures 0").
-        if (!ps2x::settings::has(kSettingKey))
-            ps2x::session::addSetting(setting(nullptr));
+        // runner gets one without (ZX_CONTROL "set display.xbox_textures 0").
+        if (!zx::settings::has(kSettingKey))
+            zx::session::addSetting(setting(nullptr));
     }
 
     void keepTexturesOff(std::function<bool(uint32_t, uint32_t, uint64_t)> keepOff)
@@ -462,7 +462,7 @@ namespace zge_host::xbox_textures
         XboxTextures &s = packState();
         if (!s.started)
             return;
-        const std::string normalized = ps2x::game_files::normalizePath(path);
+        const std::string normalized = zx::game_files::normalizePath(path);
         if (!s.covered.count(normalized))
             return;
         if (s.trace)

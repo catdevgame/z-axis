@@ -4,7 +4,7 @@
 // export of the Tutorial site, already in the PS2's formats (strip groups of
 // at most 60, 8- and 4-bit BMP textures, PS2 render state words, PS2 INS and
 // DAT records, scripts version 2.70). build() makes the files the PS2 game
-// loads from it at build time (ps2xGcConvert, run by tools/make-app.sh and
+// loads from it at build time (zx-gc-convert, run by tools/make-app.sh and
 // tools/make-windows.ps1 on the folder tools/gc_disc.py extracted); the game
 // override (aggressive_inline_estate.cpp) only serves them. Nothing here
 // runs in the game.
@@ -29,7 +29,7 @@
 // ICONS.UFNT: Estate's level-select icon ('n' unselected, 'N' selected) on a
 // one-page font of the level font's format, made from a picture of the
 // level drawn from its own TUT.GEO, TUT.INS and TUT.TXR (renderPicture),
-// in AI's oval badge (ps2xGcConvert --picture
+// in AI's oval badge (zx-gc-convert --picture
 // writes the picture itself, 256 x 256, as a BMP). STILL.ULIB: the level
 // select's still behind the entry (in place of the Editor Level's), the same
 // view at 512 x 256 shown 4:3, as a one-asset UI library.
@@ -41,7 +41,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::zaxis::estate
+namespace zx::zaxis::estate
 {
     // One file of the Estate folder by its name on the GameCube disc, any
     // case ("tut.GEO", "TUT.bin", "motions.zal"). False if it is not there.

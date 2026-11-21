@@ -10,9 +10,8 @@
 #include <string>
 #include <vector>
 
-namespace gl = ps2x::glyphs;
+namespace gl = zx::glyphs;
 namespace hi = ps2_host_input;
-namespace zx = ps2x::zaxis;
 
 namespace
 {
@@ -115,11 +114,11 @@ void register_ps2_glyph_art_tests()
             putChunk(ulib, "HLIB", std::vector<uint8_t>(8, 0));
             putChunk(ulib, "UAST", uast);
             putChunk(root, "ULIB", ulib);
-            std::vector<zx::LibraryTexture> textures;
-            t.IsTrue(zx::readLibrary(root, &textures), "a ULIB");
+            std::vector<zx::zaxis::LibraryTexture> textures;
+            t.IsTrue(zx::zaxis::readLibrary(root, &textures), "a ULIB");
             t.Equals(textures.size(), static_cast<size_t>(1), "one texture");
             t.Equals(textures[0].name, std::string("select_button"), "TXRH name");
-            t.Equals(zx::sourceFileName(textures[0].source), std::string("btn_x.zmp"), "file of the source path");
+            t.Equals(zx::zaxis::sourceFileName(textures[0].source), std::string("btn_x.zmp"), "file of the source path");
             t.Equals(textures[0].rgba[0], gl::rgba(255, 0, 0), "top-left red");
             t.Equals(textures[0].rgba[2], gl::rgba(0, 0, 255), "bottom-left blue");
             t.Equals(textures[0].rgba[3] >> 24, 0u, "transparent kept");

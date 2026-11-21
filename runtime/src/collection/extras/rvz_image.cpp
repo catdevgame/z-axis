@@ -1,7 +1,7 @@
 // Dolphin's RVZ disc images, read as tools/gc_disc.py reads them (the
 // format: Dolphin's docs/WiaAndRvz.md). Only what the players' GameCube
 // dumps use is read: GameCube discs (no Wii partitions) whose groups are
-// Zstandard-compressed (zstd 1.5.7, runtime/cmake/ps2x_zstd.cmake) or
+// Zstandard-compressed (zstd 1.5.7, runtime/cmake/zx_zstd.cmake) or
 // stored, with RVZ's packing (runs of a disc's junk data kept as the seed
 // that regenerates them).
 //
@@ -22,7 +22,7 @@
 #include <cstring>
 #include <mutex>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {

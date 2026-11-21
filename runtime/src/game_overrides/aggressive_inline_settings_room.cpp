@@ -50,7 +50,7 @@ namespace aggressive_inline::settings_room
         {
             PS2Runtime::RecompiledFunction initZgui = nullptr;
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         uint32_t readWord(const uint8_t *rdram, uint32_t address)
         {

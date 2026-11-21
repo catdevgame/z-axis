@@ -1,5 +1,5 @@
 // Aggressive Inline (SLUS-20327): the Xbox release's free skate scripts for
-// the Boardwalk and the Cannery (PS2X_XBOX_FREESKATE=1; the app: Settings >
+// the Boardwalk and the Cannery (ZX_XBOX_FREESKATE=1; the app: Settings >
 // Game > Xbox Free Skate, settings.ini [extras] xbox_free_skate).
 //
 // Free skate runs <LEVEL>T.BIN (func_1A4D78). The Xbox release's are much
@@ -37,7 +37,7 @@ namespace aggressive_inline::freeskate
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
 
         struct Script
         {
@@ -54,7 +54,7 @@ namespace aggressive_inline::freeskate
             std::mutex mutex;
             std::map<std::string, std::shared_ptr<const std::vector<uint8_t>>> files; // by path
         };
-        Doors &doors() { return ps2x::session::state<Doors>(); }
+        Doors &doors() { return zx::session::state<Doors>(); }
 
         std::shared_ptr<const std::vector<uint8_t>> provide(const std::string &path)
         {
@@ -80,7 +80,7 @@ namespace aggressive_inline::freeskate
 
     void install(PS2Runtime &)
     {
-        const char *on = ps2x::boot::text("PS2X_XBOX_FREESKATE");
+        const char *on = zx::boot::text("ZX_XBOX_FREESKATE");
         if (!on || on[0] != '1')
             return;
         if (!ps2_xbox_disc::init())
@@ -94,7 +94,7 @@ namespace aggressive_inline::freeskate
             {
                 const std::string path(script.path);
                 gf::registerProvider(path.substr(0, path.rfind('/') + 1u), &provide, "freeskate");
-                ps2x::session::onEnd([]() { gf::removeProviders("freeskate"); });
+                zx::session::onEnd([]() { gf::removeProviders("freeskate"); });
                 ++count;
             }
         std::cout << "[freeskate] " << count << " Xbox free skate scripts (Boardwalk, Cannery)" << std::endl;

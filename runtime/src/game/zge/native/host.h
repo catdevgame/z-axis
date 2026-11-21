@@ -3,7 +3,7 @@
 // The PC's own work beside the game's: the native meshes and collision mirrored
 // from the files, the Xbox textures, the draw, packet and collision traces. It
 // reads more than the original does (game memory the original never touches,
-// the host's files), so it runs in the game only: not while ps2xFnCheck replays
+// the host's files), so it runs in the game only: not while zx-fncheck replays
 // one function from a recording, which holds just the memory the original read.
 
 #include "ee/abi.h"

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Frame-time spikes from a frame timeline trace (PS2Recomp runtime/ps2_frame_trace.h).
+"""Frame-time spikes from a frame timeline trace (runtime/ps2_frame_trace.h).
 
     framespikes.py FILE [N]
 
-Record with the control channel (PS2X_CONTROL, tools/nctl.py): "ftrace start", then "ftrace stop FILE"
+Record with the control channel (ZX_CONTROL, tools/nctl.py): "ftrace start", then "ftrace stop FILE"
 (at most 4 M events; a 108 s ride is about 2 M). Prints:
   - per game frame (the EE's buffer swap to the next; for games that write DISPFB from the EE, those
     writes): wall ms, vsyncs, EE swap wait and drain, VU1 and GS worker busy, the window thread's longest

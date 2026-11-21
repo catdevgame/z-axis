@@ -1,7 +1,7 @@
 # Reference run, all segments: fresh boot -> Tutorial -> start of "Modifying Grinds".
 #   python3 pcsx2pad.py launch
 #   PCSX2PAD_RECORD=/tmp/ref-run.log python3 pcsx2pad.py run scripts/tutorial-all.txt
-#   python3 pcsx2pad.py padscript /tmp/ref-run.log      # same inputs as PS2X_PAD_SCRIPT
+#   python3 pcsx2pad.py padscript /tmp/ref-run.log      # same inputs as ZX_PAD_SCRIPT
 run scripts/tutorial-01-start.txt
 run scripts/tutorial-02-talk.txt
 run scripts/tutorial-03-banners.txt

@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace ps2x::gs_interpolate
+namespace zx::gs_interpolate
 {
     namespace
     {
@@ -15,7 +15,7 @@ namespace ps2x::gs_interpolate
 
         bool fromEnvironment()
         {
-            const char *v = std::getenv("ZAXIS_INTERPOLATION");
+            const char *v = std::getenv("ZX_INTERPOLATION");
             return v && (std::strcmp(v, "on") == 0 || std::strcmp(v, "1") == 0);
         }
 

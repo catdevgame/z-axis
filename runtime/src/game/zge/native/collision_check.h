@@ -1,6 +1,6 @@
 #pragma once
 
-// PS2X_NATIVE_COLLISION_CHECK=1: the collision data the game queries, in
+// ZX_NATIVE_COLLISION_CHECK=1: the collision data the game queries, in
 // RAM, against the same data made on the host from the GEO files
 // (collision_data.h: the parts' positions, faces, face normals, face tags
 // and edges with every word the level's setup writes at load, nearest

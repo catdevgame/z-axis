@@ -1,15 +1,15 @@
 #pragma once
 
 // The compressed disc image formats behind openDiscImageFile
-// (ps2x/iop/disc_image_file.h), each in its own file.
+// (zx/disc/disc_image_file.h), each in its own file.
 
-#include "ps2x/iop/disc_image_file.h"
+#include "zx/disc/disc_image_file.h"
 
 #include <cstdio>
 #include <memory>
 #include <string>
 
-namespace ps2x::iop::disc_formats
+namespace zx::disc::formats
 {
     // Closes the file it holds (a disc image file's own).
     struct FileCloser

@@ -20,7 +20,7 @@ namespace zge
     struct DebugTextEntry
     {
         int16_t x, y;
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint8_t colour[4]; // (ZGE4) R, G, B, A: debugPrint's colour when it was printed
 #endif
     };

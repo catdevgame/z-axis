@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::zaxis_text
+namespace zx::zaxis_text
 {
     // The engine's name hash (0x148888 in Aggressive Inline): ELF hash of
     // the upper-cased name.

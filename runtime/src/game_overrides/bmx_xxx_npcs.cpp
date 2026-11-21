@@ -1,5 +1,5 @@
 // BMX XXX (SLUS-20415): the levels' own NPC riders left out
-// (PS2X_BMX_LEVEL_NPCS=0).
+// (ZX_BMX_LEVEL_NPCS=0).
 //
 // A level's NPC riders (game/bmx/game/npcs.cpp, setupNpcs) are not in the
 // level's folder: the game has a row of NPC records for each level number
@@ -11,7 +11,7 @@
 // collection/maps.h) so get that level's NPC riders, standing and riding
 // where they stood in the level the files replaced.
 //
-// With PS2X_BMX_LEVEL_NPCS=0, setupNpcs answers as it does for a
+// With ZX_BMX_LEVEL_NPCS=0, setupNpcs answers as it does for a
 // multiplayer game: the NPC list empty (its first rider kNoNpc), nothing
 // loaded, 1. Unset or any other value: nothing is hooked.
 
@@ -45,7 +45,7 @@ namespace bmx_xxx::npcs
 
     void install(PS2Runtime &runtime)
     {
-        const char *on = ps2x::boot::text("PS2X_BMX_LEVEL_NPCS");
+        const char *on = zx::boot::text("ZX_BMX_LEVEL_NPCS");
         if (!on || std::strcmp(on, "0") != 0)
             return;
         if (!runtime.replaceFunction(sym::bmx::setupNpcs, &setupNoNpcs))

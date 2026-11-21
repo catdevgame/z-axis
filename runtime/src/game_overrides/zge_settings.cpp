@@ -152,6 +152,12 @@ namespace zge_host::settings
              row("game.gc_levels"),
              row("game.menu_lines"),
              row("game.all_mp_modes"),
+             row("game.logo_splash"),
+             row("game.trailers"),
+             row("game.car_textures"),
+             row("game.green_skin"),
+             row("game.topless_girl"),
+             row("game.xbox_songs"),
          }},
     };
 
@@ -187,7 +193,7 @@ namespace zge_host::settings
 {
     namespace
     {
-        namespace st = ps2x::settings;
+        namespace st = zx::settings;
 
         constexpr int kRegA0 = 4;
         constexpr int kRegSp = 29;
@@ -208,13 +214,13 @@ namespace zge_host::settings
             bool trace = false;
             const Style *style = nullptr;
         };
-        Engine &engine() { return ps2x::session::state<Engine>(); }
+        Engine &engine() { return zx::session::state<Engine>(); }
     }
 
     bool installScriptRunner(PS2Runtime &runtime, uint32_t runScriptFunction)
     {
         Engine &e = engine();
-        const char *trace = std::getenv("PS2X_TRACE_SETTINGS");
+        const char *trace = std::getenv("ZX_TRACE_SETTINGS");
         e.trace = trace && trace[0] == '1';
         e.runScript = runScriptFunction;
         if (!e.scratchTop)
@@ -238,7 +244,7 @@ namespace zge_host::settings
 
     bool putString(uint8_t *rdram, uint32_t address, const std::string &utf8)
     {
-        const std::string text = ps2x::zaxis_text::latin1FromUtf8(utf8);
+        const std::string text = zx::zaxis_text::latin1FromUtf8(utf8);
         for (size_t i = 0; i <= text.size(); ++i)
         {
             uint8_t *p = getMemPtr(rdram, address + static_cast<uint32_t>(i));
@@ -480,7 +486,7 @@ namespace zge_host::settings
             std::mutex mutex;
             std::unordered_map<uint32_t, Page> pages; // by dialog widget
         };
-        Pages &pageState() { return ps2x::session::state<Pages>(); }
+        Pages &pageState() { return zx::session::state<Pages>(); }
 
         // The sections with a row to select, as indexes into kPage.
         std::vector<int> availableSections()
@@ -702,7 +708,7 @@ namespace zge_host::settings
             if (key != Key::PrevSection && key != Key::NextSection)
                 page.section = *sectionIndex;
             refresh(rdram, ctx, runtime, *style, dialog, pause, page);
-            // PS2X_TRACE_SETTINGS=1: each key, and the row's value before it and as the page now shows it.
+            // ZX_TRACE_SETTINGS=1: each key, and the row's value before it and as the page now shows it.
             if (engine().trace && key != Key::Tick)
             {
                 static const char *const kKeyNames[] = {"Open", "Up", "Down", "Left", "Right", "Accept", "Prev", "Next", "Tick"};

@@ -61,7 +61,7 @@ void registerRasterBackendFactory(GSRasterBackendFactory factory)
 
 bool gsNullRequested()
 {
-    const char *value = std::getenv("PS2X_GS_NULL");
+    const char *value = std::getenv("ZX_GS_NULL");
     return value && value[0] != '\0' && std::strcmp(value, "0") != 0;
 }
 
@@ -71,7 +71,7 @@ std::unique_ptr<GSRasterBackend> createConfiguredRasterBackend()
     {
         const bool enabled = gsNullRequested();
         if (enabled)
-            std::fprintf(stderr, "[gs] PS2X_GS_NULL: primitives are not rasterized\n");
+            std::fprintf(stderr, "[gs] ZX_GS_NULL: primitives are not rasterized\n");
         return enabled;
     }();
     if (useNull)

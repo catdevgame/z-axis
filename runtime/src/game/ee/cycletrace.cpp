@@ -1,4 +1,4 @@
-// PS2X_FNCYCLES=<addr>[,<addr>...]:<file> (or @<list file>:<file>): the EE cycles of a few game
+// ZX_FNCYCLES=<addr>[,<addr>...]:<file> (or @<list file>:<file>): the EE cycles of a few game
 // functions in the running game, call by call, for comparing a readable
 // function with its original at the same call (readable sweep follow-up:
 // the career's timing with every Tested function on).
@@ -19,7 +19,7 @@
 // which its epilogue restores): calls made from a readable caller all return
 // to its fiber's resume slot, so ra alone cannot tell them apart.
 //
-// PS2X_FNCYCLES_WATCH=<addr>[+<bytes>][,...]:<file> (drafter21): memory
+// ZX_FNCYCLES_WATCH=<addr>[+<bytes>][,...]:<file> (drafter21): memory
 // write-watch. The watched bytes (main RAM, or the scratchpad at
 // the scratchpad; 16 bytes unless +bytes says) are compared with what they held
 // at every traced function's entry and return (table and direct calls) and
@@ -34,7 +34,7 @@
 // compared tick by tick: where state outside main RAM, the scratchpad,
 // first differs).
 //
-// PS2X_FNCYCLES_VU0=<reg>[,<reg>...]:<file> (abdiff1): the same for VU0's
+// ZX_FNCYCLES_VU0=<reg>[,<reg>...]:<file> (abdiff1): the same for VU0's
 // vector registers (0 to 31): compared at every traced function's entry and
 // return, a change writes
 //
@@ -90,17 +90,17 @@ namespace game::profile
             std::vector<Pending> pending;
             std::unordered_map<uint32_t, Watch> watches;
             std::FILE *out = nullptr;
-            std::FILE *args = nullptr; // PS2X_FNCYCLES_ARGS
+            std::FILE *args = nullptr; // ZX_FNCYCLES_ARGS
             PS2Runtime *runtime = nullptr;
             bool wrapped = false;
         };
         Tracer *g_tracer = nullptr;
 
-        // PS2X_FNCYCLES_FROM=<tick>: no lines for calls before that vsync
+        // ZX_FNCYCLES_FROM=<tick>: no lines for calls before that vsync
         // tick (a trace of many functions over a short window; drafter20).
         uint64_t g_fromTick = 0;
 
-        // PS2X_FNCYCLES_WATCH (see the top).
+        // ZX_FNCYCLES_WATCH (see the top).
         struct WatchRange
         {
             uint32_t address = 0, bytes = 16;
@@ -109,7 +109,7 @@ namespace game::profile
         std::vector<WatchRange> g_watchRanges;
         std::FILE *g_watchOut = nullptr;
 
-        // PS2X_FNCYCLES_VU0 (see the top).
+        // ZX_FNCYCLES_VU0 (see the top).
         struct WatchVu0
         {
             int reg = 0;
@@ -157,7 +157,7 @@ namespace game::profile
         }
 
         // Compares the watched bytes with their last copy; a line for each
-        // range that changed (only from PS2X_FNCYCLES_FROM on; the copy
+        // range that changed (only from ZX_FNCYCLES_FROM on; the copy
         // follows the memory all along).
         void watchCheck(const char *where, uint32_t address, uint64_t call, uint32_t sp, uint32_t ra)
         {
@@ -214,7 +214,7 @@ namespace game::profile
                          static_cast<unsigned long long>(p.start), static_cast<unsigned long long>(spent), end, p.ra, pc);
         }
 
-        // PS2X_FNCYCLES_ARGS=<file>: a line a table call at its entry (address,
+        // ZX_FNCYCLES_ARGS=<file>: a line a table call at its entry (address,
         // call number, tick, entry cycle, a0 to a3, for a0 and a1 that
         // point into RAM the first 40 bytes there as text (`.` for a byte
         // outside printable ASCII, the text ends at a 0) and the first 16 in
@@ -298,7 +298,7 @@ namespace game::profile
             const Pending p{pc, ra, sp, call, tick, start};
             if (t.args && ctx->pc == ra && tick >= g_fromTick)
             {
-                // (PS2X_FNCYCLES_ARGS: the registers it returned with, GPRs'
+                // (ZX_FNCYCLES_ARGS: the registers it returned with, GPRs'
                 // low words and FPRs' bits, for a caller reading a temporary.)
                 std::fprintf(t.args, "%06x %llu ret", pc, static_cast<unsigned long long>(call));
                 for (int r = 1; r < 32; ++r)
@@ -342,7 +342,7 @@ namespace game::profile
             vu0Check("din", ee::t_ee.frame ? ee::t_ee.frame->ctx : nullptr, address, it->second.calls, top, 0u);
             if (t.args && s.currentVSyncTick() >= g_fromTick)
             {
-                // (PS2X_FNCYCLES_ARGS: a direct call's line has the callee's
+                // (ZX_FNCYCLES_ARGS: a direct call's line has the callee's
                 // stack top, where its frame goes: the original's sp at entry
                 // when every readable caller's StackFrame is the original's.)
                 const R5900Context *ctx = ee::t_ee.frame ? ee::t_ee.frame->ctx : nullptr;
@@ -432,7 +432,7 @@ namespace game::profile
 
     void installCycleTrace(PS2Runtime &runtime)
     {
-        const char *spec = std::getenv("PS2X_FNCYCLES");
+        const char *spec = std::getenv("ZX_FNCYCLES");
         if (!spec || !*spec)
             return;
         const char *colon = std::strrchr(spec, ':');
@@ -467,14 +467,14 @@ namespace game::profile
         // Runs end by a kill (STOP_TICK): a few functions line by line, many in
         // blocks (the last block of a killed run is lost).
         std::setvbuf(tracer.out, nullptr, tracer.functions.size() > 16 ? _IOFBF : _IOLBF, 1u << 20);
-        if (const char *from = std::getenv("PS2X_FNCYCLES_FROM"); from && *from)
+        if (const char *from = std::getenv("ZX_FNCYCLES_FROM"); from && *from)
             g_fromTick = std::strtoull(from, nullptr, 0);
-        if (const char *args = std::getenv("PS2X_FNCYCLES_ARGS"); args && *args)
+        if (const char *args = std::getenv("ZX_FNCYCLES_ARGS"); args && *args)
             if ((tracer.args = std::fopen(args, "w")))
                 std::setvbuf(tracer.args, nullptr, tracer.functions.size() > 16 ? _IOFBF : _IOLBF, 1u << 20);
         tracer.runtime = &runtime;
         g_tracer = &tracer;
-        if (const char *watch = std::getenv("PS2X_FNCYCLES_WATCH"); watch && *watch)
+        if (const char *watch = std::getenv("ZX_FNCYCLES_WATCH"); watch && *watch)
         {
             // <addr>[+<bytes>][,...]:<file>
             const char *wcolon = std::strrchr(watch, ':');
@@ -504,7 +504,7 @@ namespace game::profile
                 }
             }
         }
-        if (const char *vu0 = std::getenv("PS2X_FNCYCLES_VU0"); vu0 && *vu0)
+        if (const char *vu0 = std::getenv("ZX_FNCYCLES_VU0"); vu0 && *vu0)
         {
             // <reg>[,<reg>...]:<file>
             const char *vcolon = std::strrchr(vu0, ':');

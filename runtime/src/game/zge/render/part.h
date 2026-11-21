@@ -236,7 +236,7 @@ namespace zge
     // loader. [inferred]
     struct BoneRecord
     {
-#if PS2X_GAME_BMX // (ZGE4's: the offset first, a 0x20-byte record: BMX loadBoneChunk, posePart, copyStream)
+#if ZX_GAME_BMX // (ZGE4's: the offset first, a 0x20-byte record: BMX loadBoneChunk, posePart, copyStream)
         Float4 offset;       // BMX +0x00
         uint32_t bytes;      // BMX +0x10 the record's size (0x20)
         uint16_t poseIndex;  // BMX +0x14

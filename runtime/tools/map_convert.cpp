@@ -1,21 +1,22 @@
-// ps2xMapConvert: the collection's map converter (collection/levels) on the
+// zx-map-convert: the collection's map converter (collection/levels) on the
 // command line, for the checks against the tooling's Python converters (the
 // reference: tooling/ai/tools/zge_level_gltf.py export, then
 // ai_level_convert.py, dm2_level_convert.py or bmx_level_convert.py
 // convert). The app converts in memory and writes nothing; this writes the
 // same files to a folder so they can be compared byte for byte.
 //
-//   ps2xMapConvert roundtrip --game ai|dm2|bmx FOLDER...
+//   zx-map-convert roundtrip --game ai|dm2|bmx FOLDER...
 //       each level folder's GEO, INS, DAT and ZIT (and DM2's TXR) read into
 //       the records and written back, compared with the files
-//   ps2xMapConvert export --game ai|dm2|bmx FOLDER
+//   zx-map-convert export --game ai|dm2|bmx FOLDER
 //       the level folder's model (collection/levels/export.h) as text: what
 //       the tooling's export writes as a .gltf and its reader gives back
 //       (freeplay4's dump_model.py writes the Python side's)
-//   ps2xMapConvert convert --game ai|dm2|bmx FOLDER --to ai|dm2|bmx --out DIR
-//       the level folder exported and converted for the --to game's Custom
-//       Freeplay slot, its files written under DIR in a Mods folder's layout,
-//       with the time each step took
+//   zx-map-convert convert --game ai|dm2|bmx FOLDER --to ai|dm2|bmx --out DIR [--slot S]
+//       the level folder exported and converted for one of the --to game's
+//       Custom Freeplay slots (--slot, the Python converters' --slot or
+//       --level; default the game's first), its files written under DIR in a
+//       Mods folder's layout, with the time each step took
 //
 // Never commit what this writes from a disc: it is the disc's data.
 
@@ -40,14 +41,14 @@
 namespace
 {
     namespace fs = std::filesystem;
-    namespace lv = ps2x::app::levels;
+    namespace lv = zx::app::levels;
 
     int usage(const std::string &why)
     {
-        std::cerr << "ps2xMapConvert: " << why << "\n"
-                  << "usage: ps2xMapConvert roundtrip --game ai|dm2|bmx FOLDER...\n"
-                  << "       ps2xMapConvert export --game ai|dm2|bmx FOLDER\n"
-                  << "       ps2xMapConvert convert --game ai|dm2|bmx FOLDER --to ai|dm2|bmx --out DIR\n";
+        std::cerr << "zx-map-convert: " << why << "\n"
+                  << "usage: zx-map-convert roundtrip --game ai|dm2|bmx FOLDER...\n"
+                  << "       zx-map-convert export --game ai|dm2|bmx FOLDER\n"
+                  << "       zx-map-convert convert --game ai|dm2|bmx FOLDER --to ai|dm2|bmx --out DIR [--slot S]\n";
         return 2;
     }
 
@@ -149,7 +150,7 @@ namespace
             {
                 if (std::string(ext) == "ZIT")
                     continue;
-                std::cerr << "ps2xMapConvert: " << folder.string() << " has no " << ext << std::endl;
+                std::cerr << "zx-map-convert: " << folder.string() << " has no " << ext << std::endl;
                 return false;
             }
             if (!readFile(file, files[ext]))
@@ -244,7 +245,7 @@ namespace
         }
         catch (const lv::LevelError &e)
         {
-            std::cerr << "ps2xMapConvert: " << e.what() << std::endl;
+            std::cerr << "zx-map-convert: " << e.what() << std::endl;
             return 1;
         }
         return 0;
@@ -252,11 +253,13 @@ namespace
 
     int convertCommand(lv::Engine engine, const std::vector<std::string> &args)
     {
-        std::string folder, to, out;
+        std::string folder, to, out, slot;
         for (size_t i = 0; i < args.size(); ++i)
         {
             if (args[i] == "--to" && i + 1 < args.size())
                 to = args[++i];
+            else if (args[i] == "--slot" && i + 1 < args.size())
+                slot = args[++i];
             else if (args[i] == "--out" && i + 1 < args.size())
                 out = args[++i];
             else if (folder.empty())
@@ -276,7 +279,7 @@ namespace
             const auto start = Clock::now();
             const lv::Model model = lv::exportLevel(engine, files);
             const auto exported = Clock::now();
-            const lv::Converted converted = lv::convertModel(model, target);
+            const lv::Converted converted = lv::convertModel(model, target, slot);
             const auto done = Clock::now();
             for (const std::string &line : converted.report)
                 std::cout << line << "\n";
@@ -294,7 +297,7 @@ namespace
         }
         catch (const lv::LevelError &e)
         {
-            std::cerr << "ps2xMapConvert: " << e.what() << std::endl;
+            std::cerr << "zx-map-convert: " << e.what() << std::endl;
             return 1;
         }
         return 0;

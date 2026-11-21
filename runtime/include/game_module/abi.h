@@ -9,10 +9,10 @@
 //                  RAM, the CPU's exceptions, the kernel's and libraries' replacements, the few C library functions
 //                  the compiler may call), filled by the runtime (lib/game_module.cpp);
 //   ZxGameModule   what the module gives back: its function table, the ELF it was recompiled from, and its VU1
-//                  microprograms compiled ahead of time (ps2xVu1Aot's code, run on the runtime's VU1 core,
+//                  microprograms compiled ahead of time (zx-vu1aot's code, run on the runtime's VU1 core,
 //                  runtime/ps2_vu1_core.h).
 // A module exports one function, zx_game_module (zx_game_module_<id> when linked into the runner,
-// PS2X_GAME_MODULES=static), that takes the runtime's table and returns its own, or null when it was built for another
+// ZX_GAME_MODULES=static), that takes the runtime's table and returns its own, or null when it was built for another
 // version of this boundary. ZX_GAME_MODULE_ABI changes with any change here, and with the order of the kernel and
 // library lists (ps2_call_list.h), which the module calls by index.
 
@@ -48,7 +48,7 @@ typedef struct ZxTailCallTable
     uint32_t base;
     uint32_t slotCount;
     ZxGuestFunction *table;
-    bool stats; // PS2X_TAILCALL_STATS: tail calls reaching a replaced function are counted (noteReplacedTailCall)
+    bool stats; // ZX_TAILCALL_STATS: tail calls reaching a replaced function are counted (noteReplacedTailCall)
 } ZxTailCallTable;
 
 // PS2Runtime::GuestBranchKind.

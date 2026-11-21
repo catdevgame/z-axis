@@ -41,7 +41,7 @@ namespace zge
         Matrix worldInverseInertia;  // +0x120
         Matrix rotation;             // +0x160 its rows are the box's axes
         Vec4 spin;                   // +0x1A0
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         // What the step starts from (saveBodyState keeps it, restoreBodyState puts it back; a contact's push moves
         // pushedPosition with position). ZGE4 keeps none of it: BMX XXX's record is 0x2F0 bytes, and these stand past
         // its end (below), for the steps that compile away there.
@@ -61,7 +61,7 @@ namespace zge
         Vec4 torque;                 // +0x2C0 (BMX +0x1D0)
         Vec4 solvedTorque;           // +0x2D0 (BMX +0x1E0) [inferred]
         Vec4 springSpin;             // +0x2E0 (BMX +0x1F0) the spin the dead springBodyToBoneTurn's pushes add up; cleared before each solve, the dead addToSolvedForces adds it to solvedTorque
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         // (ZGE4 reads the file's spheres and keeps none: past the end in BMX XXX, as the last state.)
         uint32_t sphereCount;        // +0x2F0 the spheres the file gives it
         ee::Ptr<struct BodySphere> spheres; // +0x2F4 only the free and the dead drawDynamicsBody read them
@@ -71,7 +71,7 @@ namespace zge
         uint8_t _300[game::readable::perGame(0x30, 0x30, 0x28)]; // +0x300 (BMX +0x208, 8 bytes fewer)
         Vec4 contactPush;            // +0x330 (BMX +0x230) [inferred] what the faces push it out by
         uint8_t _340[0x20];          // +0x340 (BMX +0x240)
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t ignoredCount;       // DM2 +0x360 bodies it does not collide with (pairStillTouching)
         ee::Ptr<RigidBody> ignored[10]; // DM2 +0x364
         // Whether `other` is on its ignore list.
@@ -95,7 +95,7 @@ namespace zge
 #endif
         ee::Ptr<struct SceneBone> bone; // +0x360 (DM2 +0x38C, BMX +0x260) the object's model bone it follows
         ee::Ptr<struct AnimationChannel> boneChannel; // +0x364 (DM2 +0x390, BMX +0x264) the animator's channel for that bone, 0: none
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t _394;               // DM2 +0x394
 #endif
         uint8_t _368[0x08];          // +0x368 (DM2 +0x398)
@@ -114,7 +114,7 @@ namespace zge
         ee::Float turnShare;         // +0x3D0 (DM2 +0x400) how far it follows the solved turn
         ee::Ptr<struct BodyExtents> halfExtents; // +0x3D4 (DM2 +0x404)
         ee::Ptr<RigidBody> next;     // +0x3D8 (DM2 +0x408) the next body of its dynamics
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t record;             // +0x3DC (DM2 +0x40C) the game's
 #else
         // BMX +0x2DC (the fields from bone on are AI's less 0x100 in BMX XXX). ZGE4's own: 1, a face touches the body from
@@ -136,7 +136,7 @@ namespace zge
 #endif
 
         // Whether faces touch it from either side (ZGE4 only).
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         bool hasTwoSidedFaces() const { return twoSidedFaces != 0; }
         void setTwoSidedFaces(uint32_t twoSided) { twoSidedFaces = twoSided; }
 #else
@@ -165,7 +165,7 @@ namespace zge
                   offsetof(RigidBody, contactPush) == game::readable::perGame(0x330u, 0x330u, 0x230u) && offsetof(RigidBody, solvedForce) == game::readable::perGame(0x2B0u, 0x2B0u, 0x1C0u) &&
                   offsetof(RigidBody, solvedTorque) == game::readable::perGame(0x2D0u, 0x2D0u, 0x1E0u) && offsetof(RigidBody, turnShare) == game::readable::perGame(0x3D0u, 0x400u, 0x2D0u) &&
                   offsetof(RigidBody, halfExtents) == game::readable::perGame(0x3D4u, 0x404u, 0x2D4u) && offsetof(RigidBody, next) == game::readable::perGame(0x3D8u, 0x408u, 0x2D8u));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(RigidBody, twoSidedFaces) == 0x2DC);
 #else
     static_assert(offsetof(RigidBody, record) == game::readable::perGame(0x3DCu, 0x40Cu, 0x2DCu));
@@ -173,7 +173,7 @@ namespace zge
 
     // A sphere of a body's chunk (0x30 bytes; DM2's 0x40, its flag first: ZGE2 puts a record's words before its
     // vectors, ZGE3 after them, here and in BodyExtents and DynamicsForce).
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     struct BodySphere
     {
         uint32_t aroundOrigin; // DM2 +0x00 1: the body's origin is inside it
@@ -199,7 +199,7 @@ namespace zge
 
     // The other record of a box body: half extents and their length (0x20
     // bytes, RigidBody::halfExtents; DM2's length first).
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     struct BodyExtents
     {
         ee::Float length; // DM2 +0x00
@@ -360,7 +360,7 @@ namespace zge
     {
         uint32_t flags;            // +0x00 wakeDynamics' last argument: bit 0, the object follows its first body
         uint32_t nameHash;         // +0x04
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         union
         {
             ee::Float restitution; // DM2 +0x08
@@ -374,7 +374,7 @@ namespace zge
         ee::Ptr<DynamicsLink> links; // +0x14 (DM2 +0x10) with any it is solved; alone, each body steps by itself
         ConstraintSystem system;   // +0x18 (DM2 +0x14)
         ContactCallback contactCallback; // +0x34 (DM2 +0x30) asked about every face a body touches: 0 to ignore it
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t owner;            // +0x38 (DM2 has none) the game's word for its contact callback (BMX XXX's rider
                                    //       dynamics: the Rider, newRider)
 #endif
@@ -419,7 +419,7 @@ namespace zge
     // Set for the step if a body is near anything to touch.
     inline ee::Global<uint32_t, sym::g_collideWithFaces> g_collideWithFaces;
     // The objects bodies collide with this step: what collisionQuery found.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     // ZGE2's contact objects: its query's count and array of HitNodes (HitNodeTable), the objects in place.
     inline ee::Global<HitNodeTable, sym::g_contactObjects> g_contactObjects;
     inline ee::Ptr<HitNode> contactObject(uint32_t index) { return g_contactObjects->nodes + index; }
@@ -476,7 +476,7 @@ namespace zge
 
     // A force of the dynamics (dead: nothing makes one; dynamics_load.cpp): its direction, its
     // strength in the direction's w, the direction's length (first in DM2's, as in its BodyExtents).
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     struct DynamicsForce
     {
         ee::Float length; // DM2 +0x00

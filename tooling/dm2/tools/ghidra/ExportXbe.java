@@ -8,7 +8,7 @@
 // A program the readable stage renamed (ApplyReadable.java) keeps the name the analysis gave as "n"
 // (from its ReadableOriginalName property map, so the pairing reads what it always read) and adds
 // the readable name as "rn".
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.data.StringDataInstance;

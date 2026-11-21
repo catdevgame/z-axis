@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """End-to-end check of the keyboard/mouse input layer in the native build.
 
-Drives the game with PS2X_HOST_INPUT_SCRIPT (host key / mouse / focus events
+Drives the game with ZX_HOST_INPUT_SCRIPT (host key / mouse / focus events
 on the pad script clock, mapped through controls.ini exactly like real input;
 see z-axis runtime/include/runtime/ps2_host_input.h) on top of the
 ref04-talk-go pad script, which reaches free play in the Tutorial. Each
-scenario uses its own controls.ini (PS2X_CONTROLS_INI, never the user's) and
+scenario uses its own controls.ini (ZX_CONTROLS_INI, never the user's) and
 memory card folder, and checks game state:
 
   defaults  W moves the skater; mouse motion swings the camera (eye/look-at)
@@ -32,10 +32,10 @@ memory card folder, and checks game state:
             the grind (mouse-look does not touch game logic).
 
 Usage:
-  RUNNER=<ps2EntryRunner> python3 tools/inputcheck.py run [defaults|rebind|look|lookcareer ...]
+  RUNNER=<zx-runner> python3 tools/inputcheck.py run [defaults|rebind|look|lookcareer ...]
   python3 tools/inputcheck.py check [...]   # re-check logs
 
-Logs: recomp/logs/<tag>input-check-<scenario>.log, screenshots (PS2X_SHOT_AT,
+Logs: recomp/logs/<tag>input-check-<scenario>.log, screenshots (ZX_SHOT_AT,
 the presented picture at a script time) in recomp/logs/input/<tag><scenario>-*.png.
 INPUTCHECK_TAG=<tag> prefixes those names (and the config / memory card
 folders under recomp/run), so parallel agents do not overwrite each other.
@@ -52,7 +52,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RECOMP = os.path.join(ROOT, "recomp")
 LOGS = os.path.join(RECOMP, "logs")
 sys.path.insert(0, os.path.dirname(ROOT))
-import zpaths  # noqa: E402,F401  (the shared environment: no sound, ZAXIS_AUDIO)
+import zpaths  # noqa: E402,F401  (the shared environment: no sound, ZX_AUDIO)
 SHOTS = os.path.join(LOGS, "input")
 PAD_SCRIPT = os.path.join(ROOT, "tools", "scripts", "native", "ref04-talk-go.padscript")
 
@@ -173,10 +173,10 @@ def run(name):
         shutil.rmtree(mc)  # the Career replay starts from an empty card and saves to it
     os.makedirs(mc, exist_ok=True)
     env = dict(os.environ)
-    env.setdefault("PS2X_GS_BACKEND", "cpu")  # pictures from the reference renderer
+    env.setdefault("ZX_GS_BACKEND", "cpu")  # pictures from the reference renderer
     # The memory card path: the Career replay's inputs include the card's
     # save dialog (careercheck.py).
-    env.setdefault("PS2X_SAVES", "card")
+    env.setdefault("ZX_SAVES", "card")
     if sc.get("career"):
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import careercheck
@@ -184,16 +184,16 @@ def run(name):
     else:
         pad = open(PAD_SCRIPT).read().strip()
     env.update({
-        "PS2X_MC_ROOT": mc,
-        "PS2X_CONTROLS_INI": ini,
-        "PS2X_PAD_SCRIPT_CLOCK": "vsync",
-        "PS2X_PAD_SCRIPT": pad,
-        "PS2X_HOST_INPUT_SCRIPT": ",".join(sc["host"]),
-        "PS2X_SHOT_AT": ",".join("%s:%s" % (shot_time(t), os.path.join(SHOTS, "%s%s-%s.png" % (TAG, name, label)))
+        "ZX_MC_ROOT": mc,
+        "ZX_CONTROLS_INI": ini,
+        "ZX_PAD_SCRIPT_CLOCK": "vsync",
+        "ZX_PAD_SCRIPT": pad,
+        "ZX_HOST_INPUT_SCRIPT": ",".join(sc["host"]),
+        "ZX_SHOT_AT": ",".join("%s:%s" % (shot_time(t), os.path.join(SHOTS, "%s%s-%s.png" % (TAG, name, label)))
                                  for label, t in sc["shots"].items()),
-        "PS2X_TRACE_HOST_INPUT": "1",
-        "PS2X_TRACE_MOUSELOOK": "1",
-        "PS2X_STATE_LOG": ",".join("0x%X" % a for a in POS + EYE + LOOK + PAD_BUF + (MODE,)),
+        "ZX_TRACE_HOST_INPUT": "1",
+        "ZX_TRACE_MOUSELOOK": "1",
+        "ZX_STATE_LOG": ",".join("0x%X" % a for a in POS + EYE + LOOK + PAD_BUF + (MODE,)),
     })
     subprocess.call([os.path.join(RECOMP, "run.sh"), str(sc["secs"]), log_name(name)], env=env)
 

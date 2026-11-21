@@ -1,4 +1,4 @@
-// ZAXIS_GUEST_MAP_CHECK (runtime/CMakeLists.txt), a tool build: every access of the readable game (ee::at<T>)
+// ZX_GUEST_MAP_CHECK (runtime/CMakeLists.txt), a tool build: every access of the readable game (ee::at<T>)
 // resolved as the guest map does (base + address: runtime/guest_map.h) and as ee::at did before it (the runtime's
 // special-address test, getMemPtr), and told where they part or the address is outside RAM's own view (a mirror,
 // the scratchpad, the space past RAM): a line per address region and code address the first time ("[guest-map]
@@ -9,7 +9,7 @@
 // <runner> -l <load address>` names it (the load address is printed once).
 #include "ee.h"
 
-#if ZAXIS_GUEST_MAP_CHECK
+#if ZX_GUEST_MAP_CHECK
 
 #include "runtime/guest_map.h"
 

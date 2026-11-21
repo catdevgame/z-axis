@@ -59,7 +59,7 @@ namespace bmx_xxx::restart
             PS2Runtime::RecompiledFunction playStateFrame = nullptr;
             bool keyPending = false; // VBlank and the play frame: both the EE thread
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         uint32_t readWord(const uint8_t *rdram, uint32_t address)
         {

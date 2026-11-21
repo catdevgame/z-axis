@@ -11,7 +11,7 @@
 
 namespace
 {
-    namespace zt = ps2x::zaxis_text;
+    namespace zt = zx::zaxis_text;
 
     void putU32(std::vector<uint8_t> &out, uint32_t value)
     {
@@ -239,7 +239,7 @@ void register_ps2_zaxis_text_tests()
             block[0] = 1000 & 0xFF;
             block[1] = 1000 >> 8;
             block[4] = 0x07; // first code +7 (step 7: 7>>3 + 7>>2 + 7>>1 + 7 = 0+1+3+7 = 11)
-            const auto pcm = ps2x::xbox_audio::decodeAdpcm(block.data(), block.size() + 5u);
+            const auto pcm = zx::xbox_audio::decodeAdpcm(block.data(), block.size() + 5u);
             t.Equals(pcm.size(), size_t(64), "64 samples, partial block dropped");
             t.Equals(int(pcm[0]), 1000, "header sample");
             t.Equals(int(pcm[1]), 1011, "first code");
@@ -259,14 +259,14 @@ void register_ps2_zaxis_text_tests()
                 std::memcpy(e.data() + 20, "line_fr.wav", 11);
                 header.insert(header.end(), e.begin(), e.end());
             }
-            std::vector<ps2x::xbox_audio::Wave> waves;
+            std::vector<zx::xbox_audio::Wave> waves;
             bool xbox = false;
-            t.IsTrue(ps2x::xbox_audio::readWaveTable(header, waves, &xbox) && xbox, "Xbox table");
+            t.IsTrue(zx::xbox_audio::readWaveTable(header, waves, &xbox) && xbox, "Xbox table");
             t.Equals(waves.size(), size_t(2), "waves");
             t.Equals(waves[1].offset, 0x2000u, "offset");
             t.Equals(waves[1].name, std::string("line_fr.wav"), "name");
             header.resize(0x60);
-            t.IsFalse(ps2x::xbox_audio::readWaveTable(header, waves), "table past the bytes given");
+            t.IsFalse(zx::xbox_audio::readWaveTable(header, waves), "table past the bytes given");
         });
 
         tc.Run("fonts from another library", [](TestCase &t)
@@ -278,7 +278,7 @@ void register_ps2_zaxis_text_tests()
             const auto donor = chunk("ULIB", concat({hlib, asset("D:\\xbox\\FNT_14PT.zfn", true, "xbox font, larger"),
                                                      asset("D:\\xbox\\button.zmp", false, "xbox picture")}));
             std::vector<uint8_t> changed = library;
-            const auto replaced = ps2x::zaxis::replaceFonts(changed, donor);
+            const auto replaced = zx::zaxis::replaceFonts(changed, donor);
             t.IsTrue(replaced == std::vector<std::string>{"fnt_14pt.zfn"}, "only the font both have");
             const std::string s(changed.begin(), changed.end());
             t.IsTrue(s.find("xbox font, larger") != std::string::npos, "the donor's font");
@@ -289,7 +289,7 @@ void register_ps2_zaxis_text_tests()
             std::memcpy(&size, changed.data() + 4, 4);
             t.Equals(size_t(size) + 8u, changed.size(), "ULIB size");
             std::vector<uint8_t> same = library;
-            t.IsTrue(ps2x::zaxis::replaceFonts(same, chunk("ULIB", hlib)).empty() && same == library,
+            t.IsTrue(zx::zaxis::replaceFonts(same, chunk("ULIB", hlib)).empty() && same == library,
                      "nothing to take: unchanged");
         });
 
@@ -302,7 +302,7 @@ void register_ps2_zaxis_text_tests()
                                                      picture("cha_ape", "xbox ape"),
                                                      picture("cha_other", "xbox other")}));
             std::vector<uint8_t> changed = library;
-            const auto added = ps2x::zaxis::addAssets(changed, donor, {"cha_ape", "cha_chris", "cha_missing"});
+            const auto added = zx::zaxis::addAssets(changed, donor, {"cha_ape", "cha_chris", "cha_missing"});
             t.IsTrue(added == std::vector<std::string>{"cha_ape"}, "only the one the library lacks");
             const std::string s(changed.begin(), changed.end());
             t.IsTrue(s.find("xbox ape") != std::string::npos && s.find("ps2 chris") != std::string::npos &&
@@ -313,7 +313,7 @@ void register_ps2_zaxis_text_tests()
             std::memcpy(&size, changed.data() + 4, 4);
             t.Equals(size_t(size) + 8u, changed.size(), "ULIB size");
             std::vector<uint8_t> same = library;
-            t.IsTrue(ps2x::zaxis::addAssets(same, donor, {"cha_tinman"}).empty() && same == library,
+            t.IsTrue(zx::zaxis::addAssets(same, donor, {"cha_tinman"}).empty() && same == library,
                      "nothing to add: unchanged");
         });
 
@@ -328,7 +328,7 @@ void register_ps2_zaxis_text_tests()
             const auto pages = chunk("UFNT", concat({hfnt({"t2"}, {{'b', 0, 1}, {'B', 0, 65}}), fontPage("page two")}));
             std::vector<uint8_t> changed = library;
             std::string error;
-            t.IsTrue(ps2x::zaxis::appendFontPages(changed, "fnt_lvl_icons.zfn", pages, &error), "appended: " + error);
+            t.IsTrue(zx::zaxis::appendFontPages(changed, "fnt_lvl_icons.zfn", pages, &error), "appended: " + error);
             uint32_t size = 0;
             std::memcpy(&size, changed.data() + 4, 4);
             t.Equals(size_t(size) + 8u, changed.size(), "ULIB size");
@@ -353,9 +353,9 @@ void register_ps2_zaxis_text_tests()
             t.Equals(s.find("UFNT", uastAt) + 8u + ufnt, s.find("UAST", uastAt + 4), "UFNT size");
             std::vector<uint8_t> same = library;
             const auto clash = chunk("UFNT", concat({hfnt({"t2"}, {{'a', 0, 1}}), fontPage("page two")}));
-            t.IsFalse(ps2x::zaxis::appendFontPages(same, "fnt_lvl_icons.zfn", clash) || same != library,
+            t.IsFalse(zx::zaxis::appendFontPages(same, "fnt_lvl_icons.zfn", clash) || same != library,
                       "a character in both: unchanged");
-            t.IsFalse(ps2x::zaxis::appendFontPages(same, "fnt_missing.zfn", pages) || same != library,
+            t.IsFalse(zx::zaxis::appendFontPages(same, "fnt_missing.zfn", pages) || same != library,
                       "no such font: unchanged");
         });
     });

@@ -65,7 +65,7 @@ namespace zge
     {
         Vec4 viewCentre;      // +0x00 the bounding sphere's centre in view space (BMX: drawTerrain reads its z)
         ee::Ptr<ZgePart> part; // +0x10 the part drawn in this view (LOD choice; BMX: submitNodeDraw, drawTerrain)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // +0x14 ZGE4 keeps the view's material table here: its draws read node + view * 0x20 + 0x194
         // (nodeDrawBucket, drawTerrain) where ZGE3's read Node::materials.
         ee::Ptr<MaterialTable> materials;
@@ -113,7 +113,7 @@ namespace zge
     {
         uint32_t flags;          // +0x000 NodeFlags
         uint32_t flagsHigh;      // +0x004 the upper half of the flags' doubleword
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4 moved the node's name hash and model up here (setNodeNameHash, setNodeGeometry).
         uint32_t nameHash;       // BMX +0x008
         ee::Ptr<GeoObject> model; // BMX +0x00C
@@ -132,7 +132,7 @@ namespace zge
         Vec4 sphereCentre;       // +0x0F0 bounding sphere
         ee::Float radius;        // +0x100
         uint8_t _104[0x0C];
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2's fields here, at the places its machine code uses; the last ones are in no
         // function read so far, and stand where nothing else is.
         // DM2 +0x110 the region whose box holds the node's box (updateMovedNode writes it; drawSky's node visit
@@ -178,7 +178,7 @@ namespace zge
         uint32_t drawCheckData;               // DM2 +0x1B0
         ee::Ptr<LightBlock> lights;           // DM2 +0x1B4 [unproven: only drawSkinned, which is level 1]
         uint8_t _1b8[0x08];
-#elif PS2X_GAME_BMX
+#elif ZX_GAME_BMX
         // ZGE4's node (BMX XXX), 0x1F0 bytes: the name hash and model sit at +0x08 and +0x0C, so
         // every field from the name on is 4 or 8 bytes lower than ZGE3's; the two views come
         // before the shadow test words and the colour, and the bone poses end the record. Each
@@ -264,10 +264,10 @@ namespace zge
         // matrix is at +0x40 of each (zge/scene/skeleton.h).
         ee::Ptr<BonePose> bonePoses;
 #endif
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         NodeView views[2];                    // +0x1C0 (BMX +0x180, above)
 #endif
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // AI's: DM2 keeps one drawn part (viewPart), and no pivot here. Only functions with no DM2 counterpart use these.
         Vec4 origin;
 #endif
@@ -292,7 +292,7 @@ namespace zge
     static_assert(offsetof(Node, region) == game::readable::perGame(0x120u, 0x110u, 0x120u) && offsetof(Node, positionKey) == game::readable::perGame(0x124u, 0x16Cu, 0x124u));
     static_assert(offsetof(Node, model) == game::readable::perGame(0x14Cu, 0x144u, 0x00Cu) && offsetof(Node, parent) == game::readable::perGame(0x16Cu, 0x154u, 0x164u));
     static_assert(offsetof(Node, tags) == game::readable::perGame(0x158u, 0x114u, 0x150u));
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     static_assert(offsetof(Node, listedFrame) == 0x170 && offsetof(Node, viewPart) == 0x17C);
 #endif
     static_assert(offsetof(Node, geometryId) == game::readable::perGame(0x150u, 0x13Cu, 0x148u) && offsetof(Node, instanceId) == game::readable::perGame(0x154u, 0x140u, 0x14Cu));
@@ -302,7 +302,7 @@ namespace zge
     static_assert(offsetof(Node, lods) == game::readable::perGame(0x174u, 0x15Cu, 0x16Cu) && offsetof(Node, drawFlags) == game::readable::perGame(0x178u, 0x160u, 0x170u));
     static_assert(offsetof(Node, materials) == game::readable::perGame(0x1B0u, 0x178u, 0x1D0u) && offsetof(Node, drawCheck) == game::readable::perGame(0x1B4u, 0x184u, 0x1E4u));
     static_assert(offsetof(Node, drawCheckData) == game::readable::perGame(0x1B8u, 0x1B0u, 0x1E8u) && offsetof(Node, bonePoses) == game::readable::perGame(0x1BCu, 0x180u, 0x1ECu));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(NodeView, materials) == 0x14); // (the view's table: node + view * 0x20 + 0x194)
 #endif
     static_assert(offsetof(Node, lights) == game::readable::perGame(0x160u, 0x1B4u, 0x158u));
@@ -326,7 +326,7 @@ namespace zge
     // The word that holds kNodeBoneTree and kNodeSecondBucket (setupSceneModel, countModelNodes, addModelBone) and
     // kNodeShown (DM2's setNodeShown reads bit 32): ZGE2 keeps them in the upper word of the flags doubleword (bits 32,
     // 34 and 35), ZGE3 and ZGE4 in the lower word, at the same positions in the word.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     inline uint32_t &nodeTreeFlags(Node &node) { return node.flagsHigh; }
 #else
     inline uint32_t &nodeTreeFlags(Node &node) { return node.flags; }
@@ -340,7 +340,7 @@ namespace zge
     // stamp's accessors do nothing there and the part is the first view's.
     inline uint32_t nodeListedFrame([[maybe_unused]] const Node &node)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         return node.listedFrame;
 #else
         return 0;
@@ -348,13 +348,13 @@ namespace zge
     }
     inline void setNodeListedFrame([[maybe_unused]] Node &node, [[maybe_unused]] uint32_t frame)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         node.listedFrame = frame;
 #endif
     }
     inline ee::Ptr<ZgePart> nodeDrawnPart(const Node &node)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         return ee::Ptr<ZgePart>(node.viewPart);
 #else
         return node.views[0].part;
@@ -376,7 +376,7 @@ namespace zge
         uint32_t geometryId;     // +0x40
         uint32_t parent;         // +0x44 the parent's instance id, 0: at the top
         uint32_t instanceId;     // +0x48
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         char name[0x20];         // DM2 +0x4C
         uint32_t region;         // [unplaced: ZGE2's chunk has none; for the shared code that names it]
 #else

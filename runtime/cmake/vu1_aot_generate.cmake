@@ -1,4 +1,4 @@
-# cmake -DTOOL=<ps2xVu1Aot> -DOUT=<folder> -DKEY=<key> -DIMAGES=<a|b|...> -P vu1_aot_generate.cmake
+# cmake -DTOOL=<zx-vu1aot> -DOUT=<folder> -DKEY=<key> -DIMAGES=<a|b|...> -P vu1_aot_generate.cmake
 #
 # The ahead-of-time VU1 code of the micro memory images IMAGES, made by TOOL into the folder OUT for the
 # generator key KEY (runtime/CMakeLists.txt): made aside, then renamed into place, so a folder is never
@@ -35,13 +35,13 @@ file(MAKE_DIRECTORY "${_aside}")
 execute_process(COMMAND "${TOOL}" "${_aside}" ${IMAGES} RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0)
     file(REMOVE_RECURSE "${_aside}")
-    message(FATAL_ERROR "ps2xVu1Aot failed (${_rc}): ${_err}")
+    message(FATAL_ERROR "zx-vu1aot failed (${_rc}): ${_err}")
 endif()
 foreach(_image IN LISTS IMAGES)
     get_filename_component(_stem "${_image}" NAME_WE)
     if(NOT EXISTS "${_aside}/vu1_aot_${_stem}.cpp")
         file(REMOVE_RECURSE "${_aside}")
-        message(FATAL_ERROR "ps2xVu1Aot made no vu1_aot_${_stem}.cpp from ${_image} (an image is named by its hash)")
+        message(FATAL_ERROR "zx-vu1aot made no vu1_aot_${_stem}.cpp from ${_image} (an image is named by its hash)")
     endif()
     file(COPY "${_image}" DESTINATION "${_aside}")
 endforeach()

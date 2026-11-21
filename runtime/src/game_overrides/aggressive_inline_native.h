@@ -14,7 +14,7 @@ namespace aggressive_inline
     // at the same place in the GS stream, with the game's own state. Game
     // RAM and EE timing are unchanged.
     //
-    // Render path (PS2X_RENDER_PATH, settings.ini [graphics] render_path):
+    // Render path (ZX_RENDER_PATH, settings.ini [graphics] render_path):
     //   native  native draws (the default; with the CPU renderer the same
     //           triangles go through as GS primitives)
     //   strict  every mesh through VIF1, VU1 and the GS as on the PS2
@@ -27,5 +27,5 @@ namespace aggressive_inline
     void installNativeDraw(PS2Runtime &runtime);
 
     // The Display row ("Native Meshes"): live switch between the two paths.
-    ps2x::settings::Setting nativeDrawSetting(std::function<void(bool)> save);
+    zx::settings::Setting nativeDrawSetting(std::function<void(bool)> save);
 }

@@ -6,9 +6,9 @@
 
 class PS2Runtime;
 
-// PS2X_SPOT_FORK=<dir> (Mac and Linux; off by default): a run that reaches a
+// ZX_SPOT_FORK=<dir> (Mac and Linux; off by default): a run that reaches a
 // spot becomes a server of copies of itself there. At the first VBlank start
-// where the spot holds (PS2X_SPOT_AT="tick>=N" or "script>=N" on the runtime
+// where the spot holds (ZX_SPOT_AT="tick>=N" or "script>=N" on the runtime
 // vsync tick or the pad script's clock, or the file <dir>/now made by the
 // player), the game thread stops at that guest moment: the graphics workers
 // drained and stopped, the host loop parked at its loop's top, the play link
@@ -20,15 +20,15 @@ class PS2Runtime;
 // graphics workers (if they ran), a new host loop thread, its own play link,
 // state probe and recorder (by its environment), its log <dir>/NAME.log; then
 // the game goes on exactly where the parent stopped. <dir>/NAME.pid holds the
-// child's pid, <dir>/NAME.exit its exit status. At most PS2X_SPOT_FORK_MAX
+// child's pid, <dir>/NAME.exit its exit status. At most ZX_SPOT_FORK_MAX
 // children run at once (2); the server ends at <dir>/stop or after
-// PS2X_SPOT_FORK_IDLE seconds with no request (600).
+// ZX_SPOT_FORK_IDLE seconds with no request (600).
 //
 // Exact only for what fork copies: the run must be headless with the null GS
-// and no audio (ZAXIS_AUDIO=off), no save job or movie in progress at the spot,
+// and no audio (ZX_AUDIO=off), no save job or movie in progress at the spot,
 // and no recorder in the parent (a child records from the spot on). Otherwise
 // the server says why and the run goes on without it.
-namespace ps2x::spot
+namespace zx::spot
 {
     bool enabled();
     // The host loop (PS2Runtime::run): its body from the loop's top to the

@@ -1,5 +1,5 @@
 // Aggressive Inline (SLUS-20327): the GS texture memory audit
-// (PS2X_GSMEM_AUDIT=1, developers; runtime/ps2_gs_texture_audit.h).
+// (ZX_GSMEM_AUDIT=1, developers; runtime/ps2_gs_texture_audit.h).
 //
 // The texture cache's level allocator FUN_00107C88 (zge/render/texture.cpp
 // placeTextureLevel) and its state 0x27A930 (TextureCache). The level is
@@ -59,10 +59,10 @@ namespace aggressive_inline
 
     void installGsTextureAudit(PS2Runtime &runtime)
     {
-        ps2x::gs_texture_audit::GameCache cache;
+        zx::gs_texture_audit::GameCache cache;
         cache.game = "AI";
         cache.levelAllocator = gsmem::kLevelAllocator;
         cache.cacheState = gsmem::kTextureCache;
-        ps2x::gs_texture_audit::install(runtime, cache, &gsmem::levelName);
+        zx::gs_texture_audit::install(runtime, cache, &gsmem::levelName);
     }
 }

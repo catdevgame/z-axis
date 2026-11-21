@@ -20,8 +20,8 @@
 
 namespace zge::native
 {
-    namespace tr = ps2x::texture_replace;
-    namespace gf = ps2x::game_files;
+    namespace tr = zx::texture_replace;
+    namespace gf = zx::game_files;
 
     FileTextures texturesForFile(const std::string &relativePath, const std::vector<uint8_t> &ps2File,
                                  const std::vector<uint8_t> &xboxFile)
@@ -132,14 +132,14 @@ namespace zge::native
             s.checked = true;
             // Opt-in (developers): the app's Xbox textures come from the
             // build-time pack.
-            const char *on = std::getenv("PS2X_NATIVE_TEXTURES");
+            const char *on = std::getenv("ZX_NATIVE_TEXTURES");
             if (!on || on[0] != '1')
                 return false;
-            if (const char *v = std::getenv("PS2X_TRACE_NATIVE_TEXTURES"))
+            if (const char *v = std::getenv("ZX_TRACE_NATIVE_TEXTURES"))
                 s.trace = std::atoi(v);
             if (!ps2_xbox_disc::init())
                 return false;
-            if (const char *pack = ps2x::boot::text("PS2X_XBOX_PACK"); pack && *pack)
+            if (const char *pack = zx::boot::text("ZX_XBOX_PACK"); pack && *pack)
                 s.pack = (std::filesystem::path(pack) / "textures").string();
             std::thread(worker).detach();
             std::cout << "[native-textures] the Xbox release's textures are read from " << ps2_xbox_disc::description()

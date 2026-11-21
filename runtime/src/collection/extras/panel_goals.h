@@ -24,7 +24,7 @@
 
 #include "panel_maps_parts.h"
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     struct ScriptOp
     {

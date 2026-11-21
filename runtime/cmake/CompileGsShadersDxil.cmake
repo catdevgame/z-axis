@@ -7,7 +7,7 @@
 # header but for the namespace (gs_gpu_spirv).
 #
 # Each entry: name, entry point, profile, GS_SLOW, GS_DEPTH_OUT.
-set(_ps2x_shaders
+set(_zx_shaders
     "gs_vs;gs_vs;vs_6_0;0;0"
     "gs_native_vs;gs_native_vs;vs_6_0;0;0"
     "gs_native_skin_vs;gs_native_skin_vs;vs_6_0;0;0"
@@ -26,32 +26,32 @@ set(_ps2x_shaders
     "fxaa_fs;fxaa_fs;ps_6_0;0;0"
 )
 
-get_filename_component(_ps2x_out_dir "${OUT}" DIRECTORY)
-file(MAKE_DIRECTORY "${_ps2x_out_dir}")
-set(_ps2x_namespace gs_gpu_dxil)
+get_filename_component(_zx_out_dir "${OUT}" DIRECTORY)
+file(MAKE_DIRECTORY "${_zx_out_dir}")
+set(_zx_namespace gs_gpu_dxil)
 if(GLSLC)
-    set(_ps2x_namespace gs_gpu_spirv)
+    set(_zx_namespace gs_gpu_spirv)
 endif()
-set(_ps2x_text "// Generated from gs_gpu_shaders.hlsl by CompileGsShadersDxil.cmake. Do not edit.\n#pragma once\n\n#include <cstddef>\n\nnamespace ${_ps2x_namespace}\n{\n")
-set(_ps2x_table "")
+set(_zx_text "// Generated from gs_gpu_shaders.hlsl by CompileGsShadersDxil.cmake. Do not edit.\n#pragma once\n\n#include <cstddef>\n\nnamespace ${_zx_namespace}\n{\n")
+set(_zx_table "")
 # The list above holds 5-field records separated by ';' inside quotes, which
 # CMake flattens: read them back five at a time.
-list(LENGTH _ps2x_shaders _ps2x_n)
-math(EXPR _ps2x_last "${_ps2x_n} - 1")
-foreach(_ps2x_i RANGE 0 ${_ps2x_last} 5)
-    math(EXPR _i1 "${_ps2x_i} + 1")
-    math(EXPR _i2 "${_ps2x_i} + 2")
-    math(EXPR _i3 "${_ps2x_i} + 3")
-    math(EXPR _i4 "${_ps2x_i} + 4")
-    list(GET _ps2x_shaders ${_ps2x_i} _name)
-    list(GET _ps2x_shaders ${_i1} _entry)
-    list(GET _ps2x_shaders ${_i2} _profile)
-    list(GET _ps2x_shaders ${_i3} _slow)
-    list(GET _ps2x_shaders ${_i4} _depth)
-    set(_bin "${_ps2x_out_dir}/${_name}.dxil")
+list(LENGTH _zx_shaders _zx_n)
+math(EXPR _zx_last "${_zx_n} - 1")
+foreach(_zx_i RANGE 0 ${_zx_last} 5)
+    math(EXPR _i1 "${_zx_i} + 1")
+    math(EXPR _i2 "${_zx_i} + 2")
+    math(EXPR _i3 "${_zx_i} + 3")
+    math(EXPR _i4 "${_zx_i} + 4")
+    list(GET _zx_shaders ${_zx_i} _name)
+    list(GET _zx_shaders ${_i1} _entry)
+    list(GET _zx_shaders ${_i2} _profile)
+    list(GET _zx_shaders ${_i3} _slow)
+    list(GET _zx_shaders ${_i4} _depth)
+    set(_bin "${_zx_out_dir}/${_name}.dxil")
     if(GLSLC)
         # SDL_GPU's Vulkan sets are the HLSL's spaces (-fhlsl-iomap).
-        set(_bin "${_ps2x_out_dir}/${_name}.spv")
+        set(_bin "${_zx_out_dir}/${_name}.spv")
         set(_stage vertex)
         if(_profile MATCHES "^ps_")
             set(_stage fragment)
@@ -78,10 +78,10 @@ foreach(_ps2x_i RANGE 0 ${_ps2x_last} 5)
     string(LENGTH "${_hex}" _hexlen)
     math(EXPR _size "${_hexlen} / 2")
     string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _bytes "${_hex}")
-    string(APPEND _ps2x_text "static const unsigned char k_${_name}[${_size}] = {\n    ${_bytes}\n};\n")
-    string(APPEND _ps2x_table "    {\"${_entry}\", ${_slow}, ${_depth}, k_${_name}, sizeof(k_${_name})},\n")
+    string(APPEND _zx_text "static const unsigned char k_${_name}[${_size}] = {\n    ${_bytes}\n};\n")
+    string(APPEND _zx_table "    {\"${_entry}\", ${_slow}, ${_depth}, k_${_name}, sizeof(k_${_name})},\n")
 endforeach()
-string(APPEND _ps2x_text "\nstruct Shader\n{\n    const char *entry;\n    int slow;\n    int depthOut;\n    const unsigned char *code;\n    size_t size;\n};\n\nstatic const Shader kShaders[] = {\n${_ps2x_table}};\n}\n")
-file(WRITE "${OUT}.tmp" "${_ps2x_text}")
+string(APPEND _zx_text "\nstruct Shader\n{\n    const char *entry;\n    int slow;\n    int depthOut;\n    const unsigned char *code;\n    size_t size;\n};\n\nstatic const Shader kShaders[] = {\n${_zx_table}};\n}\n")
+file(WRITE "${OUT}.tmp" "${_zx_text}")
 file(COPY_FILE "${OUT}.tmp" "${OUT}" ONLY_IF_DIFFERENT)
 file(REMOVE "${OUT}.tmp")

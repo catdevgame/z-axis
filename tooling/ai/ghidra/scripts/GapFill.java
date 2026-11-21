@@ -5,7 +5,7 @@
 // Gaps that follow a non-terminated function are only logged (possible bad
 // non-returning call or unresolved jump table), not converted.
 // Args: [dry]   -> only log the decisions
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.cmd.disassemble.DisassembleCommand;
 import ghidra.app.cmd.function.CreateFunctionCmd;

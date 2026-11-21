@@ -6,14 +6,14 @@
 # find the repo.
 R=${0:A:h}
 SECS=${1:-20}; NAME=${2:-run}
-source ${R:h:h}/paths.sh   # the shared environment (no sound: ZAXIS_AUDIO)
+source ${R:h:h}/paths.sh   # the shared environment (no sound: ZX_AUDIO)
 cd $R/run
-# The disc is read from recomp/disc-root (the ELF's directory); set PS2X_CD_IMAGE to use an ISO instead.
-export PS2X_DEBUG_UI=${PS2X_DEBUG_UI:-0}
-export PS2X_MC_ROOT=${PS2X_MC_ROOT:-$R/run/mc0}
-# The CPU renderer unless PS2X_GS_BACKEND=gpu is given.
-export PS2X_GS_BACKEND=${PS2X_GS_BACKEND:-cpu}
-${RUNNER:-${R:h:h:h}/out/build-ai/ps2xRuntime/ps2EntryRunner} $R/disc-root/SLUS_203.27 > $R/logs/$NAME.log 2>&1 &
+# The disc is read from recomp/disc-root (the ELF's directory); set ZX_CD_IMAGE to use an ISO instead.
+export ZX_DEBUG_UI=${ZX_DEBUG_UI:-0}
+export ZX_MC_ROOT=${ZX_MC_ROOT:-$R/run/mc0}
+# The CPU renderer unless ZX_GS_BACKEND=gpu is given.
+export ZX_GS_BACKEND=${ZX_GS_BACKEND:-cpu}
+${RUNNER:-${R:h:h:h}/out/build-ai/runtime/zx-runner} $R/disc-root/SLUS_203.27 > $R/logs/$NAME.log 2>&1 &
 PID=$!
 # SHOT_EVERY=<n> also captures logs/<name>-<t>.png every n seconds.
 t=0

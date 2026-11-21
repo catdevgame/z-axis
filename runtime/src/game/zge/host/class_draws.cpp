@@ -63,7 +63,6 @@ namespace zge::host
 {
     namespace
     {
-        namespace zx = ps2x::zaxis;
         namespace draws = game::host::native_draws;
         using Count = draws::Count;
 
@@ -71,14 +70,14 @@ namespace zge::host
         // from the packet last built (null until a draw asks), and whether that was decoded since. One boot's.
         struct RebuiltPart
         {
-            std::shared_ptr<const zx::RigidMesh> mesh;
+            std::shared_ptr<const zx::zaxis::RigidMesh> mesh;
             bool decoded = false;
         };
         struct Parts
         {
             std::unordered_map<uint32_t, RebuiltPart> streamsChanged;
         };
-        Parts &parts() { return ps2x::session::state<Parts>(); }
+        Parts &parts() { return zx::session::state<Parts>(); }
 
         // ---- the view and the node, as floats --------------------------------------------------------------
 
@@ -122,7 +121,7 @@ namespace zge::host
         {
             const Rows clip = rowsOf(**g_clipMatrix);
             float nearW = 0.0f, farW = 0.0f;
-            if (zx::clipDepthRange(screen, clip.m, nearW, farW) && nearW > 0.0f)
+            if (zx::zaxis::clipDepthRange(screen, clip.m, nearW, farW) && nearW > 0.0f)
                 return nearW;
             const ee::Ptr<Camera> camera(*g_currentCamera);
             const float near = camera ? camera->nearClip.raw() : 0.0f;
@@ -134,16 +133,16 @@ namespace zge::host
         // The mesh of a part whose packet was built again from changed streams (the effects that animate a mesh: DM2's
         // water): its GEO data is not what VU1 draws, the packet just built is. Decoded once per build, as VU1 gets
         // it (the drawn half of the part's double buffer); a skinned packet is not decoded (null: counted).
-        std::shared_ptr<const zx::RigidMesh> rebuiltMeshOf(const DrawRecord &record, zx::PacketKind kind,
+        std::shared_ptr<const zx::zaxis::RigidMesh> rebuiltMeshOf(const DrawRecord &record, zx::zaxis::PacketKind kind,
                                                            RebuiltPart &rebuilt)
         {
-            const bool skinned = kind == zx::PacketKind::Skinned || kind == zx::PacketKind::SkinnedPrelit;
+            const bool skinned = kind == zx::zaxis::PacketKind::Skinned || kind == zx::zaxis::PacketKind::SkinnedPrelit;
             if (!rebuilt.decoded && !skinned)
             {
                 rebuilt.decoded = true;
-                auto mesh = std::make_shared<zx::RigidMesh>();
+                auto mesh = std::make_shared<zx::zaxis::RigidMesh>();
                 std::string why;
-                if (zx::decodeRigidPart(zx::GuestMemory{native::gameRam()}, record.part.address, *mesh, &why, kind))
+                if (zx::zaxis::decodeRigidPart(zx::zaxis::GuestMemory{native::gameRam()}, record.part.address, *mesh, &why, kind))
                     rebuilt.mesh = std::move(mesh);
                 else
                 {
@@ -157,14 +156,14 @@ namespace zge::host
         }
 
         // The part's mesh from the GEO data for the packet kind its renderer draws (null: none, counted).
-        std::shared_ptr<const zx::RigidMesh> meshOf(const DrawRecord &record, zx::PacketKind kind)
+        std::shared_ptr<const zx::zaxis::RigidMesh> meshOf(const DrawRecord &record, zx::zaxis::PacketKind kind)
         {
             const ZgePart &part = *record.part;
             const auto rebuilt = parts().streamsChanged.find(record.part.address);
             if (rebuilt != parts().streamsChanged.end())
                 return rebuiltMeshOf(record, kind, rebuilt->second);
-            const bool skinned = kind == zx::PacketKind::Skinned || kind == zx::PacketKind::SkinnedPrelit;
-            std::shared_ptr<const zx::RigidMesh> mesh;
+            const bool skinned = kind == zx::zaxis::PacketKind::Skinned || kind == zx::zaxis::PacketKind::SkinnedPrelit;
+            std::shared_ptr<const zx::zaxis::RigidMesh> mesh;
             if (skinned || part.boneCount == 0)
                 mesh = native::fileMeshForPacketKind(record.part.address, kind, draws::skinnedDraw());
             // A mesh whose submeshes are not the part's materials is not what VU1 draws from the part's packet.
@@ -371,7 +370,7 @@ namespace zge::host
 
         // The draw's materials with triangles, in the table's order (terrain: with their effects); false for an
         // effect this does not draw.
-        bool itemsOf(const DrawRecord &record, const zx::RigidMesh &mesh, bool effects, float shellDepth,
+        bool itemsOf(const DrawRecord &record, const zx::zaxis::RigidMesh &mesh, bool effects, float shellDepth,
                      std::vector<Item> &out)
         {
             const MaterialTable &table = *record.materials;
@@ -505,9 +504,9 @@ namespace zge::host
             UvMap sphere;
             Count drawn = Count::Rigid;
         };
-        bool preparePart(const DrawRecord &record, zx::PacketKind kind, bool terrain, float shellDepth, PartDraw &out)
+        bool preparePart(const DrawRecord &record, zx::zaxis::PacketKind kind, bool terrain, float shellDepth, PartDraw &out)
         {
-            const std::shared_ptr<const zx::RigidMesh> mesh = meshOf(record, kind);
+            const std::shared_ptr<const zx::zaxis::RigidMesh> mesh = meshOf(record, kind);
             if (!mesh || !itemsOf(record, *mesh, terrain, shellDepth, out.items))
                 return false;
             const bool sky = record.type == RenderType::Sky;
@@ -557,9 +556,9 @@ namespace zge::host
         if (!draws::fromRecords())
             return false;
         placeDrawTagAsPartCall();
-        zx::PacketKind kind = zx::PacketKind::RigidPrelit;
+        zx::zaxis::PacketKind kind = zx::zaxis::PacketKind::RigidPrelit;
         packetKindOf(*draw.record.part, draw.record.type, kind);
-        if (draw.lights.directions && kind != zx::PacketKind::RigidNormals)
+        if (draw.lights.directions && kind != zx::zaxis::PacketKind::RigidNormals)
         {
             draws::count(Count::Lights); // lights for a part whose packet has no normals
             return false;
@@ -591,7 +590,7 @@ namespace zge::host
             return false;
         placeDrawTagAsPartCall();
         PartDraw part;
-        if (!preparePart(draw.record, zx::PacketKind::Terrain, true, draw.shellDepth.raw(), part))
+        if (!preparePart(draw.record, zx::zaxis::PacketKind::Terrain, true, draw.shellDepth.raw(), part))
             return false;
         ps2::encodeTerrainDraw(packet, draw, false);
         addAnchor(packet, part.base, std::move(part.items), part.sphere.r);
@@ -608,15 +607,15 @@ namespace zge::host
         const ZgePart &part = *record.part;
         // The packet's layout follows the part's normals stream: lit (type 8) has normals, prelit (0xC) colours.
         const bool lit = record.type == RenderType::Skinned;
-        const zx::PacketKind kind = part.normals ? zx::PacketKind::Skinned : zx::PacketKind::SkinnedPrelit;
+        const zx::zaxis::PacketKind kind = part.normals ? zx::zaxis::PacketKind::Skinned : zx::zaxis::PacketKind::SkinnedPrelit;
         const int32_t bones = ee::Ptr<PointerArray>(part.bones)->count;
-        if (lit != (kind == zx::PacketKind::Skinned) ||
+        if (lit != (kind == zx::zaxis::PacketKind::Skinned) ||
             bones * 4 > static_cast<int32_t>(GSNativeSkinning::kPaletteRows))
         {
             draws::count(Count::Kind);
             return false;
         }
-        const std::shared_ptr<const zx::RigidMesh> mesh = meshOf(record, kind);
+        const std::shared_ptr<const zx::zaxis::RigidMesh> mesh = meshOf(record, kind);
         std::vector<Item> items;
         if (!mesh || !itemsOf(record, *mesh, false, 0.0f, items))
             return false;
@@ -635,7 +634,7 @@ namespace zge::host
         std::memcpy(skin->lightDir, rowsOf(upload.lightDirections).m, sizeof(skin->lightDir));
         std::memcpy(skin->lightColour, rowsOf(upload.lightColours).m, sizeof(skin->lightColour));
         if (lit && draws::xboxCharacterLighting())
-            zx::xboxCharacterLights(*skin);
+            zx::zaxis::xboxCharacterLights(*skin);
 
         GSNativeDraw base;
         base.mesh = std::shared_ptr<const GSNativeMesh>(mesh, mesh->mesh.get());
@@ -657,25 +656,25 @@ namespace zge::host
         return true;
     }
 
-    const ps2x::zaxis::SkinnedDrawForm &skinnedDrawForm() { return draws::skinnedDraw(); }
+    const zx::zaxis::SkinnedDrawForm &skinnedDrawForm() { return draws::skinnedDraw(); }
 
-    bool packetKindOf(const ZgePart &part, RenderType type, zx::PacketKind &kind)
+    bool packetKindOf(const ZgePart &part, RenderType type, zx::zaxis::PacketKind &kind)
     {
         switch (type)
         {
         case RenderType::RigidPrelit:
         case RenderType::Sky:
-            kind = draws::rigidDraw().normalsForColours && part.normals ? zx::PacketKind::RigidNormals
-                                                                         : zx::PacketKind::RigidPrelit;
+            kind = draws::rigidDraw().normalsForColours && part.normals ? zx::zaxis::PacketKind::RigidNormals
+                                                                         : zx::zaxis::PacketKind::RigidPrelit;
             return true;
         case RenderType::Terrain:
-            kind = zx::PacketKind::Terrain;
+            kind = zx::zaxis::PacketKind::Terrain;
             return true;
         case RenderType::Skinned:
-            kind = zx::PacketKind::Skinned;
+            kind = zx::zaxis::PacketKind::Skinned;
             return true;
         case RenderType::SkinnedPrelit:
-            kind = zx::PacketKind::SkinnedPrelit;
+            kind = zx::zaxis::PacketKind::SkinnedPrelit;
             return true;
         default:
             return false;

@@ -31,18 +31,18 @@
    them, on some path (a dataflow over its blocks; a call reads what its callee
    reads and then counts as setting every argument register, a jump out of the
    function what its target reads; jumps through a register are not followed),
-   for ps2xFnCheck's check of the registers a readable call leaves out. Result
+   for zx-fncheck's check of the registers a readable call leaves out. Result
    readers: the registers (at, v0, v1, a0-a3, t0-t9; f0-f19) some call site of a
    function reads after the call before setting them (the same straight-line scan
    as f0's; a caller that returns with the register untouched, and a caller that
-   tail-jumps to the function, hand on their own callers' reads), for ps2xFnCheck
+   tail-jumps to the function, hand on their own callers' reads), for zx-fncheck
    (f0 of an integer function and v0 of a void one fail, others are noted:
    regs_left) and readable_draft.py (drafts leave them: ee/leave.h). VU0 lanes:
    what crosses a function boundary in VU0's vector registers, by the same blocks:
-   vu0_lanes below, for ps2xFnCheck --semantic. Untraced code: every function
+   vu0_lanes below, for zx-fncheck --semantic. Untraced code: every function
    whose generated code goes into the runtime's own (a library function the
    runtime implements, a syscall or exception instruction: UNTRACED), which
-   ps2xFnCheck's callee probes do not run.
+   zx-fncheck's callee probes do not run.
 
     fncheck_traced_gen.py --list LIST --stack-args OUT.cpp [--scan GAME=DIR ...]
     fncheck_traced_gen.py --self-test
@@ -215,7 +215,7 @@ def instrument(path, game, address, chunks=()):
         body.append('\n'.join(out))
     # The blocks that end with a JR through a jump table the recompiler made
     # a switch (`switch (jumpTarget)` after it): run in place in the whole
-    # function, an IndirectJump dispatch from an entry block (ps2xFnCheck's
+    # function, an IndirectJump dispatch from an entry block (zx-fncheck's
     # SliceEmu, ee::tableJump; drafter23).
     table_jumps = []
     for a, (w, _, _) in sorted(insns.items()):

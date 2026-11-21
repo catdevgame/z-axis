@@ -3,9 +3,9 @@
 # Runs `logiccheck.py run NAME` then `compare NAME` once a slot is free:
 # up to LC_SLOTS (default 3) runs at once, each with its own card and home
 # (logiccheck.py). Logs: /tmp/lc-NAME.log, /tmp/lc-NAME-cmp.log; prints the
-# MATCH count; a passing run's dumps are removed. RUNNER, HOME and PS2X_*
+# MATCH count; a passing run's dumps are removed. RUNNER, HOME and ZX_*
 # pass through. LC_OFF=OFFNAME: compare with --off OFFNAME, a kept run with
-# PS2X_READABLE=off at the same clock (LC_KEEP_DUMPS=1 keeps its dumps).
+# ZX_READABLE=off at the same clock (LC_KEEP_DUMPS=1 keeps its dumps).
 #
 # A slot is the directory /tmp/ai-lc-slots/<n> holding its waiter's pid; a
 # slot whose waiter is gone is freed. Runs started outside the slots
@@ -36,8 +36,8 @@ fi
 until take; do sleep 10; done
 while [ $(running) -ge $N ]; do sleep 10; done
 cd ${0:A:h:h}
-# Unpaced by default: same logic, ~35 s instead of ~180 s (PS2X_UNPACED=0 for paced).
-export PS2X_UNPACED=${PS2X_UNPACED:-1}
+# Unpaced by default: same logic, ~35 s instead of ~180 s (ZX_UNPACED=0 for paced).
+export ZX_UNPACED=${ZX_UNPACED:-1}
 python3 tools/logiccheck.py run "$1" > /tmp/lc-$1.log 2>&1
 python3 tools/logiccheck.py compare "$1" ${LC_OFF:+--off} $LC_OFF > /tmp/lc-$1-cmp.log 2>&1
 N_MATCH=$(grep -c " MATCH" /tmp/lc-$1-cmp.log)

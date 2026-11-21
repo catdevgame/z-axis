@@ -1,13 +1,13 @@
 #include "runtime/ps2_pss_movie.h"
 
-#if !defined(PS2X_HAS_FFMPEG)
-#define PS2X_HAS_FFMPEG 1
+#if !defined(ZX_HAS_FFMPEG)
+#define ZX_HAS_FFMPEG 1
 #endif
 
-#if PS2X_HAS_FFMPEG
+#if ZX_HAS_FFMPEG
 extern "C"
 {
-#if PS2X_HAS_AVFORMAT
+#if ZX_HAS_AVFORMAT
 #include <libavformat/avformat.h>
 #endif
 #include <libavcodec/avcodec.h>
@@ -21,7 +21,7 @@ extern "C"
 #include <cstring>
 #include <iostream>
 
-namespace ps2x::movie
+namespace zx::movie
 {
     namespace
     {
@@ -204,7 +204,7 @@ namespace ps2x::movie
 
     // ---- packets ------------------------------------------------------------
 
-    PssPackets::PssPackets(std::shared_ptr<ps2x::game_files::GameFile> file, uint8_t streamId)
+    PssPackets::PssPackets(std::shared_ptr<zx::game_files::GameFile> file, uint8_t streamId)
         : m_file(std::move(file)), m_streamId(streamId)
     {
     }
@@ -305,7 +305,7 @@ namespace ps2x::movie
 
     // ---- video ----------------------------------------------------------------
 
-#if PS2X_HAS_FFMPEG
+#if ZX_HAS_FFMPEG
     struct PssVideo::Decoder
     {
         AVCodecContext *context = nullptr;
@@ -413,7 +413,7 @@ namespace ps2x::movie
     };
 #endif
 
-    PssVideo::PssVideo(std::shared_ptr<ps2x::game_files::GameFile> file, bool decode)
+    PssVideo::PssVideo(std::shared_ptr<zx::game_files::GameFile> file, bool decode)
         : m_packets(std::move(file), 0xE0u), m_decode(decode)
     {
         openDecoder();
@@ -447,7 +447,7 @@ namespace ps2x::movie
 
     void PssVideo::feed(const uint8_t *data, size_t size)
     {
-#if PS2X_HAS_FFMPEG
+#if ZX_HAS_FFMPEG
         // Frame rate from the first sequence header.
         for (size_t i = 0; i + 8u <= size; ++i)
         {
@@ -485,7 +485,7 @@ namespace ps2x::movie
 
     void PssVideo::flush()
     {
-#if PS2X_HAS_FFMPEG
+#if ZX_HAS_FFMPEG
         uint8_t *out = nullptr;
         int outSize = 0;
         av_parser_parse2(m_decoder->parser, m_decoder->context, &out, &outSize, nullptr, 0, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
@@ -629,7 +629,7 @@ namespace ps2x::movie
 
     // ---- sound ----------------------------------------------------------------
 
-    PssAudio::PssAudio(std::shared_ptr<ps2x::game_files::GameFile> file)
+    PssAudio::PssAudio(std::shared_ptr<zx::game_files::GameFile> file)
         : m_packets(std::move(file), kPrivateStream1)
     {
     }
@@ -786,7 +786,7 @@ namespace ps2x::movie
 
     // ---- any file FFmpeg reads ---------------------------------------------------
 
-#if PS2X_HAS_FFMPEG && PS2X_HAS_AVFORMAT
+#if ZX_HAS_FFMPEG && ZX_HAS_AVFORMAT
     struct FileVideo::Impl
     {
         AVFormatContext *format = nullptr;

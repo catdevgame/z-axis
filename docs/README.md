@@ -15,7 +15,8 @@ Where to start, by what you want to do. Each guide says the current method and s
 
 ## Modding
 
-- `docs/MODS.md`: what a mod is, `mod.ini`, what a mod can hold, the Mods page.
+- `docs/MODS.md`: what a mod is, `mod.ini`, what a mod can hold, single entries of an archive and the `zal` tool,
+  `tuning.ini` in Aggressive Inline and BMX XXX, the Mods page.
 - `docs/CUSTOM-LEVELS.md`: custom maps and the Custom Freeplay mode: the map format across the three games, the
   converters, the limits.
 - `docs/TUNING.md`: every entry of Aggressive Inline's tuning table, which `tuning.ini` and the debug menu change.

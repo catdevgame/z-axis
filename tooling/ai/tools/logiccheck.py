@@ -32,7 +32,7 @@ anchored: they are what is compared. Each anchor logs how far it moved the
 native clock ("[pad] sync"), which is itself a timing comparison.
 
 Native RAM is dumped at the script time of every reference checkpoint
-(PS2X_DUMP_WHEN script>=...), at a VBlank like the PCSX2 savestates.
+(ZX_DUMP_WHEN script>=...), at a VBlank like the PCSX2 savestates.
 
 The record is not exactly what the game saw in run 1: pcsx2pad.py wrote
 inputs over PINE closed loop, and a write lands on the next pad read or,
@@ -59,7 +59,7 @@ what native correctness is checked with.
   python3 tools/logiccheck.py waypoints NAME    # reference positions read mid-motion vs native
   python3 tools/logiccheck.py diffruns A B      # first level frame where two native runs differ
 
-The app's menus (PS2X_GAME_SETTINGS_MENUS=1, what the app sets) are a route of
+The app's menus (ZX_GAME_SETTINGS_MENUS=1, what the app sets) are a route of
 their own, the same input: the settings screen, Quit to Desktop and the other
 lines and natives aggressive_inline_settings.cpp adds to FrontEnd.zsc and
 InGame.zsc move the zgui panels on the heap (not the skater or the camera),
@@ -68,7 +68,7 @@ compare reads, are the menus' own (MENUS_PANELS). A run says which route it
 took in NAME.route beside its dumps, and `compare` reads each run's (its
 own and --off's) from there.
 
-Environment: RUNNER (ps2EntryRunner to use), extra PS2X_* vars pass through.
+Environment: RUNNER (zx-runner to use), extra ZX_* vars pass through.
 Each run gets its own memory card and, unless HOME is already a scratch one,
 its own HOME (the default settings, never the user's), so runs can overlap;
 the run stops once its last checkpoint is dumped.
@@ -111,18 +111,18 @@ SKIN_NODE = (0x6F9E00, -0xF80)
 CAMERA_NODE = (0x735BBC, -0x1000)
 PANEL_HEAP_DELTA = -0x1290           # zgui panels, native = PCSX2 - 0x1290
 BOX_WAITING = 0x831BB0               # zgui panel: message box waiting for X (PCSX2)
-# With the app's menus (PS2X_GAME_SETTINGS_MENUS=1) the zgui panels the
+# With the app's menus (ZX_GAME_SETTINGS_MENUS=1) the zgui panels the
 # reference waits on and holds at its checkpoints, PCSX2 -> native: the main
 # menu (+0x930 on the plain native one), the two screens after it, level
 # select, the message box waiting for X (+0x920), and the box still
 # opening (PCSX2 0x832CD0: never in the reference, natively at ref03 at the
-# gate's clock, on both routes). Measured with PS2X_READABLE=off and the
+# gate's clock, on both routes). Measured with ZX_READABLE=off and the
 # panel anchors left value-free (tools21, run t21-menus1: every in-level
 # checkpoint's player and camera as the reference's). Not a fixed delta:
 # the added widgets sit between them.
 MENUS_PANELS = {0x8323E0: 0x831A80, 0x840F90: 0x8424B0, 0x847700: 0x848C60, 0x857D40: 0x8592A0,
                 0x831BB0: 0x831240, 0x832CD0: 0x832360}
-MENUS = os.environ.get("PS2X_GAME_SETTINGS_MENUS") == "1"   # this process's route (run, script)
+MENUS = os.environ.get("ZX_GAME_SETTINGS_MENUS") == "1"   # this process's route (run, script)
 # In the level PCSX2 runs one main-loop frame per vsync, as native does, so
 # after the level-start anchor the recorded presses already fall on the same
 # level frames. Box anchors only stand the clock when native is late (WAIT),
@@ -349,22 +349,22 @@ def run(name, secs):
     scratch = os.path.join("/tmp", "logiccheck", name)
     shutil.rmtree(scratch, ignore_errors=True)
     shutil.copytree(os.path.join(ROOT, "recomp", "run", "mc0"), os.path.join(scratch, "mc0"))
-    env.setdefault("PS2X_MC_ROOT", os.path.join(scratch, "mc0"))
+    env.setdefault("ZX_MC_ROOT", os.path.join(scratch, "mc0"))
     if os.path.realpath(env.get("HOME", "")) == os.path.realpath(pwd.getpwuid(os.getuid()).pw_dir):
         os.makedirs(os.path.join(scratch, "home"))
         env["HOME"] = os.path.join(scratch, "home")
-    env.setdefault("PS2X_GS_NULL", "1")
-    env.setdefault("PS2X_GS_BACKEND", "cpu")  # pictures from the reference renderer
+    env.setdefault("ZX_GS_NULL", "1")
+    env.setdefault("ZX_GS_BACKEND", "cpu")  # pictures from the reference renderer
     # The memory card path: the reference's boot includes PCSX2's card
     # dialogs (native save files skip them).
-    env.setdefault("PS2X_SAVES", "card")
-    env["PS2X_PAD_SCRIPT_CLOCK"] = "vsync"
-    env["PS2X_PAD_SCRIPT"] = native_script()
-    env["PS2X_DUMP_WHEN"] = dump_spec()
-    env["PS2X_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
+    env.setdefault("ZX_SAVES", "card")
+    env["ZX_PAD_SCRIPT_CLOCK"] = "vsync"
+    env["ZX_PAD_SCRIPT"] = native_script()
+    env["ZX_DUMP_WHEN"] = dump_spec()
+    env["ZX_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
     with open(os.path.join(NATIVE_RAM, name + ".route"), "w") as f:
         f.write("menus\n" if MENUS else "plain\n")
-    env.setdefault("PS2X_STATE_LOG", ",".join("0x%X" % a for a in (MODE, PANEL, SECTION, GAUGE, FRAME, POS, POS + 4, POS + 8)))
+    env.setdefault("ZX_STATE_LOG", ",".join("0x%X" % a for a in (MODE, PANEL, SECTION, GAUGE, FRAME, POS, POS + 4, POS + 8)))
     subprocess.call([os.path.join(ROOT, "recomp", "run.sh"), str(secs), name], env=env)
 
 
@@ -580,7 +580,7 @@ def trajectory(name):
     the motion matches and only the timing differs."""
     rows = read_state_log(name)
     if not rows or POS not in rows[-1][1]:
-        raise SystemExit("run without the position in PS2X_STATE_LOG")
+        raise SystemExit("run without the position in ZX_STATE_LOG")
     track = []
     for tick, v in rows:
         if v.get(MODE) == 2:
@@ -702,7 +702,7 @@ def show_anchors(name):
 # ---- per-frame comparison against a PCSX2 replay ---------------------------
 
 def pad_state_log(name):
-    """(addresses, [(tick, [u32])]) from the [pad-state] lines (PS2X_PAD_LOG)."""
+    """(addresses, [(tick, [u32])]) from the [pad-state] lines (ZX_PAD_LOG)."""
     cols, rows = None, []
     for line in open(os.path.join(LOGS, name + ".log"), errors="replace"):
         if not line.startswith("[pad-state] tick="):
@@ -751,7 +751,7 @@ def by_level_frame(cols, rows):
 
 
 def frames(name, pxlog, args):
-    """First level frames where native (PS2X_PAD_LOG) and the PCSX2 replay
+    """First level frames where native (ZX_PAD_LOG) and the PCSX2 replay
     (pcsx2replay.py --watch, same addresses in the same order; heap addresses
     may differ) disagree. Both are taken at the game's pad read, so a frame's
     values are directly comparable. The SIF RPC payload word CTRL is left out

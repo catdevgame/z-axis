@@ -21,7 +21,7 @@ baseline PCSX2.
 cd tools
 python3 pcsx2pad.py launch                                   # fresh boot
 PCSX2PAD_RECORD=/tmp/ref-run.log python3 pcsx2pad.py run scripts/tutorial-all.txt
-python3 pcsx2pad.py padscript /tmp/ref-run.log               # the run as a PS2X_PAD_SCRIPT
+python3 pcsx2pad.py padscript /tmp/ref-run.log               # the run as a ZX_PAD_SCRIPT
 python3 pcsx2pad.py quit
 ```
 
@@ -75,7 +75,7 @@ followed by a closed-loop step.
 | `waitnear ADDR X Z R`, `peekf ADDR [N]` | position wait, print floats |
 | `checkpoint SLOT NAME` | savestate SLOT, copy to `pcsx2-test-data/reference/NAME.p2s`, extract `eeMemory.bin` to `recomp/dumps/ref/NAME.ram` and the PCSX2 frame thumbnail to `reference/pcsx2-run1/NAME.png` |
 | `PCSX2PAD_RECORD=FILE` | log every input change with its vsync |
-| `padscript LOG [FROM [TO]]` | turn such a log into a `PS2X_PAD_SCRIPT` string |
+| `padscript LOG [FROM [TO]]` | turn such a log into a `ZX_PAD_SCRIPT` string |
 
 The RAM image comes from the savestate, not from PINE: a PINE `dump` of 32 MB
 takes about 0.6 s while the game keeps running, so different parts of it are
@@ -172,7 +172,7 @@ Two traps:
 ## Native build: pad scripts
 
 `scripts/native/<checkpoint>.padscript` holds, for every checkpoint, the inputs of run 1 up to it in the
-native syntax (`<sec>:<BUTTON>:<dur>`). With `PS2X_PAD_SCRIPT_CLOCK=vsync` (script time in emulated vsyncs
+native syntax (`<sec>:<BUTTON>:<dur>`). With `ZX_PAD_SCRIPT_CLOCK=vsync` (script time in emulated vsyncs
 from the first pad read) and stick entries `<t>:LX=<v>[:<dur>]` they replay natively; logiccheck.py (below)
 replays the whole run that way.
 
@@ -183,18 +183,18 @@ For checks use `tools/lc-when-free.sh NAME` (RUNNER and a scratch HOME exported;
 By hand:
 
 ```sh
-RUNNER=<ps2EntryRunner> PS2X_VU1_SKIP=1 python3 tools/logiccheck.py run logic-NAME 420
+RUNNER=<zx-runner> ZX_VU1_SKIP=1 python3 tools/logiccheck.py run logic-NAME 420
 python3 tools/logiccheck.py compare logic-NAME      # per checkpoint: mode, panel, gauge, pos, node, camera
 python3 tools/logiccheck.py waypoints logic-NAME    # mid-motion positions read during run 1
 python3 tools/logiccheck.py anchors logic-NAME      # how far each anchor moved the native clock
 ```
 
 `run` replays the exact run-1 input (`scripts/native/ref-run1-input.txt`, the
-PCSX2PAD_RECORD log in vsync units) with `PS2X_GS_NULL=1` and
-`PS2X_PAD_SCRIPT_CLOCK=vsync`, and dumps native RAM at each checkpoint's vsync
-with `PS2X_DUMP_WHEN` (into `recomp/dumps/logic/`). What makes it line up:
+PCSX2PAD_RECORD log in vsync units) with `ZX_GS_NULL=1` and
+`ZX_PAD_SCRIPT_CLOCK=vsync`, and dumps native RAM at each checkpoint's vsync
+with `ZX_DUMP_WHEN` (into `recomp/dumps/logic/`). What makes it line up:
 
-- Anchors (`SYNC`/`WAIT` entries, see `PadScript` in PS2Recomp) for the waits
+- Anchors (`SYNC`/`WAIT` entries, see `PadScript` in the runtime) for the waits
   of the reference that are not under test: the front-end mode/panel waits
   (`scripts/native/ref-run1-commands.txt` is the pcsx2pad output with the
   vsync of each outcome), the level frame counter at the first in-level
@@ -246,7 +246,7 @@ goal on it differs from run 1 wherever the run was mid-motion or coasting
 (ref13, ref18, ref21). So the record is not exactly what run 1 saw there
 (the four edges below). With the same input file on both sides, the PCSX2
 replay is the per-frame reference for native. Natively the same
-point is the pad read too: `PS2X_PAD_LOG` (same word list, native heap
+point is the pad read too: `ZX_PAD_LOG` (same word list, native heap
 addresses) and `logiccheck.py frames NAME PXLOG` give the first level frame
 where the two differ.
 

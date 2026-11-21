@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """BMX XXX's Park Editor with the park on the PS2 memory card (routes1): bmxedit.py's session in by the main menu's
-PARK EDITOR line (the collection's park editor extra, PS2X_BMX_PARK_EDITOR=1) with the game's own card jobs
-(PS2X_SAVES=card), and the park loaded back both ways.
+PARK EDITOR line (the collection's park editor extra, ZX_BMX_PARK_EDITOR=1) with the game's own card jobs
+(ZX_SAVES=card), and the park loaded back both ways.
 
     bmxcardpark.py NAME [SEED [EDITS]]
 
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     if not a:
         raise SystemExit(__doc__)
     os.environ['BMXEDIT_MENU'] = '1'
-    os.environ['PS2X_SAVES'] = 'card'
+    os.environ['ZX_SAVES'] = 'card'
     bmxedit.Bot = CardParkBot
     bmxedit.play_session(a[0], int(a[1]) if len(a) > 1 else 1, int(a[2]) if len(a) > 2 else 12,
                          max_secs=int(os.environ.get('MAX_SECS', '3000')))

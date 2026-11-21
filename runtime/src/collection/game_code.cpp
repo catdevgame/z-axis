@@ -31,7 +31,7 @@
 extern char **environ;
 #endif
 
-namespace ps2x::app
+namespace zx::app
 {
     namespace
     {
@@ -113,7 +113,7 @@ namespace ps2x::app
                                         : name == std::string("ld.lld") ? "lld" : name;
             return tools.programs / ("lib" + program + ".so");
         }
-        // The folder of the library this code is in (libps2EntryRunner.so): the app's native library folder.
+        // The folder of the library this code is in (libzx-runner.so): the app's native library folder.
         fs::path programsFolder(const fs::path &)
         {
             Dl_info info{};
@@ -332,7 +332,7 @@ namespace ps2x::app
         const std::string all = "abi " + std::to_string(ZX_GAME_MODULE_ABI) + "\ntarget " +
                                 requestTarget(request).triple + "\nsdk " + sdkKey + "\ntoolchain " + toolchain +
                                 "\nvu1 generator " +
-                                ps2x::vu1aot::generatorKey() + "\nrecompiler " +
+                                zx::vu1aot::generatorKey() + "\nrecompiler " +
                                 fileSha256(tool(tools, "ps2_recomp")) + "\nconfig " +
                                 fileSha256(inputs / "config.toml") + "\nfunctions " +
                                 fileSha256(inputs / "ghidra-functions.csv") + "\nelf " + fileSha256(request.elf) + "\n";
@@ -366,13 +366,13 @@ namespace ps2x::app
         fs::create_directories(work / "objects", ec);
         if (ec)
             return fail("Could not make a folder for the game's code in " + request.cache.string() + ": " + ec.message());
-        // (removed when done, or kept for a look with PS2X_GAME_CODE_KEEP=1)
+        // (removed when done, or kept for a look with ZX_GAME_CODE_KEEP=1)
         struct Cleanup
         {
             fs::path dir;
             ~Cleanup()
             {
-                const char *keep = std::getenv("PS2X_GAME_CODE_KEEP");
+                const char *keep = std::getenv("ZX_GAME_CODE_KEEP");
                 std::error_code ignored;
                 if (!(keep && keep[0] == '1'))
                     fs::remove_all(dir, ignored);
@@ -464,9 +464,9 @@ namespace ps2x::app
             std::string bytes;
             readFile(item.path(), bytes);
             const std::vector<uint8_t> image(bytes.begin(), bytes.end());
-            ps2x::vu1aot::Written written;
+            zx::vu1aot::Written written;
             std::string why;
-            if (!ps2x::vu1aot::writeProgram(image, vu1, written, why))
+            if (!zx::vu1aot::writeProgram(image, vu1, written, why))
                 return fail("Preparing the game's VU1 code failed (" + item.path().filename().string() + "): " + why);
             for (const fs::path &file : written.files)
             {
@@ -517,8 +517,8 @@ namespace ps2x::app
         if (const fs::path resources = resourceFolder(tools); !kProgramsNamed && !resources.empty())
             common.insert(common.end(), {"-resource-dir", resources.string()});
         common.insert(common.end(), {std::string("--target=") + platform.triple,
-                                           "-std=gnu++20", "-O3", "-DNDEBUG", "-DPS2X_GAME_MODULE_ID=" + request.id,
-                                           "-DPS2X_GAME_MODULE_SHARED=1", "-I" + generated.string(),
+                                           "-std=gnu++20", "-O3", "-DNDEBUG", "-DZX_GAME_MODULE_ID=" + request.id,
+                                           "-DZX_GAME_MODULE_SHARED=1", "-I" + generated.string(),
                                            "-I" + (sdk(tools) / "include").string(), "-isystem",
                                            (sdk(tools) / "include" / "game_module" / "libc").string(),
                                            "-Wno-return-type"});
@@ -527,9 +527,9 @@ namespace ps2x::app
         if (platform.link == LinkKind::Elf)
             common.push_back("-fPIC");
         // (the host's cores but one, and no more compiles than 1 GB of its memory each: a unit takes up to ~0.4 GB)
-        // (PS2X_GAME_CODE_JOBS: a count of the developer's, for a check on a machine that runs other work)
+        // (ZX_GAME_CODE_JOBS: a count of the developer's, for a check on a machine that runs other work)
         unsigned jobs = request.jobs;
-        if (const char *forced = std::getenv("PS2X_GAME_CODE_JOBS"); !jobs && forced && std::atoi(forced) > 0)
+        if (const char *forced = std::getenv("ZX_GAME_CODE_JOBS"); !jobs && forced && std::atoi(forced) > 0)
             jobs = static_cast<unsigned>(std::atoi(forced));
         if (!jobs)
         {
@@ -679,7 +679,7 @@ namespace ps2x::app
     bool BuiltGameCode::ready(const SetupGame &game, const std::filesystem::path &discFolder,
                               const std::filesystem::path &gameDir) const
     {
-        if (ps2x::game_module::hasCodeFor(game.elf))
+        if (zx::game_module::hasCodeFor(game.elf))
             return true;   // (a program with the game's code linked in: a workshop build)
         GameCodeTools tools;
         std::error_code ec;
@@ -690,7 +690,7 @@ namespace ps2x::app
     bool BuiltGameCode::make(const SetupGame &game, const std::filesystem::path &discFolder,
                              const std::filesystem::path &gameDir, const SetupProgressFn &progress, std::string *error)
     {
-        if (ps2x::game_module::hasCodeFor(game.elf))
+        if (zx::game_module::hasCodeFor(game.elf))
             return !progress || progress({name(), "", 1, 1});
         GameCodeTools tools;
         if (!tools.open(m_tools, error))

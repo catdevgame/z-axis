@@ -30,10 +30,10 @@ namespace ee
     // ---- guest memory ------------------------------------------------------
 
     // Base of the guest map (runtime/guest_map.h): the 4 GB of guest addresses, EE RAM at 0. The runtime's map in
-    // the game (set by game::readable::install), the replay memory's in ps2xFnCheck.
+    // the game (set by game::readable::install), the replay memory's in zx-fncheck.
     inline uint8_t *g_ram = nullptr;
 
-#if ZAXIS_GUEST_MAP_CHECK
+#if ZX_GUEST_MAP_CHECK
     // A tool build's: the access at `address` resolved as before the guest map too, and told when the two differ
     // or it is outside RAM's own view (ee/guest_map_check.cpp).
     // (Not inlined: its return address is the readable function's.)
@@ -54,18 +54,18 @@ namespace ee
     template <typename T>
     inline T *at(uint32_t address)
     {
-#if ZAXIS_GUEST_MAP_CHECK
+#if ZX_GUEST_MAP_CHECK
         checkGuestAccess(address);
 #endif
-#if ZAXIS_LANE_WATCH
+#if ZX_LANE_WATCH_BUILD
         // A tool build's: the lane watch (runtime/lane_watch.h) counts the readable access by its return address
         // (the whole T: a field read through the pointer is not seen apart; 1 byte for a type not complete here).
-        if (ps2x::lanes::g_watchOn)
+        if (zx::lanes::g_watchOn)
         {
             if constexpr (requires { sizeof(T); })
-                ps2x::lanes::watchReadable(address, static_cast<uint32_t>(sizeof(T)));
+                zx::lanes::watchReadable(address, static_cast<uint32_t>(sizeof(T)));
             else
-                ps2x::lanes::watchReadable(address, 1u);
+                zx::lanes::watchReadable(address, 1u);
         }
 #endif
         return reinterpret_cast<T *>(g_ram + address);

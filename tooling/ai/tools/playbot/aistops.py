@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Aggressive Inline's boot for the functions that never return (routes2, fncheck_stops.h): the boot movies played
-through (the movie player's default thread, movieDefaultMain), then the memory card's own jobs (PS2X_SAVES=card:
+through (the movie player's default thread, movieDefaultMain), then the memory card's own jobs (ZX_SAVES=card:
 the boot's autoload job, each ending in endSaveJob, which deletes the job's thread) on the card in slot 1, then the
-main menu. Record it with PS2X_FNREC_STOPS=1 and the stop table's functions (routes2 bin/recstop.sh).
+main menu. Record it with ZX_FNREC_STOPS=1 and the stop table's functions (routes2 bin/recstop.sh).
 
     aistops.py NAME [MOVIE_TICKS [TICKS [hle]]]   MOVIE_TICKS: ticks before the first START (2400: the intros play
-                                                   out); hle: the movies on the PS2 player (PS2X_MOVIES=hle, its
+                                                   out); hle: the movies on the PS2 player (ZX_MOVIES=hle, its
                                                    default thread movieDefaultMain; the host decodes them otherwise)
 
 (routes2) With hle the first intro (AKA) stalls at vsync 48 in an unpaced muted run (the HLE's demux held for
@@ -29,9 +29,9 @@ MAIN_MENU_FLAG, FRONT_END_PANEL = 0x276FE4, 0x240A20
 
 
 def play(name, movie_ticks=2400, ticks=9000, hle=False):
-    env = {'PS2X_SAVES': 'card'}
+    env = {'ZX_SAVES': 'card'}
     if hle:
-        env['PS2X_MOVIES'] = 'hle'
+        env['ZX_MOVIES'] = 'hle'
     cfg = ai.config(name, env=env, secs=1500)
     d = os.path.join(ai.SCRATCH, 'sessions', name)
     os.makedirs(d, exist_ok=True)

@@ -16,7 +16,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     using Bytes = std::vector<uint8_t>;
 

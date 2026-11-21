@@ -12,12 +12,12 @@ namespace ps2_stubs
 {
     namespace
     {
-        // PS2X_TRACE_MC=1: one stderr line per libmc call and its result.
+        // ZX_TRACE_MC=1: one stderr line per libmc call and its result.
         bool mcTraceEnabled()
         {
             static const bool enabled = []
             {
-                const char *value = std::getenv("PS2X_TRACE_MC");
+                const char *value = std::getenv("ZX_TRACE_MC");
                 return value && value[0] && value[0] != '0';
             }();
             return enabled;
@@ -343,9 +343,9 @@ namespace ps2_stubs
 
         void writeMcDateTime(SceMcStDateTime &out, std::time_t value)
         {
-            // PS2X_MC_FIXED_TIME=1 (test only): every date on the card is one date. A host file's
+            // ZX_MC_FIXED_TIME=1 (test only): every date on the card is one date. A host file's
             // date is the time of the run, and a game keeps what it lists: two runs of an A/B differ.
-            static ps2x::boot::PerBoot<bool> fixedTime([]() { return ps2x::boot::text("PS2X_MC_FIXED_TIME") != nullptr; });
+            static zx::boot::PerBoot<bool> fixedTime([]() { return zx::boot::text("ZX_MC_FIXED_TIME") != nullptr; });
             // A play recording keeps the dates the game was given (a replay's card files are new).
             value = play_recording::read(play_recording::Channel::Date, value);
             if (fixedTime.get())
@@ -426,7 +426,7 @@ namespace ps2_stubs
             return patternPos == pattern.size();
         }
 
-        // PS2X_MC_FAIL (paths9, test only, off unless set): "CMD:N:CODE[,CMD:N:CODE...]" makes the Nth libmc command CMD of
+        // ZX_MC_FAIL (paths9, test only, off unless set): "CMD:N:CODE[,CMD:N:CODE...]" makes the Nth libmc command CMD of
         // the run (1-based, both ports; "N+" the Nth and every later one) report CODE at sceMcSync instead of its own
         // result, as a card does that fails or is changed or pulled in the middle of a save (CODE a libmc result: -1 a
         // new card, -2 unformatted, -3 full, -4 no entry, -5 denied, -10 no card). CMD: GetInfo Open Close Seek Read
@@ -445,7 +445,7 @@ namespace ps2_stubs
             static const std::vector<McFault> faults = []
             {
                 std::vector<McFault> out;
-                const char *value = std::getenv("PS2X_MC_FAIL");
+                const char *value = std::getenv("ZX_MC_FAIL");
                 if (!value || !value[0])
                 {
                     return out;
@@ -507,7 +507,7 @@ namespace ps2_stubs
                 {
                     if (fault.cmd == cmd && (count == fault.from || (fault.later && count > fault.from)))
                     {
-                        std::cerr << "[MC] PS2X_MC_FAIL: command " << cmd << " number " << count << " reports " << fault.code
+                        std::cerr << "[MC] ZX_MC_FAIL: command " << cmd << " number " << count << " reports " << fault.code
                                   << " (it would have reported " << result << ")\n";
                         result = fault.code;
                     }
@@ -565,12 +565,12 @@ namespace ps2_stubs
             return static_cast<int32_t>(std::max<int64_t>(0, kMcAllocatableClusters - used));
         }
 
-        // PS2X_MC_SLOT1 / PS2X_MC_SLOT2 (memory card slot 1 = port 0):
+        // ZX_MC_SLOT1 / ZX_MC_SLOT2 (memory card slot 1 = port 0):
         // "none" leaves the slot empty, "unformatted" inserts an unformatted
         // card (until the game formats it). Default: a formatted card.
         void configureMcPortFromEnvironment(int32_t port, McPortState &state)
         {
-            const char *value = std::getenv(port == 0 ? "PS2X_MC_SLOT1" : "PS2X_MC_SLOT2");
+            const char *value = std::getenv(port == 0 ? "ZX_MC_SLOT1" : "ZX_MC_SLOT2");
             const std::string mode = value ? toLowerAscii(value) : std::string{};
             state.present = mode != "none";
             state.formatted = mode != "unformatted";
@@ -642,14 +642,14 @@ namespace ps2_stubs
                 return kMcResultUpLimitHandle;
             }
 
-            // PS2X_MC_FD_BASE0=1 (paths8, test only): real libmc numbers a file's
+            // ZX_MC_FD_BASE0=1 (paths8, test only): real libmc numbers a file's
             // descriptor from 0, the lowest free one; the game's mc00 device layer
             // (FUN_00121138: an open's result 0 is success, any other number an
             // error) relies on it, and this runtime starts at 1, so with the
             // default numbering no mc00 open can succeed. Off: unchanged.
-            static ps2x::boot::PerBoot<bool> zeroBased([]()
+            static zx::boot::PerBoot<bool> zeroBased([]()
             {
-                const char *value = ps2x::boot::text("PS2X_MC_FD_BASE0");
+                const char *value = zx::boot::text("ZX_MC_FD_BASE0");
                 return value && value[0] && value[0] != '0';
             });
             if (zeroBased.get())

@@ -11,7 +11,7 @@
 #include <system_error>
 #include <vector>
 
-namespace ps2x::app
+namespace zx::app
 {
     namespace fs = std::filesystem;
 

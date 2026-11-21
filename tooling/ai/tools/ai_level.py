@@ -8,10 +8,10 @@ levels (panel_map.py, panel_goals.py, the playbot's navigation map).
     python3 -I ai_level.py selftest               the readers on hand-made records
     python3 -I ai_level.py ground --disc <AI disc> --points <file> --out <file> [--level MOVIE] [--step 5]
                                                   AI's own collidable surface under a grid, for
-                                                  the runtime's PS2X_ESTATE_PROBE=<points>:<out>
+                                                  the runtime's ZX_ESTATE_PROBE=<points>:<out>
     python3 -I ai_level.py edges --disc <AI disc> --out <file> [--level MOVIE]
                                                   AI's grindable edges (world space), for the
-                                                  runtime's PS2X_ESTATE_GRINDS=<file>:<out>
+                                                  runtime's ZX_ESTATE_GRINDS=<file>:<out>
     python3 -I ai_level.py compare <ground out> <probe out>
                                                   the level files' ground against what the
                                                   game's query found there, point by point
@@ -401,7 +401,7 @@ def topmost(groups, x, z):
 def cmd_ground(args):
     """A grid over the level (--points) and AI's own ground under each point
     from its files (--out): the reference for what the runtime's
-    PS2X_ESTATE_PROBE writes."""
+    ZX_ESTATE_PROBE writes."""
     disc = Disc(args.disc)
     files = read_level(disc, args.level.upper())
     groups = collision_triangles(files["GEO"], files["INS"])
@@ -429,7 +429,7 @@ def cmd_ground(args):
 
 def cmd_edges(args):
     """AI's grindable edges of a level (grind_edges), one per line:
-    "ax ay az bx by bz kind name", for the runtime's PS2X_ESTATE_GRINDS (the
+    "ax ay az bx by bz kind name", for the runtime's ZX_ESTATE_GRINDS (the
     game's rail search at each edge's middle). Edges shared by two faces are
     listed once."""
     disc = Disc(args.disc)
@@ -447,7 +447,7 @@ def cmd_edges(args):
 
 
 def cmd_compare(args):
-    """The files' ground (cmd_ground) against the game's (PS2X_ESTATE_PROBE), point by point."""
+    """The files' ground (cmd_ground) against the game's (ZX_ESTATE_PROBE), point by point."""
     from collections import Counter
     counts = Counter()
     with open(args.files) as a, open(args.game) as b:

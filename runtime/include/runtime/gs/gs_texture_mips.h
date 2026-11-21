@@ -21,7 +21,7 @@
 #include <cstring>
 #include <vector>
 
-namespace ps2x::gs_mips
+namespace zx::gs_mips
 {
     // FNV-1a 64 (the content keys of the copies).
     constexpr uint64_t kFnvBasis = 1469598103934665603ull;

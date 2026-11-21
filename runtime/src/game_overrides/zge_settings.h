@@ -43,7 +43,7 @@ namespace zge_host::settings
     // runScript(widget, "script text", 0): one script line run on a widget,
     // names relative to it (zge/zgui/script.cpp). With guest memory of our
     // own for the strings handed to it and the stack it runs on.
-    // PS2X_TRACE_SETTINGS=1 logs every line.
+    // ZX_TRACE_SETTINGS=1 logs every line.
     bool installScriptRunner(PS2Runtime &runtime, uint32_t runScript);
     void runScript(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime, uint32_t widget,
                    const std::vector<std::string> &lines);

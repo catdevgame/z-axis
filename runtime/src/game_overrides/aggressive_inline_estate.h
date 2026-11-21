@@ -9,7 +9,7 @@ struct R5900Context;
 namespace aggressive_inline
 {
     // TUT/Estate, the GameCube disc's earlier Tutorial, in free skate
-    // (PS2X_ESTATE_DIR, made at build time by ps2xGcConvert; PS2X_ESTATE=1
+    // (ZX_ESTATE_DIR, made at build time by zx-gc-convert; ZX_ESTATE=1
     // turns it on): its level-select entry and its files as the Tutorial's
     // level index 7. See aggressive_inline_estate.cpp.
     void installEstate(PS2Runtime &runtime);

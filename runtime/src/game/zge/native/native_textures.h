@@ -9,15 +9,15 @@
 //
 // The readable texture loader (zge/assets/txr.cpp) tells it which file a
 // texture came from. A worker reads the PS2 file and its Xbox counterpart
-// (same path below assets, any case; PS2X_XBOX_DIR), pairs them and sets
+// (same path below assets, any case; ZX_XBOX_DIR), pairs them and sets
 // the source "native:<path>". Files a pack already covers are left to the
-// pack. PS2X_TRACE_NATIVE_TEXTURES=1 logs every file and every rejected pair.
+// pack. ZX_TRACE_NATIVE_TEXTURES=1 logs every file and every rejected pair.
 //
-// Off unless PS2X_NATIVE_TEXTURES=1 (developers): the game never converts
+// Off unless ZX_NATIVE_TEXTURES=1 (developers): the game never converts
 // another release's files at run time; the app's textures come from the
 // pack the packaging step makes (tools/xbox_pack.py). This is the pack's
 // rules on the host, kept as the check of texture_library.cpp against it
-// (ps2xNativeAssets) and for experiments.
+// (zx-native-assets) and for experiments.
 
 #include "texture_library.h"
 
@@ -30,7 +30,7 @@ namespace zge::native
 {
     struct FileTextures
     {
-        std::vector<ps2x::texture_replace::Entry> entries; // PS2 mip levels included
+        std::vector<zx::texture_replace::Entry> entries; // PS2 mip levels included
         size_t ps2Textures = 0;
         size_t pairs = 0;
         std::vector<Rejected> rejected;

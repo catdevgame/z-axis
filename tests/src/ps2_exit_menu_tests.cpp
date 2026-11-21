@@ -162,7 +162,7 @@ void register_ps2_exit_menu_tests()
             uint8_t untouched[16] = {0, 2, 3, 4, 5};
             items = lines;
             added = dave_mirra::restart::addPauseLines(items, untouched, false, true);
-            t.IsTrue(added.added == 1 && added.exitLine == 5 && untouched[4] == 5, "PS2X_RESTART=0: the new line alone");
+            t.IsTrue(added.added == 1 && added.exitLine == 5 && untouched[4] == 5, "ZX_RESTART=0: the new line alone");
 
             items = std::string(470, 'x');
             added = dave_mirra::restart::addPauseLines(items, untouched, false, true);

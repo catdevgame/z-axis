@@ -33,9 +33,9 @@
 // is dropped and the angle kept. Only player 1's camera is turned: keyboard and mouse are port 0.
 // Every other call gets exactly what the original does. Mouse-look is
 // inactive until the mouse moves the view, so without mouse motion the game
-// runs bit for bit as without the hook. PS2X_MOUSELOOK=0 leaves the camera
+// runs bit for bit as without the hook. ZX_MOUSELOOK=0 leaves the camera
 // alone; [mouse] mode = stick turns it off from controls.ini (or Settings >
-// Controls > Mouse Look). PS2X_TRACE_MOUSELOOK=1 logs what it does.
+// Controls > Mouse Look). ZX_TRACE_MOUSELOOK=1 logs what it does.
 
 #include "bmx_xxx.h"
 #include "sym/game_overrides/bmx_xxx_mouselook.cpp.h"
@@ -88,7 +88,7 @@ namespace bmx_xxx::mouselook
             bool trace = false;
             uint32_t tracedCalls = 0;
         };
-        Hooks &hooks() { return ps2x::session::state<Hooks>(); }
+        Hooks &hooks() { return zx::session::state<Hooks>(); }
 
         bool readVec(const uint8_t *rdram, uint32_t address, hi::Vec3 &out)
         {
@@ -213,7 +213,7 @@ namespace bmx_xxx
     bool installMouseLook(PS2Runtime &runtime)
     {
         using namespace mouselook;
-        if (const char *v = std::getenv("PS2X_MOUSELOOK"); v && v[0] == '0')
+        if (const char *v = std::getenv("ZX_MOUSELOOK"); v && v[0] == '0')
             return false;
         Hooks &h = hooks();
         h.followCameraMode = runtime.lookupFunction(sym::bmx::followCameraMode);
@@ -222,7 +222,7 @@ namespace bmx_xxx
             std::cerr << "[bmx-xxx] mouse-look hook not installed" << std::endl;
             return false;
         }
-        const char *trace = std::getenv("PS2X_TRACE_MOUSELOOK");
+        const char *trace = std::getenv("ZX_TRACE_MOUSELOOK");
         h.trace = trace && trace[0] == '1';
         return true;
     }

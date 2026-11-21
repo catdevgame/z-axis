@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive a running native build through PS2X_CONTROL (PINE-like, for ps2EntryRunner).
+"""Drive a running native build through ZX_CONTROL (PINE-like, for zx-runner).
 
     nctl.py start NAME [KEY=VAL ...]   launch the runner (recomp/run.sh env) with a control dir
     nctl.py NAME CMD [; CMD ...]       send commands, wait for each, print replies
@@ -22,7 +22,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RECOMP = os.path.join(ROOT, "recomp")
 LOGS = os.path.join(RECOMP, "logs")
 sys.path.insert(0, os.path.dirname(ROOT))
-import zpaths  # noqa: E402,F401  (the shared environment: no sound, ZAXIS_AUDIO)
+import zpaths  # noqa: E402,F401  (the shared environment: no sound, ZX_AUDIO)
 
 
 class RunnerGone(Exception):
@@ -39,15 +39,15 @@ def start(name, extra):
     for f in ("cmd", "out"):
         open(os.path.join(d, f), "w").close()
     env = dict(os.environ)
-    env.setdefault("PS2X_DEBUG_UI", "0")
-    # The CPU renderer unless asked (PS2X_GS_BACKEND=gpu as KEY=VAL or in the environment).
-    env.setdefault("PS2X_GS_BACKEND", "cpu")
+    env.setdefault("ZX_DEBUG_UI", "0")
+    # The CPU renderer unless asked (ZX_GS_BACKEND=gpu as KEY=VAL or in the environment).
+    env.setdefault("ZX_GS_BACKEND", "cpu")
     for kv in extra:
         k, v = kv.split("=", 1)
         env[k] = v
-    env["PS2X_CONTROL"] = d
+    env["ZX_CONTROL"] = d
     runner = env.get("RUNNER", os.path.join(os.path.dirname(os.path.dirname(ROOT)), "out", "build-ai",
-                                             "ps2xRuntime", "ps2EntryRunner" + (".exe" if os.name == "nt" else "")))
+                                             "runtime", "zx-runner" + (".exe" if os.name == "nt" else "")))
     log = open(os.path.join(LOGS, name + ".log"), "w")
     p = subprocess.Popen([runner, os.path.join(RECOMP, "disc-root", "SLUS_203.27")],
                          cwd=os.path.join(RECOMP, "run"), env=env, stdout=log,

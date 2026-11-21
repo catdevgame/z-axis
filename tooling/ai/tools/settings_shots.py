@@ -15,15 +15,23 @@ Two setups per game, each a run of the app with its own support folder:
   full   the game's folder with its extras/; --placeholders (or a game whose GAMES_FROM folder has no extras/):
          files where collection/offered.h's findInstalled looks for each need instead (one byte each: the rows
          show, the content itself is not there, so only the Settings page is to be looked at)
-Each run boots the game from the menu (PS2X_MENU_SCRIPT game:<id>, Enter), presses START until the game's Settings
-page opens through the control channel (PS2X_CONTROL "settings", as Cmd+,), and writes
-  shots/<game>-<setup>-display.png   the Display section (Display Mode, Map Window)
-  shots/<game>-<setup>-game.png      the Game section (L1 from the first: the last), EXTRAS at its foot
-  shots/<game>-<setup>-game-end.png  the same, moved down to its last rows
-then quits the app (by its PID). Every run stops after --secs seconds whatever happened (exit 1 then).
+Each run boots the game from the menu (ZX_MENU_SCRIPT game:<id>, Enter) straight into its first level
+(ZX_DEV_START_LEVEL=0: DM2's and BMX XXX's front ends have no way to the page but their Options, so the ask is made
+in play, where every game pauses as Start does and its pause menu opens the page) and asks for the game's Settings
+page through the control channel (ZX_CONTROL "settings", as Cmd+,) until the page itself says it opened. The
+control channel's "ok" only says the ask was taken (the game may still be in its intro or loading the level), so
+the page is judged by its own state: with ZX_TRACE_SETTINGS=1 the page logs each of its
+keys with the section and row it then shows (zge_settings.cpp, "[settings] page 0x... Open: Display ..."). Then
+  shots/<game>-<setup>-display.png   the Display section (Display Mode, Map Window), once the page says Open there
+  shots/<game>-<setup>-game.png      the Game section (L1 from the first: the last), once the page says it is there
+  shots/<game>-<setup>-game-end.png  the same on its last row (Up from the first: the rows wrap), scrolled to its foot
+then quits the app (by its PID). A run whose page did not open or did not show those sections takes no shot and
+says why ("FAILED: ..."); every run stops after --secs seconds whatever happened. Exit 1 if any run failed.
 """
 import argparse
+import glob
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -107,6 +115,51 @@ class Control:
         return None
 
 
+# The page's own record of each key (zge_settings.cpp pageKey, ZX_TRACE_SETTINGS=1): the key, the section shown
+# and the row chosen after it.
+PAGE_LINE = re.compile(r"^\[settings\] page 0x[0-9a-f]+ (\w+): (\w+) (\S*) '")
+# The sections the pictures are of (zge_settings.cpp kPage): the first and the last.
+FIRST_SECTION, LAST_SECTION = "Display", "Game"
+
+
+class PageLog:
+    """The Settings page's keys as the run's logs have them so far (the app's log in ZX_APP_LOG_DIR, and its
+    stdout and stderr)."""
+
+    def __init__(self, base):
+        self.files = [os.path.join(base, "app.out"), os.path.join(base, "logs", "*.log")]
+
+    def events(self):
+        out = []
+        for pattern in self.files:
+            for path in sorted(glob.glob(pattern)):
+                with open(path, errors="replace") as f:
+                    for line in f:
+                        m = PAGE_LINE.match(line)
+                        if m:
+                            out.append(m.groups())  # (key, section, row)
+        return out
+
+    def placed(self):
+        """Whether the dev start has put the player in the level (the games' devstart: "[devstart] placed in level")."""
+        for pattern in self.files:
+            for path in glob.glob(pattern):
+                with open(path, errors="replace") as f:
+                    if any(line.startswith("[devstart] placed in level") for line in f):
+                        return True
+        return False
+
+    def wait(self, count, key, proc, timeout):
+        """The first event after the first `count` with this key, within timeout seconds (None: none)."""
+        deadline = time.time() + timeout
+        while time.time() < deadline and proc.poll() is None:
+            for event in self.events()[count:]:
+                if event[0] == key:
+                    return event
+            time.sleep(0.25)
+        return None
+
+
 def run(app, scratch, games_from, game, setup, secs, placeholders, shots):
     base = os.path.join(scratch, f"{game}-{setup}")
     shutil.rmtree(base, ignore_errors=True)
@@ -130,31 +183,76 @@ def run(app, scratch, games_from, game, setup, secs, placeholders, shots):
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "wb") as f:
                 f.write(b"x")
-    env = dict(os.environ, HOME=home, PS2X_APP_SUPPORT_DIR=support, PS2X_APP_LOG_DIR=logs,
-               PS2X_MENU_SCRIPT=f"game:{game},Enter", PS2X_CONTROL=os.path.join(base, "ctl"))
+    env = dict(os.environ, HOME=home, ZX_APP_SUPPORT_DIR=support, ZX_APP_LOG_DIR=logs,
+               ZX_MENU_SCRIPT=f"game:{game},Enter", ZX_CONTROL=os.path.join(base, "ctl"), ZX_TRACE_SETTINGS="1",
+               ZX_DEV_START_LEVEL="0")
     with open(os.path.join(base, "app.out"), "w") as out:
         proc = subprocess.Popen([runner], env=env, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
-    control = Control(env["PS2X_CONTROL"], proc)
+    control = Control(env["ZX_CONTROL"], proc)
+    page = PageLog(base)
     deadline = time.time() + secs
-    ok = False
+    left = lambda: max(1.0, deadline - time.time())
+    name = os.path.join(shots, f"{game}-{setup}")
+    for suffix in ("display", "game", "game-end"):
+        if os.path.exists(f"{name}-{suffix}.png"):
+            os.remove(f"{name}-{suffix}.png")
+    why = None
+
+    def shot(suffix):
+        path = f"{name}-{suffix}.png"
+        if control.do(f"shot {path}", 30) != "ok" or not os.path.isfile(path) or os.path.getsize(path) == 0:
+            return f"the picture {path} was not written"
+        return None
+
     try:
-        # The game's Settings page opens once the game has set its handler (its front end).
-        while time.time() < deadline and proc.poll() is None:
+        # Asked once the player is in the level (an ask in the front end would take its own way while the dev start
+        # goes through the menus), until the page says it opened: the game opens it in play.
+        while not page.placed() and time.time() < deadline and proc.poll() is None:
+            time.sleep(1)
+        opened = None
+        while opened is None and time.time() < deadline and proc.poll() is None:
+            seen = len(page.events())
             if control.do("settings", timeout=10) == "ok":
-                ok = True
-                break
-            control.do("press START 4 30", timeout=10)
-            time.sleep(2)
-        if ok:
-            name = os.path.join(shots, f"{game}-{setup}")
-            ok = control.do("wait 90", 30) is not None and control.do(f"shot {name}-display.png", 30) == "ok"
+                opened = page.wait(seen, "Open", proc, min(10.0, left()))
+            if opened is None:
+                time.sleep(2)
+        if opened is None and not page.placed():
+            why = "the dev start never reached the level" + (" (the app quit)" if proc.poll() is not None else
+                                                              f" in {secs} s")
+        elif opened is None:
+            why = "the Settings page never opened" + (" (the app quit)" if proc.poll() is not None else
+                                                      f" in {secs} s")
+        elif opened[1] != FIRST_SECTION:
+            why = f"the page opened on {opened[1]}, not {FIRST_SECTION}"
+        if why is None:
+            control.do("wait 90", 30)
+            why = shot("display")
+        if why is None:
+            # L1 from the first section: the last.
+            seen = len(page.events())
             control.do("press L1 4 30", 20)
+            moved = page.wait(seen, "Prev", proc, min(20.0, left()))
+            if moved is None:
+                why = "L1 did not reach the page (it closed?)"
+            elif moved[1] != LAST_SECTION:
+                why = f"L1 showed {moved[1]}, not {LAST_SECTION}"
+        if why is None:
             control.do("wait 60", 20)
-            ok = ok and control.do(f"shot {name}-game.png", 30) == "ok"
-            for _ in range(24):
-                control.do("press DOWN 3 8", 10)
+            why = shot("game")
+        if why is None:
+            # Up from the section's first row: its last (the page's rows wrap), the page scrolled to its foot.
+            seen = len(page.events())
+            control.do("press UP 4 30", 20)
+            step = page.wait(seen, "Up", proc, min(20.0, left()))
+            if step is None:
+                why = "Up did not reach the page (it closed?)"
+            elif step[1] != LAST_SECTION:
+                why = f"Up showed {step[1]}, not {LAST_SECTION}"
+            elif step[2] == moved[2]:
+                why = f"{LAST_SECTION} has one row: no end to show"
+        if why is None:
             control.do("wait 60", 20)
-            ok = ok and control.do(f"shot {name}-game-end.png", 30) == "ok"
+            why = shot("game-end")
     finally:
         if proc.poll() is None:
             os.kill(proc.pid, signal.SIGTERM)
@@ -163,8 +261,11 @@ def run(app, scratch, games_from, game, setup, secs, placeholders, shots):
             except subprocess.TimeoutExpired:
                 os.kill(proc.pid, signal.SIGKILL)
                 proc.wait()
-    print(f"{game} {setup}: {'shots taken' if ok else 'no shots (see ' + base + '/app.out)'}")
-    return ok
+    if why is None:
+        print(f"{game} {setup}: the Settings page's {FIRST_SECTION} and {LAST_SECTION} sections taken")
+        return True
+    print(f"{game} {setup}: FAILED: {why} (see {base}/logs)", file=sys.stderr)
+    return False
 
 
 def main():

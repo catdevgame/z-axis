@@ -7,7 +7,7 @@
 
 namespace
 {
-    namespace tr = ps2x::texture_replace;
+    namespace tr = zx::texture_replace;
 
     tr::PicturePtr picture(uint32_t w, uint32_t h, uint32_t mips, const std::string &name, uint8_t fill = 0)
     {

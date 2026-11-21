@@ -1,5 +1,5 @@
 // Debug helper: print body ranges and flow into far chunks for the given function entry addresses.
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.AddressRange;
 import ghidra.program.model.listing.Function;

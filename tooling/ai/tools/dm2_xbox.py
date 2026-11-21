@@ -16,11 +16,11 @@ reads an Xbox disc or converts anything while DM2 runs.
                                                   under a grid (dm2_level.py's reference)
     python3 -I dm2_xbox.py edges --dir <dir> --level VENICE --out <file>
                                                   its grindable edges, for the runtime's
-                                                  PS2X_DM2_XBOX_LEVEL_GRINDS=<file>:<out>
+                                                  ZX_DM2_XBOX_LEVEL_GRINDS=<file>:<out>
     python3 -I dm2_xbox.py compare <ground out> <probe out>
                                                   the level's own ground (ground's --out)
                                                   against what DM2's query found there (the
-                                                  runtime's PS2X_DM2_XBOX_LEVEL_PROBE=<points>:<out>)
+                                                  runtime's ZX_DM2_XBOX_LEVEL_PROBE=<points>:<out>)
     python3 -I dm2_xbox.py selftest               the conversions on hand-made records
 
 --xbox is the Xbox disc's files as tools/xbox_files.py extracts them (its
@@ -32,7 +32,7 @@ career's goals, gaps, rewards and texts from default.xbe:
 dm2_xbox_career.py), <out>/PICTURES.ZIF (the
 level select's pictures, the Xbox UILIB's own) and <out>/levels.txt ("<LEVEL>
 <display name>" per line). The runtime (game_overrides/dave_mirra_xboxlevel.cpp,
-PS2X_DM2_XBOX_LEVELS_DIR) serves them in Woodward Camp's slot from the level
+ZX_DM2_XBOX_LEVELS_DIR) serves them in Woodward Camp's slot from the level
 select's extra entries.
 
 With --ps2 (the PS2 disc's files, its root or ASSETS), <out>/themes: the
@@ -163,7 +163,7 @@ MAX_SIDE = 128
 # gives a frame's textures GS memory from block 5632 up and checks neither the
 # CLUTs above nor the end (block 16384). At 128 a side (5.4 MB of texels) DM2's
 # own Venice and Greenville ran over the CLUTs in 70 and 47 of about 11,000
-# frames and past the end 3 times each (the GS memory audit, PS2X_GSMEM_AUDIT,
+# frames and past the end 3 times each (the GS memory audit, ZX_GSMEM_AUDIT,
 # runtime/ps2_gs_texture_audit.h; 32 rides spread over each level); at 2560
 # (2.5 MB, the PS2 levels' size) they peak at block 13,828 and 13,480.
 TEXTURE_BUDGET_KB = 2560
@@ -1544,7 +1544,7 @@ def read_out(args):
 def cmd_ground(args):
     """The converted level's own collidable surface under a grid (dm2_level.py's
     reference: the faces its collision trees list, seen from above, of the
-    instances that collide): <points> for the runtime's PS2X_DM2_XBOX_LEVEL_PROBE,
+    instances that collide): <points> for the runtime's ZX_DM2_XBOX_LEVEL_PROBE,
     <out> "x z y|none" per point."""
     geo, ins = read_out(args)
     groups = dm2_level.collision_triangles(geo, ins)
@@ -1633,7 +1633,7 @@ def cmd_edges(args):
 
 def cmd_compare(args):
     """The level's own ground (cmd_ground's out) against DM2's
-    (PS2X_DM2_XBOX_LEVEL_PROBE's out), point by point."""
+    (ZX_DM2_XBOX_LEVEL_PROBE's out), point by point."""
     from collections import Counter
     counts = Counter()
     with open(args.level_ground) as a, open(args.dm2) as b:

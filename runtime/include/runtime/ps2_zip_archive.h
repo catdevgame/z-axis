@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     class ZipArchive
     {

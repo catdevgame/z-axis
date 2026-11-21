@@ -29,13 +29,16 @@ What the model holds (the converters' tags, ai_level_convert.py's docstring):
                 (ATE): the GS fields, read the same in all three games (light shafts, puddles, water). Surface kinds with no converter tag (AI's 13: roads, floors and columns;
                 the bike games' kinds above 3 but BMX XXX's wall) are left as ground, and the report counts them.
                 DM2's TBMP textures key magenta to transparent (dm2_level_convert.py KEY); TZMP textures keep their
-                palette's alpha.
+                palette's alpha. A face's tag word (AI's FaceTag event word, the bike games' tag: what the goals,
+                gaps and events find faces by) is #tag=0x<8 hex digits>.
   grind edges   every grindable edge record of a collidable part (and AI's vertical poles, kind 3, which a rail
                 search does not take) in world space, as line meshes #grind=ledge|lip|spine|vpole|hpole with the
-                edge's sound (#metal, #wood: AI's edge material; BMX XXX's face material's).
+                edge's sound (#metal, #wood: AI's edge material; BMX XXX's face material's) and its tag word
+                (#tag=0x<8 hex digits>; a word on an edge that is not ground is left out, and counted).
   spawns        the DAT's Spawn points: PlayerOne and PlayerTwo as #spawn=PlayerOne and #spawn=PlayerTwo, the
                 respawns (AI's "Respawn", DM2's "Player", BMX XXX's other spawns but paintball's) as #spawn=respawn;
-                spawns only a game's scripts or modes name are left out.
+                the named points a game's scripts or modes read (ai_level_convert.SCRIPT_SPAWNS: AI's lesson points
+                and wickedTree, BMX XXX's paintball points) by name, #spawn=lessonOne; any other is left out.
   cameras       the DAT's "CameraPos" points named "idle" (BMX XXX's idle cameras; DM2's level camera points) in
                 their index order as #camera nodes, #fov=N from the first tag byte; the eye where the game puts it
                 (DM2's 5 m above its point).
@@ -150,13 +153,15 @@ def decode_bmp(data, colour_key, with_alpha):
 
 
 # The spawns a game reads by name and what each is in the model (#spawn=<role>): the starts, and the points a fallen
-# player is put back at (AI's "Respawn", DM2's "Player", BMX XXX's any but the starts and paintball's). The rest
-# (AI's lesson points and the like, which its scripts name; BMX XXX's paintball sniper points) have no reader in
-# another game and are left out.
+# player is put back at (AI's "Respawn", DM2's "Player", BMX XXX's any but the starts and paintball's). The named
+# points a game's scripts or modes read (AI's lesson points and wickedTree, BMX XXX's paintball sniper points:
+# ai_level_convert.SCRIPT_SPAWNS) are carried by name (#spawn=<name>), for the converters to write where their
+# game reads them; any other is left out.
 RESPAWN = L.name_hash("Respawn")
 PLAYER = L.name_hash("Player")
 PLAYER_TWO = L.name_hash("PlayerTwo")
 PAINTBALL = (L.name_hash("sniper_shooter"), L.name_hash("sniper_target"))
+NAMED_POINTS = {L.name_hash(n): n for names in C.SCRIPT_SPAWNS.values() for n in names}
 # What a game adds to an idle camera point's position for its eye (DM2's level-point camera stands 5 m above it).
 CAMERA_LIFTS = {"ai": 0.0, "dm2": -5.0, "bmx": 0.0}
 
@@ -257,9 +262,14 @@ class Export:
         return self.materials[key]
 
     def surface_tags(self, record):
-        """The converters' tags for a face's tag record, or None for ground."""
+        """The converters' tags for a face's tag record (its surface kind, then its tag word as #tag=0x...)."""
         if record is None:
             return ()
+        word = record.event_kind if self.game.name == "ai" else record.tag
+        return self.kind_tags(record) + (("tag=0x%08x" % word,) if word else ())
+
+    def kind_tags(self, record):
+        """The converters' tags for a face's surface kind, () for ground."""
         if self.game.name == "ai":
             word = AI_SURFACES.get(record.kind)
             if word is None:
@@ -430,7 +440,7 @@ class Export:
                 placed[role] += 1
             if hit is not None:
                 self.grind_edges(hit, hit_table, position, rotation, edges)
-        for (word, sound), segs in sorted(edges.items(), key=lambda kv: (kv[0][0], kv[0][1] or "")):
+        for (word, sound, tag), segs in sorted(edges.items(), key=lambda kv: (kv[0][0], kv[0][1] or "", kv[0][2])):
             points, index, lines = [], {}, []
             for a, b in segs:
                 ends = []
@@ -440,16 +450,21 @@ class Export:
                         points.append(p)
                     ends.append(index[p])
                 lines.append(tuple(ends))
-            mesh = self.builder.mesh("grind_%s%s" % (word, "_" + sound if sound else ""), [dict(positions=points, lines=lines)])
-            self.builder.node("grind_%s%s#grind=%s%s" % (word, "_" + sound if sound else "", word, "#" + sound if sound else ""), mesh)
-            self.say("grind edges #grind=%s%s: %d" % (word, " #" + sound if sound else "", len(segs)))
+            named = "_%08x" % tag if tag else ""
+            mesh = self.builder.mesh("grind_%s%s%s" % (word, "_" + sound if sound else "", named), [dict(positions=points, lines=lines)])
+            self.builder.node("grind_%s%s%s#grind=%s%s%s" % (word, "_" + sound if sound else "", named, word, "#" + sound if sound else "",
+                                                            "#tag=0x%08x" % tag if tag else ""), mesh)
+            self.say("grind edges #grind=%s%s%s: %d" % (word, " #" + sound if sound else "", " #tag=0x%08x" % tag if tag else "", len(segs)))
         spawns = 0
         for p in dat.points:
             if p.kind != W.SPAWN:
                 continue
             role = spawn_role(self.game.name, p.name)
+            if role is None and p.name in NAMED_POINTS:
+                role = NAMED_POINTS[p.name]
+                self.counts["named points carried (#spawn=<name>: a game's scripts or modes read them)"] += 1
             if role is None:
-                self.counts["spawns with a name no other game reads (scripts', modes'): left out"] += 1
+                self.counts["spawns with a name no game's scripts are known to read: left out"] += 1
                 continue
             name = "Respawn" if role == "respawn" else role
             self.builder.node("%s#spawn=%s" % (name, role), None, to_gltf(p.position), quat_to_gltf(p.orientation))
@@ -486,17 +501,23 @@ class Export:
                 r = part.edge_tags.records[index]
                 if self.game.name == "ai":
                     if not r.flags & W.EdgeTag.GRINDABLE and r.kind != 3:
+                        if r.event_id:
+                            self.counts["edge tag words on edges not ground: left out"] += 1
                         continue
                     word = AI_GRINDS.get(r.kind, "ledge")
                     sound = AI_EDGE_SOUNDS.get(r.material)
+                    tag = r.event_id
                 else:
                     if not r.grindable:
+                        if r.tag:
+                            self.counts["edge tag words on edges not ground: left out"] += 1
                         continue
                     word = BIKE_GRINDS.get(r.link_kind, "ledge")
                     sound = sounds[face.material] if face.material < len(sounds) else None
+                    tag = r.tag
                 a, b = face.vertices[k], face.vertices[(k + 1) % 3]
                 if max(a, b) < len(world):
-                    edges[(word, sound)].append((world[a], world[b]))
+                    edges[(word, sound, tag)].append((world[a], world[b]))
 
 
 def level_files(folder):

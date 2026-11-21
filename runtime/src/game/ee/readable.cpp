@@ -254,7 +254,7 @@ namespace game::readable
         if (!f || !f->readable || f->game != game)
             return false;
         bool on = f->status == Status::Verified;
-        const char *spec = std::getenv("PS2X_READABLE");
+        const char *spec = std::getenv("ZX_READABLE");
         std::stringstream items(spec ? spec : "");
         std::string item;
         while (std::getline(items, item, ','))
@@ -318,11 +318,11 @@ namespace game::readable
                 f->enabled = false;
             }
         }
-        if (const char *spec = std::getenv("PS2X_READABLE"); spec && *spec)
+        if (const char *spec = std::getenv("ZX_READABLE"); spec && *spec)
         {
             std::string unknown;
             if (!applySwitch(spec, &unknown, game))
-                std::cerr << "[readable] PS2X_READABLE: unknown or not ported: " << unknown << std::endl;
+                std::cerr << "[readable] ZX_READABLE: unknown or not ported: " << unknown << std::endl;
         }
 
         // Registrations that share a host function (identical code folded by
@@ -390,18 +390,18 @@ namespace game::readable
             std::cout << ", " << planned << " planned (recording only)";
         std::cout << std::endl;
 
-        // The comparison machinery: the dev flavour's alone (ZAXIS_DEV_CHECKS, runtime/CMakeLists.txt). The app's
-        // has none of these sources; PS2X_FNPROF stays (profile.cpp: a profiler of the readable code itself).
+        // The comparison machinery: the dev flavour's alone (ZX_DEV_CHECKS, runtime/CMakeLists.txt). The app's
+        // has none of these sources; ZX_FNPROF stays (profile.cpp: a profiler of the readable code itself).
         profile::install(runtime);
-#if ZAXIS_DEV_CHECKS
+#if ZX_DEV_CHECKS
         // A recording run with readable code on would miss calls: the run ends here, saying why (fncheck.h).
         if (!fncheck::installRecorder(runtime, game))
         {
             std::fflush(nullptr);
             std::_Exit(2);
         }
-        // A child forked at a spot (PS2X_SPOT_FORK) records from there, by its own environment.
-        ps2x::spot::addChildHook([game](PS2Runtime &rt)
+        // A child forked at a spot (ZX_SPOT_FORK) records from there, by its own environment.
+        zx::spot::addChildHook([game](PS2Runtime &rt)
                                  {
                                      if (!fncheck::installRecorder(rt, game))
                                      {

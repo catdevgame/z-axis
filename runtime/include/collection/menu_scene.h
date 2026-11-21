@@ -17,13 +17,13 @@
 #include <memory>
 #include <vector>
 
-namespace ps2x::movie
+namespace zx::movie
 {
     class PssAudio;
     class PssVideo;
 }
 
-namespace ps2x::collection
+namespace zx::collection
 {
     class MenuScene
     {
@@ -66,7 +66,7 @@ namespace ps2x::collection
         int m_shown = -1;
         double m_shownAt = 0.0;
         bool m_moving = true;
-        std::unique_ptr<ps2x::movie::PssVideo> m_video;
+        std::unique_ptr<zx::movie::PssVideo> m_video;
         size_t m_loop = 0;     // the shown game's loop playing
         double m_nextAt = 0.0; // when its next picture is due
         Image m_picture;       // its picture now
@@ -99,13 +99,13 @@ namespace ps2x::collection
         float black(double now) const;
         // The clip's sound (48 kHz stereo, MenuAudio::playMovie), null for a
         // movie without one.
-        std::shared_ptr<ps2x::movie::PssAudio> sound() const { return m_sound; }
+        std::shared_ptr<zx::movie::PssAudio> sound() const { return m_sound; }
         // The frames of sound the clip lasts (its end).
         size_t soundFrames() const;
 
     private:
-        std::unique_ptr<ps2x::movie::PssVideo> m_video;
-        std::shared_ptr<ps2x::movie::PssAudio> m_sound;
+        std::unique_ptr<zx::movie::PssVideo> m_video;
+        std::shared_ptr<zx::movie::PssAudio> m_sound;
         Image m_picture;
         double m_fps = 30000.0 / 1001.0;
         double m_length = 0.0;
@@ -114,5 +114,5 @@ namespace ps2x::collection
     };
 
     // A movie file on the host for the movie readers (runtime/ps2_pss_movie.h).
-    std::unique_ptr<ps2x::movie::PssVideo> openMovieVideo(const std::filesystem::path &file);
+    std::unique_ptr<zx::movie::PssVideo> openMovieVideo(const std::filesystem::path &file);
 }

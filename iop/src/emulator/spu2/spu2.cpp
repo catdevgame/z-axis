@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <utility>
 
-namespace ps2x::iop::detail
+namespace zx
 {
     Spu2::Spu2(std::span<uint8_t> iopRam)
         : m_system(std::make_unique<spu2::Spu2System>(iopRam))
@@ -39,7 +39,7 @@ namespace ps2x::iop::detail
     void Spu2::setTrace(std::function<void(const char *)> trace)
     {
         m_system->Trace = std::move(trace);
-        const char *budget = std::getenv("PS2X_TRACE_SPU2");
+        const char *budget = std::getenv("ZX_TRACE_SPU2");
         m_system->TraceBudget = budget ? std::strtol(budget, nullptr, 0) : 0;
     }
 

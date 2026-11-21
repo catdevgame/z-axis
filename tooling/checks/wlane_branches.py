@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """wlane_branches.py SRC OUT: a copy of a game's generated folder (recomp/generated-ns) for the lane differential's tool
-build (ZAXIS_LANE_WATCH=ON, PS2X_RUNNER_EXTRA_GENERATED_DIRS pointed at OUT): every conditional branch's direction and
-every register jump's target go through the differential's hooks (runtime/lane_watch.h, PS2X_LANE_DIFF):
+build (ZX_LANE_WATCH_BUILD=ON, ZX_RUNNER_EXTRA_GENERATED_DIRS pointed at OUT): every conditional branch's direction and
+every register jump's target go through the differential's hooks (runtime/lane_watch.h, ZX_LANE_DIFF):
 
-    const bool branch_taken_0xPC = (COND);     ->  const bool branch_taken_0xPC = PS2X_LANE_BRANCH(0xPCu, (COND));
-    const uint32_t jumpTarget = GPR_U32(ctx, N);  ->  ... = PS2X_LANE_JUMP(PC, GPR_U32(ctx, N));   (PC: the jump's)
+    const bool branch_taken_0xPC = (COND);     ->  const bool branch_taken_0xPC = ZX_LANE_BRANCH(0xPCu, (COND));
+    const uint32_t jumpTarget = GPR_U32(ctx, N);  ->  ... = ZX_LANE_JUMP(PC, GPR_U32(ctx, N));   (PC: the jump's)
 
-Nothing else changes; outside a ZAXIS_LANE_WATCH build both macros are their argument. Files that would not change
+Nothing else changes; outside a ZX_LANE_WATCH_BUILD build both macros are their argument. Files that would not change
 are hard-linked, the rest written only when their text differs (a rebuild compiles only what changed). A build input
 only: the copy is never committed. Prints the counts; exit 1 if a branch or jump form it does not know is found.
 """
@@ -28,12 +28,12 @@ def convert(text):
             last_pc = m.group(1)
         m = BRANCH.match(line)
         if m:
-            out.append('%sconst bool %s = PS2X_LANE_BRANCH(%su, (%s));' % (m.group(1), m.group(2), m.group(3), m.group(4)))
+            out.append('%sconst bool %s = ZX_LANE_BRANCH(%su, (%s));' % (m.group(1), m.group(2), m.group(3), m.group(4)))
             branches += 1
             continue
         m = JUMP.match(line)
         if m and last_pc:
-            out.append('%sconst uint32_t jumpTarget = PS2X_LANE_JUMP(%su, %s);' % (m.group(1), last_pc, m.group(2)))
+            out.append('%sconst uint32_t jumpTarget = ZX_LANE_JUMP(%su, %s);' % (m.group(1), last_pc, m.group(2)))
             jumps += 1
             continue
         if 'branch_taken_' in line and 'const bool' in line or ('jumpTarget =' in line and 'const' in line):

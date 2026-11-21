@@ -1,6 +1,6 @@
 #include "MiniTest.h"
 #include "runtime/gs/gs_gpu_texture_check.h"
-#if PS2X_HAS_GS_GPU
+#if ZX_HAS_GS_GPU
 #include "ps2_runtime.h"
 #include "runtime/gs/gs_frontend.h"
 #include "runtime/gs/gs_gpu_backend.h"
@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-namespace texcheck = ps2x::gpu_texture_check;
+namespace texcheck = zx::gpu_texture_check;
 
 namespace
 {
@@ -59,7 +59,7 @@ void register_ps2_gpu_texture_check_tests()
             texcheck::configureForTest(false, 2.0, nullptr);
         });
 
-#if PS2X_HAS_GS_GPU
+#if ZX_HAS_GS_GPU
         tc.Run("GPU renderer: both circuits on one buffer, the second taller, use no destroyed target", [](TestCase &t)
         {
             // The intro-movie crash on Windows (BRINGUP "The intro-movie quit"):

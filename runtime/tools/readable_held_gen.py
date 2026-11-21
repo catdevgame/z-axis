@@ -1075,7 +1075,7 @@ def in_own_frame(load):
 
 def reads_through_frame(load):
     """A load at an address read from the function's own frame. A frame word is a value the runtime may read (the
-    stack is open in ps2xFnCheck's RAM), but not one it may follow: a readable function keeps what the original
+    stack is open in zx-fncheck's RAM), but not one it may follow: a readable function keeps what the original
     spilled there in C++, so the word may be anything (a load at address 1 in DM2's newRider faulted the replay)."""
     return any(isinstance(x, tuple) and x and x[0] in ('load', 'eload') and in_own_frame(x) for x in walk(load[2]))
 
@@ -2298,7 +2298,7 @@ def main():
                 stale.append(HELD_GAMES[game])
         if stale:
             print('readable_held_gen: the committed held data of %s is not what the generated code makes: '
-                  'readable_held_gen.py --write (the build\'s ps2_held_write), then commit runtime/tools/held'
+                  'readable_held_gen.py --write (the build\'s zx_held_write), then commit runtime/tools/held'
                   % ', '.join(stale))
             status = 1
         elif a.check:

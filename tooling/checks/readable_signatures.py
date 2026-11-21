@@ -130,7 +130,7 @@ def main():
     sys.path.insert(0, HERE)
     import readable_draft as rd
     workspace = zaxis_paths.get('AI_WORKSPACE')
-    generated = os.environ.get('PS2X_RUNNER_GENERATED_DIR') or os.path.join(workspace, 'recomp', 'generated')
+    generated = os.environ.get('ZX_RUNNER_GENERATED_DIR') or os.path.join(workspace, 'recomp', 'generated')
     ws = rd.Workspace(workspace, generated, None)
     cal = rd.Callees(ws)
     if not a.check:

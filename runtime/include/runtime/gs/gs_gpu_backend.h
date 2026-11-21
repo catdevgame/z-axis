@@ -41,7 +41,7 @@ struct GSGpuBackendOptions
     bool hostDevice = false;
     // SDL_GPU validation layer (only for a private device).
     bool debug = false;
-    // A game's pipeline file (PS2X_GS_PIPELINE_CACHE; the app gives each
+    // A game's pipeline file (ZX_GS_PIPELINE_CACHE; the app gives each
     // game its own): the pipelines it made are made again ahead, on a
     // thread of their own, at the next start. Empty: made at first use.
     std::string pipelineFile;
@@ -82,7 +82,7 @@ public:
     PresentationFrame Present(const GSPresentationRequest &request) override;
     bool PresentedGpuPicture(GSGpuPicture &out, uint32_t slot) const override;
     bool ReadPresentedGpuPicture(uint32_t slot, std::vector<uint8_t> &rgba, uint32_t &width, uint32_t &height) override;
-    ps2x::gs_interpolate::Skip PresentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out) override;
+    zx::gs_interpolate::Skip PresentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out) override;
     bool ReadBetweenPicture(std::vector<uint8_t> &rgba, uint32_t &width, uint32_t &height) override;
     std::string InterpolationReport() override;
 
@@ -131,7 +131,7 @@ public:
         uint64_t mipCopyBytes = 0;       // those copies uploaded
         uint64_t mipCopyDeferred = 0;    // drawn as the GS does: the frame's budget for copies spent
     };
-    // Counters since the last call (PS2X_GS_STATS=1 prints them per frame).
+    // Counters since the last call (ZX_GS_STATS=1 prints them per frame).
     Stats TakeStats();
 
     struct Impl;
@@ -140,8 +140,8 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-// The GPU backend if PS2X_GS_BACKEND=gpu (PS2X_GS_SCALE=n for the
-// resolution, PS2X_GS_FULL_HEIGHT=1 for twice that vertically), else nullptr. Draws on the host window's GPU device if there
+// The GPU backend if ZX_GS_BACKEND=gpu (ZX_GS_SCALE=n for the
+// resolution, ZX_GS_FULL_HEIGHT=1 for twice that vertically), else nullptr. Draws on the host window's GPU device if there
 // is one (presenting without readback), else on a private one. Only in
-// builds with the GPU backend (PS2X_HAS_GS_GPU).
+// builds with the GPU backend (ZX_HAS_GS_GPU).
 std::unique_ptr<GSRasterBackend> createGpuRasterBackendFromEnvironment();

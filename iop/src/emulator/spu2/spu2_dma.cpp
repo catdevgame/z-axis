@@ -16,7 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace ps2x::iop::detail::spu2
+namespace zx::spu2
 {
     static constexpr int CYCLES_PER_WORD = 24;
 

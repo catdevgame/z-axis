@@ -5,13 +5,18 @@ IOP kernel providing imports without a PS2 BIOS. The C++20 static library
 `ps2_iop` / `ps2x::iop` is linked into the runtime (`runtime/`). The games run
 with the IOP stopped by default: their disc, movie, sound and save modules are
 replaced by native code (`docs/NATIVE.md`), and this path is the fallback and
-the reference for comparisons (`PS2X_IOP=1`, `PS2X_SOUND=spu2`, ...).
+the reference for comparisons (`ZX_IOP=1`, `ZX_SOUND=spu2`, ...).
 
-It also holds the disc image reader, `ps2_disc` / `ps2x::disc` (ISO 9660 over
+It also holds the disc image reader, `zx_disc` / `zx::disc` (ISO 9660 over
 an ISO, a BIN/CUE dump, a CHD, a CSO or a ZSO), which the app uses to set a
-game up from the player's disc, and its command line, `ps2x_disc list | extract
-| to-iso` (`tools/ps2x_disc.cpp`; `-DPS2X_IOP_DISC_ONLY=ON` builds it alone,
-as `tooling/recompile.sh` does).
+game up from the player's disc, and its command line, `zx-disc list | extract
+| to-iso` (`tools/disc_tool.cpp`; `-DZX_IOP_DISC_ONLY=ON` builds it alone,
+as `tooling/recompile.sh` does). Beside them, `zx_zal` / `zx::zal` reads and
+writes the games' `.ZAL` archives byte for byte as the discs have them
+(`include/zx/zal_archive.h`: the game file system puts mods' single
+entries in them), and `zal list | unpack | repack | verify`
+(`tools/zal_tool.cpp`) is its command line for modders (`docs/MODS.md`,
+"Archives").
 
 ## Execution policy
 
@@ -70,4 +75,4 @@ ctest --test-dir out/build/iop-tests --output-on-failure
 ```
 
 The suites cover IRX execution, RPC, imports, version resolution and generic
-HLE compatibility. `ps2x_tests` also covers runtime SIF RPC/DMA integration.
+HLE compatibility. `zx-tests` also covers runtime SIF RPC/DMA integration.

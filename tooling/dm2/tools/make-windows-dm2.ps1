@@ -18,7 +18,7 @@ param(
     [string]$Iso = "",
     [string]$DiscDir = "",
     [string]$Elf = "",
-    [string]$PS2Recomp = "",
+    [string]$ZaxisTree = "",
     [string]$BuildDir = "",
     [string]$Dist = "",
     [string]$FFmpeg = "",
@@ -29,8 +29,8 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
-if (-not $PS2Recomp) { $PS2Recomp = Join-Path $Root "PS2Recomp" }
-if (-not $BuildDir) { $BuildDir = Join-Path $PS2Recomp "out\build-release-win" }
+if (-not $ZaxisTree) { $ZaxisTree = Join-Path $Root "PS2Recomp" }
+if (-not $BuildDir) { $BuildDir = Join-Path $ZaxisTree "out\build-release-win" }
 if (-not $Dist) { $Dist = Join-Path $Root "dist" }
 $AppName = "Dave Mirra Freestyle BMX 2"
 $AppDir = Join-Path $Dist $AppName
@@ -98,7 +98,7 @@ foreach ($tool in "clang-cl", "lld-link", "cmake", "ninja") {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Die "$tool not found (VS components: Clang/LLVM, C++ CMake tools)" }
 }
 
-$Runner = Join-Path $BuildDir "ps2xRuntime\ps2EntryRunner.exe"
+$Runner = Join-Path $BuildDir "runtime\zx-runner.exe"
 if (-not $SkipBuild) {
     # ---- FFmpeg: a prebuilt static MSVC FFmpeg (-FFmpeg, e.g. the Aggressive
     # Inline repo's third_party-cache\ffmpeg-*), as tools/build-ffmpeg.sh makes it.
@@ -108,19 +108,19 @@ if (-not $SkipBuild) {
 
     # ---- release runner -------------------------------------------------------
     $vu1 = Join-Path $Root "recomp\generated-vu1"
-    $vu1Arg = "-DPS2X_VU1_AOT_DIR="
-    if (Get-ChildItem -Path $vu1 -Filter "vu1_aot_*.cpp" -ErrorAction SilentlyContinue) { $vu1Arg = "-DPS2X_VU1_AOT_DIR=$($vu1 -replace '\\','/')" }
+    $vu1Arg = "-DZX_VU1_AOT_DIR="
+    if (Get-ChildItem -Path $vu1 -Filter "vu1_aot_*.cpp" -ErrorAction SilentlyContinue) { $vu1Arg = "-DZX_VU1_AOT_DIR=$($vu1 -replace '\\','/')" }
     $lto = if ($NoLto) { "OFF" } else { "ON" }
-    $cmakeArgs = @("-S", $PS2Recomp, "-B", $BuildDir, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
+    $cmakeArgs = @("-S", $ZaxisTree, "-B", $BuildDir, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
         "-DCMAKE_C_COMPILER=clang-cl", "-DCMAKE_CXX_COMPILER=clang-cl", "-DCMAKE_LINKER=lld-link",
-        "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DPS2X_ENABLE_LTO=$lto",
-        "-DPS2X_RUNNER_GENERATED_DIR=$((Join-Path $Root 'recomp\generated') -replace '\\','/')", $vu1Arg,
-        "-DPS2X_BUILD_RECOMPILER=OFF", "-DPS2X_BUILD_TEST=OFF",
-        "-DPS2X_ENABLE_RUNTIME_LOGS=OFF", "-DPS2X_ENABLE_AGRESSIVE_LOGS=OFF", "-DPS2X_ENABLE_IOP_RPC_TRACE=OFF",
-        "-DPS2X_SHOW_WINDOWS_CONSOLE=OFF", "-DPS2X_FFMPEG_PREFIX=$FFmpeg",
-        "-DPS2X_APP_NAME=$AppName", "-DPS2X_APP_GAME_TITLE=Dave Mirra Freestyle BMX 2 (USA)",
-        "-DPS2X_APP_ELF=$ElfName", "-DPS2X_APP_ELF_SHA256=$ElfSha",
-        "-DPS2X_APP_SAVE_DIR=BASLUS-20159BMX2GAME", "-DPS2X_APP_VERSION=$AppVersion")
+        "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DZX_ENABLE_LTO=$lto",
+        "-DZX_RUNNER_GENERATED_DIR=$((Join-Path $Root 'recomp\generated') -replace '\\','/')", $vu1Arg,
+        "-DZX_BUILD_RECOMPILER=OFF", "-DZX_BUILD_TEST=OFF",
+        "-DZX_ENABLE_RUNTIME_LOGS=OFF", "-DZX_ENABLE_AGRESSIVE_LOGS=OFF", "-DPS2X_ENABLE_IOP_RPC_TRACE=OFF",
+        "-DZX_SHOW_WINDOWS_CONSOLE=OFF", "-DZX_FFMPEG_PREFIX=$FFmpeg",
+        "-DZX_APP_NAME=$AppName", "-DZX_APP_GAME_TITLE=Dave Mirra Freestyle BMX 2 (USA)",
+        "-DZX_APP_ELF=$ElfName", "-DZX_APP_ELF_SHA256=$ElfSha",
+        "-DZX_APP_SAVE_DIR=BASLUS-20159BMX2GAME", "-DZX_APP_VERSION=$AppVersion")
     $cxxFlags = "/DWIN32 /D_WINDOWS /EHsc"
     if ($ProfileData) {
         if (-not (Test-Path $ProfileData)) { Die "no profile $ProfileData" }
@@ -128,10 +128,10 @@ if (-not $SkipBuild) {
         Say "PGO profile: $ProfileData"
     }
     $cmakeArgs += "-DCMAKE_CXX_FLAGS=$cxxFlags"
-    $cmakeArgs += "-DPS2X_APP_ICON="
+    $cmakeArgs += "-DZX_APP_ICON="
     & cmake @cmakeArgs | Out-Null
     if ($LASTEXITCODE -ne 0) { Die "cmake failed" }
-    & ninja -C $BuildDir ps2EntryRunner
+    & ninja -C $BuildDir zx-runner
     if ($LASTEXITCODE -ne 0) { Die "build failed" }
 }
 if (-not (Test-Path $Runner)) { Die "no runner at $Runner" }

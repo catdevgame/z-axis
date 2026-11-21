@@ -5,7 +5,7 @@
 #include <cstdarg>
 #include <cstdio>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     bool makePanelMaps(PanelGame game, const SourceFiles &disc, const PanelExtras &extras,
                        const std::filesystem::path &out, std::vector<std::string> &log, std::string *error)
@@ -34,9 +34,36 @@ namespace ps2x::app::extras
             return false;
         }
     }
+
+    bool makeMapPanelFile(PanelGame game, const SourceFiles &files, const std::string &folder, const std::string &title, Bytes &out,
+                          std::vector<std::string> &log, std::string *error)
+    {
+        try
+        {
+            switch (game)
+            {
+            case PanelGame::AggressiveInline:
+                out = panel_maps::aggressiveInlineMapFile(files, folder, title, log);
+                break;
+            case PanelGame::DaveMirra2:
+                out = panel_maps::daveMirraMapFile(files, folder, title, log);
+                break;
+            case PanelGame::BmxXxx:
+                out = panel_maps::bmxXxxMapFile(files, folder, title, log);
+                break;
+            }
+            return true;
+        }
+        catch (const std::exception &e)
+        {
+            if (error)
+                *error = std::string("the map's panel file could not be made: ") + e.what();
+            return false;
+        }
+    }
 }
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     double pythonSum(const double *values, size_t count)
     {

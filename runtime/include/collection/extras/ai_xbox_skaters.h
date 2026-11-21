@@ -2,7 +2,7 @@
 
 // Aggressive Inline's Xbox skaters: each PS2 skater model (ASSETS/SKATERS/
 // .../*.ZIT) with the Xbox release's more detailed geometry, made from the
-// player's PS2 and Xbox discs as ps2xNativeAssets --xbox-models makes them,
+// player's PS2 and Xbox discs as zx-native-assets --xbox-models makes them,
 // into <out>/models/<PS2 path> (the texture pack's folder: Settings >
 // Display > Xbox Skaters, aggressive_inline_disc.cpp).
 //
@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     struct XboxModelMade
     {
@@ -32,7 +32,7 @@ namespace ps2x::app::extras
         std::function<XboxModelMade(const std::string &relative, const Bytes &ps2, const Bytes &xbox, Bytes &out)>;
 
     // The engine's converter (src/collection/extras/xbox_model_maker.cpp),
-    // linked only where the game's code is: the app and ps2xExtras.
+    // linked only where the game's code is: the app and zx-extras.
     XboxModelMaker engineXboxModelMaker();
 
     // False with *error when a file cannot be read or written.

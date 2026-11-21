@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Level/mode sweep driver for the native build (uses nctl.py / PS2X_CONTROL).
+"""Level/mode sweep driver for the native build (uses nctl.py / ZX_CONTROL).
 
     sweep.py NAME career K TAG     from the main menu (cursor on CAREER): career, first skater,
                                    level-select entry K, load, skate, pause, EXIT

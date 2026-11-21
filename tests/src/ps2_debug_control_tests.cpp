@@ -1,4 +1,4 @@
-// Tests for PS2X_CONTROL (runtime/ps2_debug_control.h): commands appended to
+// Tests for ZX_CONTROL (runtime/ps2_debug_control.h): commands appended to
 // <dir>/cmd run at VBlank, replies go to <dir>/out.
 #include "MiniTest.h"
 #include "runtime/ps2_debug_control.h"
@@ -21,7 +21,7 @@ namespace
         std::filesystem::path dir;
         ControlDir()
         {
-            dir = std::filesystem::temp_directory_path() / ("ps2x-control-test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+            dir = std::filesystem::temp_directory_path() / ("zx-control-test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
             std::filesystem::remove_all(dir);
             std::filesystem::create_directories(dir);
             std::ofstream(dir / "cmd").close();

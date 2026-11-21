@@ -10,7 +10,7 @@
 // activity's own), the documents UI for discs (android_documents.cpp); no
 // menu bar, and the window is always the whole screen.
 
-namespace ps2x_app::platform
+namespace zx_app::platform
 {
     std::filesystem::path resourceFolder(const char *argv0)
     {
@@ -77,11 +77,11 @@ namespace ps2x_app::platform
 
     bool pickDocuments(bool folder, std::function<void(std::vector<std::string>)> picked)
     {
-        return ps2x_android::pickDocuments(folder, std::move(picked));
+        return zx_android::pickDocuments(folder, std::move(picked));
     }
 
     bool createDocument(const std::string &name, const std::string &mimeType, std::function<void(std::string)> created)
     {
-        return ps2x_android::createDocument(name, mimeType, std::move(created));
+        return zx_android::createDocument(name, mimeType, std::move(created));
     }
 }

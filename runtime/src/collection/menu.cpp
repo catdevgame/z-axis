@@ -7,7 +7,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     namespace
     {
@@ -834,6 +834,9 @@ namespace ps2x::collection
                     note(game.title + ": not read, " + game.why);
                 if (game.read && !game.winners.empty())
                     note(game.title + ": " + game.winners);
+                if (game.read)
+                    for (const std::string &entry : game.entriesNotRead)
+                        note(game.title + ": " + entry + ", not read.");
             }
         auto onMove = std::make_shared<std::function<void(int)>>(std::move(moved));
         const std::string place = std::to_string(m + 1) + " of " + std::to_string(mods->size());
@@ -901,7 +904,39 @@ namespace ps2x::collection
         return "?";
     }
 
-    Shell::Shell(size_t games, bool freeplay) : m_games(games), m_freeplay(freeplay) {}
+    Shell::Shell(size_t games, bool freeplay) : m_games(games), m_freeplay(freeplay)
+    {
+        for (size_t i = 0; i < games; ++i)
+            m_players.push_back(static_cast<int>(i));
+    }
+
+    int Shell::playerPlace(int game) const
+    {
+        const auto it = std::find(m_players.begin(), m_players.end(), game);
+        return it == m_players.end() ? -1 : static_cast<int>(it - m_players.begin());
+    }
+
+    void Shell::keepPlayerOffered()
+    {
+        if (playerPlace(m_freeplayGame) >= 0)
+            return;
+        if (m_players.empty())
+            m_playerOnBack = true;
+        else
+            m_freeplayGame = m_players.front();
+    }
+
+    void Shell::setFreeplayPlayers(std::vector<int> games)
+    {
+        games.erase(std::remove_if(games.begin(), games.end(), [this](int g) { return g < 0 || g >= static_cast<int>(m_games); }),
+                    games.end());
+        if (games == m_players)
+            return;
+        m_players = std::move(games);
+        if (m_page == MenuPage::FreeplayPlayer)
+            keepPlayerOffered();
+        ++m_revision;
+    }
 
     void Shell::start(int game)
     {
@@ -950,6 +985,7 @@ namespace ps2x::collection
         case MenuPage::Games:
         case MenuPage::Mod:
         case MenuPage::FreeplayMap:
+        case MenuPage::Recordings:
             break;
         }
         return pageInput(in, rows, page);
@@ -1016,6 +1052,8 @@ namespace ps2x::collection
             return;
         if (m_page == MenuPage::FreeplayPlayer)
         {
+            if (playerPlace(game) < 0)
+                return;
             m_freeplayGame = game;
             m_playerOnBack = false;
         }
@@ -1038,9 +1076,9 @@ namespace ps2x::collection
             return;
         if (page == MenuPage::FreeplayPlayer && !m_freeplay)
             return;
-        if (page == MenuPage::Settings || page == MenuPage::Mods || page == MenuPage::Games)
+        if (page == MenuPage::Settings || page == MenuPage::Mods || page == MenuPage::Games || page == MenuPage::Recordings)
         {
-            // (Mods and Games with Settings behind them: their Back comes back to Settings, then the tiles)
+            // (Mods, Games and Recordings with Settings behind them: their Back comes back to Settings, then the tiles)
             m_selection = settingsItem();
             openPage(MenuPage::Settings);
             if (page != MenuPage::Settings)
@@ -1055,16 +1093,18 @@ namespace ps2x::collection
 
     MenuAction Shell::playerInput(const MenuInput &in, const Layout &layout, const PageLayout &page)
     {
-        const int games = static_cast<int>(m_games);
+        const int players = static_cast<int>(m_players.size());
         const int was = m_freeplayGame;
         const bool wasOnBack = m_playerOnBack;
+        // The game of the player tile at (x, y) (the layout's tiles are the players'), -1 none.
         auto tileAt = [&](float x, float y)
         {
-            for (int i = 0; i < games && i < static_cast<int>(layout.tiles.size()); ++i)
+            for (int i = 0; i < players && i < static_cast<int>(layout.tiles.size()); ++i)
                 if (layout.tiles[static_cast<size_t>(i)].contains(x, y))
-                    return i;
+                    return m_players[static_cast<size_t>(i)];
             return -1;
         };
+        const int place = playerPlace(m_freeplayGame);
         if (in.pointerMoved || in.click)
         {
             if (const int tile = tileAt(in.pointerX, in.pointerY); tile >= 0)
@@ -1075,14 +1115,17 @@ namespace ps2x::collection
             else if (page.back.contains(in.pointerX, in.pointerY))
                 m_playerOnBack = true;
         }
-        if (in.left && !m_playerOnBack && m_freeplayGame > 0)
-            --m_freeplayGame;
-        if (in.right && !m_playerOnBack && m_freeplayGame < games - 1)
-            ++m_freeplayGame;
+        if (in.left && !m_playerOnBack && place > 0)
+            m_freeplayGame = m_players[static_cast<size_t>(place - 1)];
+        if (in.right && !m_playerOnBack && place >= 0 && place < players - 1)
+            m_freeplayGame = m_players[static_cast<size_t>(place + 1)];
         if (in.down)
             m_playerOnBack = true;
-        if (in.up)
+        if (in.up && players > 0)
+        {
             m_playerOnBack = false;
+            keepPlayerOffered();
+        }
         const bool clickedTile = in.click && tileAt(in.pointerX, in.pointerY) == m_freeplayGame && !m_playerOnBack;
         const bool clickedBack = in.click && page.back.contains(in.pointerX, in.pointerY);
         if (in.back || clickedBack || (in.confirm && m_playerOnBack))
@@ -1111,15 +1154,14 @@ namespace ps2x::collection
 
     void Shell::openPage(MenuPage page)
     {
-        if ((page == MenuPage::Mods || page == MenuPage::Games) && m_page == MenuPage::Settings)
+        if ((page == MenuPage::Mods || page == MenuPage::Games || page == MenuPage::Recordings) && m_page == MenuPage::Settings)
             m_settingsRow = m_pageRow;
         if (page == MenuPage::Mod)
             m_modsRow = m_pageRow;
         if (page == MenuPage::FreeplayPlayer)
         {
             m_playerOnBack = false;
-            if (m_freeplayGame < 0 || m_freeplayGame >= static_cast<int>(m_games))
-                m_freeplayGame = 0;
+            keepPlayerOffered();
         }
         m_page = page;
         m_pageRow = 0;
@@ -1133,6 +1175,7 @@ namespace ps2x::collection
         {
         case MenuPage::Mods:
         case MenuPage::Games:
+        case MenuPage::Recordings:
             // Back to the Settings row that opened it.
             m_page = MenuPage::Settings;
             m_pageRow = m_settingsRow;
@@ -1264,8 +1307,20 @@ namespace ps2x::collection
         m_game = game;
         m_lastGame = game;
         m_map = map;
+        m_playback = -1;
         m_page = MenuPage::Tiles;
         m_selection = map >= 0 && m_freeplay ? freeplayItem() : game;
+        ++m_boots;
+        return true;
+    }
+
+    bool Shell::play(int game, int recording)
+    {
+        if (m_state != State::Menu || game < 0 || game >= static_cast<int>(m_games) || recording < 0)
+            return false;
+        m_state = State::Game;
+        m_game = game;
+        m_playback = recording;
         ++m_boots;
         return true;
     }
@@ -1276,6 +1331,13 @@ namespace ps2x::collection
             return;
         m_game = -1;
         m_state = end == GameEnd::Quit ? State::Quit : State::Menu;
+        if (m_playback >= 0)
+        {
+            // A playback: back on the page and row it was started from.
+            m_playback = -1;
+            ++m_revision;
+            return;
+        }
         // Back on the game just played, or on Custom Freeplay after a map.
         m_selection = m_map >= 0 && m_freeplay ? freeplayItem() : m_lastGame >= 0 ? m_lastGame : 0;
     }
@@ -1466,7 +1528,7 @@ namespace ps2x::collection
                   const std::vector<SettingsRow> &rows, const PageLayout &page, HintDevice device, const Backdrop &backdrop,
                   const std::string &subtitle, const char *escapeVerb)
     {
-        const uint32_t kWhite = rgba(255, 255, 255), kDim = rgba(170, 170, 180), kAmber = rgba(255, 196, 64);
+        const uint32_t kWhite = rgba(255, 255, 255), kDim = kHelpColour, kAmber = rgba(255, 196, 64);
         canvas.clear(rgba(10, 10, 14));
         const int selection = shell.selection();
         const bool onGame = selection >= 0 && selection < static_cast<int>(shell.games());
@@ -1638,14 +1700,19 @@ namespace ps2x::collection
             centred({0, page.title.y + page.title.height, canvas.width(), canvas.height() / 24}, "Choose a player", 1.0f * unit, kDim);
             const int chosenGame = shell.freeplayGame();
             const bool onBack = shell.freeplayOnBack();
-            for (size_t i = 0; i < tiles.size() && i < layout.tiles.size(); ++i)
+            const std::vector<int> &players = shell.freeplayPlayers();
+            for (size_t i = 0; i < players.size() && i < layout.tiles.size(); ++i)
             {
-                const bool chosen = static_cast<int>(i) == chosenGame && !onBack;
+                const int game = players[i];
+                if (game < 0 || game >= static_cast<int>(tiles.size()))
+                    continue;
+                const Tile &tile = tiles[static_cast<size_t>(game)];
+                const bool chosen = game == chosenGame && !onBack;
                 const Rect rect = cardRect(i, chosen);
-                gameTile(tiles[i], rect, chosen);
-                tileFrame(rect, chosen, tiles[i].colour);
+                gameTile(tile, rect, chosen);
+                tileFrame(rect, chosen, tile.colour);
             }
-            if (chosenGame >= 0 && chosenGame < static_cast<int>(tiles.size()))
+            if (std::find(players.begin(), players.end(), chosenGame) != players.end() && chosenGame < static_cast<int>(tiles.size()))
             {
                 const Tile &tile = tiles[static_cast<size_t>(chosenGame)];
                 centred(layout.name, tile.player.empty() ? tile.name : tile.player, 1.5f * unit, kWhite);
@@ -1674,6 +1741,7 @@ namespace ps2x::collection
                     freeplay                           ? kFreeplayTitle
                     : mods                             ? "Mods"
                     : shell.page() == MenuPage::Games ? "Games"
+                    : shell.page() == MenuPage::Recordings ? "Recordings"
                                                       : "Settings",
                     2.0f * unit, kWhite);
             canvas.fill({0, page.title.y + page.title.height + static_cast<int>(2 * unit), canvas.width(), std::max(2, static_cast<int>(unit))},

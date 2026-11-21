@@ -14,7 +14,7 @@
 
 namespace
 {
-    namespace tp = ps2x::texture_pack;
+    namespace tp = zx::texture_pack;
 
     struct TempDir
     {
@@ -22,7 +22,7 @@ namespace
         explicit TempDir(const char *what)
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = std::filesystem::temp_directory_path() / (std::string("ps2x-texpack-") + what + "-" + std::to_string(now));
+            path = std::filesystem::temp_directory_path() / (std::string("zx-texpack-") + what + "-" + std::to_string(now));
             std::filesystem::create_directories(path);
         }
         ~TempDir()
@@ -252,11 +252,11 @@ void register_ps2_texture_pack_tests()
 
         tc.Run("a picture at the PS2's size is box-filtered", [](TestCase &t)
         {
-            ps2x::texture_replace::Picture p;
+            zx::texture_replace::Picture p;
             p.width = 4;
             p.height = 2;
             p.mips = 1;
-            p.format = ps2x::texture_replace::Format::RGBA8;
+            p.format = zx::texture_replace::Format::RGBA8;
             p.data.assign(4u * 2u * 4u, 0);
             for (uint32_t i = 0; i < 8; ++i)
                 p.data[i * 4u] = static_cast<uint8_t>(i * 10); // R

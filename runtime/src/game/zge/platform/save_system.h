@@ -23,7 +23,7 @@ namespace zge
     // copies 0x44, selectSaveClient reads prepare at +0x24.)
     struct SaveClient
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _00;
 #endif
         uint32_t listBufferBytes;                  // one save's bytes when listing the card
@@ -38,7 +38,7 @@ namespace zge
         ee::FunctionPtr<void(int32_t kind)> finished;       // the job has ended, with the last message's kind
         ee::FunctionPtr<void(uint32_t name, uint32_t listBuffer)> saveFound; // a save on the card; name 0 starts the list
         ee::FunctionPtr<void(uint32_t text)> showMessage;
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4's takes a third word: 1 for kMessageShowChoice, 0 for kMessageShowChoiceNoCancel (BMX XXX's
         // showSaveChoice reads it as allowCancel)
         ee::FunctionPtr<void(uint32_t buttons, uint32_t firstChoice, uint32_t allowCancel)> showChoice;
@@ -55,7 +55,7 @@ namespace zge
     // is not known yet). The other versions have no such word.
     inline void clearSaveClientLeadWord(SaveClient &client)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         client._00 = 0;
 #else
         (void)client;

@@ -17,13 +17,15 @@
 // What a mod holds is told by its layout, not declared: the paths the games
 // already load by.
 //   - files: any disc path (ASSETS/..., MOVIES/...): that file of the game's
-//     disc (runtime/ps2_game_files.h);
+//     disc (runtime/ps2_game_files.h); and for an archive, a folder of its
+//     name holding single entries (ASSETS/UILIB.ZAL/CommonFonts.zif): those
+//     entries of it, so mods with other entries of one archive all count;
 //   - music: Music/NN*.ogg (.wav, .flac, .mp3): song NN of the soundtrack;
 //   - tuning: tuning.ini, the developer tuning table's values (Aggressive
 //     Inline's);
 //   - textures: Textures/<game>/ (or the game's disc serial, or Textures/
 //     itself for a mod of one game): replacement pictures for the GPU
-//     renderer, PCSX2's names or .xtp packs (PS2X_TEXTURE_PACKS);
+//     renderer, PCSX2's names or .xtp packs (ZX_TEXTURE_PACKS);
 //   - a map: a [map] section in mod.ini (map.ini's keys, collection/maps.h)
 //     or a map.ini: a custom map for Custom Freeplay, read by no other boot.
 // Files, tuning and maps change game logic; music and textures never do
@@ -53,7 +55,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::app
+namespace zx::app
 {
     constexpr const char *kModManifestFile = "mod.ini";
     // The collection's Mods folder, in its support folder.
@@ -105,6 +107,10 @@ namespace ps2x::app
         // not ("Off", "needs base-pack"...).
         bool read = true;
         std::string why;
+        // In a game's list, once checkArchiveEntries has looked: the entries
+        // it gives the game's archives that are not read, a line each
+        // ("ASSETS/UILIB.ZAL has no entry Foo.zsc").
+        std::vector<std::string> entriesNotRead;
 
         // The order's key: where it is ("Mods/hd.zip", "games/ai/Mods/10-park").
         std::string orderKey() const;
@@ -123,6 +129,12 @@ namespace ps2x::app
     // there is no Mods folder.
     std::vector<Mod> listMods(const std::filesystem::path &modsRoot, const std::filesystem::path &discRoot,
                               const std::vector<std::string> &off = {}, std::string_view game = {});
+    // The custom maps of a game's own Mods folder (`modsRoot`, games/<game>/
+    // Mods: the folders and zips listMods leaves out for their map.ini or
+    // their mod.ini's [map] section), in name order, each where it is
+    // ("games/ai/Mods/park"); a description that names no game is `game`'s,
+    // one that does not parse is left out (collection/maps.h).
+    std::vector<CustomMap> listGameMaps(const std::filesystem::path &modsRoot, std::string_view game);
     // The collection's Mods folder's mods (`sharedRoot`), maps among them, in
     // name order; one with the id of one before it gets a problem.
     std::vector<Mod> listSharedMods(const std::filesystem::path &sharedRoot);
@@ -142,18 +154,28 @@ namespace ps2x::app
                                  const std::vector<std::string> &order, const std::vector<std::string> &off);
 
     // The folders a game's file system reads, lowest first: the Mods folder
-    // itself, then each mod's that it reads (PS2X_MODS_DIR's text: modsText).
+    // itself, then each mod's that it reads (ZX_MODS_DIR's text: modsText).
     std::vector<std::filesystem::path> modsRoots(const std::filesystem::path &modsRoot, const std::vector<Mod> &mods);
+    // For each mod of a game's list that it reads, the single archive
+    // entries it gives that the game does not read (Mod::entriesNotRead): an
+    // entry the archive has not (as the game's disc at `discRoot` has it,
+    // with the mods before it on it), an archive the disc has not, one in a
+    // folder of its own. `modsRoot`: the game's Mods folder (modsRoots').
+    void checkArchiveEntries(std::vector<Mod> &mods, const std::filesystem::path &modsRoot, const std::filesystem::path &discRoot);
+
     // The texture folder a mod gives a game (Textures/<game>, the game's disc
     // serial, or Textures itself for a mod of that game alone), empty for none.
     std::filesystem::path modTextureFolder(const Mod &mod, std::string_view game);
     // The texture folders of the mods a game reads, lowest first
-    // (PS2X_TEXTURE_PACKS's text: modsText).
+    // (ZX_TEXTURE_PACKS's text: modsText).
     std::vector<std::filesystem::path> texturePacks(const std::vector<Mod> &mods, std::string_view game);
 
     // What wins where two mods a game reads have the same thing: a disc file
-    // (its path), a song (its number), tuning.ini, a texture (its file name):
-    // the later mod's. For each mod of the list (by index), the things it
+    // (its path), an archive's entry (its archive and its id, whatever name
+    // gives it), a song (its number), tuning.ini, a texture (its file name):
+    // the later mod's. A mod's whole archive later than another's entries of
+    // it wins over them too (entries later than a whole archive are put in
+    // it: both count). For each mod of the list (by index), the things it
     // has, and the mods it wins over and loses to, with how many each.
     struct ModOverlap
     {

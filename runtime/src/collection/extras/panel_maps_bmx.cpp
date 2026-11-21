@@ -17,7 +17,7 @@
 #include <set>
 #include <variant>
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     namespace
     {
@@ -723,10 +723,9 @@ namespace ps2x::app::extras::panel_maps
         }
 
         // A level's file: its map, and its challenges as OBJCTV.TXT lists them.
-        void buildLevel(const SourceFiles &disc, const std::string &code, const std::string &folder, const std::string &title,
-                        const Bytes &geo, const std::unordered_map<uint32_t, ByteView> &tables,
-                        const std::unordered_map<uint32_t, std::string> &commonTexts, const std::filesystem::path &out,
-                        std::vector<std::string> &log)
+        Bytes levelBytes(const SourceFiles &disc, const std::string &code, const std::string &folder, const std::string &title,
+                         const Bytes &geo, const std::unordered_map<uint32_t, ByteView> &tables,
+                         const std::unordered_map<uint32_t, std::string> &commonTexts, std::vector<std::string> &log)
         {
             const std::string path = "ASSETS/LEVELS/" + folder + "/" + folder + ".";
             std::unordered_map<uint32_t, std::string> texts = commonTexts;
@@ -747,9 +746,54 @@ namespace ps2x::app::extras::panel_maps
             log.push_back(formatted("%s: %d objectives, %d goals, %d placed, %d targets, %d givers", folder.c_str(),
                                  int(objectives.size()), goals.shown, goals.placed, goals.targets, goals.givers));
             std::string line;
-            writeMade(out / (folder + ".pmap"), dm2FormatLevelFile(geo, ins, folder, title, goals.bytes, goals.shown, false, line));
+            Bytes file = dm2FormatLevelFile(geo, ins, folder, title, goals.bytes, goals.shown, false, line);
             log.push_back(line);
+            return file;
         }
+
+        void buildLevel(const SourceFiles &disc, const std::string &code, const std::string &folder, const std::string &title,
+                        const Bytes &geo, const std::unordered_map<uint32_t, ByteView> &tables,
+                        const std::unordered_map<uint32_t, std::string> &commonTexts, const std::filesystem::path &out,
+                        std::vector<std::string> &log)
+        {
+            writeMade(out / (folder + ".pmap"), levelBytes(disc, code, folder, title, geo, tables, commonTexts, log));
+        }
+
+        // The string tables: every table of STRING.ZAL by its name's hash,
+        // and the common one's texts.
+        struct StringTables
+        {
+            Bytes archive;
+            std::unordered_map<uint32_t, ByteView> tables;
+            std::unordered_map<uint32_t, std::string> common;
+        };
+
+        void readStringTables(const SourceFiles &disc, StringTables &out)
+        {
+            out.archive = needFile(disc, "ASSETS/STRING.ZAL");
+            out.tables = zdirNamed(out.archive);
+            const auto common = out.tables.find(dm2::nameHash(kCommonStrings));
+            if (common == out.tables.end())
+                throw PanelError("BMX XXX's string tables have no common one");
+            out.common = dm2Strings(common->second);
+        }
+    }
+
+    Bytes bmxXxxMapFile(const SourceFiles &files, const std::string &folder, const std::string &title, std::vector<std::string> &log)
+    {
+        const Elf elf(needFile(files, "SLUS_204.15"));
+        StringTables strings;
+        readStringTables(files, strings);
+        // the row's level code (its strings' table) from the level table
+        std::string code;
+        for (uint32_t row = 0; row < kLevelRows && code.empty(); ++row)
+        {
+            const uint32_t at = kLevelTable + row * kLevelRowBytes;
+            if (upperAscii(elf.text(elf.word(at + 4))) == upperAscii(folder))
+                code = elf.text(elf.word(at));
+        }
+        const Bytes geo = needFile(files, "ASSETS/LEVELS/" + folder + "/" + folder + ".GEO");
+        return levelBytes(files, code, folder, title, geo, strings.tables, strings.common, log);
     }
 
     void makeBmxXxxMaps(const SourceFiles &disc, const PanelExtras &extras, const std::filesystem::path &out,
@@ -757,12 +801,10 @@ namespace ps2x::app::extras::panel_maps
     {
         const Elf elf(needFile(disc, "SLUS_204.15"));
         making("UI.pmap", [&] { buildUi(disc, elf, out, log); });
-        const Bytes stringArchive = needFile(disc, "ASSETS/STRING.ZAL");
-        const std::unordered_map<uint32_t, ByteView> tables = zdirNamed(stringArchive);
-        const auto common = tables.find(dm2::nameHash(kCommonStrings));
-        if (common == tables.end())
-            throw PanelError("BMX XXX's string tables have no common one");
-        const std::unordered_map<uint32_t, std::string> commonTexts = dm2Strings(common->second);
+        StringTables strings;
+        readStringTables(disc, strings);
+        const std::unordered_map<uint32_t, ByteView> &tables = strings.tables;
+        const std::unordered_map<uint32_t, std::string> &commonTexts = strings.common;
         for (uint32_t row = 0; row < kLevelRows; ++row)
         {
             const uint32_t at = kLevelTable + row * kLevelRowBytes;

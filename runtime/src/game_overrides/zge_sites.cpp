@@ -13,7 +13,7 @@ namespace zge_host::sites
 {
     void seen(const char *site)
     {
-        static const bool on = [] { const char *v = std::getenv("PS2X_HOOK_SITES"); return v && v[0] == '1'; }();
+        static const bool on = [] { const char *v = std::getenv("ZX_HOOK_SITES"); return v && v[0] == '1'; }();
         if (!on)
             return;
         static std::mutex mutex;

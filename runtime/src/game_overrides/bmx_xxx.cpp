@@ -3,7 +3,7 @@
 // so nothing here runs for any other game.
 //
 // The readable game for BMX's registrations (with the call recorder,
-// PS2X_FNREC, and the profiler, PS2X_FNPROF), the host's controls for this
+// ZX_FNREC, and the profiler, ZX_FNPROF), the host's controls for this
 // game, then the native services that replace the IOP's modules: disc files
 // and movies (bmx_xxx_native.cpp) and the ZAudio sound driver
 // (bmx_xxx_sound.cpp). Pad and memory card are HLE on the EE (scePad*,
@@ -48,17 +48,17 @@ namespace bmx_xxx
         installNativeSaves(runtime);
         installReleases(runtime);
         zge_host::xbox_textures::install(runtime, game::Game::Bmx); // the extras' Xbox textures (Settings > Graphics)
-        installGsTextureAudit(runtime); // developers, PS2X_GSMEM_AUDIT=1
-        installDevStart(runtime); // PS2X_DEV_START_LEVEL: developers, Custom Freeplay
+        installGsTextureAudit(runtime); // developers, ZX_GSMEM_AUDIT=1
+        installDevStart(runtime); // ZX_DEV_START_LEVEL: developers, Custom Freeplay
         installAllMultiplayerModes(runtime);
-        installLevelNpcs(runtime); // PS2X_BMX_LEVEL_NPCS=0: a Custom Freeplay map without the slot's NPC riders
+        installLevelNpcs(runtime); // ZX_BMX_LEVEL_NPCS=0: a Custom Freeplay map without the slot's NPC riders
         panel_state::install(); // the Thor's bottom screen reads BMX XXX's state (bmx_xxx_panel.cpp)
         // The GPU renderer may keep its 16-bit Z buffers as D16 targets (the
         // Depth Test setting's Fast, gs_gpu_backend.cpp depth16) on the strict
         // path: BMX XXX's native meshes (from the draw records, the default)
         // need a float Z for their precise depth.
-        if (!installNativeDraw(runtime) && !ps2x::boot::text("PS2X_GS_D16_TARGETS"))
-            ps2x::boot::change("PS2X_GS_D16_TARGETS", "1");
+        if (!installNativeDraw(runtime) && !zx::boot::text("ZX_GS_D16_TARGETS"))
+            zx::boot::change("ZX_GS_D16_TARGETS", "1");
         // The eight IRX modules BMX loads (the same as AI's). Pad and memory
         // card are HLE on the EE: the game never binds PADMAN's or MCSERV's
         // RPC servers.
@@ -75,14 +75,14 @@ namespace bmx_xxx
                 skipped.push_back("LIBSD.IRX");
         }
         // Every IRX the game loads skipped: nothing to run on the IOP
-        // (PS2X_IOP=1 keeps it running anyway).
+        // (ZX_IOP=1 keeps it running anyway).
         const bool iopIdle = skipped.size() == 8u;
         runtime.setSkippedIopModules(std::move(skipped));
-        const char *iop = std::getenv("PS2X_IOP");
+        const char *iop = std::getenv("ZX_IOP");
         if (iopIdle && !(iop && iop[0] == '1'))
         {
             runtime.setIopStopped(true);
-            std::cout << "[bmx-xxx] the IOP is not run: nothing the game uses is on it (PS2X_IOP=1 runs it)" << std::endl;
+            std::cout << "[bmx-xxx] the IOP is not run: nothing the game uses is on it (ZX_IOP=1 runs it)" << std::endl;
         }
     }
 }

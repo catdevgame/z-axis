@@ -1,11 +1,11 @@
 # recompile.ps1 [-Ai IMAGE] [-Dm2 IMAGE] [-Bmx IMAGE]: each game's code made from your own disc, before the first app
 # build (README "Building"), as recompile.sh does on the Mac:
 #   1. its boot ELF taken from the disc image (any game in any format: an ISO, a BIN/CUE dump by its CUE or BIN, a
-#      CHD, a CSO or a ZSO, read by the app's own reader, ps2x_disc) into its workspace's extracted\ (tooling\ai,
+#      CHD, a CSO or a ZSO, read by the app's own reader, zx-disc) into its workspace's extracted\ (tooling\ai,
 #      tooling\dm2), and checked to be the USA release the code is for;
 #   2. its recompiler config made (recomp\tools\make-config.py) and the recompiler run: recomp\generated (AI),
 #      recomp\generated-ns (DM2, the collection's namespaced code).
-# ps2_recomp and ps2x_disc are built first when -Build (default <checkout>\out\build-recomp) has them not, with
+# ps2_recomp and zx-disc are built first when -Build (default <checkout>\out\build-recomp) has them not, with
 # Visual Studio 2022's clang-cl, CMake and Ninja (found with vswhere; no developer prompt needed).
 # BMX XXX's is its workspace's one step, bmx\recomp\recompile.py (its ELF, configs, code, VU0 upload and VU1 image).
 param(
@@ -41,14 +41,14 @@ cmd /c "`"$vs\VC\Auxiliary\Build\vcvars64.bat`" >nul && set" | ForEach-Object {
 }
 
 $recomp = Join-Path $Build "recompiler\ps2xRecomp\ps2_recomp.exe"
-$disc = Join-Path $Build "ps2xIOP\ps2x_disc.exe"
+$disc = Join-Path $Build "iop\zx-disc.exe"
 if (-not (Test-Path $recomp) -or -not (Test-Path $disc)) {
     Say "building the recompiler and the disc reader in $Build (the first time fetches their sources)"
     New-Item -ItemType Directory -Force (Split-Path -Parent $Build) | Out-Null
     & cmake -S $ZAxis -B $Build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl `
-        -DCMAKE_LINKER=lld-link -DPS2X_BUILD_RUNTIME=OFF -DPS2X_BUILD_TEST=OFF *> "$Build.log"
+        -DCMAKE_LINKER=lld-link -DZX_BUILD_RUNTIME=OFF -DZX_BUILD_TEST=OFF *> "$Build.log"
     if ($LASTEXITCODE -ne 0) { Die "configure failed: $Build.log" }
-    & ninja -C $Build ps2_recomp ps2x_disc *>> "$Build.log"
+    & ninja -C $Build ps2_recomp zx-disc *>> "$Build.log"
     if ($LASTEXITCODE -ne 0) { Die "the recompiler did not build: $Build.log" }
 }
 
@@ -91,7 +91,7 @@ foreach ($g in $games) {
 }
 if ($Bmx) {
     if (-not (Test-Path $Bmx)) { Die "bmx: no disc image $Bmx" }
-    # (its ELF through ps2x_disc, as the others', so any format reads, into BMX_RECOMP's extracted\ beside it, where
+    # (its ELF through zx-disc, as the others', so any format reads, into BMX_RECOMP's extracted\ beside it, where
     # make-windows.ps1 looks for it, as recompile.sh's; recompile.py checks its SHA-256)
     $bmxRecomp = (Py @("-I", "-c", "import sys; sys.path.insert(0, sys.argv[1]); import zpaths; print(zpaths.PATHS['BMX_RECOMP'])", $Tooling) | Select-Object -Last 1)
     if ($LASTEXITCODE -ne 0 -or -not $bmxRecomp) { Die "bmx: no BMX_RECOMP from paths.env (zpaths.py)" }

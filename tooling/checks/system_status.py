@@ -14,7 +14,7 @@ first two path parts: zge/render, aggressive/skater, dm2/rider; a game folder's 
   status        Verified / Tested / Draft (the registration, or game/<game>/symbols_status.tsv, Draft without a row)
                 and generated (level 1, READABLE_PLANNED, a Planned row, or unbound)
   shape         per-game difference, per function: one body (level 2, no game test in it), small difference (level 2
-                with kIs*, perGame, READABLE_PARAM/RESULT/RETURN_*, #if PS2X_GAME, if constexpr in the body), own
+                with kIs*, perGame, READABLE_PARAM/RESULT/RETURN_*, #if ZX_GAME, if constexpr in the body), own
                 body (READABLE_*_OWN), version only (READABLE_*_ONLY), game own (a game folder's function with no
                 registered AI counterpart), game copy (a game folder's function whose AI counterpart is registered and
                 the pair identical, same or close), game drifted (the same with a drifted or weaker pair)
@@ -72,7 +72,7 @@ SHAPES = ('one body', 'small difference', 'own body', 'version only', 'game own'
 SAME_CLASSES = ('identical', 'same', 'close')   # a counterpart pair's classes that are the same logic (workdb counterparts)
 
 GAME_TEST = re.compile(r'\bkIs(?:Dm2|Bmx|Ai)\b|\bkInstanceGame\b|\bperGame\s*\(|\bREADABLE_(?:PARAM|RESULT|RETURN)_(?:ONLY|EXCEPT)\b'
-                       r'|^\s*#\s*if.*PS2X_GAME|\bif\s+constexpr\b', re.M)
+                       r'|^\s*#\s*if.*ZX_GAME|\bif\s+constexpr\b', re.M)
 OWN = re.compile(r'^\s*READABLE_FUNCTION(?:_WAITS|_VU0)?_OWN\(([^)]*)\)', re.M)
 PROBES = {
     'resume_points': re.compile(r'\bpoints::\w+::\w+|\bhere::\w+'),
@@ -236,7 +236,7 @@ def workdb(sql, python):
 
 def held_unknown(build_dir):
     """{(game, function address): distinct sites} where the held table gives the entry value."""
-    path = os.path.join(build_dir, 'ps2xRuntime', 'fncheck_build', 'readable_held_unknown.tsv')
+    path = os.path.join(build_dir, 'runtime', 'fncheck_build', 'readable_held_unknown.tsv')
     sites = collections.defaultdict(set)
     for line in open(path):
         if line.startswith('#'):
@@ -440,7 +440,7 @@ def main():
     ap.add_argument('--json', help='write every count (and every function row) here')
     ap.add_argument('--build', help="a build dir whose fncheck_build/readable_held_unknown.tsv to read (the tree's build)")
     # (the tree's own tables, runtime/tools/bind since tools39; the shared folder for a tree from before)
-    ap.add_argument('--bind', default=os.environ.get('PS2X_BIND_DIR') or (os.path.join(ztree.TOOLS, 'bind') if os.path.isfile(
+    ap.add_argument('--bind', default=os.environ.get('ZX_BIND_DIR') or (os.path.join(ztree.TOOLS, 'bind') if os.path.isfile(
         os.path.join(ztree.TOOLS, 'bind', 'dm2.tsv')) else os.path.join(
         os.environ.get('ZAXIS_SCRATCH') or SCRATCH_ROOT, 'workdb', 'bind')))
     ap.add_argument('--no-workdb', action='store_true')

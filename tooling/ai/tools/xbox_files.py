@@ -11,7 +11,7 @@ XDVDFS volume at 0x10000) or a full image with the game partition at a known
 offset. Python 3.8+, standard library only (Windows build machine too).
 
 bundle: the files the port reads at run time (runtime/ps2_xbox_disc.h: the
-app sets PS2X_XBOX_DIR to Resources/xbox) into <out>/assets/..., as listed
+app sets ZX_XBOX_DIR to Resources/xbox) into <out>/assets/..., as listed
 in tools/xbox-files.txt (paths relative to media/assets, `*` and `?`
 allowed, any case), and the Zoo's level-select flythrough as an MPEG-2 PSM
 like the PS2's (Movies/Flythrus/ZOO.PSM, 512x256, made with ffmpeg if there

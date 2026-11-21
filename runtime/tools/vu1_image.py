@@ -3,10 +3,10 @@
 
     vu1_image.py --game bmx --elf SLUS_204.15 --out-dir RECOMP/generated-vu1
 
-The build makes the VU1 ahead-of-time code (runtime/CMakeLists.txt, PS2X_VU1_AOT_DIR and
-PS2X_VU1_AOT_EXTRA_DIRS) from the micro memory images in a folder, <hash>.vu1code: the 16 KiB VU1 runs,
+The build makes the VU1 ahead-of-time code (runtime/CMakeLists.txt, ZX_VU1_AOT_DIR and
+ZX_VU1_AOT_EXTRA_DIRS) from the micro memory images in a folder, <hash>.vu1code: the 16 KiB VU1 runs,
 named by its FNV-1a hash (VU1Interpreter::codeHash), which the generated code registers under. A run
-with PS2X_VU1_CODE_DUMP writes the same file (tools/VU1_AOT.md); this one needs no run.
+with ZX_VU1_CODE_DUMP writes the same file (tools/VU1_AOT.md); this one needs no run.
 
 The renderer's set-up sends VU1 its microprograms once (loadMicroprograms, initRenderer):
 dmaSendChain(1, codeEnd, 837, 0), a DMA chain with CHCR.TTE (0x40 of 837), so VIF1 gets each tag's

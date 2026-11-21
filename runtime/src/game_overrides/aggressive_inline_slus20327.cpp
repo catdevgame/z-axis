@@ -31,7 +31,6 @@
 #include "runtime/ps2_session.h"
 #include "runtime/ps2_texture_replace.h"
 #include "runtime/ee_time.h"
-#include "../game/zge/host/game_pose.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -166,7 +165,7 @@ namespace
         bool viewTurned = false;         // mouse-look has turned the view (the game's camera is the hidden one since)
         bool traceMouseLook = false;
     };
-    MouseLook &mouseLookState() { return ps2x::session::state<MouseLook>(); }
+    MouseLook &mouseLookState() { return zx::session::state<MouseLook>(); }
 
     template <size_t N>
     bool readFloats(uint8_t *rdram, uint32_t address, float (&out)[N])
@@ -316,7 +315,7 @@ namespace
     // the pad's stick and no mouse-look, outside the game's EE time
     // (ee_time.h) and with every byte it writes put back (the records, the
     // EE's registers, the stack below it). Its pose is the game's own camera
-    // (zge/host/game_pose.h keepGamePose, after the camera object's own update): the engine's culling, regions and
+    // (runtime/ps2_game_pose.h, after the camera object's own update): the engine's culling, regions and
     // the effects' range go by it, while the player's camera runs after it
     // as before, with its wall collision, and is drawn. A change made to the
     // records between frames (a cut, a mode, a scripted eye) is made to the
@@ -329,127 +328,55 @@ namespace
     // frame's stale objects run after the camera's update: the hidden camera's pose is the one it leaves.
     constexpr uint32_t kUpdateObjectCamera = 0x0015DEA8u;
     constexpr uint32_t kCameraRecordBytes = 0x510;
-    constexpr uint32_t kCameraFromWorld = 0x70, kCameraToWorld = 0xB0; // fromWorld; right .. position
-    constexpr uint32_t kHiddenStackBytes = 0x4000; // below the caller's sp
-    constexpr int kRegSpHidden = 29;
 
-    struct HiddenCamera
-    {
-        // Each kept block: the hidden camera's, and the player's as its run left it (to see what changed since).
-        struct Block
-        {
-            uint32_t address = 0, size = 0;
-            std::vector<uint8_t> hidden, playerAfter;
-        };
-        Block follow, object, camera;
-        bool valid = false;
-    };
     struct HiddenCameras
     {
-        std::unordered_map<uint32_t, HiddenCamera> byFollowCamera;
+        std::unordered_map<uint32_t, zge_host::view::CameraTwin> byFollowCamera; // blocks: record, object, camera record
         PS2Runtime::RecompiledFunction updateObjectCamera = nullptr;
+        PS2Runtime::RecompiledFunction behindCamera = nullptr;
         bool running = false; // the hidden camera is running
     };
-    HiddenCameras &hiddenCameras() { return ps2x::session::state<HiddenCameras>(); }
+    HiddenCameras &hiddenCameras() { return zx::session::state<HiddenCameras>(); }
 
-    bool copyOut(const uint8_t *rdram, uint32_t address, uint32_t size, std::vector<uint8_t> &out)
+    // `update`: the camera mode's frame the hidden camera runs (updateFollowCamera's, without mouse-look, or
+    // updateBehindCamera's).
+    void runHiddenCamera(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime, uint32_t followCamera,
+                         PS2Runtime::RecompiledFunction update)
     {
-        const uint8_t *p = getConstMemPtr(rdram, address);
-        if (!p || getConstMemPtr(rdram, address + size - 1u) != p + size - 1u)
-            return false;
-        out.assign(p, p + size);
-        return true;
-    }
-    void copyIn(uint8_t *rdram, uint32_t address, const std::vector<uint8_t> &in)
-    {
-        if (uint8_t *p = getMemPtr(rdram, address))
-            std::memcpy(p, in.data(), in.size());
-    }
-
-    // The block's hidden bytes with every byte the game changed since the
-    // player's camera ran (`now` against playerAfter) taken from now.
-    void takeChanges(HiddenCamera::Block &block, const std::vector<uint8_t> &now)
-    {
-        for (size_t i = 0; i < now.size(); ++i)
-            if (now[i] != block.playerAfter[i])
-                block.hidden[i] = now[i];
-    }
-
-    void runHiddenCamera(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime, uint32_t followCamera)
-    {
-        HiddenCamera &h = hiddenCameras().byFollowCamera[followCamera];
+        zge_host::view::CameraTwin &twin = hiddenCameras().byFollowCamera[followCamera];
         uint32_t object = 0, camera = 0;
         if (!readU32(rdram, followCamera + kCameraNode, object) || !object || !readU32(rdram, object + kSceneObjectScene, camera) ||
             !camera)
             return;
-        HiddenCamera::Block *blocks[3] = {&h.follow, &h.object, &h.camera};
-        const uint32_t addresses[3] = {followCamera, object, camera};
-        const uint32_t sizes[3] = {kFollowCameraBytes, kSceneObjectBytes, kCameraRecordBytes};
-        std::vector<uint8_t> player[3];
-        for (int i = 0; i < 3; ++i)
-            if (!copyOut(rdram, addresses[i], sizes[i], player[i]))
-                return;
-        const bool same = h.valid && h.object.address == object && h.camera.address == camera;
-        for (int i = 0; i < 3; ++i)
-        {
-            HiddenCamera::Block &b = *blocks[i];
-            if (!same)
-            {
-                // From the player's camera as it is now (both are the game's at a level's start).
-                b.address = addresses[i], b.size = sizes[i];
-                b.hidden = player[i];
-                b.playerAfter = player[i];
-            }
-            else
-                takeChanges(b, player[i]);
-        }
-        if (!same)
+        if (twin.track(rdram, {{followCamera, kFollowCameraBytes}, {object, kSceneObjectBytes}, {camera, kCameraRecordBytes}}))
         {
             // The camera's set-up (initFollowCamera) gave it the table's Camera / Distance: the hidden one starts at
             // the game's own.
+            std::vector<uint8_t> &follow = twin.blocks()[0].hidden;
             float game = 0.0f, now = 0.0f, distance = 0.0f;
             aggressive_inline::cameraDistance(rdram, game, now);
-            std::memcpy(&distance, h.follow.hidden.data() + kFollowCameraDistance, sizeof(distance));
+            std::memcpy(&distance, follow.data() + kFollowCameraDistance, sizeof(distance));
             if (now != 0.0f && distance == now)
-                std::memcpy(h.follow.hidden.data() + kFollowCameraDistance, &game, sizeof(game));
+                std::memcpy(follow.data() + kFollowCameraDistance, &game, sizeof(game));
         }
-        h.valid = true;
-
-        // The hidden run, everything it writes put back after.
-        const R5900Context keptContext = *ctx;
-        const uint32_t sp = getRegU32(ctx, kRegSpHidden);
-        std::vector<uint8_t> keptStack;
-        const bool stackKept = copyOut(rdram, sp - kHiddenStackBytes, kHiddenStackBytes, keptStack);
-        for (int i = 0; i < 3; ++i)
-            copyIn(rdram, addresses[i], blocks[i]->hidden);
-        aggressive_inline::holdGameCameraTuning(rdram, true);
-        {
-            ee_time::Held held;
+        if (!twin.valid())
+            return;
+        twin.run(rdram, ctx, [&] {
+            aggressive_inline::holdGameCameraTuning(rdram, true);
             MouseLook &m = mouseLookState();
             const uint32_t outer = m.followCameraRunning;
             m.followCameraRunning = 0; // (the stick's own look-around: no mouse-look)
             hiddenCameras().running = true;
-            m.followCamera(rdram, ctx, runtime);
+            update(rdram, ctx, runtime);
             // (the camera object's update after it, as the frame's stale objects run it: the record from its place)
             SET_GPR_U32(ctx, kRegA0, object);
-            if (hiddenCameras().updateObjectCamera)
-                hiddenCameras().updateObjectCamera(rdram, ctx, runtime);
+            hiddenCameras().updateObjectCamera(rdram, ctx, runtime);
             hiddenCameras().running = false;
             m.followCameraRunning = outer;
-        }
-        aggressive_inline::holdGameCameraTuning(rdram, false);
-        for (int i = 0; i < 3; ++i)
-            copyOut(rdram, addresses[i], sizes[i], blocks[i]->hidden);
+            aggressive_inline::holdGameCameraTuning(rdram, false);
+        });
         // Its pose: the game's own camera this frame (taken by the camera's frustum).
-        zge::host::GamePose pose{};
-        std::memcpy(&pose.toWorld, h.camera.hidden.data() + kCameraToWorld, sizeof(pose.toWorld));
-        std::memcpy(&pose.fromWorld, h.camera.hidden.data() + kCameraFromWorld, sizeof(pose.fromWorld));
-        zge::host::keepGamePose(camera, pose);
-        for (int i = 0; i < 3; ++i)
-            copyIn(rdram, addresses[i], player[i]);
-        if (stackKept)
-            copyIn(rdram, sp - kHiddenStackBytes, keptStack);
-        *ctx = keptContext;
+        zge_host::view::keepTwinPose(camera, twin.blocks()[2].hidden);
     }
 
     // The camera object's update (after the player's camera ran, however its
@@ -463,10 +390,12 @@ namespace
         hc.updateObjectCamera(rdram, ctx, runtime);
         if (hc.running)
             return;
-        for (auto &[followCamera, h] : hc.byFollowCamera)
-            if (h.valid && h.object.address == object)
-                for (HiddenCamera::Block *b : {&h.follow, &h.object, &h.camera})
-                    copyOut(rdram, b->address, b->size, b->playerAfter);
+        for (auto &[followCamera, twin] : hc.byFollowCamera)
+            if (twin.valid() && twin.blockAt(object))
+            {
+                twin.notePlayer(rdram);
+                zge_host::view::noteTwinPlayer(rdram, twin.blocks()[2].address, object);
+            }
     }
 
     void dropHiddenCamera(uint32_t followCamera)
@@ -474,8 +403,8 @@ namespace
         auto found = hiddenCameras().byFollowCamera.find(followCamera);
         if (found == hiddenCameras().byFollowCamera.end())
             return;
-        if (found->second.valid)
-            zge::host::dropGamePose(found->second.camera.address);
+        if (found->second.valid() && found->second.blocks().size() == 3)
+            zge_host::view::dropTwinPose(found->second.blocks()[2].address);
         hiddenCameras().byFollowCamera.erase(found);
     }
 
@@ -488,13 +417,28 @@ namespace
         const uint32_t followCamera = getRegU32(ctx, kRegA0);
         const bool hidden = aggressive_inline::cameraTuningChanged() || m.viewTurned;
         if (hidden)
-            runHiddenCamera(rdram, ctx, runtime, followCamera);
+            runHiddenCamera(rdram, ctx, runtime, followCamera, m.followCamera);
         else
             dropHiddenCamera(followCamera);
         const uint32_t outer = m.followCameraRunning;
         m.followCameraRunning = followCamera;
         m.followCamera(rdram, ctx, runtime);
         m.followCameraRunning = outer;
+    }
+
+    // The Behind camera type's frame (CameraMode::Behind: the eye straight
+    // behind the skater by Camera / Distance and Height): its hidden twin
+    // the same way.
+    constexpr uint32_t kBehindCamera = 0x0018E078u; // updateBehindCamera
+    void behindCameraHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+    {
+        HiddenCameras &hc = hiddenCameras();
+        const uint32_t followCamera = getRegU32(ctx, kRegA0);
+        if (!hc.running && (aggressive_inline::cameraTuningChanged() || mouseLookState().viewTurned))
+            runHiddenCamera(rdram, ctx, runtime, followCamera, hc.behindCamera);
+        else if (!hc.running)
+            dropHiddenCamera(followCamera);
+        hc.behindCamera(rdram, ctx, runtime);
     }
 
     void cameraStickAccessor(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
@@ -527,7 +471,9 @@ namespace
         mouseLookState().stickAccessor = runtime.lookupFunction(kStickAccessor);
         mouseLookState().followCamera = runtime.lookupFunction(kFollowCamera);
         hiddenCameras().updateObjectCamera = runtime.lookupFunction(kUpdateObjectCamera);
+        hiddenCameras().behindCamera = runtime.lookupFunction(kBehindCamera);
         if (!mouseLookState().stickAccessor || !mouseLookState().followCamera || !hiddenCameras().updateObjectCamera ||
+            !hiddenCameras().behindCamera || !runtime.replaceFunction(kBehindCamera, &behindCameraHook) ||
             !runtime.replaceFunction(kStickAccessor, &cameraStickAccessor) ||
             !runtime.replaceFunction(kFollowCamera, &followCameraHook) ||
             !runtime.replaceFunction(kUpdateObjectCamera, &updateObjectCameraHook))
@@ -535,7 +481,7 @@ namespace
             std::cerr << "[aggressive-inline] mouse-look hook not installed" << std::endl;
             return;
         }
-        const char *trace = std::getenv("PS2X_TRACE_MOUSELOOK");
+        const char *trace = std::getenv("ZX_TRACE_MOUSELOOK");
         mouseLookState().traceMouseLook = trace && trace[0] == '1';
     }
 
@@ -557,7 +503,7 @@ namespace
     //    Score) or InGameUI/OverlayToggle (xpIndicator, Timer, SecondaryScore,
     //    CrashMessage; TrickList and the balance meters are in the middle) or
     //    the game-over score (PauseMenus/Death/Score).
-    // PS2X_TRACE_WIDESCREEN=1 logs the game mode's changes.
+    // ZX_TRACE_WIDESCREEN=1 logs the game mode's changes.
     constexpr uint32_t kProjection = 0x00101BB0u;
     constexpr uint32_t kSinCos = 0x00136CB0u;
     constexpr uint32_t kFrustum = 0x00101680u;
@@ -665,13 +611,13 @@ namespace
         // (runtime/ps2_session.h) and take back what they registered with
         // the host when the game is left; the disc patches and the pad
         // state they set go here.
-        ps2x::session::onEnd([]()
+        zx::session::onEnd([]()
                              {
-                                 ps2x::disc_patch::removePatches("ai");
+                                 zx::disc_patch::removePatches("ai");
                                  // Every texture replacement is this game's (the Xbox
                                  // packs, converted pictures, movie frames).
-                                 ps2x::texture_replace::clear();
-                                 ps2x::texture_replace::setEnabled(true);
+                                 zx::texture_replace::clear();
+                                 zx::texture_replace::setEnabled(true);
                                  PSPadBackend::setOverrideButtons(0u);
                                  PSPadBackend::setFreeInput(false);
                                  PSPadBackend::setMenuMouse(false);
@@ -717,7 +663,7 @@ namespace
         // with native movies nothing to SDRDRV (it only played movie sound).
         std::vector<std::string> skipped{"SIO2MAN.IRX", "PADMAN.IRX", "MCMAN.IRX", "MCSERV.IRX"};
         zge_host::xbox_textures::install(runtime, game::Game::Ai);
-        aggressive_inline::installGsTextureAudit(runtime); // developers, PS2X_GSMEM_AUDIT=1
+        aggressive_inline::installGsTextureAudit(runtime); // developers, ZX_GSMEM_AUDIT=1
         aggressive_inline::installNativeDraw(runtime);
         // Collision on host data: the host parts get the words AI's level setup writes at load.
         zge::native::setLevelSetupStep(&aggressive::applyLevelSetupOnHost);
@@ -734,14 +680,14 @@ namespace
                 skipped.push_back("LIBSD.IRX");
         }
         // Every IRX the game loads skipped: the IOP has nothing to run
-        // (PS2X_IOP=1 keeps it running anyway).
+        // (ZX_IOP=1 keeps it running anyway).
         const bool iopIdle = skipped.size() == 8u;
         runtime.setSkippedIopModules(std::move(skipped));
-        const char *iop = std::getenv("PS2X_IOP");
+        const char *iop = std::getenv("ZX_IOP");
         if (iopIdle && !(iop && iop[0] == '1'))
         {
             runtime.setIopStopped(true);
-            std::cout << "[aggressive-inline] the IOP is not run: nothing the game uses is on it (PS2X_IOP=1 runs it)" << std::endl;
+            std::cout << "[aggressive-inline] the IOP is not run: nothing the game uses is on it (ZX_IOP=1 runs it)" << std::endl;
         }
         std::cout << "[aggressive-inline] override applied (" << std::size(kBindings) << " bindings)" << std::endl;
     }

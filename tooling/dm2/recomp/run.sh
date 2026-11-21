@@ -7,18 +7,18 @@
 R=${0:A:h}
 SECS=${1:-20}; NAME=${2:-run}
 SCRATCH=${DM2_SCRATCH:-/tmp/ai-dm2}
-source ${R:h:h}/paths.sh   # the shared environment (no sound: ZAXIS_AUDIO)
+source ${R:h:h}/paths.sh   # the shared environment (no sound: ZX_AUDIO)
 mkdir -p $SCRATCH/home $SCRATCH/mc0 $SCRATCH/mc1 $R/logs $R/run
 cd $R/run
 export HOME=$SCRATCH/home
-export PS2X_APP_SUPPORT_DIR=$SCRATCH/home/support
-export PS2X_APP_LOG_DIR=$SCRATCH/home/logs
-export PS2X_DEBUG_UI=${PS2X_DEBUG_UI:-0}
-export PS2X_MC_ROOT=${PS2X_MC_ROOT:-$SCRATCH/mc0}
-export PS2X_GS_BACKEND=${PS2X_GS_BACKEND:-cpu}
+export ZX_APP_SUPPORT_DIR=$SCRATCH/home/support
+export ZX_APP_LOG_DIR=$SCRATCH/home/logs
+export ZX_DEBUG_UI=${ZX_DEBUG_UI:-0}
+export ZX_MC_ROOT=${ZX_MC_ROOT:-$SCRATCH/mc0}
+export ZX_GS_BACKEND=${ZX_GS_BACKEND:-cpu}
 # (from R, made before the cd: ${0:A} after it resolves a relative $0 against run/)
 [ -x $SCRATCH/winid ] || cp ${R:h:h}/ai/recomp/tools/winid $SCRATCH/winid 2>/dev/null
-RUNNER=${RUNNER:-${R:h:h:h}/out/build-coll/ps2xRuntime/ps2EntryRunner}
+RUNNER=${RUNNER:-${R:h:h:h}/out/build-coll/runtime/zx-runner}
 $RUNNER $R/disc-root/SLUS_201.59 > $R/logs/$NAME.log 2>&1 &
 PID=$!
 t=0

@@ -7,12 +7,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <set>
+#include <tuple>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     namespace
     {
-        constexpr const char *kSlot = "CHL_MULY";
         constexpr int kDefaultLaunch = 50;
         constexpr size_t kMaterialSound = 0x1C; // MATI: the tag record's first byte
         constexpr const char *kLibraries[] = {"ANIMS.ZAL", "CUTCOMP.ZAL", "CUTSCENE.ZAL", "MODELS.ZAL"};
@@ -47,7 +48,7 @@ namespace ps2x::app::levels
         class BmxLevelConverter : public LevelConverter
         {
         public:
-            explicit BmxLevelConverter(const Model &model) : LevelConverter(model, kSlot, Engine::Zge4)
+            BmxLevelConverter(const Model &model, const std::string &slot) : LevelConverter(model, slot, Engine::Zge4)
             {
                 m_sky = &kBmxSky;
                 m_dynamics = &kBmxDynamics;
@@ -121,7 +122,8 @@ namespace ps2x::app::levels
                         world.push_back({t[0] + node.translation[0], -t[1] + -node.translation[1], -t[2] + -node.translation[2]});
                     }
                     for (const auto &[i, k] : prim.lines)
-                        m_edgeMarks.push_back({world.at(static_cast<size_t>(i)), world.at(static_cast<size_t>(k)), link, BikeEdgeTag::kGrindable, 0});
+                        m_edgeMarks.push_back(
+                            {world.at(static_cast<size_t>(i)), world.at(static_cast<size_t>(k)), link, BikeEdgeTag::kGrindable, 0, tagWordOf(tags)});
                 }
             }
 
@@ -174,29 +176,34 @@ namespace ps2x::app::levels
                 part.stream(StreamKind::FaceNormals) = Stream::ofIndexed(IndexedStream::make(faceNormals));
                 part.flags = piece.sky ? m_sky->partFlags : kPartFlags;
                 part.materialCount = static_cast<uint8_t>(surfaces.size());
-                std::vector<std::pair<int, int>> kinds;
+                // (surface kind, launch, tag word) per face: a record for each the faces
+                // have (the word the objectives find faces by)
+                using FaceKey = std::tuple<int, int, uint32_t>;
+                std::vector<FaceKey> kinds;
                 for (const auto &f : piece.faces)
                 {
                     const Surface &s = m_surfaces[static_cast<size_t>(f[0])];
-                    kinds.emplace_back(s.kind, s.launch);
+                    kinds.emplace_back(s.kind, s.launch, s.word);
                 }
-                std::set<std::pair<int, int>> usedSet;
+                const auto tagged = [](const FaceKey &k) { return std::get<0>(k) != 0 || std::get<2>(k) != 0; };
+                std::set<FaceKey> usedSet;
                 for (const auto &k : kinds)
-                    if (k.first)
+                    if (tagged(k))
                         usedSet.insert(k);
                 if (!usedSet.empty() && piece.collides)
                 {
-                    const std::vector<std::pair<int, int>> used(usedSet.begin(), usedSet.end());
+                    const std::vector<FaceKey> used(usedSet.begin(), usedSet.end());
                     TagBuffer buffer;
-                    for (const auto &[kind, launch] : used)
+                    for (const auto &[kind, launch, word] : used)
                     {
                         BikeFaceTag t;
+                        t.tag = word;
                         t.surfaceKind = static_cast<uint8_t>(kind);
                         t.launch = static_cast<uint8_t>(launch);
                         buffer.records.push_back(t.write());
                     }
                     for (const auto &k : kinds)
-                        buffer.indices.push_back(k.first ? static_cast<int>(std::find(used.begin(), used.end(), k) - used.begin()) : -1);
+                        buffer.indices.push_back(tagged(k) ? static_cast<int>(std::find(used.begin(), used.end(), k) - used.begin()) : -1);
                     part.faceTags = std::move(buffer);
                 }
                 std::vector<Chunk> materials;
@@ -243,7 +250,7 @@ namespace ps2x::app::levels
                     }
                     TagBuffer buffer;
                     buffer.indices.assign(3 * part.faces.size(), -1);
-                    std::map<int, int> indexOf; // the mark's link kind -> record
+                    std::map<std::pair<int, uint32_t>, int> indexOf; // the mark's (link kind, tag word) -> record
                     for (size_t f = 0; f < part.faces.size(); ++f)
                         for (size_t k = 0; k < 3; ++k)
                         {
@@ -257,15 +264,17 @@ namespace ps2x::app::levels
                                 }
                             if (!mark)
                                 continue;
-                            if (!indexOf.count(mark->kind))
+                            const std::pair<int, uint32_t> key{mark->kind, mark->word};
+                            if (!indexOf.count(key))
                             {
-                                indexOf[mark->kind] = static_cast<int>(buffer.records.size());
+                                indexOf[key] = static_cast<int>(buffer.records.size());
                                 BikeEdgeTag t;
+                                t.tag = mark->word;
                                 t.linkKind = static_cast<uint8_t>(mark->kind);
                                 t.flags = static_cast<uint8_t>(mark->flags);
                                 buffer.records.push_back(t.write());
                             }
-                            buffer.indices[3 * f + k] = indexOf[mark->kind];
+                            buffer.indices[3 * f + k] = indexOf[key];
                         }
                     if (!buffer.records.empty())
                     {
@@ -278,11 +287,13 @@ namespace ps2x::app::levels
             Bytes sceneFile(const Vec3 &low, const Vec3 &high) override { return SceneFile::make(m_slot, low, high).write(); }
 
         private:
-            // A name's hash, the next one up if another name took it.
+            // A name's hash, the next one up if another object or part took
+            // it: an id names one (two objects of one name, a #deco mesh and
+            // its collidable one, get two ids).
             uint32_t uniqueId(const std::string &name)
             {
                 uint32_t h = nameHash(name);
-                while ((m_ids.count(h) && m_ids[h] != name) || h <= 0xFFFF)
+                while (m_ids.count(h) || h <= 0xFFFF)
                     h = h + 1;
                 m_ids[h] = name;
                 return h;
@@ -292,17 +303,17 @@ namespace ps2x::app::levels
         };
     }
 
-    Converted convertForBmx(const Model &model)
+    Converted convertForBmx(const Model &model, const std::string &slot)
     {
-        BmxLevelConverter conv(model);
+        BmxLevelConverter conv(model, slot);
         std::map<std::string, Bytes> files = conv.build();
         conv.checkLevelBytes(files);
         if (!conv.report.errors.empty())
             throw LevelError(conv.report.errors.front());
         Converted out;
-        const std::string folder = std::string("ASSETS/LEVELS/") + kSlot + "/";
+        const std::string folder = "ASSETS/LEVELS/" + slot + "/";
         for (auto &[ext, data] : files)
-            out.files[folder + kSlot + "." + ext] = std::move(data);
+            out.files[folder + slot + "." + ext] = std::move(data);
         for (const char *library : kLibraries)
             out.files[folder + library] = emptyAssetLibrary();
         out.files[folder + "OBJCTV.TXT"] = emptyObjectivesFile();

@@ -60,9 +60,8 @@ namespace ps2_aggressive_inline
     // same translation unit.
     namespace prompts
     {
-        namespace gl = ps2x::glyphs;
+        namespace gl = zx::glyphs;
         namespace hi = ps2_host_input;
-        namespace zx = ps2x::zaxis;
         namespace zp = zge_host::prompts;
         using Device = PSPadBackend::InputDevice;
         using zp::Picture;
@@ -552,27 +551,27 @@ namespace ps2_aggressive_inline
         struct DiscFiles
         {
             std::mutex mutex;
-            std::unique_ptr<ps2x::game_files::GameFileSystem> files;
+            std::unique_ptr<zx::game_files::GameFileSystem> files;
         };
 
         bool readDisc(const std::string &path, std::vector<uint8_t> &bytes)
         {
-            DiscFiles &disc = ps2x::session::state<DiscFiles>();
+            DiscFiles &disc = zx::session::state<DiscFiles>();
             std::lock_guard<std::mutex> lock(disc.mutex);
-            std::unique_ptr<ps2x::game_files::GameFileSystem> &files = disc.files;
+            std::unique_ptr<zx::game_files::GameFileSystem> &files = disc.files;
             if (!files)
             {
                 const PS2Runtime::IoPaths &paths = PS2Runtime::getIoPaths();
-                ps2x::game_files::GameFileRoots roots;
+                zx::game_files::GameFileRoots roots;
                 if (!paths.cdFromImage)
                     roots.disc = paths.cdRoot;
                 if (roots.disc.empty())
                     roots.image = PS2Runtime::cdImageFileSystem();
-                files = std::make_unique<ps2x::game_files::GameFileSystem>(std::move(roots));
+                files = std::make_unique<zx::game_files::GameFileSystem>(std::move(roots));
             }
             t_readingDisc = true;
-            std::shared_ptr<ps2x::game_files::GameFile> file = files->open(path);
-            const bool ok = file && ps2x::game_files::readAll(*file, bytes);
+            std::shared_ptr<zx::game_files::GameFile> file = files->open(path);
+            const bool ok = file && zx::game_files::readAll(*file, bytes);
             t_readingDisc = false;
             return ok;
         }
@@ -619,7 +618,7 @@ namespace ps2_aggressive_inline
             if (name.size() != 8u || name.compare(0, 3, "TUT") != 0 || name[3] < '0' || name[3] > '3' ||
                 name.compare(4, 4, ".RAW") != 0)
                 return nullptr;
-            TutorialScreens &screens = ps2x::session::state<TutorialScreens>();
+            TutorialScreens &screens = zx::session::state<TutorialScreens>();
             std::lock_guard<std::mutex> lock(screens.mutex);
             auto &cache = screens.made;
             if (device == Device::Keyboard)
@@ -631,7 +630,7 @@ namespace ps2_aggressive_inline
                 std::vector<uint8_t> rgb;
                 if (!readDisc("ASSETS/LOADING/TUT/" + name, rgb))
                     return nullptr;
-                zx::LibraryFont marker;
+                zx::zaxis::LibraryFont marker;
                 if (!zp::atlasFont("fnt_ovr_small_t0.zmp", marker) ||
                     !composeKeyboardScreen(rgb, name[3] - '0', gl::fontFrom(marker), zp::labelFont()))
                     return nullptr;
@@ -663,7 +662,7 @@ namespace ps2_aggressive_inline
             std::vector<uint8_t> rgb;
             if (!readDisc("ASSETS/LOADING/TUT/" + name, rgb))
                 return nullptr;
-            zx::LibraryFont marker;
+            zx::zaxis::LibraryFont marker;
             if (!zp::atlasFont("fnt_ovr_small_t0.zmp", marker) ||
                 !composeTutorialScreen(rgb, name[3] - '0', gl::fontFrom(marker), zp::labelFont(), style, target))
                 return nullptr;
@@ -788,14 +787,14 @@ namespace ps2_aggressive_inline
             uint32_t base = 0;
             int next = 0;
         };
-        TextBuffers &textBuffers() { return ps2x::session::state<TextBuffers>(); }
+        TextBuffers &textBuffers() { return zx::session::state<TextBuffers>(); }
 
         struct TextHooks
         {
             PS2Runtime::RecompiledFunction origLine = nullptr;
             PS2Runtime::RecompiledFunction origWrapped = nullptr;
         };
-        TextHooks &textHooks() { return ps2x::session::state<TextHooks>(); }
+        TextHooks &textHooks() { return zx::session::state<TextHooks>(); }
 
         // The game's font object (the first argument of the text
         // primitives): u8 line height, u8, u16 glyph count, u16 pages, u16,
@@ -939,9 +938,9 @@ namespace ps2_aggressive_inline
         runtime.replaceFunction(sym::drawWrappedText, &textWrappedHook);
         // The Tutorial's loading screens show the pad (tutorialScreen).
         const bool xboxScreens = ps2_xbox_disc::init() && ps2_xbox_disc::exists("Loading/TUT/TUT0.RAW");
-        ps2x::game_files::registerProvider(
+        zx::game_files::registerProvider(
             "ASSETS/LOADING/TUT/", [xboxScreens](const std::string &path) { return tutorialScreen(path, xboxScreens); },
             "pad loading screens");
-        ps2x::session::onEnd([]() { ps2x::game_files::removeProviders("pad loading screens"); });
+        zx::session::onEnd([]() { zx::game_files::removeProviders("pad loading screens"); });
     }
 }

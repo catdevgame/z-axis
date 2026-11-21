@@ -11,13 +11,13 @@
 // an 8-byte ZOO.TXR, 60-byte scripts) and MP/ZOO an earlier prototype with
 // seven textures.
 //
-// With PS2X_ZOO=1 (the app: Settings > Game > Zoo, settings.ini [extras]
+// With ZX_ZOO=1 (the app: Settings > Game > Zoo, settings.ini [extras]
 // zoo):
 //   - FrontEnd.zsc's free skate (and timed run) level select gains the Zoo
 //     between the Museum and the Editor Level, always unlocked;
 //   - the files of ASSETS/LEVELS/ZOO come from the Xbox release when the app
-//     has them, made into the PS2's at build time (ps2xXboxConvert,
-//     runtime/ps2_zaxis_zoo.h; served from PS2X_XBOX_CONVERTED,
+//     has them, made into the PS2's at build time (zx-xbox-convert,
+//     runtime/ps2_zaxis_zoo.h; served from ZX_XBOX_CONVERTED,
 //     aggressive_inline_converted.h): textures as 8-bit BMPs, at most 128 a
 //     side as in the PS2 levels (the renderer's texture cache garbles a view
 //     full of 256s; the GPU renderer draws the Xbox originals, registered
@@ -29,7 +29,7 @@
 //     spawn points, the free skate script ZOOT.BIN, motions) as it is: the
 //     formats are the same. Nothing is converted here. Without them, the
 //     PS2 disc's own Zoo: its multiplayer prototype (MP/ZOO, seven
-//     textures, flat grey elsewhere; the default) or with PS2X_ZOO_PS2=sp
+//     textures, flat grey elsewhere; the default) or with ZX_ZOO_PS2=sp
 //     the single-player grey box;
 //   - loading screens: the generic ones (ASSETS/LOADING/ZOO is empty on both
 //     discs); the level-select preview: the Xbox flythrough, a PSM the
@@ -49,7 +49,7 @@
 //     func_1E3150 (both wrapped; missing zoo_assets animations are not
 //     reported outside the Zoo, as on the Xbox), SCENE.TXT patched, and
 //     the models made at build time (runtime/ps2_zaxis_xbox.h convertModel
-//     in ps2xXboxConvert). The
+//     in zx-xbox-convert). The
 //     NPC constructor hides NPCs outside career mode but in the Zoo, as the
 //     Xbox's does (func_13BD48 wrapped for that one call). The game's own
 //     NPC code does the rest (the willows sway by the free skate script);
@@ -106,8 +106,7 @@ namespace aggressive_inline::zoo
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
-        namespace zx = ps2x::zaxis;
+        namespace gf = zx::game_files;
         namespace made_ = aggressive_inline::converted;
 
         enum class Source
@@ -139,11 +138,11 @@ namespace aggressive_inline::zoo
             std::map<std::string, bool> missing;
             uint32_t extendedInUse = 0; // the extended heap's bytes last shown
         };
-        Zoo &level() { return ps2x::session::state<Zoo>(); }
+        Zoo &level() { return zx::session::state<Zoo>(); }
 
-        const std::string kLevelFolder = zx::zoo::kLevelFolder;
-        const std::string kNpcFolder = zx::zoo::kNpcFolder;
-        const std::string kMpLevelFolder = zx::zoo::kSplitScreenFolder;
+        const std::string kLevelFolder = zx::zaxis::zoo::kLevelFolder;
+        const std::string kNpcFolder = zx::zaxis::zoo::kNpcFolder;
+        const std::string kMpLevelFolder = zx::zaxis::zoo::kSplitScreenFolder;
         const char kLoadingFolder[] = "ASSETS/LOADING/ZOO/";
         const char kFlythrough[] = "ASSETS/MOVIES/FLYTHRUS/ZOO.PSM";
         const char kXboxFlythroughPsm[] = "Movies/Flythrus/ZOO.PSM"; // (the workshop's build made it)
@@ -198,25 +197,25 @@ namespace aggressive_inline::zoo
         // The Xbox release's NPC types the PS2 executable lacks
         // (runtime/ps2_zaxis_zoo.h kNpcModels: the model, its file and its
         // animation in all five slots).
-        using NpcType = zx::zoo::NpcModel;
-        constexpr const NpcType (&kNpcTypes)[zx::zoo::kNpcModelCount] = zx::zoo::kNpcModels;
-        constexpr size_t kNpcTypeCount = zx::zoo::kNpcModelCount;
+        using NpcType = zx::zaxis::zoo::NpcModel;
+        constexpr const NpcType (&kNpcTypes)[zx::zaxis::zoo::kNpcModelCount] = zx::zaxis::zoo::kNpcModels;
+        constexpr size_t kNpcTypeCount = zx::zaxis::zoo::kNpcModelCount;
         struct Npcs
         {
             bool available = false; // the Xbox NPC models are there
         };
-        Npcs &npcs() { return ps2x::session::state<Npcs>(); }
+        Npcs &npcs() { return zx::session::state<Npcs>(); }
 
         // The split-screen level's script (MP\ZOO\ZOO.BIN): neither disc
         // has one for the Zoo (the PS2's MP\ZOO has an empty one); the build
         // makes it from the free skate script ZOOT.BIN without its intro
         // camera call, so its doors open and its willows sway.
-        // PS2X_ZOO_MP_SCRIPT=empty (developers): the empty one; =free:
+        // ZX_ZOO_MP_SCRIPT=empty (developers): the empty one; =free:
         // ZOOT.BIN as it is (the intro camera takes the HUD and the timer
         // away: no game).
         std::string mpScriptChoice()
         {
-            const char *which = std::getenv("PS2X_ZOO_MP_SCRIPT");
+            const char *which = std::getenv("ZX_ZOO_MP_SCRIPT");
             return which ? std::string(which) : std::string();
         }
 
@@ -325,7 +324,7 @@ namespace aggressive_inline::zoo
             const uint32_t texture = getRegU32(ctx, 4);
             const uint32_t bytes = getRegU32(ctx, 5);
             (void)texture; // pooled or not: the pool's free hands foreign blocks to free()
-            static const bool trace = std::getenv("PS2X_TRACE_ZOO") != nullptr; // every texture allocation
+            static const bool trace = std::getenv("ZX_TRACE_ZOO") != nullptr; // every texture allocation
             if (trace)
                 std::cout << "[zoo] texture memory " << bytes << " bytes, level " << readWord(rdram, kLevelIndex)
                           << ", texture flags 0x" << std::hex << readWord(rdram, texture) << std::dec << std::endl;
@@ -354,12 +353,12 @@ namespace aggressive_inline::zoo
         {
             PS2Runtime::RecompiledFunction npcAnimations = nullptr;
             uint32_t extraNpcTypes = 0; // the extra rows in guest memory (0: none)
-            std::map<uint64_t, unsigned> lookups; // PS2X_TRACE_ZOO_NPCS: by type and caller
-            std::unordered_set<uint64_t> traced;  // PS2X_TRACE_ZOO: type and answer pairs shown
+            std::map<uint64_t, unsigned> lookups; // ZX_TRACE_ZOO_NPCS: by type and caller
+            std::unordered_set<uint64_t> traced;  // ZX_TRACE_ZOO: type and answer pairs shown
         };
-        NpcTypes &npcTypes() { return ps2x::session::state<NpcTypes>(); }
+        NpcTypes &npcTypes() { return zx::session::state<NpcTypes>(); }
 
-        using zx::zoo::engineHash; // the engine's name hash (0x148888)
+        using zx::zaxis::zoo::engineHash; // the engine's name hash (0x148888)
         static_assert(engineHash("NPC_KelpA") == 0x093FD201u, "the Xbox table's kelp type");
         static_assert(engineHash("npc_willow") == 0x04B945D7u, "the Xbox table's willow type");
 
@@ -417,9 +416,9 @@ namespace aggressive_inline::zoo
                 for (uint32_t i = 0; i < kNpcTypeCount && !found; ++i)
                     if (readWord(rdram, extra + i * kNpcTypeRowBytes) == type)
                         found = extra + i * kNpcTypeRowBytes;
-            // PS2X_TRACE_ZOO_NPCS=1 (developers): each lookup of an Xbox
+            // ZX_TRACE_ZOO_NPCS=1 (developers): each lookup of an Xbox
             // type, counted per type and caller (the NPCs a level makes).
-            static const bool countNpcs = std::getenv("PS2X_TRACE_ZOO_NPCS") != nullptr;
+            static const bool countNpcs = std::getenv("ZX_TRACE_ZOO_NPCS") != nullptr;
             if (countNpcs && found && npcTypes().extraNpcTypes && found >= npcTypes().extraNpcTypes &&
                 found < npcTypes().extraNpcTypes + kNpcTypeCount * kNpcTypeRowBytes)
             {
@@ -430,7 +429,7 @@ namespace aggressive_inline::zoo
                           << std::hex << ra << std::dec << " n " << n << " level " << readWord(rdram, kLevelIndex)
                           << " gametype " << unsigned(gameType ? *gameType : 0u) << std::endl;
             }
-            static const bool trace = std::getenv("PS2X_TRACE_ZOO") != nullptr;
+            static const bool trace = std::getenv("ZX_TRACE_ZOO") != nullptr;
             if (trace)
             {
                 if (npcTypes().traced.insert((uint64_t(type) << 32) | found).second)
@@ -487,7 +486,7 @@ namespace aggressive_inline::zoo
             PS2Runtime::RecompiledFunction fovGetter = nullptr;
             PS2Runtime::RecompiledFunction careerCheck = nullptr;
         };
-        Hooks &hooks() { return ps2x::session::state<Hooks>(); }
+        Hooks &hooks() { return zx::session::state<Hooks>(); }
 
         void showObjectHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
@@ -510,7 +509,7 @@ namespace aggressive_inline::zoo
         // Zoo's split screen that call answers 0 for the NPCs within 200 of
         // either player's camera: they animate as in the single-player Zoo
         // (all 81 at once cost the EE 2.5 to 4 ms a frame on the Mac).
-        // PS2X_ZOO_MP_NPC_ANIMATION=0 (developers): as the game does.
+        // ZX_ZOO_MP_NPC_ANIMATION=0 (developers): as the game does.
         constexpr uint32_t kDrawnLastFrame = 0x00132860u;
         // (the update is wrapped: its record while it runs; never known by
         // the call's return address or the caller's registers, which a
@@ -521,7 +520,7 @@ namespace aggressive_inline::zoo
             PS2Runtime::RecompiledFunction updateAnimator = nullptr;
             uint32_t record = 0;
         };
-        AnimatorScope &animatorScope() { return ps2x::session::state<AnimatorScope>(); }
+        AnimatorScope &animatorScope() { return zx::session::state<AnimatorScope>(); }
         void updateAnimatorHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
             AnimatorScope &a = animatorScope();
@@ -546,7 +545,7 @@ namespace aggressive_inline::zoo
 
         void drawnLastFrameHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
-            static const bool off = [] { const char *v = std::getenv("PS2X_ZOO_MP_NPC_ANIMATION"); return v && v[0] == '0'; }();
+            static const bool off = [] { const char *v = std::getenv("ZX_ZOO_MP_NPC_ANIMATION"); return v && v[0] == '0'; }();
             const uint8_t *type = getConstMemPtr(rdram, 0x0024C9B3u);
             if (!off && animatorScope().record && type && *type == 4u && readWord(rdram, kLevelIndex) == kZooIndex)
             {
@@ -684,15 +683,15 @@ namespace aggressive_inline::zoo
 
         bool patchLevelSelect(std::string &text)
         {
-            zx::Span menu = zx::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
-            zx::Span script = zx::findObject(text, "FreeskateOnChange", menu);
+            zx::zaxis::Span menu = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
+            zx::zaxis::Span script = zx::zaxis::findObject(text, "FreeskateOnChange", menu);
             if (!menu.found() || !script.found())
             {
                 std::cerr << "[zoo] FrontEnd.zsc: the free skate level select was not found" << std::endl;
                 return false;
             }
             std::string block = text.substr(script.begin, script.end - script.begin);
-            const int depth = zx::indentAt(text, script.begin) + 2; // the script lines
+            const int depth = zx::zaxis::indentAt(text, script.begin) + 2; // the script lines
             const std::string tabs(static_cast<size_t>(depth), '\t');
             // Every level's icon row gets the giraffe before the editor's
             // icon; the editor level becomes entry 8.
@@ -741,9 +740,9 @@ namespace aggressive_inline::zoo
             text.replace(script.begin, script.end - script.begin, block);
             // Nine icons: the row is 64 pixels a step from x 64, so it ends
             // at the screen's right edge.
-            menu = zx::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
-            const std::string menuTabs(static_cast<size_t>(zx::indentAt(text, menu.begin) + 1), '\t');
-            if (!zx::replaceIn(text, menu, menuTabs + "VisibleCount\t8\r\n", menuTabs + "VisibleCount\t9\r\n"))
+            menu = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
+            const std::string menuTabs(static_cast<size_t>(zx::zaxis::indentAt(text, menu.begin) + 1), '\t');
+            if (!zx::zaxis::replaceIn(text, menu, menuTabs + "VisibleCount\t8\r\n", menuTabs + "VisibleCount\t9\r\n"))
                 std::cerr << "[zoo] FrontEnd.zsc: level select VisibleCount not found" << std::endl;
             return true;
         }
@@ -753,17 +752,17 @@ namespace aggressive_inline::zoo
         // unlocked, its row centred (x 160 instead of 192).
         bool patchMultiplayerSelect(std::string &text)
         {
-            zx::Span menu = zx::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
-            zx::Span script = zx::findObject(text, "MultiplayerOnChange", menu);
-            zx::Span levelSelect = zx::findObject(text, "FrontEnd/Background/LevelSelect");
-            zx::Span setup = zx::findObject(text, "SetupForMultiplayer", levelSelect);
+            zx::zaxis::Span menu = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
+            zx::zaxis::Span script = zx::zaxis::findObject(text, "MultiplayerOnChange", menu);
+            zx::zaxis::Span levelSelect = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect");
+            zx::zaxis::Span setup = zx::zaxis::findObject(text, "SetupForMultiplayer", levelSelect);
             if (!menu.found() || !script.found() || !setup.found())
             {
                 std::cerr << "[zoo] FrontEnd.zsc: the split-screen level select was not found" << std::endl;
                 return false;
             }
             std::string block = text.substr(script.begin, script.end - script.begin);
-            const int depth = zx::indentAt(text, script.begin) + 2;
+            const int depth = zx::zaxis::indentAt(text, script.begin) + 2;
             const std::string tabs(static_cast<size_t>(depth), '\t');
             // Each row's icons get the giraffe last.
             size_t rows = 0;
@@ -804,26 +803,26 @@ namespace aggressive_inline::zoo
             block.insert(lineStart, zoo);
             text.replace(script.begin, script.end - script.begin, block);
             // Five icons, 64 pixels apart, centred.
-            levelSelect = zx::findObject(text, "FrontEnd/Background/LevelSelect");
-            setup = zx::findObject(text, "SetupForMultiplayer", levelSelect);
-            if (!zx::replaceIn(text, setup, "SET Menu.Position.x {192}", "SET Menu.Position.x {160}"))
+            levelSelect = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect");
+            setup = zx::zaxis::findObject(text, "SetupForMultiplayer", levelSelect);
+            if (!zx::zaxis::replaceIn(text, setup, "SET Menu.Position.x {192}", "SET Menu.Position.x {160}"))
                 std::cerr << "[zoo] FrontEnd.zsc: the split-screen level row's position was not found" << std::endl;
             return true;
         }
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
+            std::vector<zx::zaxis::ArchiveEntry> entries;
             std::string error;
-            if (!zx::readArchive(bytes, entries, &error))
+            if (!zx::zaxis::readArchive(bytes, entries, &error))
             {
                 std::cerr << "[zoo] UILIB.ZAL: " << error << std::endl;
                 return false;
             }
             bool changed = false;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) != "FrontEnd")
+                if (zx::zaxis::scriptName(entry) != "FrontEnd")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 // The FrontEnd the game loads (the other is an older one).
@@ -839,7 +838,7 @@ namespace aggressive_inline::zoo
             }
             if (changed)
             {
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
                 std::cout << "[zoo] the Zoo is in the free skate and split-screen level selects" << std::endl;
             }
             return changed;
@@ -848,10 +847,10 @@ namespace aggressive_inline::zoo
 
     void install(PS2Runtime &runtime)
     {
-        const char *on = ps2x::boot::text("PS2X_ZOO");
+        const char *on = zx::boot::text("ZX_ZOO");
         if (!on || on[0] != '1')
         {
-            std::cout << "[zoo] off (PS2X_ZOO=1 adds the Zoo to free skate)" << std::endl;
+            std::cout << "[zoo] off (ZX_ZOO=1 adds the Zoo to free skate)" << std::endl;
             return;
         }
         if (made_::exists(kLevelFolder + "ZOO.GEO") && made_::exists(kLevelFolder + "ZOO.TXR") &&
@@ -869,7 +868,7 @@ namespace aggressive_inline::zoo
         }
         else
         {
-            const char *which = std::getenv("PS2X_ZOO_PS2");
+            const char *which = std::getenv("ZX_ZOO_PS2");
             // The multiplayer prototype by default: textured trees and
             // shading; the grey box draws as a dithered fog.
             level().source = which && std::string(which) == "sp" ? Source::Ps2 : Source::Ps2Mp;
@@ -880,7 +879,7 @@ namespace aggressive_inline::zoo
                                                   : std::string("the PS2 disc's grey box (") + made_::description() + ")")
                   << (level().flythrough ? ", flythrough" : "") << std::endl;
         gf::registerProvider(kLevelFolder, &provide, "zoo");
-        ps2x::session::onEnd([]() { gf::removeProviders("zoo"); });
+        zx::session::onEnd([]() { gf::removeProviders("zoo"); });
         gf::registerProvider(kLoadingFolder, &provide, "zoo");
         if (!(hooks().fovGetter = runtime.lookupFunction(kFovGetter)) || !runtime.replaceFunction(kFovGetter, &fovGetterHook))
             std::cerr << "[zoo] the split-screen camera's FOV getter was not wrapped" << std::endl;
@@ -889,10 +888,10 @@ namespace aggressive_inline::zoo
         gf::registerProvider("ASSETS/MOVIES/FLYTHRUS/", &provide, "zoo");
         // The ambient NPCs: with the Xbox level, its models, and room for
         // the extra NPC types (extended memory).
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
-        // PS2X_ZOO_UNLOCK=museum (the app: Settings > Game > Zoo Unlock): the
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
+        // ZX_ZOO_UNLOCK=museum (the app: Settings > Game > Zoo Unlock): the
         // Xbox's rule; else always open.
-        if (const char *unlock = ps2x::boot::text("PS2X_ZOO_UNLOCK"); unlock && std::string(unlock) == "museum")
+        if (const char *unlock = zx::boot::text("ZX_ZOO_UNLOCK"); unlock && std::string(unlock) == "museum")
         {
             if ((hooks().careerCheck = runtime.lookupFunction(kCareerCheck)) &&
                 runtime.replaceFunction(kCareerCheck, &careerUnlockHook))
@@ -903,8 +902,8 @@ namespace aggressive_inline::zoo
         std::cout << "[zoo] " << (level().earned ? "unlocked by the Museum's eight challenges, as on the Xbox"
                                            : "always unlocked in free skate")
                   << std::endl;
-        if (const char *ext = std::getenv("PS2X_ZOO_EXTMEM"); ext && ext[0] == '0')
-            std::cout << "[zoo] no extended memory (PS2X_ZOO_EXTMEM=0)" << std::endl;
+        if (const char *ext = std::getenv("ZX_ZOO_EXTMEM"); ext && ext[0] == '0')
+            std::cout << "[zoo] no extended memory (ZX_ZOO_EXTMEM=0)" << std::endl;
         else if (!runtime.addGuestHeapRegion(PS2_LEGACY_RAM_SIZE, PS2_RAM_SIZE) ||
                  !(level().textureAlloc = runtime.lookupFunction(kTextureAlloc)) ||
                  !runtime.replaceFunction(kTextureAlloc, &textureAllocHook))
@@ -915,7 +914,7 @@ namespace aggressive_inline::zoo
             bool models = level().source == Source::Converted;
             for (const NpcType &type : kNpcTypes)
                 models = models && made_::exists(kNpcFolder + gf::normalizePath(type.file));
-            if (const char *npcs = std::getenv("PS2X_ZOO_NPCS"); npcs && npcs[0] == '0')
+            if (const char *npcs = std::getenv("ZX_ZOO_NPCS"); npcs && npcs[0] == '0')
                 models = false; // developers: the Zoo without its ambient NPCs
             if (models && npcs::installNpcStart(runtime) && (npcTypes().npcAnimations = runtime.lookupFunction(kNpcAnimations)) &&
                 (hooks().showObject = runtime.lookupFunction(kShowObject)) &&
@@ -929,7 +928,7 @@ namespace aggressive_inline::zoo
             {
                 npcs().available = true;
                 gf::registerProvider(kNpcFolder, &provide, "zoo");
-                ps2x::disc_patch::registerPatch("SCENE.TXT", &patchScene, "ai");
+                zx::disc_patch::registerPatch("SCENE.TXT", &patchScene, "ai");
                 std::cout << "[zoo] ambient NPCs: " << kNpcTypeCount << " Xbox NPC types" << std::endl;
             }
             std::cout << "[zoo] the Zoo's textures may use " << (PS2_RAM_SIZE - PS2_LEGACY_RAM_SIZE) / (1024u * 1024u)

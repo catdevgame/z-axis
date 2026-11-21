@@ -4,7 +4,7 @@
 #include <chrono>
 #include <cstdint>
 
-namespace hp = ps2x::host_pacing;
+namespace hp = zx::host_pacing;
 
 namespace
 {
@@ -77,7 +77,7 @@ void register_ps2_host_pacing_tests()
             t.IsTrue(phase > want - 0.02 && phase < want + 0.02, "the vblank sits kAfterLatch after a latch");
         });
 
-        tc.Run("no steady refresh in a whole ratio, a stopped window or PS2X_VSYNC_PHASE=0's switch: no correction", [guest](TestCase &t)
+        tc.Run("no steady refresh in a whole ratio, a stopped window or ZX_VSYNC_PHASE=0's switch: no correction", [guest](TestCase &t)
         {
             reset();
             latches(std::chrono::microseconds(6944), 40); // 144 Hz

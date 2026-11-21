@@ -3,7 +3,7 @@
                  [--only ADDR,...|@FILE] [--held]
 
 The hand-written functions that give a callee another value of a
-callee-saved register than the original held there (ps2xFnCheck's
+callee-saved register than the original held there (zx-fncheck's
 saves_differ: a register the callee's prologue saves, so in the game it
 writes another value to its stack frame; drafter23's check, drafter24's
 sites), one list per source file, for the hands agents.
@@ -138,7 +138,7 @@ def main():
     index = []
     for path in sorted(by_file):
         out = ['# %s: hand-written functions whose calls give a callee another value of a callee-saved register '
-               'than the original held there (ps2xFnCheck saves_differ; readable_saves.py)' % path,
+               'than the original held there (zx-fncheck saves_differ; readable_saves.py)' % path,
                '# Per call: the original\'s jal address, the callee, the registers the callee saves (its prologue: '
                'its stack frame gets the value) and the drafter\'s line there (its values are the draft\'s names: '
                'publish the hand-written code\'s own values of those registers before that call).', '']

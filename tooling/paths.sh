@@ -52,8 +52,8 @@ zguard() {
   python3 -I "$ZAXIS_TOOLING/zguard.py" "$@" || exit 2
 }
 # Test runs make no sound (mute1): the runner opens SDL's dummy audio device, everything before the speakers as with
-# sound (runtime/src/lib/ps2_host_sdl.cpp, docs/DEVTOOLS.md). A run that has to be heard says ZAXIS_AUDIO=on itself.
-export ZAXIS_AUDIO=${ZAXIS_AUDIO:-off}
+# sound (runtime/src/lib/ps2_host_sdl.cpp, docs/DEVTOOLS.md). A run that has to be heard says ZX_AUDIO=on itself.
+export ZX_AUDIO=${ZX_AUDIO:-off}
 
 # zbind TREE: the bind tables a build of TREE uses (zpaths.bind_dir): its own runtime/tools/bind, committed since
 # tools39, else the shared $GAME_BIND_LEGACY of a commit from before. paths.env has no GAME_BIND_DIR: a script names the
@@ -66,15 +66,8 @@ zgen() {
 zbind() {
   if [ -f "$1/runtime/tools/bind/dm2.tsv" ]; then printf '%s\n' "$1/runtime/tools/bind"; else printf '%s\n' "$GAME_BIND_LEGACY"; fi
 }
-# zdir TREE runtime|tests|iop|docs: that top-level folder's name in TREE, a z-axis tree old or new (tools17 renamed
-# ps2xRuntime to runtime, ps2xTest to tests, ps2xIOP to iop, recomp to docs): the new name, or the old one in a tree
-# from before (it has the old folder and not the new). Python: checks/zlayout.py. Build dirs kept the old names.
+# zdir TREE runtime|tests|iop|docs: that top-level folder's name in TREE (Python: checks/zlayout.py). A tree from
+# before tools17 (runtime, tests, ps2xIOP, recomp) is not read since naming1.
 zdir() {
-  case $2 in runtime) set -- "$1" runtime ps2xRuntime ;; tests) set -- "$1" tests ps2xTest ;;
-    iop) set -- "$1" iop ps2xIOP ;; docs) set -- "$1" docs recomp ;; *) echo "zdir: no folder kind $2" >&2; return 2 ;; esac
-  # A folder counts when it holds its marker (zlayout.MARKER): a slot that checked out an old commit after a new one
-  # keeps the new folder's ignored files, so existence alone does not tell.
-  local m=CMakeLists.txt; [ "$2" = docs ] && m=READABLE.md
-  if [ -f "$1/$2/$m" ]; then printf '%s\n' "$2"; elif [ -f "$1/$3/$m" ]; then printf '%s\n' "$3"
-  elif [ ! -d "$1/$2" ] && [ -d "$1/$3" ]; then printf '%s\n' "$3"; else printf '%s\n' "$2"; fi
+  case $2 in runtime|tests|iop|docs) printf '%s\n' "$2" ;; *) echo "zdir: no folder kind $2" >&2; return 2 ;; esac
 }

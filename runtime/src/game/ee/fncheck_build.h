@@ -1,6 +1,6 @@
 #pragma once
 
-// What the build knows about the checked functions, for ps2xFnCheck
+// What the build knows about the checked functions, for zx-fncheck
 // (docs/READABLE.md, "How a function is proven"):
 //
 // - Block tables (path coverage). tools/fncheck_traced_gen.py writes each
@@ -8,11 +8,11 @@
 //   start of every basic block (the function's entry, every branch or jump
 //   target inside it, the instruction after every branch or jump; the
 //   addresses from the generated code's instruction comments). A marker
-//   tells the active BlockSink (ps2xFnCheck while it replays the original);
+//   tells the active BlockSink (zx-fncheck while it replays the original);
 //   in the game, with no sink, it is one thread-local load.
 // - Callee stack arguments: functions whose code reads above their entry sp
 //   (a ninth argument and on, which the caller stores at 0(sp) before the
-//   call), [low, high) above that sp. ps2xFnCheck compares what a readable
+//   call), [low, high) above that sp. zx-fncheck compares what a readable
 //   version leaves there at such a call with what the original did.
 // - Digests (sha256, the first 16 hex digits): of each generated original
 //   (in its block table) and of each readable function's source
@@ -75,7 +75,7 @@ namespace fncheck
         return nullptr;
     }
 
-    // Generated at build time (game.cmake): ps2xFnCheck only.
+    // Generated at build time (game.cmake): zx-fncheck only.
     struct StackArgs
     {
         uint8_t game;      // game::Game

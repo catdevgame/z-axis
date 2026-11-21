@@ -15,7 +15,7 @@ namespace zge
     // One bone of a part's skeleton (Part::bones stream).
     struct Bone
     {
-#if PS2X_GAME_BMX // (ZGE4's record is 0x20 bytes, its offset first: BMX loadBoneChunk, posePart, copyStream)
+#if ZX_GAME_BMX // (ZGE4's record is 0x20 bytes, its offset first: BMX loadBoneChunk, posePart, copyStream)
         Vec4 offset;        // BMX +0x00
         uint32_t bytes;     // BMX +0x10 the record's size (BoneRecord::bytes)
         uint16_t poseIndex; // BMX +0x14

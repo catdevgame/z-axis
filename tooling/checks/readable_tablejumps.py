@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """readable_tablejumps.py BUILD ADDR...: the ee::tableJump lines (ee/dispatch.h) a readable
 version of each function needs: for every JR through a jump table the recompiler made a switch
-(fncheck_traced_gen.py's g_tableJumps in BUILD/ps2xRuntime/fncheck_build/fncheck_stack_args.cpp),
+(fncheck_traced_gen.py's g_tableJumps in BUILD/runtime/fncheck_build/fncheck_stack_args.cpp),
 the entry block it is in and each case outside that block (drafter23). Hand-written code writes
-them before the case's ee::block; ps2xFnCheck --safepoints flags a function that leaves one out.
+them before the case's ee::block; zx-fncheck --safepoints flags a function that leaves one out.
 
 readable_tablejumps.py --check BUILD [--tree SRC] [--out FILE]: every hand-written readable
 function (a registration under runtime/src/game; the sweep's drafts are the drafter's, which
@@ -24,7 +24,7 @@ sys.dont_write_bytecode = True
 
 
 def tables(build):
-    text = open(os.path.join(build, 'ps2xRuntime', 'fncheck_build', 'fncheck_stack_args.cpp')).read()
+    text = open(os.path.join(build, 'runtime', 'fncheck_build', 'fncheck_stack_args.cpp')).read()
     marks, jumps = {}, {}
     sec = text[text.index('g_safePointMarks[]'):text.index('g_safePointMarkCount')]
     for g, f, a, k in re.findall(r'\{(\d+)u, 0x([0-9a-f]+)u, 0x([0-9a-f]+)u, (\d+)u\}', sec):
@@ -36,7 +36,7 @@ def tables(build):
             jumps.setdefault(int(f, 16), []).append(int(b, 16))
     gen = None
     for line in open(os.path.join(build, 'CMakeCache.txt')):
-        if line.startswith('PS2X_RUNNER_GENERATED_DIR:'):
+        if line.startswith('ZX_RUNNER_GENERATED_DIR:'):
             gen = line.split('=', 1)[1].strip()
     return marks, jumps, gen
 

@@ -6,7 +6,7 @@
 // With no args it behaves like the original (asks for the two files).
 // Second change: non-function code labels (e.g. caseD_1, switchD_..., default) are exported
 // as entry_XXXXXXXX instead of their Ghidra label name (see collectExecutableLabelRecords).
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;

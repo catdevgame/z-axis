@@ -4,7 +4,7 @@
 //
 // The face tag table is the mesh's, read through the tag table accessors
 // (zge/assets/tag_table.cpp), which read the host's mirror of it with
-// PS2X_NATIVE_COLLISION on (the default): surfacePhysics's kind is host data.
+// ZX_NATIVE_COLLISION on (the default): surfacePhysics's kind is host data.
 // Its three floats go through the engine's tagFloat (a copy out of RAM). The
 // surface sound is the first byte of the face's material's tag record: a
 // material holds a one-record tag table its loader fills from the MATI chunk;

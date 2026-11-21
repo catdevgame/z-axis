@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::photo
+namespace zx::photo
 {
     struct Vec3
     {

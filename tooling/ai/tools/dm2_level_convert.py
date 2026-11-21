@@ -159,6 +159,7 @@ class Dm2Converter(C.Converter):
     # player's start (its multiplayer takes turns). Its level-point camera (with the level camera points option)
     # stands 5 m above a "CameraPos" idle point, so a camera's point is its eye 5 m lower (y grows down).
     SPAWN_NAMES = {"playerone": "PlayerOne", "playertwo": None, "respawn": "Player"}
+    GAME = "dm2"
     SPAWN_TAGS = b"\0" * 4
     MAKES_CAMERA = True
     CAMERA_LIFT = -5.0
@@ -241,11 +242,12 @@ class Dm2Converter(C.Converter):
                                             for _, a, b, c in piece.faces),
                       flags=self.SKY.part_flags if piece.sky else PART_FLAGS, material_count=len(surfaces))
         part.unwind()
-        kinds = [(self.surfaces[s]._dm2, self.surfaces[s]._launch) for s, _, _, _ in piece.faces]
-        if piece.collides and any(k for k, _ in kinds):
-            records = sorted({k for k in kinds if k[0]})
-            part.face_tags = W.TagBuffer([T.FaceTag12(0, surface_kind=k, launch=n) for k, n in records],
-                                         [records.index(k) if k[0] else None for k in kinds])
+        # a record for each (kind, launch, tag word) the faces have (the word the gaps and goals find faces by)
+        kinds = [(self.surfaces[s]._dm2, self.surfaces[s]._launch, self.surfaces[s].word) for s, _, _, _ in piece.faces]
+        if piece.collides and any(k or w for k, _, w in kinds):
+            records = sorted({k for k in kinds if k[0] or k[2]})
+            part.face_tags = W.TagBuffer([T.FaceTag12(w, surface_kind=k, launch=n) for k, n, w in records],
+                                         [records.index(k) if k[0] or k[2] else None for k in kinds])
         table = Chunk(b"TMTB", kids=[mati(self.surfaces[s].texture, two_sided=self.surfaces[s].two_sided, layer=self.surfaces[s].layer) for s in surfaces])
         lo = tuple(min(p[k] for p in piece.positions) for k in range(3))
         hi = tuple(max(p[k] for p in piece.positions) for k in range(3))
@@ -281,10 +283,10 @@ class Dm2Converter(C.Converter):
                     mark = next((m for m in index.near(a) if C.on_segment(a, m) and C.on_segment(b, m)), None)
                     if mark is None:
                         continue
-                    key = EDGE_LINKS.get(mark.kind, 0)
+                    key = (EDGE_LINKS.get(mark.kind, 0), mark.word)
                     if key not in index_of:
                         index_of[key] = len(records)
-                        records.append(T.EdgeTag8(0, link_kind=key, flags=T.EdgeTag8.GRINDABLE))
+                        records.append(T.EdgeTag8(mark.word, link_kind=key[0], flags=T.EdgeTag8.GRINDABLE))
                     indices[3 * f + k] = index_of[key]
             if records:
                 part.edge_tags = W.TagBuffer(records, indices)
@@ -415,7 +417,7 @@ def park_stream(theme_index, width, height, start):
     """An empty park on the theme with only its start, as the editor saves one (loadPark's order, playbot/parkmap.py
     dm2_read_park): the version, the theme, the start (column, row, quarter turns, placed), then every cell by row at
     PARK_LEVEL with no object and no rails. FREERIDE's level 8 loads it to play the level (the collection's Custom
-    Freeplay gives it to the game as the map folder's park.dat: dave_mirra_saves.cpp, PS2X_DM2_PARK_FILE)."""
+    Freeplay gives it to the game as the map folder's park.dat: dave_mirra_saves.cpp, ZX_DM2_PARK_FILE)."""
     column, row, turns = start
     return struct.pack("<I", PARK_STREAM_VERSION) + bytes([theme_index, column, row, turns, 1]) + bytes([PARK_LEVEL, 0, 0]) * (width * height)
 

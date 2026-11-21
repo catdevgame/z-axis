@@ -7,7 +7,7 @@
 
 extern "C" ZX_GAME_MODULE_HIDDEN ZxGameModule ZX_GAME_MODULE_NAME(code) = {};
 
-#if defined(PS2X_GAME_MODULE_SHARED)
+#if defined(ZX_GAME_MODULE_SHARED)
 
 #if defined(_WIN32)
 #define ZX_GAME_MODULE_EXPORT extern "C" __declspec(dllexport)
@@ -100,7 +100,7 @@ ZX_GAME_MODULE_ENTRY(const ZxRuntimeApi *api)
         api->syscallCount != ZX_SYSCALL_COUNT || api->stubCount != ZX_STUB_COUNT)
         return nullptr;
     zx_game_module_api = api;
-#if defined(PS2X_GAME_MODULE_SHARED) && defined(_WIN32)
+#if defined(ZX_GAME_MODULE_SHARED) && defined(_WIN32)
     static bool constructed = false;
     if (!constructed)
     {

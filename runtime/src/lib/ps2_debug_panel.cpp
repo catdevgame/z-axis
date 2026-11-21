@@ -11,7 +11,7 @@
 #include "Kernel/Stubs/MemoryCard.h"
 #include "Kernel/Stubs/Pad.h"
 
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
@@ -35,7 +35,7 @@
 
 namespace
 {
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
     const char *threadStatusName(EeThreadStatus status)
     {
         switch (status)
@@ -1069,7 +1069,7 @@ namespace
             ImGui::EndTable();
         }
 
-        ImGui::SeparatorText("ps2xIOP HLE services");
+        ImGui::SeparatorText("iop HLE services");
         if (ImGui::BeginTable("iop_hle_services", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable))
         {
             ImGui::TableSetupColumn("Service");
@@ -2181,7 +2181,7 @@ namespace
 }
 void PS2DebugPanel::initialize()
 {
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
     if (!m_initialized && ps2_host::sdlWindow() && ps2_host::gpuDevice())
     {
         // Dear ImGui on the SDL3 window, drawn with SDL_GPU over the game
@@ -2189,6 +2189,21 @@ void PS2DebugPanel::initialize()
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
+        // The debug windows' font first (the default), then the player's
+        // messages' (setNoticeStyle), when its file reads.
+        ImGuiIO &io = ImGui::GetIO();
+        io.Fonts->AddFontDefault();
+        m_noticeFont = nullptr;
+        if (!m_noticeFontFile.empty())
+        {
+            if (FILE *file = std::fopen(m_noticeFontFile.c_str(), "rb"))
+            {
+                std::fclose(file);
+                m_noticeFont = io.Fonts->AddFontFromFileTTF(m_noticeFontFile.c_str(), 16.0f);
+            }
+            if (!m_noticeFont)
+                std::fprintf(stderr, "[debug-ui] notice font %s not read: ImGui's own\n", m_noticeFontFile.c_str());
+        }
         ImGui_ImplSDL3_InitForSDLGPU(ps2_host::sdlWindow());
         ImGui_ImplSDLGPU3_InitInfo info{};
         info.Device = ps2_host::gpuDevice();
@@ -2216,7 +2231,7 @@ void PS2DebugPanel::initialize()
 
 void PS2DebugPanel::shutdown()
 {
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
     if (m_initialized)
     {
         ps2_host::setOverlay({});
@@ -2235,7 +2250,7 @@ void PS2DebugPanel::shutdown()
 // a second, in a small box at the top right.
 void PS2DebugPanel::drawFps()
 {
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
     const double now = static_cast<double>(SDL_GetTicksNS()) / 1e9;
     const unsigned long long flips = PS2Runtime::displayFlips();
     if (m_fpsSince == 0.0)
@@ -2266,10 +2281,10 @@ void PS2DebugPanel::drawFps()
 #endif
 }
 
-// A short message for the player (ps2x::settings::notify), top left.
+// A short message for the player (zx::settings::notify), top left.
 void PS2DebugPanel::drawNotice(const std::string &text)
 {
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
     const ImGuiViewport *viewport = ImGui::GetMainViewport();
     const float scale = SDL_GetWindowDisplayScale(ps2_host::sdlWindow());
     ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 12.0f, viewport->WorkPos.y + 12.0f), ImGuiCond_Always,
@@ -2280,8 +2295,15 @@ void PS2DebugPanel::drawNotice(const std::string &text)
                                    ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
     if (ImGui::Begin("##notice", nullptr, flags))
     {
-        ImGui::SetWindowFontScale(scale > 0.0f ? scale * 1.25f : 1.25f);
+        // (the size ImGui's own font had here: 13 px, 1.25 times the display's scale)
+        const float size = 13.0f * 1.25f * (scale > 0.0f ? scale : 1.0f);
+        const uint32_t c = m_noticeColour;
+        ImGui::PushFont(m_noticeFont, size);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4((c & 0xFFu) / 255.0f, (c >> 8 & 0xFFu) / 255.0f, (c >> 16 & 0xFFu) / 255.0f,
+                                                    (c >> 24 & 0xFFu) / 255.0f));
         ImGui::TextUnformatted(text.c_str());
+        ImGui::PopStyleColor();
+        ImGui::PopFont();
     }
     ImGui::End();
 #else
@@ -2291,7 +2313,7 @@ void PS2DebugPanel::drawNotice(const std::string &text)
 
 void PS2DebugPanel::draw(PS2Runtime &runtime)
 {
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
     if (!m_initialized)
     {
         return;
@@ -2303,7 +2325,7 @@ void PS2DebugPanel::draw(PS2Runtime &runtime)
         toggleVisible();
     }
 
-    const std::string notice = ps2x::settings::notice();
+    const std::string notice = zx::settings::notice();
     if (!m_visible && !m_showFps && notice.empty())
     {
         return;

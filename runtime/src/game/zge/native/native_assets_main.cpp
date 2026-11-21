@@ -1,20 +1,20 @@
-// ps2xNativeAssets: checks the native asset readers against what the build
+// zx-native-assets: checks the native asset readers against what the build
 // tools make from the same files.
 //
-//   ps2xNativeAssets --pack <xbox-pack> --ps2 <PS2 disc folder> --xbox <Xbox folder> [--show n]
+//   zx-native-assets --pack <xbox-pack> --ps2 <PS2 disc folder> --xbox <Xbox folder> [--show n]
 //
 // For every library the pack (tools/xbox_pack.py) covers, the native
 // textures of the PS2 file (zge/native/native_textures.h) must be the
 // pack's entries: the same keys, pictures byte for byte. Exit 0 if all are.
 //
-//   ps2xNativeAssets --compare-geo 1 --ps2 <PS2 disc folder> --xbox <Xbox folder> [--show n]
+//   zx-native-assets --compare-geo 1 --ps2 <PS2 disc folder> --xbox <Xbox folder> [--show n]
 //
 // The two releases' geometry side by side (zge/native/geo_file.h): for
 // every GEO and ZIT both have, object by object and part by part, whether
 // the vertex streams are the same (byte for byte, or the same vertices in
 // another order) or the geometry differs (and by how many vertices).
 //
-//   ps2xNativeAssets --xbox-models <out> --ps2 <PS2 disc folder> --xbox <Xbox folder>
+//   zx-native-assets --xbox-models <out> --ps2 <PS2 disc folder> --xbox <Xbox folder>
 //
 // The packaging step's model converter (zge/native/xbox_models.h): every
 // skater model (ASSETS/SKATERS) both releases have, the PS2 file with the
@@ -39,7 +39,7 @@
 #include <tuple>
 #include <vector>
 
-// ps2_runtime needs a function table; nothing runs from it here.
+// zx_runtime needs a function table; nothing runs from it here.
 extern const uint32_t g_ps2RecompiledFunctionTableBase = 0x00000000u;
 extern const uint32_t g_ps2RecompiledFunctionTableEnd = 0x00000004u;
 extern const uint32_t g_ps2RecompiledFunctionTableSlotCount = 1u;
@@ -213,7 +213,7 @@ namespace
             if (xbox.size() != ps2.size() && first.empty())
                 first = std::to_string(ps2.size()) + " objects on the PS2, " + std::to_string(xbox.size()) + " on the Xbox";
             (worst == Verdict::Same ? filesSame : worst == Verdict::Reordered ? filesReordered : filesDifferent)++;
-            if (std::getenv("PS2X_COMPARE_TOTALS"))
+            if (std::getenv("ZX_COMPARE_TOTALS"))
             {
                 long a = 0, b = 0;
                 for (const auto &o : ps2)
@@ -277,7 +277,7 @@ namespace
                 ++same;
                 continue;
             }
-            const fs::path target = fs::path(outRoot) / "models" / ps2x::game_files::normalizePath("ASSETS/" + relative);
+            const fs::path target = fs::path(outRoot) / "models" / zx::game_files::normalizePath("ASSETS/" + relative);
             fs::create_directories(target.parent_path());
             std::ofstream(target, std::ios::binary).write(reinterpret_cast<const char *>(out.data()),
                                                            static_cast<std::streamsize>(out.size()));
@@ -300,7 +300,7 @@ namespace
 int main(int argc, char **argv)
 {
     namespace fs = std::filesystem;
-    namespace tr = ps2x::texture_replace;
+    namespace tr = zx::texture_replace;
     std::string pack, ps2Root, xboxRoot;
     int show = 5;
     bool compareGeo = false;
@@ -325,7 +325,7 @@ int main(int argc, char **argv)
     {
         if (ps2Root.empty() || xboxRoot.empty() || !ps2_xbox_disc::openPath(xboxRoot))
         {
-            std::cerr << "usage: ps2xNativeAssets --xbox-models <out> --ps2 <PS2 disc folder> --xbox <Xbox folder>"
+            std::cerr << "usage: zx-native-assets --xbox-models <out> --ps2 <PS2 disc folder> --xbox <Xbox folder>"
                       << std::endl;
             return 2;
         }
@@ -335,7 +335,7 @@ int main(int argc, char **argv)
     {
         if (ps2Root.empty() || xboxRoot.empty() || !ps2_xbox_disc::openPath(xboxRoot))
         {
-            std::cerr << "usage: ps2xNativeAssets --compare-geo 1 --ps2 <PS2 disc folder> --xbox <Xbox folder>"
+            std::cerr << "usage: zx-native-assets --compare-geo 1 --ps2 <PS2 disc folder> --xbox <Xbox folder>"
                       << std::endl;
             return 2;
         }
@@ -343,13 +343,13 @@ int main(int argc, char **argv)
     }
     if (pack.empty() || ps2Root.empty() || xboxRoot.empty() || !ps2_xbox_disc::openPath(xboxRoot))
     {
-        std::cerr << "usage: ps2xNativeAssets --pack <xbox-pack> --ps2 <PS2 disc folder> --xbox <Xbox folder>"
+        std::cerr << "usage: zx-native-assets --pack <xbox-pack> --ps2 <PS2 disc folder> --xbox <Xbox folder>"
                   << std::endl;
         return 2;
     }
-    ps2x::game_files::GameFileRoots roots;
+    zx::game_files::GameFileRoots roots;
     roots.disc = ps2Root;
-    ps2x::game_files::GameFileSystem files(roots);
+    zx::game_files::GameFileSystem files(roots);
 
     size_t libraries = 0, same = 0, packEntries = 0, nativeEntries = 0;
     int shown = 0;
@@ -368,7 +368,7 @@ int main(int argc, char **argv)
         std::vector<uint8_t> ps2, xbox;
         const auto file = files.open(normalized);
         const std::string relative = normalized.substr(std::string("ASSETS/").size());
-        if (!file || !ps2x::game_files::readAll(*file, ps2) || !ps2_xbox_disc::readFile(relative, xbox))
+        if (!file || !zx::game_files::readAll(*file, ps2) || !ps2_xbox_disc::readFile(relative, xbox))
         {
             std::cout << normalized << ": cannot read both files" << std::endl;
             continue;

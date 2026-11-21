@@ -644,14 +644,14 @@ NAME_TYPES = {'player': 'aggressive::skater::Player', 'sceneObject': 'zge::Scene
 
 
 def _ai_layouts_only(raw):
-    """The source as AI's build sees it where another game's layout stands in `#if PS2X_GAME_DM2` (or the #else of
-    `#if !PS2X_GAME_DM2`): those lines blanked (line numbers kept), so another game's offsets are not AI's."""
+    """The source as AI's build sees it where another game's layout stands in `#if ZX_GAME_DM2` (or the #else of
+    `#if !ZX_GAME_DM2`): those lines blanked (line numbers kept), so another game's offsets are not AI's."""
     out, stack = [], []  # per open #if: (is a game test, its branch is skipped now)
     for line in raw.split('\n'):
         d = line.strip()
         skip = any(s for _g, s in stack)
         if d.startswith('#if'):
-            m = re.match(r'#if\s+(!?)PS2X_GAME_(DM2|BMX)\s*$', d)
+            m = re.match(r'#if\s+(!?)ZX_GAME_(DM2|BMX)\s*$', d)
             stack.append((bool(m), bool(m) and not m.group(1)))
             out.append('' if m or skip else line)
             continue
@@ -3276,7 +3276,7 @@ class _TextDraft:
 
 def infer_params(sweep_dir):
     """Rewrites the table's `inferred:` and `callers:` param rows from a
-    build's drafts (<build>/ps2xRuntime/readable_sweep):
+    build's drafts (<build>/runtime/readable_sweep):
       inferred:  each swept function whose parameters are all integers and
                  that names one (param_N renamed by this module), by position,
                  for its callers' arguments;
@@ -3877,7 +3877,7 @@ def sync_hand():
     is left out and returned: ({kind: rows changed}, [clashes in words]). A
     name the table may not hold (CPP_RESERVED: `sweep`, a namespace of the
     drafts, is a hand-written parameter's name) stays out: the row keeps its own.
-    Names stay unique across the layers (ee::readable and PS2X_READABLE find
+    Names stay unique across the layers (ee::readable and ZX_READABLE find
     functions by name), so such a clash needs one of the two renamed."""
     rd = _draft_module()
     hand = rd.read_readable(GAME_SRC)
@@ -3918,7 +3918,7 @@ def sync_hand():
             continue
         other = holder(name, a)
         if other:
-            # (one name a function: ee::readable and PS2X_READABLE find
+            # (one name a function: ee::readable and ZX_READABLE find
             # functions by name, whatever their namespace)
             clashes.append('0x%08X wants %s, but 0x%08X has it: %s. The table keeps one name per function across '
                            'all layers, so its row stays %s: rename one of the two where it is written, then '

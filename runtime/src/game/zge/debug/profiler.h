@@ -46,25 +46,25 @@ namespace zge
         uint32_t id;                // +0x04 1: the application's, 2: the engine CPU's
         uint32_t label;             // +0x08 its name (a C string), drawn after the bar
         uint32_t cycles;            // +0x0C counted this frame
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t lastFrameCycles;   // +0x10 the last frame's (ZGE4's is at +0x84)
 #endif
         uint32_t peakCycles;        // +0x14 (BMX +0x10) the most a frame took (reset by resetProfilePeaks)
         ee::Float scale;            // +0x18 (BMX +0x14) the frames of time the bar's length spans
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // +0x18 two times (in frames) BMX XXX's drawProfileTicks marks on the
         // row with a tick of their own when above 0 (nothing in BMX XXX sets them).
         ee::Float markedFrames[2];
 #endif
         uint8_t colour[4];          // +0x1C (BMX +0x20) R, G, B, A
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t displayMask;       // +0x20 (BMX +0x24) display flags set while it runs (setDisplayFlags)
 #endif
-#if !PS2X_GAME_DM2 && !PS2X_GAME_BMX
+#if !ZX_GAME_DM2 && !ZX_GAME_BMX
         uint32_t _24;
 #endif
         uint64_t startCount;        // +0x28 (DM2 +0x20) the cycle count when it was started
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4's colour changes this frame and the last frame's (kept by
         // endProfileBarFrame, drawn while the bar runs). Nothing in BMX
         // XXX adds one: the counts stay 0.
@@ -81,10 +81,10 @@ namespace zge
                   offsetof(ProfileBar, lastFrameCycles) == game::readable::perGame(0x10u, 0x10u, 0x84u) &&
                   offsetof(ProfileBar, startCount) == game::readable::perGame(0x28u, 0x20u, 0x28u) &&
                   sizeof(ProfileBar) == game::readable::perGame(0x30u, 0x28u, 0xE0u));
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
     static_assert(offsetof(ProfileBar, displayMask) == game::readable::perGame(0x20u, 0x20u, 0x24u));
 #endif
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(ProfileBar, markedFrames) == 0x18 && offsetof(ProfileBar, colourChangeCount) == 0x30 &&
                   offsetof(ProfileBar, colourChanges) == 0x34 && offsetof(ProfileBar, lastFrameColourChangeCount) == 0x88 &&
                   offsetof(ProfileBar, lastFrameColourChanges) == 0x8C);
@@ -130,12 +130,12 @@ namespace zge
         ee::Ptr<Task> engineRestartTask;
         ee::Ptr<Task> engineStopTask;
         ProfileLayout layout;       // +0x44
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // +0x74 ZGE4 adds these to a label's position (BMX XXX's
         // drawProfileLabel; initProfiler zeroes them and nothing sets them).
         int32_t labelOffsetX, labelOffsetY;
 #endif
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t displayFlags;      // +0x74 (BMX +0x7C) the bars' display masks together (ZGE2 has none: 0x74 bytes)
 #endif
     };
@@ -143,10 +143,10 @@ namespace zge
                   offsetof(Profiler, barLength) == 0x28 && offsetof(Profiler, appBar) == 0x2C &&
                   offsetof(Profiler, engineBar) == 0x38 && offsetof(Profiler, layout) == 0x44 &&
                   sizeof(Profiler) == game::readable::perGame(0x78u, 0x74u, 0x80u));
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
     static_assert(offsetof(Profiler, displayFlags) == game::readable::perGame(0x74u, 0x74u, 0x7Cu));
 #endif
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(Profiler, labelOffsetX) == 0x74 && offsetof(Profiler, labelOffsetY) == 0x78);
 #endif
 
@@ -158,7 +158,7 @@ namespace zge
     // added them: in ZGE2 a bar has no mask, and these read 0 and keep nothing.
     inline uint32_t profileBarDisplayMask(const ProfileBar &bar)
     {
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         return bar.displayMask;
 #else
         (void)bar;
@@ -167,7 +167,7 @@ namespace zge
     }
     inline void addProfileBarDisplayMask(ProfileBar &bar, uint32_t mask)
     {
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         bar.displayMask = mask;
         g_profiler->displayFlags |= mask;
 #else
@@ -176,7 +176,7 @@ namespace zge
     }
     inline void removeProfileBarDisplayMask(const ProfileBar &bar)
     {
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         g_profiler->displayFlags &= ~bar.displayMask;
 #else
         (void)bar;
@@ -184,7 +184,7 @@ namespace zge
     }
     inline void clearProfileDisplayFlags(Profiler &profiler)
     {
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         profiler.displayFlags = 0;
 #else
         (void)profiler;
@@ -196,7 +196,7 @@ namespace zge
     // the result handed in.
     inline int32_t endFrameColourChanges(ee::Address bar, int32_t result)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ProfileBar &b = *ee::Ptr<ProfileBar>(bar);
         b.lastFrameColourChangeCount = b.colourChangeCount;
         result = static_cast<int32_t>(memoryCopy(bar + static_cast<uint32_t>(offsetof(ProfileBar, lastFrameColourChanges)),
@@ -219,7 +219,7 @@ namespace zge
     // ZGE2 and ZGE3, which have none.
     inline void clearProfileLabelOffset(Profiler &profiler)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         profiler.labelOffsetX = 0;
         profiler.labelOffsetY = 0;
 #else
@@ -228,7 +228,7 @@ namespace zge
     }
     inline int32_t profileLabelOffsetX(const Profiler &profiler)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return profiler.labelOffsetX;
 #else
         (void)profiler;
@@ -237,7 +237,7 @@ namespace zge
     }
     inline int32_t profileLabelOffsetY(const Profiler &profiler)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return profiler.labelOffsetY;
 #else
         (void)profiler;

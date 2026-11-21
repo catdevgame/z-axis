@@ -6,7 +6,7 @@
 #include <memory>
 #include <mutex>
 
-namespace ps2x::ftrace
+namespace zx::ftrace
 {
     std::atomic<bool> g_on{false};
 

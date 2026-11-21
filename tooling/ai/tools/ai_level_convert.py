@@ -41,6 +41,10 @@ The model (glTF 2.0, as Blender exports it; gltf_model.py reads it):
   kind 1), #grind=spine (2), #grind=vpole (a vertical pole, 3), #grind=hpole (a horizontal pole, 4); the
   sound by #metal (2), #wood (1), default concrete (0).
 
+  #tag=W on a material gives its faces the tag word W (a name, hashed, or a hex word 0x...), and on a #grind node
+  its edges: the word a level's goals and events find faces and edges by (DM2's gaps, BMX XXX's objectives, AI's
+  Jump and Land events), as a stock face's or edge's record has it (zge_level_gltf's export writes them).
+
   A material's tag gives its faces a surface kind: #qp (a quarter pipe, kind 1), #spine (2), #slope=G (a
   slope with gravity G, 3), #wall (a wall ride, 8); #2sided draws and collides both sides, #2sided=collide
   collides both sides and is drawn on one (most stock faces); #layer=<32 hex digits> takes that MATI layer state's
@@ -50,7 +54,9 @@ The model (glTF 2.0, as Blender exports it; gltf_model.py reads it):
   An empty node #spawn (or #spawn=PlayerOne; the name without tags otherwise) is a spawn point with the
   node's position and facing; PlayerOne is where the skater starts, PlayerTwo the second player's start in split
   screen, and #spawn=respawn a point a fallen player is put back at (AI's "Respawn", DM2's "Player", BMX XXX's
-  unnamed spawns: each converter writes its game's name). An empty node #camera (#fov=N degrees, 60 by default) is
+  unnamed spawns: each converter writes its game's name); any other name is a named point a game's scripts or modes
+  read, written under that name, but for the names only another game reads (SCRIPT_SPAWNS: AI's lesson points
+  and wickedTree, BMX XXX's paintball points), which are left out of the others. An empty node #camera (#fov=N degrees, 60 by default) is
   an idle camera: its position the eye, its rotation the view (+z forward in the games' axes, as BMX XXX's
   "CameraPos" points). Each converter writes them as "CameraPos" points named "idle", numbered from 1 in the
   model's order: BMX XXX looks from them behind its play-again screen, DM2 (with its level camera points option)
@@ -121,6 +127,16 @@ MATERIAL_COLOURS = bytes.fromhex("e5e5e5ff" "f3f3f3ff" "f3f3f3ff")
 GRIND_KINDS = {"ledge": 0, "rail": 0, "lip": 1, "spine": 2, "vpole": 3, "hpole": 4}
 GRIND_SOUNDS = {"concrete": 0, "wood": 1, "metal": 2}
 SURFACE_KINDS = {"qp": 1, "spine": 2, "slope": 3, "wall": 8}
+# The named spawn points only one game's scripts or modes read, by game: AI's Tutorial lesson points
+# (TutorialAssignerN's setRespawnLocation, the career's TUT.BIN) and the Movie Lot's wickedTree, BMX XXX's
+# paintball points (spawnPlayer in kPaintballMode). zge_level_gltf's export carries these by name; a converter
+# writes them only for their own game (no other reads them; BMX XXX would take a lesson point as a respawn).
+_NUMBERS = ("One Two Three Four Five Six Seven Eight Nine Ten Eleven Twelve Thirteen Fourteen Fifteen Sixteen "
+            "Seventeen Eighteen Nineteen Twenty").split()
+SCRIPT_SPAWNS = {
+    "ai": tuple("lesson" + n for n in _NUMBERS + ["Twenty" + o for o in _NUMBERS[:5]]) + ("wickedTree",),
+    "bmx": ("sniper_shooter", "sniper_target"),
+}
 CAMERA_POINT = L.name_hash("CameraPos")   # a camera point's kind (BMX XXX's camera.c)
 IDLE_CAMERA = L.name_hash("idle")         # the idle cameras' name (BMX XXX's idleCameraMode)
 CAMERA_FOV = 60                           # an idle camera's field of view when the model gives none (the stock one)
@@ -144,6 +160,19 @@ def split_tags(name, extras=None):
     for k, v in (extras or {}).items():
         tags[str(k).lower()] = v if not isinstance(v, str) or v else True
     return parts[0].strip(), tags
+
+
+def tag_word(tags):
+    """#tag=W's word: a hex word (0x...) as it is, else the name's hash; 0 without one."""
+    value = tags.get("tag")
+    if not isinstance(value, str) or not value:
+        return 0
+    if value.lower().startswith("0x"):
+        try:
+            return int(value, 16) & 0xFFFFFFFF
+        except ValueError:
+            pass
+    return L.name_hash(value)
 
 
 def to_ai(p):
@@ -517,6 +546,7 @@ class Surface:
                                     # stock faces in all three games are (a stock level's MATIs rarely draw both sides)
     base_colour: Tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)
     layer: Optional[bytes] = None   # #layer=<32 hex digits>: a layer state whose blending and tests the material takes
+    word: int = 0                   # #tag=W: the faces' tag word (0 none)
 
 
 @dataclass
@@ -610,6 +640,7 @@ class EdgeMark:
     kind: int
     flags: int
     sound: int
+    word: int = 0                      # #tag=W: the edge's tag word
 
 
 @dataclass
@@ -780,6 +811,7 @@ class Converter:
     MAKES_CAMERA = False
     CAMERA_LIFT = 0.0
     SPAWN_TAGS = b""        # the tag record each spawn point gets
+    GAME = "ai"             # SCRIPT_SPAWNS' key: the named points this game reads
 
     def __init__(self, model, slot="TUT", level_name=None, force=False):
         self.model = model
@@ -870,7 +902,7 @@ class Converter:
             self.textures[tname] = Texture(tname, 8, 8, [[px] * 8 for _ in range(8)])
         full = self.model.materials[material_index].name if material_index >= 0 else name
         s = Surface(full[:NAME_BYTES], tname, two_sided="2sided" in tags and tags["2sided"] != "collide",
-                    faces_two_sided="2sided" in tags, base_colour=tuple(base), layer=layer_of(tags))
+                    faces_two_sided="2sided" in tags, base_colour=tuple(base), layer=layer_of(tags), word=tag_word(tags))
         for word, kind in SURFACE_KINDS.items():
             if word in tags:
                 s.kind = kind
@@ -896,7 +928,8 @@ class Converter:
             if "spawn" in tags:
                 spawn = tags["spawn"] if isinstance(tags["spawn"], str) else name
                 game_name = self.SPAWN_NAMES.get(spawn.lower(), spawn)
-                if game_name is None:
+                foreign = any(spawn.lower() in (n.lower() for n in names) for g, names in SCRIPT_SPAWNS.items() if g != self.GAME)
+                if game_name is None or foreign:
                     self.report.did("spawn %s has no meaning in this game: left out" % spawn)
                 else:
                     self.spawns.append((game_name, to_ai(node.translation), quat_to_ai(node.rotation)))
@@ -942,7 +975,7 @@ class Converter:
             world = [tuple(a + b for a, b in zip(to_ai(G.quat_rotate(node.rotation, tuple(c * s for c, s in zip(p, node.scale)))), to_ai(node.translation)))
                      for p in prim.positions]
             for i, k in prim.lines:
-                self.edge_marks.append(EdgeMark(world[i], world[k], kind, flags, sound))
+                self.edge_marks.append(EdgeMark(world[i], world[k], kind, flags, sound, tag_word(tags)))
 
     def add_object(self, name, node, mesh, tags):
         sky = "sky" in tags
@@ -1162,16 +1195,18 @@ class Converter:
                       uvs=W.IndexedStream.make([struct.pack("<2f", *uv) for uv in piece.uvs]),
                       face_normals=W.IndexedStream.make(face_normals),
                       flags=self.SKY.part_flags if piece.sky else PART_FLAGS, material_count=len(surfaces))
+        # a record for each (kind, tag word) the faces have: the surface kind and the word their events carry
         tags = []
         for i, (s, a, b, c) in enumerate(piece.faces):
-            tags.append(self.surfaces[s].kind)
-        kinds = sorted({k for k in tags if k})
+            tags.append((self.surfaces[s].kind, self.surfaces[s].word))
+        kinds = sorted({k for k in tags if k[0] or k[1]})
         if kinds and piece.collides:
             records = []
-            for k in kinds:
-                gravity = max((self.surfaces[s].gravity for s, _, _, _ in piece.faces if self.surfaces[s].kind == k), default=0.0)
-                records.append(W.FaceTag(0, k, gravity=gravity if k == 3 else 0.0, launch_push=QP_LAUNCH_PUSH if k == 1 else 0.0))
-            part.face_tags = W.TagBuffer(records, [kinds.index(k) if k else None for k in tags])
+            for k, word in kinds:
+                gravity = max((self.surfaces[s].gravity for s, _, _, _ in piece.faces
+                               if (self.surfaces[s].kind, self.surfaces[s].word) == (k, word)), default=0.0)
+                records.append(W.FaceTag(word, k, gravity=gravity if k == 3 else 0.0, launch_push=QP_LAUNCH_PUSH if k == 1 else 0.0))
+            part.face_tags = W.TagBuffer(records, [kinds.index(k) if k[0] or k[1] else None for k in tags])
         table = Chunk(b"TMTB", kids=[mati(self.surfaces[s].name, self.surfaces[s].texture, self.surfaces[s].two_sided, self.surfaces[s].layer) for s in surfaces])
         lo = tuple(min(p[k] for p in piece.positions) for k in range(3))
         hi = tuple(max(p[k] for p in piece.positions) for k in range(3))
@@ -1209,7 +1244,7 @@ class Converter:
                     if mark is None:
                         continue
                     indices[3 * f + k] = len(records)
-                    records.append(W.EdgeTag(0, mark.kind, mark.flags, mark.sound))
+                    records.append(W.EdgeTag(mark.word, mark.kind, mark.flags, mark.sound))
                     kinds[mark.kind] += 1
             if records:
                 part.edge_tags = W.TagBuffer(records, indices)

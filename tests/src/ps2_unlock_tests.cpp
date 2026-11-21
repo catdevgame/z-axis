@@ -126,10 +126,10 @@ void register_ps2_unlock_tests()
                                "\tOBJECT \"guiToggler\" \"SelectLevel\"\r\n\t{\r\n\t\tVisible\t0\r\n"
                                "\t\tOnCancel\t\"PLAY DeInit\\nPLAY .TrickMenu.Init\"\r\n\t}\r\n}\r\n";
             t.IsTrue(dave_mirra::cheats::patchLevelSelectBack(text), "patched");
-            t.IsTrue(text.find("STRCAT PS2XBack Root.CurrentRider1\\nGOTO PS2XBack\\n") != std::string::npos,
+            t.IsTrue(text.find("STRCAT ZXBack Root.CurrentRider1\\nGOTO ZXBack\\n") != std::string::npos,
                      "by the first rider's character");
-            t.IsTrue(text.find("PLAY DeInit\\nPLAY .TrickMenu.Init\\nGOTO End\\n:PS2XCreated17\\n:PS2XCreated18\\n"
-                               ":PS2XCreated19\\n:PS2XCreated20\\n") != std::string::npos,
+            t.IsTrue(text.find("PLAY DeInit\\nPLAY .TrickMenu.Init\\nGOTO End\\n:ZXCreated17\\n:ZXCreated18\\n"
+                               ":ZXCreated19\\n:ZXCreated20\\n") != std::string::npos,
                      "the game's riders back to the trick menu, the created ones on");
             t.IsTrue(text.find("PLAY Root.PlayerCreator.Init\\n:End\"") != std::string::npos, "to Create Rider");
             std::string other = "OBJECT \"guiScreenSpace\" \"MainMenu\"\r\n{\r\n}\r\n";

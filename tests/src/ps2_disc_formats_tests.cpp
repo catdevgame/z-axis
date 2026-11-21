@@ -1,4 +1,4 @@
-// Disc images in each format players keep them in (ps2x/iop/disc_image_file.h,
+// Disc images in each format players keep them in (zx/disc/disc_image_file.h,
 // cue_sheet.h): a made-up disc written as an ISO, then as a CD's CHD (raw and
 // cooked sectors), a DVD's CHD, CSO v1 and v2, ZSO and a multi-track BIN/CUE,
 // each written here from its format's layout (no game data). Each opens by
@@ -9,8 +9,8 @@
 #include "collection/disc_check.h"
 #include "collection/disc_finder.h"
 #include "collection/game_setup.h"
-#include "ps2x/iop/cue_sheet.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/cue_sheet.h"
+#include "zx/disc/iso9660.h"
 #include "test_iso_builder.h"
 
 #include <lz4.h>
@@ -28,7 +28,7 @@
 namespace
 {
     namespace fs = std::filesystem;
-    using namespace ps2x::app;
+    using namespace zx::app;
     using Bytes = std::vector<uint8_t>;
 
     struct TempDir
@@ -37,7 +37,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = fs::temp_directory_path() / ("ps2x-discfmt-" + std::to_string(now));
+            path = fs::temp_directory_path() / ("zx-discfmt-" + std::to_string(now));
             fs::create_directories(path);
         }
         ~TempDir()
@@ -403,7 +403,7 @@ void register_ps2_disc_formats_tests()
             // The reader alone: every byte of the image's 2048-byte view.
             for (const Case &c : cases)
             {
-                ps2x::iop::Iso9660Image image;
+                zx::disc::Iso9660Image image;
                 std::string error;
                 Bytes view(iso.size());
                 t.IsTrue(image.open(dir.path / c.name, &error) && image.sizeBytes() == iso.size() &&
@@ -436,14 +436,14 @@ void register_ps2_disc_formats_tests()
                                       "FILE \"Game (Track 1).bin\" BINARY\r\n  TRACK 01 AUDIO\r\n    INDEX 01 00:00:00\r\n"
                                       "FILE \"Game (Track 2).bin\" BINARY\r\n  TRACK 02 MODE2/2352\r\n    INDEX 01 00:00:00\r\n"
                                       "FILE \"Game (Track 3).bin\" BINARY\r\n  TRACK 03 AUDIO\r\n    INDEX 00 00:00:00\r\n";
-            t.IsTrue(ps2x::iop::isCueSheet(sheet), "a CUE sheet");
-            t.Equals(ps2x::iop::cueDataTrackFile(sheet), std::string("Game (Track 2).bin"), "the data track's file");
-            t.IsFalse(ps2x::iop::isCueSheet("BOOT2 = cdrom0:\\SLUS_203.27;1\r\n"), "a SYSTEM.CNF is none");
+            t.IsTrue(zx::disc::isCueSheet(sheet), "a CUE sheet");
+            t.Equals(zx::disc::cueDataTrackFile(sheet), std::string("Game (Track 2).bin"), "the data track's file");
+            t.IsFalse(zx::disc::isCueSheet("BOOT2 = cdrom0:\\SLUS_203.27;1\r\n"), "a SYSTEM.CNF is none");
             std::string bytes = "FILE a.bin BINARY\n";
             bytes.push_back('\0');
             bytes += "TRACK 01 MODE1/2048\n";
-            t.IsFalse(ps2x::iop::isCueSheet(bytes), "nor are bytes");
-            t.Equals(ps2x::iop::cueDataTrackFile("FILE a.bin BINARY\n TRACK 01 AUDIO\n"), std::string(), "audio alone: none");
+            t.IsFalse(zx::disc::isCueSheet(bytes), "nor are bytes");
+            t.Equals(zx::disc::cueDataTrackFile("FILE a.bin BINARY\n TRACK 01 AUDIO\n"), std::string(), "audio alone: none");
 
             TempDir dir;
             test_iso::write(dir.path / "disc.iso", discFiles());

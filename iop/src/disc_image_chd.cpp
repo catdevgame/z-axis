@@ -9,7 +9,7 @@
 #include <cstring>
 #include <vector>
 
-namespace ps2x::iop::disc_formats
+namespace zx::disc::formats
 {
     namespace
     {

@@ -18,7 +18,7 @@
 #include <dlfcn.h> // (a caller's function by name in the report; Windows prints its address)
 #endif
 
-namespace ps2x::lanes
+namespace zx::lanes
 {
     bool g_watchOn = false;
     bool g_pokesOn = false;
@@ -36,7 +36,7 @@ namespace ps2x::lanes
         };
         std::mutex g_mutex;
         std::unordered_set<uint32_t> g_words;                   // watched word addresses (& ~3)
-        std::unordered_set<uint32_t> g_pcs;                     // PS2X_LANE_WATCH_PCS: load and store sites whose addresses are wanted
+        std::unordered_set<uint32_t> g_pcs;                     // ZX_LANE_WATCH_PCS: load and store sites whose addresses are wanted
         std::vector<bool> g_pages;                               // a page (4 KB) with a watched word
         std::map<std::tuple<char, uint64_t, uint32_t, uint32_t>, Hits> g_hits; // (kind, pc or caller, word, size)
 
@@ -44,7 +44,7 @@ namespace ps2x::lanes
 
         void report()
         {
-            const char *path = std::getenv("PS2X_LANE_WATCH_OUT");
+            const char *path = std::getenv("ZX_LANE_WATCH_OUT");
             std::FILE *out = path && path[0] ? std::fopen(path, "w") : stderr;
             if (!out)
                 out = stderr;
@@ -79,7 +79,7 @@ namespace ps2x::lanes
 
         void installWatch()
         {
-            const char *text = std::getenv("PS2X_LANE_WATCH");
+            const char *text = std::getenv("ZX_LANE_WATCH");
             if (!text || !text[0])
                 return;
             g_pages.assign(1u << 20, false); // 4 GB of pages: the mirrors too
@@ -105,11 +105,11 @@ namespace ps2x::lanes
             std::fprintf(stderr, "[lane-watch] %u words\n", words);
         }
 
-        // PS2X_LANE_WATCH_PCS=PC,...: every access made by the instructions at those addresses, by the address it
+        // ZX_LANE_WATCH_PCS=PC,...: every access made by the instructions at those addresses, by the address it
         // reached (R/W lines with that pc: the backward step of a slice, from a store site to what it read).
         void installPcs()
         {
-            const char *text = std::getenv("PS2X_LANE_WATCH_PCS");
+            const char *text = std::getenv("ZX_LANE_WATCH_PCS");
             if (!text || !text[0])
                 return;
             std::istringstream items(text);
@@ -153,7 +153,7 @@ namespace ps2x::lanes
             }
         }
 
-        // ---- the differential (PS2X_LANE_DIFF) ----
+        // ---- the differential (ZX_LANE_DIFF) ----
         // Per instruction, in the order the EE runs it: a count, a hash of its addresses (or directions, targets, call
         // sites) and a hash of the bytes it read or left. Instructions below kDiffSpan by address; dispatched callees
         // keyed by their address with kind C.
@@ -208,11 +208,11 @@ namespace ps2x::lanes
 
         void installDiff()
         {
-            const char *text = std::getenv("PS2X_LANE_DIFF");
+            const char *text = std::getenv("ZX_LANE_DIFF");
             if (!text || !text[0])
                 return;
             g_diffOut = text;
-            if (const char *at = std::getenv("PS2X_LANE_DIFF_AT"))
+            if (const char *at = std::getenv("ZX_LANE_DIFF_AT"))
             {
                 std::istringstream items(at);
                 std::string item;
@@ -228,12 +228,12 @@ namespace ps2x::lanes
 
         // ---- the callers ----
         std::unordered_map<uint64_t, uint64_t> g_callers; // (target << 32 | source) -> count
-        bool g_callersGraph = false;                       // PS2X_LANE_CALLERS (g_callersOn is also the differential's)
+        bool g_callersGraph = false;                       // ZX_LANE_CALLERS (g_callersOn is also the differential's)
         size_t g_callersReported = 0;
 
         void reportCallers()
         {
-            const char *path = std::getenv("PS2X_LANE_CALLERS_OUT");
+            const char *path = std::getenv("ZX_LANE_CALLERS_OUT");
             std::FILE *out = path && path[0] ? std::fopen(path, "w") : nullptr;
             if (!out)
                 return;
@@ -247,7 +247,7 @@ namespace ps2x::lanes
 
         void installCallers()
         {
-            const char *text = std::getenv("PS2X_LANE_CALLERS");
+            const char *text = std::getenv("ZX_LANE_CALLERS");
             if (text && text[0] == '1')
             {
                 g_callersOn = g_callersGraph = true;
@@ -338,7 +338,7 @@ namespace ps2x::lanes
 
         void installPokes()
         {
-            const char *text = std::getenv("PS2X_LANE_POKE");
+            const char *text = std::getenv("ZX_LANE_POKE");
             if (!text || !text[0])
                 return;
             std::istringstream items(text);
@@ -363,7 +363,7 @@ namespace ps2x::lanes
                     Poke poke;
                     if (!parsePoke(word, poke))
                     {
-                        std::fprintf(stderr, "PS2X_LANE_POKE: cannot read '%s'\n", word.c_str());
+                        std::fprintf(stderr, "ZX_LANE_POKE: cannot read '%s'\n", word.c_str());
                         std::abort();
                     }
                     out.pokes.push_back(poke);
@@ -372,7 +372,7 @@ namespace ps2x::lanes
                 {
                     if (!item.empty() && item.find_first_not_of(" \t") != std::string::npos)
                     {
-                        std::fprintf(stderr, "PS2X_LANE_POKE: item '%s' needs call|ret|entry|exit=PC and a poke\n", item.c_str());
+                        std::fprintf(stderr, "ZX_LANE_POKE: item '%s' needs call|ret|entry|exit=PC and a poke\n", item.c_str());
                         std::abort();
                     }
                     continue;

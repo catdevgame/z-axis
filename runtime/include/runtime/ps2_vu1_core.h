@@ -5,7 +5,7 @@
 // ps2_vu1_step.h, the instructions in ps2_vu1_exec_lower.h and ps2_vu1_exec_upper.h, the pipelines in
 // ps2_vu1_core.cpp), and what the core asks of whoever runs it (VU1Host). Freestanding (no library header, plain
 // arrays): the runtime's interpreter (VU1Interpreter, runtime/ps2_vu1.h) is this core and its own parts, and a
-// game module's ahead-of-time compiled microprograms (ps2xVu1Aot, src/lib/vu/ps2_vu1_aot.h) are compiled against
+// game module's ahead-of-time compiled microprograms (zx-vu1aot, src/lib/vu/ps2_vu1_aot.h) are compiled against
 // it too and run on the interpreter's core, so both sides agree on its layout (vu1CoreLayout, checked at load:
 // game_module/abi.h).
 
@@ -13,7 +13,7 @@
 #include <stdint.h>
 
 // The standard names the core uses: the library's in the runtime, the module's own subset in a game module.
-#if defined(PS2X_GAME_MODULE)
+#if defined(ZX_GAME_MODULE)
 #include "game_module/freestanding_std.h"
 #else
 #include <algorithm>
@@ -32,11 +32,11 @@
 #endif
 
 // In a game module the core is the module's own (its functions are compiled into it): a namespace of the
-// module's, so modules linked into one program (PS2X_GAME_MODULES=static) each keep theirs.
-#if defined(PS2X_GAME_MODULE)
+// module's, so modules linked into one program (ZX_GAME_MODULES=static) each keep theirs.
+#if defined(ZX_GAME_MODULE)
 #define PS2_VU1_CORE_CONCAT2(a, b) a##b
 #define PS2_VU1_CORE_CONCAT(a, b) PS2_VU1_CORE_CONCAT2(a, b)
-#define PS2_VU1_CORE_BEGIN inline namespace PS2_VU1_CORE_CONCAT(vu1_core_, PS2X_GAME_MODULE_ID) {
+#define PS2_VU1_CORE_BEGIN inline namespace PS2_VU1_CORE_CONCAT(vu1_core_, ZX_GAME_MODULE_ID) {
 #define PS2_VU1_CORE_END }
 #else
 #define PS2_VU1_CORE_BEGIN
@@ -86,7 +86,7 @@ struct VU1Host
     void (*reservedInstruction)(void *context, bool upper, uint32_t instruction);
 };
 
-// A microprogram compiled ahead of time (ps2xVu1Aot): runs `core` (a VU1Core) with `runContext` (its
+// A microprogram compiled ahead of time (zx-vu1aot): runs `core` (a VU1Core) with `runContext` (its
 // VU1Core::RunContext) until the run ends (true) or reaches a pc it has no code for (false: the interpreter goes on).
 typedef bool (*VU1AotRun)(void *core, void *runContext);
 
@@ -475,7 +475,7 @@ struct VU1Core
     uint8_t *m_activeVuData = nullptr;
     uint32_t m_activeVuDataSize = 0;
     bool m_stopRequested = false;
-    bool m_aotBlocksOff = false; // pair trace or PS2X_VU1_AOT_BLOCKS=0
+    bool m_aotBlocksOff = false; // pair trace or ZX_VU1_AOT_BLOCKS=0
     bool m_pendingHaltD = false;
     bool m_pendingHaltT = false;
 
@@ -586,7 +586,7 @@ struct VU1Core
     }
     void advanceTo(uint64_t targetCycle);
 
-    // Ahead-of-time compiled blocks (ps2_vu1_aot.h, ps2xVu1Aot): straight-line
+    // Ahead-of-time compiled blocks (ps2_vu1_aot.h, zx-vu1aot): straight-line
     // code for a basic block that keeps the issue cycles of its pairs in
     // locals and runs only the instructions, with the same results as
     // stepPair. A block runs only when no budget stop, trace or deferred

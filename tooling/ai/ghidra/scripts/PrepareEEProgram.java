@@ -3,7 +3,7 @@
 //    extension adds vu0/vu1/iop_ram placeholder blocks. Clear the execute bit on every block but .text so auto-analysis (and the PS2Recomp export, which
 //    walks executable blocks) never disassembles them as R5900 instructions.
 //  - Report the memory map so the log documents what was imported.
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.mem.MemoryBlock;

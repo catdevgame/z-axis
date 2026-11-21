@@ -23,7 +23,7 @@
 //   leave it alone, so the save is untouched. BAKABAKA (bit 8, no table
 //   write) is not offered.
 // - Unlock Everything writes the career save's unlocks (see unlockAll);
-//   PS2X_DEV_UNLOCK_ALL=1 does the same in the front end, for test runs.
+//   ZX_DEV_UNLOCK_ALL=1 does the same in the front end, for test runs.
 //
 // Restart: the Restart key asks aggressive_inline_restart.cpp for what fits
 // the mode (the level again, the Timed Run's Play Again, the split screen's
@@ -37,7 +37,7 @@
 // mode (aggressive_inline_photo.cpp). The screenshot key is the app's, for
 // every game (src/collection/app.cpp).
 //
-// Settings are kept in PS2X_GAMEPLAY_INI (the app: gameplay.ini in the
+// Settings are kept in ZX_GAMEPLAY_INI (the app: gameplay.ini in the
 // support folder).
 
 #include "aggressive_inline_gameplay.h"
@@ -74,7 +74,7 @@ namespace aggressive_inline::gameplay
 {
     namespace
     {
-        namespace st = ps2x::settings;
+        namespace st = zx::settings;
         namespace hi = ps2_host_input;
 
         constexpr uint32_t kGameMode = 0x00276FE4u;
@@ -106,7 +106,7 @@ namespace aggressive_inline::gameplay
             PS2Runtime::RecompiledFunction playUpdate = nullptr;
             PS2Runtime::RecompiledFunction guiDraw = nullptr;
         };
-        Hooks &hooks() { return ps2x::session::state<Hooks>(); }
+        Hooks &hooks() { return zx::session::state<Hooks>(); }
 
         uint32_t readWord(const uint8_t *rdram, uint32_t address)
         {
@@ -172,7 +172,7 @@ namespace aggressive_inline::gameplay
                 zge_host::gameplay::Options options;
                 Made() { options.define(kOptions, kOptionCount, kOptionsHeader); }
             };
-            return ps2x::session::state<Made>().options;
+            return zx::session::state<Made>().options;
         }
 
         int option(Option o)
@@ -229,7 +229,7 @@ namespace aggressive_inline::gameplay
                 {"Physics", "Air Rotate"},
             };
         };
-        Tuning &tuning() { return ps2x::session::state<Tuning>(); }
+        Tuning &tuning() { return zx::session::state<Tuning>(); }
 
         // What the settings want for an entry (its base when they are at
         // their defaults). The cheat values are the codes' (0x1AA628).
@@ -292,7 +292,7 @@ namespace aggressive_inline::gameplay
         {
             float values[kTHeight - kTDistance + 2] = {};
         };
-        KeptCameraTuning &keptCameraTuning() { return ps2x::session::state<KeptCameraTuning>(); }
+        KeptCameraTuning &keptCameraTuning() { return zx::session::state<KeptCameraTuning>(); }
         void holdGameCameraTuning(uint8_t *rdram, bool game)
         {
             for (int id = kTDistance; id <= kTGrindHeight; ++id)
@@ -382,7 +382,7 @@ namespace aggressive_inline::gameplay
             std::atomic<bool> unlocked{false};
             std::atomic<int64_t> unlockArmedUntil{0}; // ms, steady clock
         };
-        Unlocking &unlocking() { return ps2x::session::state<Unlocking>(); }
+        Unlocking &unlocking() { return zx::session::state<Unlocking>(); }
 
         int64_t nowMs()
         {
@@ -441,7 +441,7 @@ namespace aggressive_inline::gameplay
         {
             std::atomic<bool> hidden{false};
         };
-        Hud &hud() { return ps2x::session::state<Hud>(); }
+        Hud &hud() { return zx::session::state<Hud>(); }
 
         bool widgetNamed(const uint8_t *rdram, uint32_t widget, const char *name)
         {
@@ -481,7 +481,7 @@ namespace aggressive_inline::gameplay
             zge_host::gameplay::Hotkeys keys;
             uint32_t lastMode = 0;
         };
-        Hotkeys &hotkeys() { return ps2x::session::state<Hotkeys>(); }
+        Hotkeys &hotkeys() { return zx::session::state<Hotkeys>(); }
 
         void onVsync(uint8_t *rdram, uint64_t)
         {
@@ -525,20 +525,20 @@ namespace aggressive_inline::gameplay
         void registerSettings()
         {
             st::Setting fov = rangeSetting(kFov, "Field of View", 50, 110, 5, "", "Wider shows more. The game's is 75.");
-            ps2x::session::addSetting(fov);
-            ps2x::session::addSetting(rangeSetting(kDistance, "Camera Distance", 50, 250, 10, "%", "How far behind the skater."));
-            ps2x::session::addSetting(rangeSetting(kHeight, "Camera Height", 50, 300, 10, "%", "How high above the skater."));
+            zx::session::addSetting(fov);
+            zx::session::addSetting(rangeSetting(kDistance, "Camera Distance", 50, 250, 10, "%", "How far behind the skater."));
+            zx::session::addSetting(rangeSetting(kHeight, "Camera Height", 50, 300, 10, "%", "How high above the skater."));
             st::Setting style = optionSetting(kCameraStyle, "Camera Style", "Xbox shows more in widescreen.");
             style.kind = st::Kind::Choice;
             style.choices = {"PS2", "Xbox"};
-            ps2x::session::addSetting(style);
+            zx::session::addSetting(style);
 
             st::Setting death = optionSetting(kJuiceDeath, "Out of Juice", "What happens when the juice runs out.");
             death.kind = st::Kind::Choice;
             death.choices = {"Run Ends", "Keep Skating"};
-            ps2x::session::addSetting(death);
-            ps2x::session::addSetting(rangeSetting(kJuiceDrain, "Juice Drain", 0, 100, 25, "%", "How fast the juice meter empties."));
-            ps2x::session::addSetting(rangeSetting(kCrashLoss, "Juice Lost on Crash", 0, 100, 25, "%", "Juice a crash takes away."));
+            zx::session::addSetting(death);
+            zx::session::addSetting(rangeSetting(kJuiceDrain, "Juice Drain", 0, 100, 25, "%", "How fast the juice meter empties."));
+            zx::session::addSetting(rangeSetting(kCrashLoss, "Juice Lost on Crash", 0, 100, 25, "%", "Juice a crash takes away."));
 
             const struct
             {
@@ -555,7 +555,7 @@ namespace aggressive_inline::gameplay
                 {kPerfectManual, "Perfect Manual", "Manuals never lose balance."},
             };
             for (const auto &cheat : cheats)
-                ps2x::session::addSetting(optionSetting(cheat.option, cheat.label, cheat.help));
+                zx::session::addSetting(optionSetting(cheat.option, cheat.label, cheat.help));
 
             st::Setting unlock;
             unlock.key = "cheat.unlock_all";
@@ -586,15 +586,15 @@ namespace aggressive_inline::gameplay
                     unlocking().unlockArmedUntil = 0;
                 }
             };
-            ps2x::session::addSetting(unlock);
-            // The shortcuts as settings (hotkey.*, for PS2X_CONTROL) are the
+            zx::session::addSetting(unlock);
+            // The shortcuts as settings (hotkey.*, for ZX_CONTROL) are the
             // input layer's, every game's (ps2_pad.cpp).
         }
     }
 
     // ---- developers: everything unlocked in test runs ------------------------
 
-    // PS2X_DEV_UNLOCK_ALL=1 (runner only, off by default): what Unlock
+    // ZX_DEV_UNLOCK_ALL=1 (runner only, off by default): what Unlock
     // Everything writes (unlockAll: the two unlock codes' bits, every skater
     // record's level mask), applied in the front end whenever it is not all
     // set, so a fresh card and a save that loads later both end up unlocked
@@ -618,19 +618,19 @@ namespace aggressive_inline::gameplay
 
     void install(PS2Runtime &runtime)
     {
-        if (const char *dev = ps2x::boot::text("PS2X_DEV_UNLOCK_ALL"); dev && dev[0] == '1')
+        if (const char *dev = zx::boot::text("ZX_DEV_UNLOCK_ALL"); dev && dev[0] == '1')
         {
             runtime.addVSyncHook(&devUnlockOnVsync);
-            std::cout << "[gameplay] PS2X_DEV_UNLOCK_ALL: levels, skaters and cutscenes unlocked in the front end"
+            std::cout << "[gameplay] ZX_DEV_UNLOCK_ALL: levels, skaters and cutscenes unlocked in the front end"
                       << std::endl;
         }
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         uint8_t *rdram = runtime.memory().getRDRAM();
         if (!rdram)
             return;
         hooks().runtime = &runtime;
-        if (const char *file = ps2x::boot::text("PS2X_GAMEPLAY_INI"); file && file[0])
+        if (const char *file = zx::boot::text("ZX_GAMEPLAY_INI"); file && file[0])
             options().setFile(file);
         options().load();
         for (Tune &tune : tuning().tunes)

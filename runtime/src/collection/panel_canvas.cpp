@@ -309,12 +309,26 @@ namespace panel
         }
     }
 
+    namespace
+    {
+        // The glyph a character is drawn with: its own, else, for a small
+        // letter, its capital's (DM2's fonts have capitals only, as its menus
+        // show every text).
+        uint8_t glyphOf(const Font &font, char c)
+        {
+            const uint8_t u = static_cast<uint8_t>(c);
+            if (!font.has[u] && u >= 'a' && u <= 'z' && font.has[u - ('a' - 'A')])
+                return static_cast<uint8_t>(u - ('a' - 'A'));
+            return u;
+        }
+    }
+
     float Canvas::textWidth(const Font &font, std::string_view text, float scale, float tracking)
     {
         float width = 0;
         for (char c : text)
         {
-            const uint8_t u = static_cast<uint8_t>(c);
+            const uint8_t u = glyphOf(font, c);
             width += font.has[u] ? (static_cast<float>(font.glyphs[u].width) + 1.0f) * scale
                                  : static_cast<float>(font.lineHeight) * 0.35f * scale;
             width += tracking;
@@ -327,7 +341,7 @@ namespace panel
         float x = at.x;
         for (char c : text)
         {
-            const uint8_t u = static_cast<uint8_t>(c);
+            const uint8_t u = glyphOf(font, c);
             if (!font.has[u])
             {
                 x += static_cast<float>(font.lineHeight) * 0.35f * scale + tracking;

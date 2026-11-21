@@ -1,4 +1,4 @@
-# The shared sources a DM2 corpus build (PS2X_GAME_CORPUS) has an instance of, relative to src/game.
+# The shared sources a DM2 corpus build (ZX_GAME_CORPUS) has an instance of, relative to src/game.
 sce/libc.cpp
 sce/libc_malloc.cpp
 sce/libc_printf.cpp

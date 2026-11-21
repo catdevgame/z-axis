@@ -320,8 +320,8 @@ namespace zge::native
         put32(geo, static_cast<uint32_t>(8 + xo.size));
         geo.insert(geo.end(), xbox.begin() + static_cast<std::ptrdiff_t>(xo.at),
                    xbox.begin() + static_cast<std::ptrdiff_t>(xo.at + 8 + xo.size));
-        ps2x::zaxis::xbox::GeometryReport converted;
-        if (!ps2x::zaxis::xbox::convertGeometry(geo, &converted, &alpha))
+        zx::zaxis::xbox::GeometryReport converted;
+        if (!zx::zaxis::xbox::convertGeometry(geo, &converted, &alpha))
             return fail("the Xbox object did not convert");
         // The VIF packet the game builds for each part (zge/render/packet.h):
         // the readable packet builder (buildPartPacket) makes its scratch buffer

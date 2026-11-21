@@ -5,8 +5,8 @@
 // The levels are made at build time by tooling/ai/tools/dm2_xbox.py from
 // the user's DM2 Xbox disc (the same engine's files with the Xbox's
 // textures, strip groups and material bits made the PS2's; the app sets
-// PS2X_DM2_XBOX_LEVELS_DIR, Settings > Game > Xbox Levels sets
-// PS2X_DM2_XBOX_LEVELS). They are values 9, 10, as on the Xbox after
+// ZX_DM2_XBOX_LEVELS_DIR, Settings > Game > Xbox Levels sets
+// ZX_DM2_XBOX_LEVELS). They are values 9, 10, as on the Xbox after
 // Airport, with the Xbox's own names, texts and level-select pictures; each
 // level's Xbox pictures (<LEVEL>.XTP) are registered for the GPU renderer
 // when its texture library is served. This file only serves those files and
@@ -48,12 +48,12 @@
 //     editor's, is renamed out of the way) and added to UILIB.ZAL's
 //     LEVELS.ZIF, the level select's pictures.
 //
-// With PS2X_DM2_XBOX_LEVELS_DIR=<dir> (holding levels.txt and
+// With ZX_DM2_XBOX_LEVELS_DIR=<dir> (holding levels.txt and
 // <LEVEL>/<LEVEL>.*): every level of levels.txt, in its order;
-// PS2X_DM2_XBOX_LEVEL=<FOLDER> keeps only that one (developers: it is then
-// value 9); PS2X_DM2_XBOX_LEVELS=0 turns them off with the folder set (the
+// ZX_DM2_XBOX_LEVEL=<FOLDER> keeps only that one (developers: it is then
+// value 9); ZX_DM2_XBOX_LEVELS=0 turns them off with the folder set (the
 // app's setting).
-// PS2X_TRACE_XBOXLEVEL=1 (developers): files served, load time, textures,
+// ZX_TRACE_XBOXLEVEL=1 (developers): files served, load time, textures,
 // parts drawn, and every 60 frames DM2's GS texture cache, the VIF1
 // interrupts by MARK value, the frame packet and the frame's DMA chain
 // (tags, and whether the rider's packet lies past tag 4,096, where the
@@ -99,8 +99,7 @@ namespace dave_mirra::xboxlevel
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
-        namespace zx = ps2x::zaxis;
+        namespace gf = zx::game_files;
         namespace fs = std::filesystem;
 
         constexpr uint32_t kCurrentLevel = 0x0025A1A8u;   // Root.CurrentLevel, the menu value
@@ -138,7 +137,7 @@ namespace dave_mirra::xboxlevel
         // One boot's Xbox levels: the levels found, the files served from
         // them, the hooks' originals and the trace's counts. Made at the
         // boot's first use (the install), so a game booted after another in
-        // the same process starts as a fresh one does (ps2x::boot::PerBoot).
+        // the same process starts as a fresh one does (zx::boot::PerBoot).
         struct State
         {
             std::vector<Level> levels; // menu value 9 + i
@@ -206,7 +205,7 @@ namespace dave_mirra::xboxlevel
 
         State &state()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
+            static zx::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
             return *ofBoot.get();
         }
 
@@ -292,12 +291,12 @@ namespace dave_mirra::xboxlevel
         void registerXboxPictures(const Level &level)
         {
             const std::string source = "dm2xbox:" + level.folder;
-            if (ps2x::texture_replace::hasSource(source))
+            if (zx::texture_replace::hasSource(source))
                 return;
             const auto bytes = readHostFile(level.dir / level.folder / (level.folder + ".XTP"));
-            std::vector<ps2x::texture_replace::Entry> entries;
+            std::vector<zx::texture_replace::Entry> entries;
             std::string error;
-            if (!bytes || !ps2x::texture_replace::parsePack(*bytes, entries, &error))
+            if (!bytes || !zx::texture_replace::parsePack(*bytes, entries, &error))
             {
                 std::cerr << "[xboxlevel] " << level.name << ": no Xbox pictures (" << (bytes ? error : "no .XTP") << ")"
                           << std::endl;
@@ -305,7 +304,7 @@ namespace dave_mirra::xboxlevel
             }
             std::cout << "[xboxlevel] " << level.name << ": " << entries.size() << " Xbox pictures for the GPU renderer"
                       << std::endl;
-            ps2x::texture_replace::setSource(source, std::move(entries));
+            zx::texture_replace::setSource(source, std::move(entries));
             state().pictureSources.push_back(source);
         }
 
@@ -315,7 +314,7 @@ namespace dave_mirra::xboxlevel
         {
             State &st = state();
             for (const std::string &source : st.pictureSources)
-                ps2x::texture_replace::removeSource(source);
+                zx::texture_replace::removeSource(source);
             st.pictureSources.clear();
         }
 
@@ -380,7 +379,7 @@ namespace dave_mirra::xboxlevel
         // 2, the native saves'; FUN_0017D350, FUN_0017D788 the card's) runs
         // with Woodward's own row in place. A level never played starts from
         // DM2's own starting row for Woodward (as the ELF has it).
-        // PS2X_DM2_XBOX_LEVEL_RECORDS=0: the shared row, as before.
+        // ZX_DM2_XBOX_LEVEL_RECORDS=0: the shared row, as before.
         namespace records
         {
             constexpr uint32_t kRows = 0x00215A88u, kRowSize = 0x21Cu;
@@ -389,7 +388,7 @@ namespace dave_mirra::xboxlevel
             constexpr uint32_t kCardStart = 0x00166278u, kCardWrite = 0x0017D350u, kCardRead = 0x0017D788u;
             constexpr char kMagic[4] = {'A', 'I', 'L', 'R'};
             using Row = std::vector<uint8_t>;
-            // One boot's records and the originals (ps2x::boot::PerBoot).
+            // One boot's records and the originals (zx::boot::PerBoot).
             struct RecordsState
             {
                 bool on = false;
@@ -404,14 +403,14 @@ namespace dave_mirra::xboxlevel
 
             RecordsState &recordsState()
             {
-                static ps2x::boot::PerBoot<RecordsState> ofBoot([] { return RecordsState{}; });
+                static zx::boot::PerBoot<RecordsState> ofBoot([] { return RecordsState{}; });
                 return ofBoot.get();
             }
 
             fs::path file()
             {
                 fs::path root;
-                if (const char *dir = ps2x::boot::text("PS2X_SAVES_DIR"); dir && dir[0])
+                if (const char *dir = zx::boot::text("ZX_SAVES_DIR"); dir && dir[0])
                     root = dir;
                 else
                 {
@@ -420,7 +419,7 @@ namespace dave_mirra::xboxlevel
                 }
                 return root / "AiLevels.records";
             }
-            bool valid(const ps2x::saves::Bytes &data)
+            bool valid(const zx::saves::Bytes &data)
             {
                 if (data.size() < 12u || std::memcmp(data.data(), kMagic, 4) != 0)
                     return false;
@@ -431,7 +430,7 @@ namespace dave_mirra::xboxlevel
             }
             void readFile()
             {
-                const ps2x::saves::ReadResult r = ps2x::saves::readWithBackup(file(), valid);
+                const zx::saves::ReadResult r = zx::saves::readWithBackup(file(), valid);
                 if (!r.ok())
                     return;
                 uint32_t count = 0;
@@ -445,7 +444,7 @@ namespace dave_mirra::xboxlevel
             }
             void writeFile()
             {
-                ps2x::saves::Bytes data(kMagic, kMagic + 4);
+                zx::saves::Bytes data(kMagic, kMagic + 4);
                 auto put32 = [&](uint32_t v)
                 {
                     const uint8_t *b = reinterpret_cast<const uint8_t *>(&v);
@@ -461,7 +460,7 @@ namespace dave_mirra::xboxlevel
                     data.insert(data.end(), row.begin(), row.end());
                 }
                 std::string error;
-                if (!ps2x::saves::writeFileAtomic(file(), data.data(), data.size(), &error))
+                if (!zx::saves::writeFileAtomic(file(), data.data(), data.size(), &error))
                     std::cerr << "[xboxlevel] records: could not write " << file().string() << ": " << error << std::endl;
             }
             Row readRow(const uint8_t *rdram)
@@ -554,9 +553,9 @@ namespace dave_mirra::xboxlevel
             void install(PS2Runtime &runtime)
             {
                 RecordsState &rs = recordsState();
-                if (const char *on = std::getenv("PS2X_DM2_XBOX_LEVEL_RECORDS"); on && on[0] == '0')
+                if (const char *on = std::getenv("ZX_DM2_XBOX_LEVEL_RECORDS"); on && on[0] == '0')
                 {
-                    std::cout << "[xboxlevel] records: Woodward's row shared (PS2X_DM2_XBOX_LEVEL_RECORDS=0)" << std::endl;
+                    std::cout << "[xboxlevel] records: Woodward's row shared (ZX_DM2_XBOX_LEVEL_RECORDS=0)" << std::endl;
                     return;
                 }
                 readFile();
@@ -580,7 +579,7 @@ namespace dave_mirra::xboxlevel
         bool patchLevelSelect(std::string &text)
         {
             State &st = state();
-            zx::Span select = zx::findObject(text, "MainMenu/SelectLevel");
+            zx::zaxis::Span select = zx::zaxis::findObject(text, "MainMenu/SelectLevel");
             if (!select.found())
             {
                 std::cerr << "[xboxlevel] MainMenu: SelectLevel was not found" << std::endl;
@@ -588,7 +587,7 @@ namespace dave_mirra::xboxlevel
             }
             // Init: Free Ride and the other modes that reach the park editor
             // (8 = MaxLevel + 1) get one more value per extra level.
-            if (!zx::replaceIn(text, select, "\\nADD MaxValue {1}\\n:5\\n",
+            if (!zx::zaxis::replaceIn(text, select, "\\nADD MaxValue {1}\\n:5\\n",
                                "\\nADD MaxValue {" + std::to_string(1u + st.levels.size()) + "}\\n:5\\n"))
             {
                 std::cerr << "[xboxlevel] MainMenu: SelectLevel.Init is not the expected script" << std::endl;
@@ -602,7 +601,7 @@ namespace dave_mirra::xboxlevel
         // Renames assets of a library named in `names` (any case): the
         // asset's own name (ULIB > UAST > HAST: path[128], name[32], u32;
         // what "Levels.level3" finds) and its texture's (UMTL > TXRC > TXRH:
-        // u32 name hash, ..., name[32] at +0x14; zx::addAssets goes by
+        // u32 name hash, ..., name[32] at +0x14; zx::zaxis::addAssets goes by
         // this one), the hash with it. The count of names changed.
         size_t renameTextures(std::vector<uint8_t> &library, const std::map<std::string, std::string> &names)
         {
@@ -639,7 +638,7 @@ namespace dave_mirra::xboxlevel
                             std::memcpy(name, it->second.data(), it->second.size());
                             if (texture)
                             {
-                                const uint32_t hash = ps2x::zaxis_text::keyHash(it->second);
+                                const uint32_t hash = zx::zaxis_text::keyHash(it->second);
                                 std::memcpy(library.data() + body, &hash, 4);
                             }
                             ++renamed;
@@ -686,7 +685,7 @@ namespace dave_mirra::xboxlevel
                         names.push_back(value);
                     }
                 renameTextures(donor, ours);
-                st.pictures += zx::addAssets(library, donor, names).size();
+                st.pictures += zx::zaxis::addAssets(library, donor, names).size();
                 added = true;
             }
             return added;
@@ -698,15 +697,15 @@ namespace dave_mirra::xboxlevel
         bool patchStrings(std::vector<uint8_t> &bytes)
         {
             State &st = state();
-            ps2x::zaxis_text::StringTable table;
-            if (!ps2x::zaxis_text::readStringTable(bytes, table))
+            zx::zaxis_text::StringTable table;
+            if (!zx::zaxis_text::readStringTable(bytes, table))
             {
                 std::cerr << "[xboxlevel] a string table that cannot be read" << std::endl;
                 return false;
             }
             auto set = [&](const std::string &key, const std::string &text)
             {
-                const uint32_t hash = ps2x::zaxis_text::keyHash(key);
+                const uint32_t hash = zx::zaxis_text::keyHash(key);
                 for (auto &entry : table.entries)
                     if (entry.first == hash)
                     {
@@ -721,27 +720,27 @@ namespace dave_mirra::xboxlevel
                 set("KSTR_LEVELNAMEMENU_" + value, st.levels[i].name);
                 set("KSTR_LEVELINFOMENU_" + value, st.levels[i].info.empty() ? "From the Xbox release." : st.levels[i].info);
             }
-            bytes = ps2x::zaxis_text::writeStringTable(table);
+            bytes = zx::zaxis_text::writeStringTable(table);
             return true;
         }
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
+            std::vector<zx::zaxis::ArchiveEntry> entries;
             std::string error;
-            if (!zx::readArchive(bytes, entries, &error))
+            if (!zx::zaxis::readArchive(bytes, entries, &error))
             {
                 std::cerr << "[xboxlevel] UILIB.ZAL: " << error << std::endl;
                 return false;
             }
             bool changed = false;
             state().pictures = 0;
-            for (zx::ArchiveEntry &entry : entries)
-                if (entry.nameHash == ps2x::zaxis_text::keyHash("LEVELS.ZIF") && addPictures(entry.data))
+            for (zx::zaxis::ArchiveEntry &entry : entries)
+                if (entry.nameHash == zx::zaxis_text::keyHash("LEVELS.ZIF") && addPictures(entry.data))
                     changed = true;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) != "MainMenu")
+                if (zx::zaxis::scriptName(entry) != "MainMenu")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 if (patchLevelSelect(text))
@@ -751,7 +750,7 @@ namespace dave_mirra::xboxlevel
                 }
             }
             if (changed)
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
             return changed;
         }
 
@@ -875,7 +874,7 @@ namespace dave_mirra::xboxlevel
                 st.partsDrawn.clear();
             st.partIndex.emplace(getRegU32(ctx, 2), static_cast<uint32_t>(st.partIndex.size()));
         }
-        // PS2X_DM2_XBOX_LEVEL_PROBE=<points>:<results> (developers, with the
+        // ZX_DM2_XBOX_LEVEL_PROBE=<points>:<results> (developers, with the
         // trace): DM2's own collision under each "x z" of <points>: its
         // raycast FUN_0011B4A8 (kind 1, a segment of two float4 points;
         // flags 4, the hit in world space, as every rider and camera query
@@ -889,14 +888,14 @@ namespace dave_mirra::xboxlevel
         void probeCollision(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
             State &st = state();
-            const char *spec = std::getenv("PS2X_DM2_XBOX_LEVEL_PROBE");
+            const char *spec = std::getenv("ZX_DM2_XBOX_LEVEL_PROBE");
             if (st.probed || !spec || !st.raycast || !readU32(rdram, kScene) || readU32(rdram, kLevelFrame) < 300u)
                 return;
             st.probed = true;
             std::string from, to;
             if (!splitPathPair(spec, from, to))
             {
-                std::cerr << "[xboxlevel] PS2X_DM2_XBOX_LEVEL_PROBE=<points>:<results>, not " << spec << std::endl;
+                std::cerr << "[xboxlevel] ZX_DM2_XBOX_LEVEL_PROBE=<points>:<results>, not " << spec << std::endl;
                 return;
             }
             std::ifstream in(from);
@@ -931,7 +930,7 @@ namespace dave_mirra::xboxlevel
                       << std::endl;
         }
 
-        // PS2X_DM2_XBOX_LEVEL_GRINDS=<edges>:<results> (developers, with the
+        // ZX_DM2_XBOX_LEVEL_GRINDS=<edges>:<results> (developers, with the
         // trace): for each "ax ay az bx by bz ..." of <edges> (dm2_xbox.py
         // edges: the level's grindable edges), DM2's grind search FUN_0017B150 (a0
         // the point, f12 the radius; the rider's search uses 3.5) at the
@@ -947,14 +946,14 @@ namespace dave_mirra::xboxlevel
         constexpr uint32_t kEdgeList = 0x002CC180u;
         void probeGrinds(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
-            const char *spec = std::getenv("PS2X_DM2_XBOX_LEVEL_GRINDS");
+            const char *spec = std::getenv("ZX_DM2_XBOX_LEVEL_GRINDS");
             if (state().grindsProbed || !spec || !readU32(rdram, kScene) || readU32(rdram, kLevelFrame) < 300u)
                 return;
             state().grindsProbed = true;
             std::string from, to;
             if (!splitPathPair(spec, from, to))
             {
-                std::cerr << "[xboxlevel] PS2X_DM2_XBOX_LEVEL_GRINDS=<edges>:<results>, not " << spec << std::endl;
+                std::cerr << "[xboxlevel] ZX_DM2_XBOX_LEVEL_GRINDS=<edges>:<results>, not " << spec << std::endl;
                 return;
             }
             std::ifstream in(from);
@@ -1348,7 +1347,7 @@ namespace dave_mirra::xboxlevel
             st.texFrameStartTop = readU32(rdram, kTexTop);
         }
 
-        // ---- Ridden checks (developers): PS2X_DM2_RIDES=<trials>:<results> ----
+        // ---- Ridden checks (developers): ZX_DM2_RIDES=<trials>:<results> ----
         //
         // In any level (DM2's own too), once it has run 300 frames: for each
         // line of <trials>, the rider is put at a start by DM2's own
@@ -1376,10 +1375,10 @@ namespace dave_mirra::xboxlevel
         //       material), the states, a crash's bail kind (+0x178), the
         //       lowest point and a respawn (a jump of 3 units or more in a
         //       frame); with the trace, every frame.
-        // Results: the line and what happened. PS2X_DM2_RIDES_OPTS
+        // Results: the line and what happened. ZX_DM2_RIDES_OPTS
         // "key=value,..." tunes the pad: pedal, jump, grind (button names),
         // crouch, hop (distances to the rail), steer (1 / -1: the sign of
-        // left), timeout (frames). PS2X_DM2_RIDES_TRACE=1 logs every frame.
+        // left), timeout (frames). ZX_DM2_RIDES_TRACE=1 logs every frame.
         namespace rides
         {
             constexpr uint32_t kPlace = 0x00175768u;       // FUN_00175768(player, reset)
@@ -1471,7 +1470,7 @@ namespace dave_mirra::xboxlevel
             };
 
             // One boot's trials and where they are (developers;
-            // ps2x::boot::PerBoot).
+            // zx::boot::PerBoot).
             struct RidesState
             {
                 Options opts;
@@ -1492,7 +1491,7 @@ namespace dave_mirra::xboxlevel
 
             RidesState &ridesState()
             {
-                static ps2x::boot::PerBoot<std::unique_ptr<RidesState>> ofBoot([] { return std::make_unique<RidesState>(); });
+                static zx::boot::PerBoot<std::unique_ptr<RidesState>> ofBoot([] { return std::make_unique<RidesState>(); });
                 return *ofBoot.get();
             }
 
@@ -1515,7 +1514,7 @@ namespace dave_mirra::xboxlevel
             void readOptions()
             {
                 RidesState &rs = ridesState();
-                const char *text = std::getenv("PS2X_DM2_RIDES_OPTS");
+                const char *text = std::getenv("ZX_DM2_RIDES_OPTS");
                 if (!text)
                     return;
                 std::string all(text);
@@ -2170,19 +2169,19 @@ namespace dave_mirra::xboxlevel
             void install(PS2Runtime &runtime)
             {
                 RidesState &rs = ridesState();
-                const char *spec = std::getenv("PS2X_DM2_RIDES");
+                const char *spec = std::getenv("ZX_DM2_RIDES");
                 if (!spec || !*spec)
                     return;
                 std::string in, out;
                 if (!splitPathPair(spec, in, out) || !readTrials(in))
                 {
-                    std::cerr << "[rides] PS2X_DM2_RIDES=<trials>:<results>: no trials in " << spec << std::endl;
+                    std::cerr << "[rides] ZX_DM2_RIDES=<trials>:<results>: no trials in " << spec << std::endl;
                     return;
                 }
                 rs.out.open(out);
                 readOptions();
-                rs.traceRides = std::getenv("PS2X_DM2_RIDES_TRACE") != nullptr;
-                rs.playerOneHash = ps2x::zaxis_text::keyHash("PlayerOne");
+                rs.traceRides = std::getenv("ZX_DM2_RIDES_TRACE") != nullptr;
+                rs.playerOneHash = zx::zaxis_text::keyHash("PlayerOne");
                 if (!(rs.frameReset = runtime.lookupFunction(kFrameReset)) || !runtime.replaceFunction(kFrameReset, &frameResetHook) ||
                     !(rs.spawnLookup = runtime.lookupFunction(kSpawnLookup)) ||
                     !runtime.replaceFunction(kSpawnLookup, &spawnLookupHook))
@@ -2215,7 +2214,7 @@ namespace dave_mirra::xboxlevel
     }
 
     // The levels of levels.txt in dir, complete ones only; `want`
-    // (PS2X_DM2_XBOX_LEVEL) keeps one folder.
+    // (ZX_DM2_XBOX_LEVEL) keeps one folder.
     void addLevels(const char *dir, const char *want)
     {
         std::vector<std::pair<std::string, std::string>> levels;
@@ -2250,15 +2249,15 @@ namespace dave_mirra::xboxlevel
     {
         State &st = state();
         // Values 9, 10: Venice, Greenville, as on the Xbox after Airport.
-        const char *dir = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS_DIR");
-        const char *on = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS");
+        const char *dir = zx::boot::text("ZX_DM2_XBOX_LEVELS_DIR");
+        const char *on = zx::boot::text("ZX_DM2_XBOX_LEVELS");
         if (!dir || !*dir || (on && on[0] == '0'))
         {
-            std::cout << "[xboxlevel] off (PS2X_DM2_XBOX_LEVELS_DIR: the levels made by tools/dm2_xbox.py)" << std::endl;
+            std::cout << "[xboxlevel] off (ZX_DM2_XBOX_LEVELS_DIR: the levels made by tools/dm2_xbox.py)" << std::endl;
             return false;
         }
         st.levels.clear();
-        addLevels(dir, std::getenv("PS2X_DM2_XBOX_LEVEL"));
+        addLevels(dir, std::getenv("ZX_DM2_XBOX_LEVEL"));
         {
             // The Thor panel's files for them, by value.
             std::vector<const char *> folders;
@@ -2267,9 +2266,9 @@ namespace dave_mirra::xboxlevel
             panel_state::setXboxLevels(folders.data(), folders.size());
         }
         // The Xbox pictures follow the app's Xbox Textures setting
-        // ([display] xbox_textures, which sets PS2X_XBOX_TEXTURES).
-        const char *pictures = ps2x::boot::text("PS2X_XBOX_TEXTURES");
-        ps2x::texture_replace::setEnabled(!(pictures && pictures[0] == '0'));
+        // ([display] xbox_textures, which sets ZX_XBOX_TEXTURES).
+        const char *pictures = zx::boot::text("ZX_XBOX_TEXTURES");
+        zx::texture_replace::setEnabled(!(pictures && pictures[0] == '0'));
         // The GPU renderer finds a picture by the texture object a draw
         // shows, not by what GS memory holds: DM2 streams each node's
         // textures into its GS texture cache and keeps level 0 inside the
@@ -2282,11 +2281,11 @@ namespace dave_mirra::xboxlevel
             std::cerr << "[xboxlevel] no complete level: off" << std::endl;
             return false;
         }
-        st.trace = std::getenv("PS2X_TRACE_XBOXLEVEL") != nullptr;
+        st.trace = std::getenv("ZX_TRACE_XBOXLEVEL") != nullptr;
         gf::registerProvider(kHostFolder, &provide, "xboxlevel");
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
         for (const char *strings : {"STRING.EUS", "STRING.EUK", "STRING.GER", "STRING.FRE"})
-            ps2x::disc_patch::registerPatch(strings, &patchStrings);
+            zx::disc_patch::registerPatch(strings, &patchStrings);
         runtime.addVSyncHook(&vsync);
         runtime.addStoppedHook(&removePictures);
         if (!(st.bucketReset = runtime.lookupFunction(kBucketReset)) || !runtime.replaceFunction(kBucketReset, &bucketResetHook))

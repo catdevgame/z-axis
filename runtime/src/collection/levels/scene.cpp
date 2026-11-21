@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     const uint32_t kSpawnPoint = nameHash("Spawn");
     const uint32_t kGlobalsPoint = nameHash("Globals");
@@ -437,4 +437,22 @@ namespace ps2x::app::levels
     }
 
     Bytes emptyObjectivesFile() { return {'\r', '\n'}; }
+
+    const std::vector<ScriptSpawns> &scriptSpawns()
+    {
+        static const std::vector<ScriptSpawns> spawns = []
+        {
+            const char *const numbers[] = {"One",      "Two",     "Three",     "Four",     "Five",     "Six",      "Seven",
+                                           "Eight",    "Nine",    "Ten",       "Eleven",   "Twelve",   "Thirteen", "Fourteen",
+                                           "Fifteen",  "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"};
+            ScriptSpawns ai{Engine::Zge3, {}};
+            for (const char *n : numbers)
+                ai.names.push_back(std::string("lesson") + n);
+            for (size_t i = 0; i < 5; ++i)
+                ai.names.push_back(std::string("lessonTwenty") + numbers[i]);
+            ai.names.push_back("wickedTree");
+            return std::vector<ScriptSpawns>{ai, {Engine::Zge4, {"sniper_shooter", "sniper_target"}}};
+        }();
+        return spawns;
+    }
 }

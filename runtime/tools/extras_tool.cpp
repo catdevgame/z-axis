@@ -1,37 +1,37 @@
-// ps2xExtras: the collection's extras (collection/extras) on the command
+// zx-extras: the collection's extras (collection/extras) on the command
 // line, for the checks against the tooling's Python tools (the reference:
 // tools/xbox_files.py, tools/gc_disc.py and the converters).
 //
-//   ps2xExtras info <image>                  what the image is
-//   ps2xExtras list <image> [PATTERN ...]    each file's size and path
-//   ps2xExtras extract <image> --out <dir> [PATTERN ...]
+//   zx-extras info <image>                  what the image is
+//   zx-extras list <image> [PATTERN ...]    each file's size and path
+//   zx-extras extract <image> --out <dir> [PATTERN ...]
 //                                            the files into <dir>/<disc path>
-//   ps2xExtras xbox-pack --ps2 <dir> --xbox <image|dir> --out <dir> [--no-movies] [--archives]
+//   zx-extras xbox-pack --ps2 <dir> --xbox <image|dir> --out <dir> [--no-movies] [--archives]
 //                                            a game's Xbox texture pack (Aggressive Inline's:
 //                                            tools/xbox_pack.py's; DM2's --no-movies, BMX XXX's
 //                                            --no-movies --archives, as the extras' setup makes them)
-//   ps2xExtras bmx-releases --ps2 <dir> [--xbox <image|dir>] [--gc <image|dir>] --out <dir>
+//   zx-extras bmx-releases --ps2 <dir> [--xbox <image|dir>] [--gc <image|dir>] --out <dir>
 //                                            BMX XXX's Xbox and GameCube content
 //                                            (tools/bmx_releases.py's)
-//   ps2xExtras dm2-xbox [--ps2 <dir>] --xbox <image|dir> --out <dir>
+//   zx-extras dm2-xbox [--ps2 <dir>] --xbox <image|dir> --out <dir>
 //                                            DM2's Xbox levels, themes, demo replays and
 //                                            career (tools/dm2_xbox.py's)
-//   ps2xExtras ai-xbox --ps2 <dir> --xbox <image|dir> --out <dir>
+//   zx-extras ai-xbox --ps2 <dir> --xbox <image|dir> --out <dir>
 //                                            AI's Xbox files (<out>/xbox), Zoo and Ape
 //                                            (<out>/xbox-converted) and texture pack (<out>/xbox-pack)
-//   ps2xExtras ai-gc --gc <image|dir> --out <dir>   AI's Estate (<out>/estate)
-//   ps2xExtras setup <game> <game folder> [<extras disc image> ...]
+//   zx-extras ai-gc --gc <image|dir> --out <dir>   AI's Estate (<out>/estate)
+//   zx-extras setup <game> <game folder> [<extras disc image> ...]
 //                                            the extras' setup as the app runs it: each image
 //                                            checked, the game's extras made from them and its
 //                                            installed PS2 disc (<game folder>/disc) into
 //                                            <game folder>/extras
-//   ps2xExtras panel ai|dm2|bmx --ps2 <disc folder> --out <dir> [--zoo <dir>] [--estate <dir>]
+//   zx-extras panel ai|dm2|bmx --ps2 <disc folder> --out <dir> [--zoo <dir>] [--estate <dir>]
 //                    [--xbox <dir>] [--dm2-xbox <dir>]  the bottom screen's maps (tools/panel_map.py's)
-//   ps2xExtras movie <file> [<width> <height>]
+//   zx-extras movie <file> [<width> <height>]
 //                                            the pictures the games' movie player decodes of a
 //                                            movie file (runtime/ps2_pss_movie.h FileVideo), scaled
 //                                            as a host movie is (default 512x256), counted
-//   ps2xExtras dump <image>                  the whole disc's bytes to stdout (an RVZ
+//   zx-extras dump <image>                  the whole disc's bytes to stdout (an RVZ
 //                                            expanded: its SHA-1 is Redump's)
 //
 // An image is an Xbox disc image (XISO or full) or a GameCube one (GCM/ISO
@@ -64,10 +64,10 @@
 #include <string>
 #include <vector>
 
-using namespace ps2x::app::extras;
+using namespace zx::app::extras;
 
 // The engine's native readers link the runtime, whose function table a tool
-// that runs no game leaves empty (as ps2xNativeAssets does).
+// that runs no game leaves empty (as zx-native-assets does).
 extern const uint32_t g_ps2RecompiledFunctionTableBase = 0x00000000u;
 extern const uint32_t g_ps2RecompiledFunctionTableEnd = 0x00000004u;
 extern const uint32_t g_ps2RecompiledFunctionTableSlotCount = 1u;
@@ -90,7 +90,7 @@ namespace
             *what = "Xbox disc, partition at " + std::to_string(xbox->partitionOffset()) + ", " + xbox->image().describe();
             return xbox;
         }
-        std::cerr << "ps2xExtras: " << gcError << "\nps2xExtras: " << xboxError << "\n";
+        std::cerr << "zx-extras: " << gcError << "\nzx-extras: " << xboxError << "\n";
         return nullptr;
     }
 }
@@ -106,7 +106,7 @@ namespace
             auto folder = std::make_unique<FolderFiles>();
             if (folder->open(path, markers))
                 return folder;
-            std::cerr << "ps2xExtras: no assets folder in " << path << "\n";
+            std::cerr << "zx-extras: no assets folder in " << path << "\n";
             return nullptr;
         }
         std::string what;
@@ -116,11 +116,11 @@ namespace
         auto files = std::make_unique<ImageFiles>();
         if (files->open(*disc, dynamic_cast<XboxDisc *>(disc.get()) ? "media/assets/" : "assets/"))
             return files;
-        std::cerr << "ps2xExtras: no assets folder on " << path << "\n";
+        std::cerr << "zx-extras: no assets folder on " << path << "\n";
         return nullptr;
     }
 
-    // ps2xExtras <converter> --ps2 <dir> --xbox <image|dir> --gc <image|dir> --out <dir> [flags]
+    // zx-extras <converter> --ps2 <dir> --xbox <image|dir> --gc <image|dir> --out <dir> [flags]
     int convert(const std::string &command, int argc, char **argv)
     {
         std::map<std::string, std::string> args;
@@ -135,7 +135,7 @@ namespace
         }
         if (!args.count("--out"))
         {
-            std::cerr << "ps2xExtras " << command << ": --out is needed\n";
+            std::cerr << "zx-extras " << command << ": --out is needed\n";
             return 2;
         }
         std::unique_ptr<DiscFiles> xboxDisc, gcDisc, ps2Disc;
@@ -187,13 +187,13 @@ namespace
             ok = makeBmxReleases(*ps2, xbox.get(), gc.get(), args["--out"], log, &error);
         else
         {
-            std::cerr << "ps2xExtras " << command << ": missing --ps2/--xbox/--gc\n";
+            std::cerr << "zx-extras " << command << ": missing --ps2/--xbox/--gc\n";
             return 2;
         }
         for (const std::string &line : log)
             std::cout << line << "\n";
         if (!ok)
-            std::cerr << "ps2xExtras: " << error << "\n";
+            std::cerr << "zx-extras: " << error << "\n";
         return ok ? 0 : 1;
     }
 }
@@ -204,7 +204,7 @@ namespace
     {
         if (argc < 4)
         {
-            std::cerr << "usage: ps2xExtras setup <game> <game folder> [<extras disc image> ...]\n";
+            std::cerr << "usage: zx-extras setup <game> <game folder> [<extras disc image> ...]\n";
             return 2;
         }
         const std::string game = argv[2];
@@ -236,15 +236,15 @@ namespace
     {
         if (argc < 3)
             return 2;
-        ps2x::movie::FileVideo video{std::filesystem::path(argv[2])};
+        zx::movie::FileVideo video{std::filesystem::path(argv[2])};
         if (!video.ok())
         {
-            std::cerr << "ps2xExtras: " << argv[2] << ": no decoder plays it\n";
+            std::cerr << "zx-extras: " << argv[2] << ": no decoder plays it\n";
             return 1;
         }
         const int width = argc >= 5 ? std::atoi(argv[3]) : 512, height = argc >= 5 ? std::atoi(argv[4]) : 256;
         video.setScaledSize(width, height);
-        ps2x::movie::Picture picture;
+        zx::movie::Picture picture;
         size_t pictures = 0;
         bool sized = true;
         while (video.next(picture))
@@ -272,7 +272,7 @@ namespace
         FolderFiles disc, zoo, estate, scripts, dm2Xbox;
         if (!args.count("--out") || !disc.open(args["--ps2"], {"ASSETS"}))
         {
-            std::cerr << "ps2xExtras panel: --ps2 <disc folder with ASSETS> and --out are needed\n";
+            std::cerr << "zx-extras panel: --ps2 <disc folder with ASSETS> and --out are needed\n";
             return 2;
         }
         PanelExtras extras;
@@ -291,7 +291,7 @@ namespace
         for (const std::string &line : log)
             std::cout << line << "\n";
         if (!ok)
-            std::cerr << "ps2xExtras: " << error << "\n";
+            std::cerr << "zx-extras: " << error << "\n";
         return ok ? 0 : 1;
     }
 }
@@ -310,7 +310,7 @@ int main(int argc, char **argv)
         return convert(argv[1], argc, argv);
     if (argc < 3)
     {
-        std::cerr << "usage: ps2xExtras info|list|extract <image> [--out <dir>] [PATTERN ...]\n";
+        std::cerr << "usage: zx-extras info|list|extract <image> [--out <dir>] [PATTERN ...]\n";
         return 2;
     }
     const std::string command = argv[1], imagePath = argv[2];
@@ -358,7 +358,7 @@ int main(int argc, char **argv)
             const size_t n = static_cast<size_t>(std::min<uint64_t>(piece.size(), image.size() - done));
             if (!image.read(done, n, piece.data()))
             {
-                std::cerr << "ps2xExtras: the image cannot be read at " << done << "\n";
+                std::cerr << "zx-extras: the image cannot be read at " << done << "\n";
                 return 1;
             }
             std::fwrite(piece.data(), 1, n, stdout);
@@ -371,12 +371,12 @@ int main(int argc, char **argv)
         std::string error;
         if (!extractFiles(*disc, chosen, out, &error))
         {
-            std::cerr << "ps2xExtras: " << error << "\n";
+            std::cerr << "zx-extras: " << error << "\n";
             return 1;
         }
         std::cout << chosen.size() << " files, " << bytes << " bytes into " << out << "\n";
         return 0;
     }
-    std::cerr << "ps2xExtras: unknown command " << command << " (extract needs --out)\n";
+    std::cerr << "zx-extras: unknown command " << command << " (extract needs --out)\n";
     return 2;
 }

@@ -135,7 +135,7 @@ public:
     void drawNative(const GSNativeDraw &draw);
     // A game's fog planes follow in the stream (GSRasterBackend::NoteFogPlanes).
     void noteFogPlanes(const GSFogPlanes &planes);
-    // Developers (PS2X_GS_SHOT_PRIMS, ps2_gs_shots.h): every primitive drawn from here on written to `file`, one
+    // Developers (ZX_GS_SHOT_PRIMS, ps2_gs_shots.h): every primitive drawn from here on written to `file`, one
     // fixed-size record each (the draw state and the vertices; marked when a native draw's fallback made it), until
     // set to null. On the thread that feeds the GS (a GS sideband).
     void setPrimitiveLog(std::FILE *file);
@@ -197,7 +197,7 @@ public:
     TakenFrame shownPresentationFrame() const;
     // Window thread, frame interpolation (runtime/gs/gs_interpolate.h): the picture `t` of the way from the
     // queue's frame `from` to `to`, on the GPU (GSRasterBackend::PresentBetween).
-    ps2x::gs_interpolate::Skip presentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out);
+    zx::gs_interpolate::Skip presentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out);
     // Its counts since the last call, a log line (empty: no backend that interpolates).
     std::string interpolationReport();
     // Window thread: the oldest waiting frame becomes the latched picture.
@@ -217,7 +217,7 @@ public:
     // alone are compared.
     void setDisplayChangeCount(std::function<uint64_t()> count) { m_displayChangeCount = std::move(count); }
     // Pictures kept though the display changed while they were copied, and
-    // whether the one shown is such a picture (PS2X_PRESENT_LOG).
+    // whether the one shown is such a picture (ZX_PRESENT_LOG).
     uint64_t presentationsDisturbed() const { return m_presentationsDisturbed.load(std::memory_order_relaxed); }
     bool shownPictureDisturbed() const;
     bool copyLatchedHostPresentationFrame(std::vector<uint8_t> &outPixels,
@@ -252,7 +252,7 @@ public:
     bool isRecording() const { return m_recordFile != nullptr; }
     GSRasterBackend *rasterBackend() { return m_backend.get(); }
 
-    // Pictures at a vsync, for comparisons of two runs (PS2X_GS_SHOT_VSYNC, ps2_gs_shots.cpp): the display as the GS
+    // Pictures at a vsync, for comparisons of two runs (ZX_GS_SHOT_VSYNC, ps2_gs_shots.cpp): the display as the GS
     // stream has it (displayNow, read in a GS sideband on the worker, behind the swaps queued before), then the picture
     // of it once the GS has drawn everything queued before (pictureOfDisplay, in the same sideband), its rows packed
     // to its width; made in a slot the window's pictures are not in, a GPU renderer's read back from it.

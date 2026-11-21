@@ -98,8 +98,8 @@ void PS2Memory::processVIF0Data(const uint8_t *data, uint32_t sizeBytes)
 {
     if (sizeBytes == 0u)
         return;
-    if (ps2x::packets::g_on)
-        ps2x::packets::add(ps2x::packets::kVif0, data, sizeBytes);
+    if (zx::packets::g_on)
+        zx::packets::add(zx::packets::kVif0, data, sizeBytes);
 
     uint32_t pos = 0;
     while (pos + 4 <= sizeBytes)

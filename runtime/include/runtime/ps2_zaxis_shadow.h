@@ -32,7 +32,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     struct ShadowVolumePacket
     {

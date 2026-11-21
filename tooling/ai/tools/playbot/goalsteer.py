@@ -19,7 +19,7 @@ import player_dm2 as pd
 
 
 def build_dir():
-    """The runner's build folder (RUNNER=.../ps2xRuntime/ps2EntryRunner, or BUILD)."""
+    """The runner's build folder (RUNNER=.../runtime/zx-runner, or BUILD)."""
     if os.environ.get('BUILD'):
         return os.environ['BUILD']
     runner = os.environ.get('RUNNER', '')
@@ -27,14 +27,14 @@ def build_dir():
 
 
 class Symbols:
-    """{name: address} of a game's symbols, from the build's generated headers (ps2xRuntime/symbols/GAME/sym): the
+    """{name: address} of a game's symbols, from the build's generated headers (runtime/symbols/GAME/sym): the
     game's own folder first, then the engine's (zge), ee and sce; another game's folder (sym/dm2 in BMX XXX's set:
     DM2 files built for BMX) only for a name none of those has."""
 
     LINE = re.compile(r'namespace sym(?:::\w+)? \{ inline constexpr uint32_t (\w+) = 0x([0-9A-Fa-f]+)u; \}')
 
     def __init__(self, game, build=None):
-        root = os.path.join(build or build_dir(), 'ps2xRuntime', 'symbols', game, 'sym')
+        root = os.path.join(build or build_dir(), 'runtime', 'symbols', game, 'sym')
         if not os.path.isdir(root):
             raise SystemExit('no symbol headers at %s (BUILD or RUNNER)' % root)
         order = [game, 'zge', 'ee', 'sce']

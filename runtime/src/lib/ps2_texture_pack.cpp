@@ -4,6 +4,7 @@
 #include "runtime/gs/ps2_gs_memory.h"
 #include "runtime/ps2_boot_config.h"
 #include "runtime/ps2_game_files.h"
+#include "runtime/ps2_texture_dds.h"
 
 #include <SDL3/SDL.h>
 
@@ -24,7 +25,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace ps2x::texture_pack
+namespace zx::texture_pack
 {
     namespace
     {
@@ -129,19 +130,19 @@ namespace ps2x::texture_pack
         // mod manager's: zips are read in place).
         std::vector<std::string> listFiles(const std::filesystem::path &folder)
         {
-            return ps2x::game_files::listFilesBelow(folder);
+            return zx::game_files::listFilesBelow(folder);
         }
 
         bool readFile(const std::filesystem::path &folder, const std::string &relative, std::vector<uint8_t> &out)
         {
-            return ps2x::game_files::readFileBelow(folder, relative, out);
+            return zx::game_files::readFileBelow(folder, relative, out);
         }
 
         struct Item
         {
             uint32_t folder = 0;
-            std::string file;                // level 0
-            std::vector<std::string> mips;   // mips[k - 1]: level k's file ("" for none)
+            std::string file;                // level 0 (a DDS: its levels too)
+            std::vector<std::string> mips;   // a PNG's mips[k - 1]: level k's file ("" for none)
             // Unread (not asked for, or dropped), Queued (asked for: in the
             // queue), Reading (a loader has it), Ready, Failed.
             enum class State : uint8_t { Unread, Queued, Reading, Ready, Failed } state = State::Unread;
@@ -282,15 +283,53 @@ namespace ps2x::texture_pack
             return true;
         }
 
-        // Reads an item's files into a picture with its mip chain: the
-        // pack's own levels (-mip<n>, each the size it should be) where it
-        // has them, the rest made from the level above.
+        // The levels a picture of this size has, down to 1 x 1.
+        uint32_t fullChain(uint32_t w, uint32_t h)
+        {
+            uint32_t mips = 1;
+            while ((std::max(w, h) >> mips) != 0u)
+                ++mips;
+            return mips;
+        }
+
+        // A DDS file as a picture (runtime/ps2_texture_dds.h): its own
+        // levels; an RGBA8 one's missing levels made from the level above
+        // as a PNG's are, a block format's left out (as PCSX2 does: they
+        // are in the file or not at all).
+        PicturePtr readDdsPicture(const std::vector<uint8_t> &bytes, const std::string &file, std::string &error)
+        {
+            auto p = std::make_shared<Picture>();
+            if (!texture_dds::readDds(bytes, *p, &error))
+                return nullptr;
+            p->name = file;
+            if (p->format == texture_replace::Format::RGBA8)
+            {
+                const uint32_t have = p->mips;
+                p->mips = fullChain(p->width, p->height);
+                p->data.resize(p->levelOffset(p->mips));
+                if (have < p->mips)
+                    makeMips(*p, have);
+            }
+            return p;
+        }
+
+        // Reads an item's files into a picture with its mip chain. A PNG:
+        // the pack's own levels (-mip<n>, each the size it should be) where
+        // it has them, the rest made from the level above. A DDS: its own.
         PicturePtr readPicture(const std::filesystem::path &folder, const std::string &file,
-                               const std::vector<std::string> &mipFiles)
+                               const std::vector<std::string> &mipFiles, std::string &error)
         {
             std::vector<uint8_t> bytes, rgba;
             uint32_t w = 0, h = 0;
-            if (!readFile(folder, file, bytes) || !decodePng(bytes, w, h, rgba))
+            if (!readFile(folder, file, bytes))
+            {
+                error = "could not be read";
+                return nullptr;
+            }
+            if (texture_dds::isDds(bytes))
+                return readDdsPicture(bytes, file, error);
+            error = "not a PNG or DDS picture of at most 4096 x 4096";
+            if (!decodePng(bytes, w, h, rgba))
                 return nullptr;
             if (w == 0u || h == 0u || w > 4096u || h > 4096u)
                 return nullptr;
@@ -298,9 +337,7 @@ namespace ps2x::texture_pack
             p->width = w;
             p->height = h;
             p->format = texture_replace::Format::RGBA8;
-            uint32_t mips = 1;
-            while ((std::max(w, h) >> mips) != 0u)
-                ++mips;
+            const uint32_t mips = fullChain(w, h);
             p->mips = mips;
             p->name = file;
             p->data.resize(p->levelOffset(mips));
@@ -371,7 +408,8 @@ namespace ps2x::texture_pack
                 ++s.busy;
                 lock.unlock();
                 const auto start = std::chrono::steady_clock::now();
-                PicturePtr picture = readPicture(folder, file, mips);
+                std::string error;
+                PicturePtr picture = readPicture(folder, file, mips, error);
                 const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
                 lock.lock();
                 --s.busy;
@@ -383,7 +421,7 @@ namespace ps2x::texture_pack
                     {
                         it->second.state = Item::State::Failed;
                         ++s.counts.failed;
-                        std::cerr << "[texture-pack] " << file << ": not a picture that can be used (PNG, at most 4096 x 4096)"
+                        std::cerr << "[texture-pack] " << file << ": not a picture that can be used (" << error << ")"
                                   << std::endl;
                     }
                     else
@@ -826,26 +864,26 @@ namespace ps2x::texture_pack
     void configureFromBoot()
     {
         Store &s = store();
-        const uint64_t boot = ps2x::boot::generation();
+        const uint64_t boot = zx::boot::generation();
         {
             std::lock_guard<std::mutex> lock(s.mutex);
             if (s.configured && s.configuredBoot == boot)
                 return;
         }
         std::vector<std::filesystem::path> folders;
-        if (const char *packs = ps2x::boot::text("PS2X_TEXTURE_PACKS"); packs && *packs)
-            folders = ps2x::game_files::modsRoots(packs);
+        if (const char *packs = zx::boot::text("ZX_TEXTURE_PACKS"); packs && *packs)
+            folders = zx::game_files::modsRoots(packs);
         std::filesystem::path dump;
-        if (const char *d = ps2x::boot::text("PS2X_TEXTURE_DUMP"); d && *d)
+        if (const char *d = zx::boot::text("ZX_TEXTURE_DUMP"); d && *d)
             dump = d;
-        const char *direct = std::getenv("PS2X_TEXTURE_DUMP_DIRECT");
-        setPreload(!envOff("PS2X_TEXTURE_PRELOAD"));
+        const char *direct = std::getenv("ZX_TEXTURE_DUMP_DIRECT");
+        setPreload(!envOff("ZX_TEXTURE_PRELOAD"));
         setDumpFolder(dump, direct && std::strcmp(direct, "1") == 0);
         setFolders(folders);
-        // PS2X_TEXTURE_PRELOAD=wait: the boot waits until the pictures that
+        // ZX_TEXTURE_PRELOAD=wait: the boot waits until the pictures that
         // fit are read (replays, measurements; otherwise they are read while
         // the game boots and shows its menus).
-        if (const char *p = std::getenv("PS2X_TEXTURE_PRELOAD"); p && std::strcmp(p, "wait") == 0 && !folders.empty())
+        if (const char *p = std::getenv("ZX_TEXTURE_PRELOAD"); p && std::strcmp(p, "wait") == 0 && !folders.empty())
         {
             const auto start = std::chrono::steady_clock::now();
             waitIdle();
@@ -876,7 +914,7 @@ namespace ps2x::texture_pack
                 std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
                 if (ext == ".xtp")
                     xtpFiles.push_back({f, file});
-                if (ext != ".png")
+                if (ext != ".png" && ext != ".dds")
                     continue;
                 uint32_t mip = 0;
                 std::optional<Name> name = parseFileName(base, &mip);
@@ -884,7 +922,9 @@ namespace ps2x::texture_pack
                     continue;
                 if (mip > 0u)
                 {
-                    mipFiles.push_back({*name, {mip, file}});
+                    // A PNG's levels; a DDS holds its own.
+                    if (ext == ".png")
+                        mipFiles.push_back({*name, {mip, file}});
                     continue;
                 }
                 Item item;
@@ -1048,7 +1088,7 @@ namespace ps2x::texture_pack
 
     size_t defaultBudget()
     {
-        if (const char *mb = std::getenv("PS2X_TEXTURE_PACK_MB"); mb && *mb)
+        if (const char *mb = std::getenv("ZX_TEXTURE_PACK_MB"); mb && *mb)
             return static_cast<size_t>(std::max(16l, std::strtol(mb, nullptr, 10))) << 20;
 #if defined(__ANDROID__)
         return size_t{256} << 20;
@@ -1079,14 +1119,18 @@ namespace ps2x::texture_pack
     std::vector<uint32_t> colorsAt(const texture_replace::Picture &p, uint32_t width, uint32_t height)
     {
         std::vector<uint32_t> out(static_cast<size_t>(width) * height, 0u);
-        if (p.format != texture_replace::Format::RGBA8 || width == 0u || height == 0u || !p.valid())
+        if (width == 0u || height == 0u || !p.valid())
             return out;
         // The smallest level still as large as the PS2 texture.
         uint32_t level = 0;
         while (level + 1u < p.mips && p.levelWidth(level + 1u) >= width && p.levelHeight(level + 1u) >= height)
             ++level;
         const uint32_t lw = p.levelWidth(level), lh = p.levelHeight(level);
-        const uint8_t *src = p.data.data() + p.levelOffset(level);
+        // A block format's level decoded first (a DDS picture's).
+        std::vector<uint8_t> decoded;
+        if (p.format != texture_replace::Format::RGBA8)
+            decoded = texture_dds::rgbaLevel(p, level);
+        const uint8_t *src = decoded.empty() ? p.data.data() + p.levelOffset(level) : decoded.data();
         for (uint32_t y = 0; y < height; ++y)
         {
             const uint32_t y0 = static_cast<uint32_t>(static_cast<uint64_t>(y) * lh / height);

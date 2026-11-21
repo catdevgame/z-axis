@@ -29,7 +29,7 @@
 // Woodward Camp's slot (where the levels run), and the reward texts.
 #include "dm2_xbox_parts.h"
 
-namespace ps2x::app::extras::dm2
+namespace zx::app::extras::dm2
 {
     namespace
     {

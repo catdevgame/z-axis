@@ -1,5 +1,5 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): the GS texture memory audit
-// (PS2X_GSMEM_AUDIT=1, developers; runtime/ps2_gs_texture_audit.h).
+// (ZX_GSMEM_AUDIT=1, developers; runtime/ps2_gs_texture_audit.h).
 //
 // DM2's texture cache level allocator FUN_00106EA8 is Aggressive Inline's
 // FUN_00107C88 instruction for instruction, its state at 0x25CD20 AI's
@@ -47,10 +47,10 @@ namespace dave_mirra
 
     void installGsTextureAudit(PS2Runtime &runtime)
     {
-        ps2x::gs_texture_audit::GameCache cache;
+        zx::gs_texture_audit::GameCache cache;
         cache.game = "DM2";
         cache.levelAllocator = gsmem::kLevelAllocator;
         cache.cacheState = gsmem::kTextureCache;
-        ps2x::gs_texture_audit::install(runtime, cache, &gsmem::levelName);
+        zx::gs_texture_audit::install(runtime, cache, &gsmem::levelName);
     }
 }

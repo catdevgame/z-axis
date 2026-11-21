@@ -8,15 +8,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <set>
+#include <tuple>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     namespace
     {
         constexpr int kQuarterPipeLaunch = 70; // Editobj_qpipe_qpipe4
         constexpr int kKickerLaunch = 60;      // Editobj_kicker_2
         constexpr int kGroundLaunch = 50;      // every untagged stock face's byte 9
-        constexpr const char *kSlot = "WOODWARD";
         constexpr Rgba kKey = {255, 0, 255, 255}; // the colour key: DM2's textures have no alpha
         // DM2's material: flags 0, the three colours, the two unread floats, the
         // tag record (its first byte the surface sound), one layer of the stock
@@ -71,7 +72,7 @@ namespace ps2x::app::levels
         class Dm2LevelConverter : public LevelConverter
         {
         public:
-            explicit Dm2LevelConverter(const Model &model) : LevelConverter(model, kSlot, Engine::Zge2)
+            Dm2LevelConverter(const Model &model, const std::string &slot) : LevelConverter(model, slot, Engine::Zge2)
             {
                 m_texelBudgetKb = 2560;
                 m_textureSide = 128;
@@ -170,29 +171,34 @@ namespace ps2x::app::levels
                 part.flags = piece.sky ? m_sky->partFlags : 0;
                 part.materialCount = static_cast<uint8_t>(surfaces.size());
                 part.unwind();
-                std::vector<std::pair<int, int>> kinds; // (surface kind, launch) per face
+                // (surface kind, launch, tag word) per face: a record for each
+                // the faces have (the word the gaps and goals find faces by)
+                using FaceKey = std::tuple<int, int, uint32_t>;
+                std::vector<FaceKey> kinds;
                 for (const auto &f : piece.faces)
                 {
                     const Surface &s = m_surfaces[static_cast<size_t>(f[0])];
-                    kinds.emplace_back(s.bikeKind, s.launch);
+                    kinds.emplace_back(s.bikeKind, s.launch, s.word);
                 }
-                if (piece.collides && std::any_of(kinds.begin(), kinds.end(), [](const auto &k) { return k.first != 0; }))
+                const auto tagged = [](const FaceKey &k) { return std::get<0>(k) != 0 || std::get<2>(k) != 0; };
+                if (piece.collides && std::any_of(kinds.begin(), kinds.end(), tagged))
                 {
-                    std::set<std::pair<int, int>> recordSet;
+                    std::set<FaceKey> recordSet;
                     for (const auto &k : kinds)
-                        if (k.first)
+                        if (tagged(k))
                             recordSet.insert(k);
-                    const std::vector<std::pair<int, int>> records(recordSet.begin(), recordSet.end());
+                    const std::vector<FaceKey> records(recordSet.begin(), recordSet.end());
                     TagBuffer buffer;
-                    for (const auto &[kind, launch] : records)
+                    for (const auto &[kind, launch, word] : records)
                     {
                         BikeFaceTag t;
+                        t.tag = word;
                         t.surfaceKind = static_cast<uint8_t>(kind);
                         t.launch = static_cast<uint8_t>(launch);
                         buffer.records.push_back(t.write());
                     }
                     for (const auto &k : kinds)
-                        buffer.indices.push_back(k.first ? static_cast<int>(std::find(records.begin(), records.end(), k) - records.begin()) : -1);
+                        buffer.indices.push_back(tagged(k) ? static_cast<int>(std::find(records.begin(), records.end(), k) - records.begin()) : -1);
                     part.faceTags = std::move(buffer);
                 }
                 std::vector<Chunk> materials;
@@ -237,7 +243,7 @@ namespace ps2x::app::levels
                     }
                     TagBuffer buffer;
                     buffer.indices.assign(3 * part.faces.size(), -1);
-                    std::map<int, int> indexOf; // link kind -> record
+                    std::map<std::pair<int, uint32_t>, int> indexOf; // (link kind, tag word) -> record
                     for (size_t f = 0; f < part.faces.size(); ++f)
                         for (size_t k = 0; k < 3; ++k)
                         {
@@ -252,15 +258,17 @@ namespace ps2x::app::levels
                             if (!mark)
                                 continue;
                             const int link = mark->kind == 1 ? 1 : mark->kind == 2 ? 2 : 0;
-                            if (!indexOf.count(link))
+                            const std::pair<int, uint32_t> key{link, mark->word};
+                            if (!indexOf.count(key))
                             {
-                                indexOf[link] = static_cast<int>(buffer.records.size());
+                                indexOf[key] = static_cast<int>(buffer.records.size());
                                 BikeEdgeTag t;
+                                t.tag = mark->word;
                                 t.linkKind = static_cast<uint8_t>(link);
                                 t.flags = BikeEdgeTag::kGrindable;
                                 buffer.records.push_back(t.write());
                             }
-                            buffer.indices[3 * f + k] = indexOf[link];
+                            buffer.indices[3 * f + k] = indexOf[key];
                         }
                     if (!buffer.records.empty())
                     {
@@ -312,17 +320,17 @@ namespace ps2x::app::levels
             Bytes sceneFile(const Vec3 &low, const Vec3 &high) override { return SceneFile::make(m_slot, low, high, 50.0).write(); }
         };
     }
-    Converted convertForDm2(const Model &model)
+    Converted convertForDm2(const Model &model, const std::string &slot)
     {
-        Dm2LevelConverter conv(model);
+        Dm2LevelConverter conv(model, slot);
         std::map<std::string, Bytes> files = conv.build();
         conv.checkLevelBytes(files);
         if (!conv.report.errors.empty())
             throw LevelError(conv.report.errors.front());
         Converted out;
-        const std::string folder = std::string("ASSETS/LEVELS/") + kSlot + "/";
+        const std::string folder = "ASSETS/LEVELS/" + slot + "/";
         for (auto &[ext, data] : files)
-            out.files[folder + kSlot + "." + ext] = std::move(data);
+            out.files[folder + slot + "." + ext] = std::move(data);
         out.report = conv.report.text();
         return out;
     }

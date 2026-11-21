@@ -5,7 +5,7 @@
 // The console fallback of the builds with no front end of their own (the
 // Linux test builds): no dialogs, so a question is answered no.
 
-namespace ps2x_app::platform
+namespace zx_app::platform
 {
     std::filesystem::path resourceFolder(const char *argv0)
     {

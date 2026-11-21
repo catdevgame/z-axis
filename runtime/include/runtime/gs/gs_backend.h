@@ -123,13 +123,13 @@ public:
     // of the frame queue (GSPresentationRequest::frame; both presented with interpolation on), left on the GPU as
     // a presented picture is, valid until the next but one; Skip::kCount when made, else why not. Backends that
     // keep no frames: NoPair.
-    virtual ps2x::gs_interpolate::Skip PresentBetween(uint64_t /*from*/, uint64_t /*to*/, float /*t*/, GSGpuPicture &)
+    virtual zx::gs_interpolate::Skip PresentBetween(uint64_t /*from*/, uint64_t /*to*/, float /*t*/, GSGpuPicture &)
     {
-        return ps2x::gs_interpolate::Skip::NoPair;
+        return zx::gs_interpolate::Skip::NoPair;
     }
     // The last picture PresentBetween made, read back (RGBA8, internal resolution).
     virtual bool ReadBetweenPicture(std::vector<uint8_t> &, uint32_t &, uint32_t &) { return false; }
     // Its counts since the last call (a log line), and the GPU time of pictures between when timed
-    // (PS2X_INTERP_TIMING=1).
+    // (ZX_INTERP_TIMING=1).
     virtual std::string InterpolationReport() { return {}; }
 };

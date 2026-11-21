@@ -20,12 +20,12 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::iop
+namespace zx::disc
 {
     class Iso9660Image;
 }
 
-namespace ps2x::app
+namespace zx::app
 {
     // A game the setup can install, as the app knows it.
     struct SetupGame
@@ -127,7 +127,7 @@ namespace ps2x::app
         std::filesystem::path m_picked;
         std::filesystem::path m_readFrom;
         std::string m_name;
-        std::shared_ptr<ps2x::iop::Iso9660Image> m_image;
+        std::shared_ptr<zx::disc::Iso9660Image> m_image;
         // A folder document's files, each with the disc's own path as its
         // name ('/'-separated, as files() gives them), sorted by it.
         std::vector<DocumentAccess::Entry> m_folderDocuments;
@@ -140,7 +140,7 @@ namespace ps2x::app
     bool isCueSheetSource(const std::filesystem::path &source);
     std::string sourceName(const std::filesystem::path &source);
 
-    // The file a CUE sheet's data track is in (ps2x/iop/cue_sheet.h), beside
+    // The file a CUE sheet's data track is in (zx/disc/cue_sheet.h), beside
     // the CUE; empty with *error when there is none.
     std::filesystem::path binOfCue(const std::filesystem::path &cue, std::string *error);
 

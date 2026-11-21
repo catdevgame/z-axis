@@ -9,7 +9,7 @@
 #include <stdint.h>
 // (A game module takes the x86 intrinsics from immintrin.h on Windows too: clang's intrin.h needs the C library's
 // setjmp.h.)
-#if defined(_MSC_VER) && !defined(PS2X_GAME_MODULE)
+#if defined(_MSC_VER) && !defined(ZX_GAME_MODULE)
 #include <intrin.h>
 #elif defined(USE_SSE2NEON)
 #include "sse2neon.h"

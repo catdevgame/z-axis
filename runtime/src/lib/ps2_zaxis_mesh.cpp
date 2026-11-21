@@ -14,7 +14,7 @@ uint64_t GSNativeMesh::nextId()
     return next.fetch_add(1, std::memory_order_relaxed);
 }
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     const uint8_t *GuestMemory::bytes(uint32_t address, size_t n) const
     {

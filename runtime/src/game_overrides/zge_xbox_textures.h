@@ -2,7 +2,7 @@
 
 // The Xbox textures, shared by the games built on the Z-Axis engine: the
 // pack the extras' setup makes from the player's Xbox disc
-// (collection/extras/xbox_texture_pack.h; PS2X_XBOX_PACK names its folder,
+// (collection/extras/xbox_texture_pack.h; ZX_XBOX_PACK names its folder,
 // the app sets it to the game's extras/xbox-pack or the bundle's
 // Resources/xbox-pack). When the game opens a PS2 file the pack has
 // pictures for (a level's TXR, a skater's ZIT, a BMX XXX level's MODELS.ZAL
@@ -11,7 +11,7 @@
 // The renderer is told which texture object each GS texture is by the
 // game's texture cache (its placeTextureLevel is wrapped), so it draws a
 // picture by identity, also those other overrides register (AI's Zoo, DM2's
-// Xbox levels). PS2X_XBOX_TEXTURES=0/1 (the app sets it from settings.ini
+// Xbox levels). ZX_XBOX_TEXTURES=0/1 (the app sets it from settings.ini
 // [display] xbox_textures) starts with them off or on; default on.
 
 #include "../game/ee/game_id.h"
@@ -39,9 +39,9 @@ namespace zge_host::xbox_textures
     // The Display page's row (key display.xbox_textures): switches the
     // pictures on and off at once; `save` (may be null) keeps the choice.
     inline constexpr const char *kSettingKey = "display.xbox_textures";
-    ps2x::settings::Setting setting(std::function<void(bool on)> save);
+    zx::settings::Setting setting(std::function<void(bool on)> save);
 
-    // The pack folder, or empty (no PS2X_XBOX_PACK or not a folder).
+    // The pack folder, or empty (no ZX_XBOX_PACK or not a folder).
     std::string packFolder();
 
     // Textures the pack must leave alone: a texture object whose key (its

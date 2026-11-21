@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::gs_shots
+namespace zx::gs_shots
 {
     namespace
     {
@@ -26,20 +26,20 @@ namespace ps2x::gs_shots
             bool installed = false;
             std::vector<uint64_t> ticks;
             std::string prefix;
-            // PS2X_GS_SHOT_PRIMS=N: the primitives of the N vsyncs before each picture, to PREFIX-vT.prims
+            // ZX_GS_SHOT_PRIMS=N: the primitives of the N vsyncs before each picture, to PREFIX-vT.prims
             // (GS::setPrimitiveLog), for comparing two render paths draw by draw.
             uint64_t primVsyncs = 0;
             std::FILE *prims = nullptr;
-            // PS2X_GS_SHOT_TRACE=1 (with PS2X_GS_SHOT_PRIMS=N): a GS trace of the same vsyncs to PREFIX-vT.gsr
-            // (GS::startRecording), for replaying the frame on another renderer (ps2xGsReplay --gpu).
+            // ZX_GS_SHOT_TRACE=1 (with ZX_GS_SHOT_PRIMS=N): a GS trace of the same vsyncs to PREFIX-vT.gsr
+            // (GS::startRecording), for replaying the frame on another renderer (zx-gsreplay --gpu).
             bool trace = false;
         };
     }
 
     void install(PS2Runtime &runtime)
     {
-        Shots &s = ps2x::session::state<Shots>();
-        const char *spec = ps2x::boot::text("PS2X_GS_SHOT_VSYNC");
+        Shots &s = zx::session::state<Shots>();
+        const char *spec = zx::boot::text("ZX_GS_SHOT_VSYNC");
         if (s.installed || !spec || !spec[0])
             return;
         const std::string text = spec;
@@ -58,9 +58,9 @@ namespace ps2x::gs_shots
             pos = comma + 1;
         }
         std::sort(s.ticks.begin(), s.ticks.end());
-        if (const char *n = ps2x::boot::text("PS2X_GS_SHOT_PRIMS"); n && n[0])
+        if (const char *n = zx::boot::text("ZX_GS_SHOT_PRIMS"); n && n[0])
             s.primVsyncs = std::strtoull(n, nullptr, 0);
-        if (const char *t = ps2x::boot::text("PS2X_GS_SHOT_TRACE"); t && t[0] == '1')
+        if (const char *t = zx::boot::text("ZX_GS_SHOT_TRACE"); t && t[0] == '1')
             s.trace = true;
         s.installed = true;
         PS2Runtime *rt = &runtime;

@@ -12,13 +12,13 @@ the overview and CHALLENGES dismissed, down the street and off the kerb, a hop o
 it on. The checkpoints are PCSX2 savestates; their values are in tools/scripts/bmx-ref-run1-values.txt (the RAM
 images stay in $BMX_REF_DATA/ref, not committed).
 
-The native script is the seen log, in vsyncs from the first pad read (the native PS2X_PAD_SCRIPT origin):
+The native script is the seen log, in vsyncs from the first pad read (the native ZX_PAD_SCRIPT origin):
   - front end: the presses at their vsyncs, with one SYNC anchor at the title (mode 0x29D040 becomes 1);
   - level: every input change at level frame f is anchored on the frame counter, `t:SYNC=0x2A2DE0>=f-1`, and
     takes effect half a vsync after t, so it lands on the pad read of frame f whether the native clock is early
     or late there (the schedule's changes are >= 2 frames apart, so each anchor's condition is false once after
     the previous one fired, as SYNC needs).
-Front-end checkpoints are dumped at their script time (PS2X_DUMP_WHEN script>=), level ones at their level
+Front-end checkpoints are dumped at their script time (ZX_DUMP_WHEN script>=), level ones at their level
 frame (0x2A2DE0>=f), at a VBlank like the savestates.
 
 Compared at each checkpoint (career_ab.py's bmx fields: mode 0x29D040, level frame 0x2A2DE0, rider table
@@ -27,18 +27,18 @@ the front end the focused menu (the zgui focus 0x253958: its frames' names and s
 the rider's position, velocity and heading within TOL (dm2logic's 0.01), physics state, trick, run score and
 line score exactly; the goals (the objectives list at 0x2A0A14: every objective's flags and count) exactly.
 
-  python3 -I tools/bmxlogic.py script            # the native PS2X_PAD_SCRIPT
+  python3 -I tools/bmxlogic.py script            # the native ZX_PAD_SCRIPT
   python3 -I tools/bmxlogic.py refvalues         # (re)write the values file from $BMX_REF_DATA/ref/*.ram
   python3 -I tools/bmxlogic.py run NAME [SECS]   # run natively, dumps in $BMX_REF_DATA/dumps/logic/NAME-*.ram
   python3 -I tools/bmxlogic.py compare NAME [--off OFFNAME]
                                                  # reference values vs native dumps (--off: the same input with
-                                                 # PS2X_READABLE=off at the same clock, kept: a checkpoint that
+                                                 # ZX_READABLE=off at the same clock, kept: a checkpoint that
                                                  # differs from the reference only as OFFNAME's does is a MATCH)
   python3 -I tools/bmxlogic.py show RAMFILE      # the compared values of any EE RAM image
 
 Environment: RUNNER (default the collection build, $ZAXIS_MAIN/out/build-coll), ELF (default
 $BMX_DATA/disc/SLUS_204.15), BMX_REF_DATA ($ZAXIS_DATA/bmx: ref/, dumps/, logs/), BMX_SCRATCH
-($ZAXIS_SCRATCH/bmxlogic: HOME, app support, memory cards), PS2X_GS_NULL (default 1) and other PS2X_*
+($ZAXIS_SCRATCH/bmxlogic: HOME, app support, memory cards), ZX_GS_NULL (default 1) and other ZX_*
 pass through. BMXLOGIC_FRAME_SKEW (default 1, dm2logic's): how many level frames later a native dump may sample;
 BMXLOGIC_INPUT_DELAY (level frames, default 0) moves every level input, to see the check catch a difference;
 BMXLOGIC_KEEP=1 keeps the native dumps of a run that matches (else `compare` deletes them).
@@ -65,7 +65,7 @@ REF_DATA = os.environ.get("BMX_REF_DATA", os.path.join(zpaths.ZAXIS_DATA, "bmx")
 REF_RAM = os.path.join(REF_DATA, "ref")
 NATIVE_RAM = os.path.join(REF_DATA, "dumps", "logic")
 LOGS = os.path.join(REF_DATA, "logs")
-RUNNER = os.environ.get("RUNNER", os.path.join(zpaths.ZAXIS_MAIN, "out", "build-coll", "ps2xRuntime", "ps2EntryRunner"))
+RUNNER = os.environ.get("RUNNER", os.path.join(zpaths.ZAXIS_MAIN, "out", "build-coll", "runtime", "zx-runner"))
 ELF = os.environ.get("ELF", os.path.join(zpaths.BMX_DATA, "disc", "SLUS_204.15"))
 SCRATCH = os.environ.get("BMX_SCRATCH", os.path.join(zpaths.ZAXIS_SCRATCH, "bmxlogic"))
 
@@ -274,30 +274,30 @@ def run(name, secs):
             os.remove(p)
     env = dict(os.environ)
     env["HOME"] = os.path.join(SCRATCH, "home")
-    env["PS2X_APP_SUPPORT_DIR"] = os.path.join(SCRATCH, "home", "support")
-    env["PS2X_APP_LOG_DIR"] = os.path.join(SCRATCH, "home", "logs")
-    env.setdefault("PS2X_MC_ROOT", os.path.join(SCRATCH, "mc0"))
-    env.setdefault("PS2X_MC_FD_BASE0", "1")       # (BMX's card as bmxroutes.py and the playbot run it)
+    env["ZX_APP_SUPPORT_DIR"] = os.path.join(SCRATCH, "home", "support")
+    env["ZX_APP_LOG_DIR"] = os.path.join(SCRATCH, "home", "logs")
+    env.setdefault("ZX_MC_ROOT", os.path.join(SCRATCH, "mc0"))
+    env.setdefault("ZX_MC_FD_BASE0", "1")       # (BMX's card as bmxroutes.py and the playbot run it)
     # The memory card path, as logiccheck: the reference runs went through
     # the card (BMX's native save files are the default and skip it).
-    env.setdefault("PS2X_SAVES", "card")
-    env.setdefault("PS2X_DEBUG_UI", "0")
-    env.setdefault("PS2X_HEADLESS", "1")
+    env.setdefault("ZX_SAVES", "card")
+    env.setdefault("ZX_DEBUG_UI", "0")
+    env.setdefault("ZX_HEADLESS", "1")
     env.setdefault("SDL_VIDEODRIVER", "dummy")
     env.setdefault("SDL_AUDIODRIVER", "dummy")
-    env.setdefault("PS2X_GS_BACKEND", "cpu")
-    env.setdefault("PS2X_GS_NULL", "1")
-    env["PS2X_HOST_INPUT"] = "0"
-    env["PS2X_PAD_STICK_CENTER"] = "0x7f"           # PCSX2's idle sticks (the seen log's 7f 7f)
-    env["PS2X_PAD_SCRIPT_CLOCK"] = "vsync"
+    env.setdefault("ZX_GS_BACKEND", "cpu")
+    env.setdefault("ZX_GS_NULL", "1")
+    env["ZX_HOST_INPUT"] = "0"
+    env["ZX_PAD_STICK_CENTER"] = "0x7f"           # PCSX2's idle sticks (the seen log's 7f 7f)
+    env["ZX_PAD_SCRIPT_CLOCK"] = "vsync"
     path = os.path.join(SCRATCH, "run", "script-%s.txt" % name)
     open(path, "w").write(native_script())
-    env["PS2X_PAD_SCRIPT"] = "@" + path
-    env["PS2X_DUMP_WHEN"] = dump_spec()
-    env["PS2X_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
-    env.setdefault("PS2X_STATE_LOG", ",".join("0x%X" % a for a in (MODE, LEVEL_FRAME, RIDER_TABLE)))
+    env["ZX_PAD_SCRIPT"] = "@" + path
+    env["ZX_DUMP_WHEN"] = dump_spec()
+    env["ZX_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
+    env.setdefault("ZX_STATE_LOG", ",".join("0x%X" % a for a in (MODE, LEVEL_FRAME, RIDER_TABLE)))
     log = os.path.join(LOGS, "logic-%s.log" % name)
-    print("runner %s\nlog %s\nscript %s\ndumps %s" % (RUNNER, log, path, env["PS2X_DUMP_WHEN"]))
+    print("runner %s\nlog %s\nscript %s\ndumps %s" % (RUNNER, log, path, env["ZX_DUMP_WHEN"]))
     with open(log, "w") as f:
         proc = subprocess.Popen([RUNNER, ELF], stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                 cwd=os.path.join(SCRATCH, "run"), env=env, start_new_session=True)
@@ -358,7 +358,7 @@ def diffs_of(r, n):
 
 
 def compare(name, off=None):
-    """The reference values against NAME's dumps. With OFF (the same input with PS2X_READABLE=off at the same
+    """The reference values against NAME's dumps. With OFF (the same input with ZX_READABLE=off at the same
     clock, its dumps kept: BMXLOGIC_KEEP=1), a checkpoint that differs from the reference only as OFF's does, in
     the same fields and values, and whose compared state equals OFF's exactly, is a MATCH and says so
     (logiccheck's rule)."""

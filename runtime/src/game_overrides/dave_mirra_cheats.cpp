@@ -16,7 +16,6 @@
 
 namespace dave_mirra::cheats
 {
-    namespace zx = ps2x::zaxis;
 
     namespace
     {
@@ -89,18 +88,18 @@ namespace dave_mirra::cheats
     // Rider instead, on that rider.
     bool patchLevelSelectBack(std::string &text)
     {
-        zx::Span select = zx::findObject(text, "MainMenu/SelectLevel");
+        zx::zaxis::Span select = zx::zaxis::findObject(text, "MainMenu/SelectLevel");
         if (!select.found())
             return false;
         std::string created;
         for (uint32_t n = kFirstCreated; n < kRiderRecords; ++n)
-            created += ":PS2XCreated" + std::to_string(n) + "\\n";
-        return zx::replaceIn(text, select, "OnCancel\t\"PLAY DeInit\\nPLAY .TrickMenu.Init\"",
-                             "OnCancel\t\"DECLARE String PS2XBack\\nSET PS2XBack {\\\"PS2XCreated\\\"}\\n"
-                             "STRCAT PS2XBack Root.CurrentRider1\\nGOTO PS2XBack\\nUNDECLARE PS2XBack\\n"
+            created += ":ZXCreated" + std::to_string(n) + "\\n";
+        return zx::zaxis::replaceIn(text, select, "OnCancel\t\"PLAY DeInit\\nPLAY .TrickMenu.Init\"",
+                             "OnCancel\t\"DECLARE String ZXBack\\nSET ZXBack {\\\"ZXCreated\\\"}\\n"
+                             "STRCAT ZXBack Root.CurrentRider1\\nGOTO ZXBack\\nUNDECLARE ZXBack\\n"
                              "PLAY DeInit\\nPLAY .TrickMenu.Init\\nGOTO End\\n" +
                                  created +
-                                 "UNDECLARE PS2XBack\\nPLAY DeInit\\nPLAY Root.PlayerCreator.Init\\n:End\"");
+                                 "UNDECLARE ZXBack\\nPLAY DeInit\\nPLAY Root.PlayerCreator.Init\\n:End\"");
     }
 }
 

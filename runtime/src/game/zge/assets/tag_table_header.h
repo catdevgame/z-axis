@@ -18,7 +18,7 @@ namespace zge
         uint16_t references; // +0x02 addTagTableReference adds one, releaseTagTable takes one
         uint32_t descriptor; // +0x04 TagTable::descriptor
         uint32_t count;      // +0x08 elements
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         union
         {
             // BMX +0x0C ZGE4: the records' address (makeBuffer works it out once, tagRecordAt reads it); it keeps no
@@ -36,7 +36,7 @@ namespace zge
     // inline takes it from (BMX XXX's rider). ZGE2 and ZGE3 keep no such word, so this is 0 there.
     inline ee::Ptr<uint8_t> keptTagRecords(ee::Ptr<TagTableHeader> table)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return table->records;
 #else
         (void)table;

@@ -14,7 +14,7 @@
 // g_currentSfxVolume and g_currentMusicVolume, which frontEndEnter copies
 // from the settings and the page shows and edits), then the saved bytes.
 // DM2 has no speech volume of its own (no row). With the app's settings
-// (PS2X_GAME_SETTINGS_MENUS=1) and the native sound driver; nothing is
+// (ZX_GAME_SETTINGS_MENUS=1) and the native sound driver; nothing is
 // written until a row is changed.
 
 #include "dave_mirra.h"
@@ -49,7 +49,7 @@ namespace dave_mirra
 {
     void installGameVolumes(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         zge_host::volumes::install(runtime, volumes::kGameVolumes);
     }

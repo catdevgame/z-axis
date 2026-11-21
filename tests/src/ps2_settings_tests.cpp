@@ -16,9 +16,8 @@
 #include <thread>
 #include <vector>
 
-namespace st = ps2x::settings;
+namespace st = zx::settings;
 namespace hi = ps2_host_input;
-namespace zx = ps2x::zaxis;
 
 namespace
 {
@@ -34,7 +33,7 @@ namespace
     // A small UIBuilder-style script (CRLF, tabs), as in UILIB.ZAL.
     std::string sampleScript()
     {
-        return zx::indentBlock("///////////////////////////\n"
+        return zx::zaxis::indentBlock("///////////////////////////\n"
                                "// UIBuilder Generated File\n"
                                "OBJECT \"guiScreenSpace\" \"FrontEnd\"\n"
                                "{\n"
@@ -67,7 +66,7 @@ void register_ps2_settings_tests()
     {
         tc.Run("tuning.ini: names by category, any case, ambiguous names, comments", [](TestCase &t)
         {
-            namespace tn = ps2x::tuning;
+            namespace tn = zx::tuning;
             std::vector<tn::Entry> entries;
             auto add = [&entries](const char *category, const char *name, uint32_t address, float value)
             {
@@ -339,7 +338,7 @@ void register_ps2_settings_tests()
 
         tc.Run("Z-Axis archive: read, write, rebuild with a longer entry", [](TestCase &t)
         {
-            std::vector<zx::ArchiveEntry> entries(3);
+            std::vector<zx::zaxis::ArchiveEntry> entries(3);
             entries[0].nameHash = 0x1234u;
             entries[0].flags = 5u;
             entries[0].data = bytesOf("ULIB....library bytes");
@@ -349,54 +348,54 @@ void register_ps2_settings_tests()
             entries[2].nameHash = 0x9ABCu;
             entries[2].flags = 5u;
             entries[2].data = bytesOf("x");
-            const std::vector<uint8_t> file = zx::writeArchive(entries);
+            const std::vector<uint8_t> file = zx::zaxis::writeArchive(entries);
             t.IsTrue(std::memcmp(file.data(), "ZDIR", 4) == 0, "ZDIR header");
             t.Equals(file.size() % 16u, static_cast<size_t>(0), "padded to 16 bytes");
-            std::vector<zx::ArchiveEntry> back;
+            std::vector<zx::zaxis::ArchiveEntry> back;
             std::string error;
-            t.IsTrue(zx::readArchive(file, back, &error), "reads back: " + error);
+            t.IsTrue(zx::zaxis::readArchive(file, back, &error), "reads back: " + error);
             t.Equals(back.size(), static_cast<size_t>(3), "three entries");
             t.IsTrue(back[1].data == entries[1].data && back[1].nameHash == 0x5678u && back[1].flags == 5u, "same entry");
-            t.Equals(zx::writeArchive(back), file, "rewriting gives the same bytes");
-            t.Equals(zx::scriptName(back[1]), std::string("FrontEnd"), "the script's main object");
-            t.Equals(zx::scriptName(back[0]), std::string(), "a library is not a script");
+            t.Equals(zx::zaxis::writeArchive(back), file, "rewriting gives the same bytes");
+            t.Equals(zx::zaxis::scriptName(back[1]), std::string("FrontEnd"), "the script's main object");
+            t.Equals(zx::zaxis::scriptName(back[0]), std::string(), "a library is not a script");
 
             back[1].data.insert(back[1].data.end(), 100, ' ');
-            std::vector<zx::ArchiveEntry> grown;
-            t.IsTrue(zx::readArchive(zx::writeArchive(back), grown), "a longer entry is laid out again");
+            std::vector<zx::zaxis::ArchiveEntry> grown;
+            t.IsTrue(zx::zaxis::readArchive(zx::zaxis::writeArchive(back), grown), "a longer entry is laid out again");
             t.IsTrue(grown[2].data == entries[2].data, "the entries after it move");
-            t.IsFalse(zx::readArchive(bytesOf("not an archive at all, really"), grown), "garbage is refused");
+            t.IsFalse(zx::zaxis::readArchive(bytesOf("not an archive at all, really"), grown), "garbage is refused");
         });
 
         tc.Run("UI script: objects by path and edits", [](TestCase &t)
         {
             std::string text = sampleScript();
-            const zx::Span options = zx::findObject(text, "FrontEnd/Options");
+            const zx::zaxis::Span options = zx::zaxis::findObject(text, "FrontEnd/Options");
             t.IsTrue(options.found(), "direct child found");
             t.IsTrue(text.compare(options.begin, 10, "\tOBJECT \"g") == 0, "span starts at its OBJECT line");
             t.IsTrue(text.find("OnCreate", options.begin) < options.end, "contains its properties");
-            const zx::Span nested = zx::findObject(text, "FrontEnd/Main/Options");
+            const zx::zaxis::Span nested = zx::zaxis::findObject(text, "FrontEnd/Main/Options");
             t.IsTrue(nested.found() && nested.begin < options.begin, "the other Options, under Main");
-            t.IsFalse(zx::findObject(text, "FrontEnd/Missing").found(), "missing path");
-            zx::Span goBack = zx::findObject(text, "GoBack", options);
+            t.IsFalse(zx::zaxis::findObject(text, "FrontEnd/Missing").found(), "missing path");
+            zx::zaxis::Span goBack = zx::zaxis::findObject(text, "GoBack", options);
             t.IsTrue(goBack.found(), "actions found by name");
-            t.Equals(zx::indentAt(text, goBack.begin), 2, "indent of its line");
-            t.IsTrue(zx::replaceIn(text, goBack, ".Controller.MoveIn", ".PcSettings.MoveIn"), "replace inside");
-            t.IsFalse(zx::replaceIn(text, goBack, ".Controller.MoveIn", "x"), "only inside the span");
+            t.Equals(zx::zaxis::indentAt(text, goBack.begin), 2, "indent of its line");
+            t.IsTrue(zx::zaxis::replaceIn(text, goBack, ".Controller.MoveIn", ".PcSettings.MoveIn"), "replace inside");
+            t.IsFalse(zx::zaxis::replaceIn(text, goBack, ".Controller.MoveIn", "x"), "only inside the span");
             t.IsTrue(text.find(".PcSettings.MoveIn") != std::string::npos, "edited");
-            const std::vector<zx::ObjectInfo> objects = zx::listObjects(text);
+            const std::vector<zx::zaxis::ObjectInfo> objects = zx::zaxis::listObjects(text);
             t.Equals(objects.size(), size_t(4), "every OBJECT, no ACTION");
             t.IsTrue(objects.size() == 4 && objects[0].path == "FrontEnd" && objects[0].type == "guiScreenSpace" &&
                          objects[2].path == "FrontEnd/Main/Options" && objects[3].path == "FrontEnd/Options",
                      "paths and types in text order");
             t.IsTrue(objects.size() == 4 && objects[3].span.begin == options.begin && objects[3].span.end == options.end,
                      "spans as findObject's");
-            const zx::Span visible = zx::findProperty(text, zx::findObject(text, "FrontEnd/Main/Options"), "Visible");
+            const zx::zaxis::Span visible = zx::zaxis::findProperty(text, zx::zaxis::findObject(text, "FrontEnd/Main/Options"), "Visible");
             t.IsTrue(visible.found() && text.substr(visible.begin, visible.end - visible.begin) == "0", "own property value");
-            t.IsFalse(zx::findProperty(text, zx::findObject(text, "FrontEnd/Main"), "Visible").found(),
+            t.IsFalse(zx::zaxis::findProperty(text, zx::zaxis::findObject(text, "FrontEnd/Main"), "Visible").found(),
                       "a child's property is not the object's");
-            t.IsTrue(zx::findProperty(text, zx::findObject(text, "FrontEnd"), "Visible").found(), "top level");
-            const std::string block = zx::indentBlock("OBJECT \"guiLabel\" \"A\"\n{\n\tVisible\t1\n}\n", 2);
+            t.IsTrue(zx::zaxis::findProperty(text, zx::zaxis::findObject(text, "FrontEnd"), "Visible").found(), "top level");
+            const std::string block = zx::zaxis::indentBlock("OBJECT \"guiLabel\" \"A\"\n{\n\tVisible\t1\n}\n", 2);
             t.Equals(block, std::string("\t\tOBJECT \"guiLabel\" \"A\"\r\n\t\t{\r\n\t\t\tVisible\t1\r\n\t\t}\r\n"),
                      "blocks re-indented with CRLF");
         });
@@ -405,7 +404,7 @@ void register_ps2_settings_tests()
         {
             auto script = [](const char *menuScale, const char *titleScale, const char *imageScale)
             {
-                return zx::indentBlock(std::string("OBJECT \"guiGroup\" \"Pause\"\n{\n"
+                return zx::zaxis::indentBlock(std::string("OBJECT \"guiGroup\" \"Pause\"\n{\n"
                                                    "\tOBJECT \"guiMenu\" \"Menu\"\n\t{\n\t\tScale\t") +
                                            menuScale +
                                            "\n\t\tItems\t{\n\t\t\tResume\n\t\t\t}\n\t}\n"
@@ -419,38 +418,38 @@ void register_ps2_settings_tests()
             std::string ps2 = script("1.000000 1.000000 1.000000", "1.500000 1.500000 1.000000", "1.000000 1.000000 1.000000");
             const std::string xbox =
                 script("0.800000 1.000000 1.000000", "1.600000 1.600000 1.000000", "0.500000 0.500000 1.000000");
-            const std::vector<std::string> paths = zx::narrowLike(ps2, xbox);
+            const std::vector<std::string> paths = zx::zaxis::narrowLike(ps2, xbox);
             t.Equals(paths.size(), size_t(1), "one widget");
             t.IsTrue(!paths.empty() && paths[0] == "Pause/Menu", "the narrower menu");
             t.IsTrue(ps2.find("Scale\t0.800000 1.000000 1.000000") != std::string::npos, "its width, its own height");
             t.IsTrue(ps2.find("Scale\t1.500000 1.500000 1.000000") != std::string::npos, "a wider one is kept");
             t.IsTrue(ps2.find("Scale\t0.5") == std::string::npos, "pictures are not text");
             std::string again = ps2;
-            t.IsTrue(zx::narrowLike(again, xbox).empty() && again == ps2, "once");
+            t.IsTrue(zx::zaxis::narrowLike(again, xbox).empty() && again == ps2, "once");
         });
 
         tc.Run("disc patch: contents made once, by file name", [](TestCase &t)
         {
-            ps2x::disc_patch::clearPatches();
+            zx::disc_patch::clearPatches();
             int reads = 0;
-            ps2x::disc_patch::registerPatch("uilib.zal", [](std::vector<uint8_t> &bytes)
+            zx::disc_patch::registerPatch("uilib.zal", [](std::vector<uint8_t> &bytes)
                                             {
                                                 bytes.push_back('!');
                                                 return true;
                                             });
-            t.IsTrue(ps2x::disc_patch::hasPatch("cdrom0:\\ASSETS\\UILIB.ZAL;1"), "any folder, case, version");
+            t.IsTrue(zx::disc_patch::hasPatch("cdrom0:\\ASSETS\\UILIB.ZAL;1"), "any folder, case, version");
             auto read = [&reads](std::vector<uint8_t> &bytes)
             {
                 ++reads;
                 bytes = bytesOf("abc");
                 return true;
             };
-            auto first = ps2x::disc_patch::contents("ASSETS/UILIB.ZAL", read);
-            auto second = ps2x::disc_patch::contents("UILIB.ZAL", read);
+            auto first = zx::disc_patch::contents("ASSETS/UILIB.ZAL", read);
+            auto second = zx::disc_patch::contents("UILIB.ZAL", read);
             t.IsTrue(first && *first == bytesOf("abc!"), "patched contents");
             t.IsTrue(first == second && reads == 1, "made once");
-            t.IsFalse(static_cast<bool>(ps2x::disc_patch::contents("OTHER.ZAL", read)), "other files untouched");
-            ps2x::disc_patch::clearPatches();
+            t.IsFalse(static_cast<bool>(zx::disc_patch::contents("OTHER.ZAL", read)), "other files untouched");
+            zx::disc_patch::clearPatches();
         });
         tc.Run("a game volume changed in the settings reads as changed until the game's frame has passed it", [](TestCase &t)
         {
@@ -459,7 +458,7 @@ void register_ps2_settings_tests()
             // value (BMX XXX's Settings page: Right then Left on Music Volume gave 40%, not 50%, when the
             // window thread's runPending came between the apply and the game's frame).
             namespace zv = zge_host::volumes;
-            ps2x::session::end();
+            zx::session::end();
             PS2Runtime runtime;
             t.IsTrue(runtime.memory().initialize(), "memory");
             uint8_t *rdram = runtime.memory().getRDRAM();
@@ -508,7 +507,7 @@ void register_ps2_settings_tests()
             rdram[kSaved] = 25u; // the game's own options menu
             st::runPending();
             t.Equals(st::value(key, -1), 20, "a change the game made is the row's");
-            ps2x::session::end();
+            zx::session::end();
             t.IsFalse(st::has(key), "the row goes with the session");
         });
     });

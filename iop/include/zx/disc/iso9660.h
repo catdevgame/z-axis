@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ps2x/iop/disc_image_file.h"
+#include "zx/disc/disc_image_file.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::iop
+namespace zx::disc
 {
     // Read-only view of an ISO9660 disc image: 2048-byte sectors (the PS2 DVD
     // and CD images PCSX2 uses), or a raw CD image of 2352-byte sectors (the

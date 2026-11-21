@@ -145,7 +145,7 @@ namespace
 
     unsigned configuredThreads()
     {
-        if (const char *value = std::getenv("PS2X_GS_THREADS"))
+        if (const char *value = std::getenv("ZX_GS_THREADS"))
         {
             const long parsed = std::strtol(value, nullptr, 0);
             if (parsed >= 1)
@@ -581,7 +581,7 @@ namespace
     {
         static const bool enabled = []()
         {
-            const char *env = std::getenv("PS2X_GS_SIMD");
+            const char *env = std::getenv("ZX_GS_SIMD");
             if (env && env[0] == '0')
                 return false;
             return bilinearSimdMatches();
@@ -1209,14 +1209,14 @@ namespace
 GSCpuBackend::FastPath::FastPath(GSCpuBackend &backend)
     : owner(backend)
 {
-    const char *ref = std::getenv("PS2X_GS_REFERENCE");
+    const char *ref = std::getenv("ZX_GS_REFERENCE");
     reference = ref && ref[0] && ref[0] != '0';
     threads = configuredThreads();
-    const char *asyncEnv = std::getenv("PS2X_GS_ASYNC");
+    const char *asyncEnv = std::getenv("ZX_GS_ASYNC");
     async = !(asyncEnv && asyncEnv[0] == '0');
     cur = std::make_unique<Batch>();
     cur->bins.resize(static_cast<size_t>(kTilesPerRow) * kTilesPerRow);
-    const char *statsEnv = std::getenv("PS2X_GS_STATS");
+    const char *statsEnv = std::getenv("ZX_GS_STATS");
     statsEnabled = statsEnv && statsEnv[0] && statsEnv[0] != '0';
 }
 
@@ -1485,7 +1485,7 @@ GSCpuBackend::FastPath::colorsFor(const std::shared_ptr<TexSource> &sourcePtr, c
     }
     // A texture pack: the colours are also the region's (from CLAMP) and
     // the level's, and are made again once a picture they wait for is read.
-    namespace tp = ps2x::texture_pack;
+    namespace tp = zx::texture_pack;
     std::shared_ptr<PackJob> pack;
     uint64_t packGeneration = 0;
     if (packState && tp::active() && (indexed ? true : (tp::hasPictures() || tp::dumpingDirect())))
@@ -1645,7 +1645,7 @@ bool GSCpuBackend::FastPath::setupSprite(QueuedDraw &d) const
 
 namespace
 {
-    // PS2X_TEXTURE_PACK_LOD_STATS=1: which of PCSX2's names (with its
+    // ZX_TEXTURE_PACK_LOD_STATS=1: which of PCSX2's names (with its
     // default, hardware mipmapping on) each textured primitive's texture
     // gets, and whether texture_pack::candidateNames has it, printed at
     // exit. PCSX2 takes the LOD range over a whole draw (GSVertexTrace:
@@ -1677,7 +1677,7 @@ namespace
     {
         static const bool on = []
         {
-            const char *v = std::getenv("PS2X_TEXTURE_PACK_LOD_STATS");
+            const char *v = std::getenv("ZX_TEXTURE_PACK_LOD_STATS");
             return v && *v && *v != '0';
         }();
         if (!on || !batch.state.prim.tme)
@@ -2080,7 +2080,7 @@ void GSCpuBackend::FastPath::prepareBatch(Batch &batch)
 // colours. Dump mode writes the name if no pack has it.
 void GSCpuBackend::FastPath::applyPack(PrepareJob &job)
 {
-    namespace tp = ps2x::texture_pack;
+    namespace tp = zx::texture_pack;
     const PackJob &pj = *job.pack;
     const GSDrawState &st = pj.state;
     const GSTex0Reg &tex = st.context.tex0;
@@ -2102,7 +2102,7 @@ void GSCpuBackend::FastPath::applyPack(PrepareJob &job)
         return;
     // A name is hashed when a pack may have it (or dump mode wants the first).
     bool known = false;
-    ps2x::texture_replace::PicturePtr picture;
+    zx::texture_replace::PicturePtr picture;
     uint32_t chosen = 0;
     for (uint32_t i = 0; i < found && !known; ++i)
     {

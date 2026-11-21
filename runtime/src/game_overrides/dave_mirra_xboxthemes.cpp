@@ -1,12 +1,12 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): the park editor's two Xbox-only
 // themes, Desert and Highway, after the nine stock ones in the theme select
-// ([extras] xbox_themes, PS2X_DM2_XBOX_THEMES=1; off by default).
+// ([extras] xbox_themes, ZX_DM2_XBOX_THEMES=1; off by default).
 //
 // The Xbox disc holds editor/leDesert and editor/leHighWa: complete themes
 // in the PS2's formats (TBMP textures, the PS2's chunk sets), early exports
 // (Park_Editor_Alpha_Exports) that every release's SCENE.TXT declares and no
 // release's THEMES.TXT lists. tooling/ai/tools/dm2_xbox.py makes them, at app
-// build, into <PS2X_DM2_XBOX_LEVELS_DIR>/themes:
+// build, into <ZX_DM2_XBOX_LEVELS_DIR>/themes:
 //   - <FOLDER>/<FOLDER>.{ZIT,GEO,INS,TXR,DAT}: raised 15 m (their ring of
 //     ground lay at level 0, below every stock theme's), with the stock
 //     Beach's light and Globals points (the 32 x 32 outdoor theme whose frame
@@ -40,7 +40,7 @@
 // off that number is no theme (findTheme answers none) and the park does not
 // load as it was made.
 //
-// PS2X_TRACE_XBOXTHEMES=1 (developers): each file served.
+// ZX_TRACE_XBOXTHEMES=1 (developers): each file served.
 
 #include "dave_mirra.h"
 #include "sym/game_overrides/dave_mirra_xboxthemes.cpp.h"
@@ -71,9 +71,8 @@ namespace dave_mirra::xbox_themes
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
         namespace fs = std::filesystem;
-        namespace zx = ps2x::zaxis;
 
         constexpr const char kTag[] = "[xbox-themes]";
         constexpr const char kOwner[] = "dm2-xbox-themes";
@@ -94,7 +93,7 @@ namespace dave_mirra::xbox_themes
 
         struct State
         {
-            fs::path dir; // <PS2X_DM2_XBOX_LEVELS_DIR>/themes
+            fs::path dir; // <ZX_DM2_XBOX_LEVELS_DIR>/themes
             std::vector<Theme> themes;
             std::string blocks;            // their THEME blocks
             std::vector<std::string> stock; // the disc's THEMES.TXT FILEs, in order (the theme select's values)
@@ -105,7 +104,7 @@ namespace dave_mirra::xbox_themes
             PS2Runtime::RecompiledFunction newEditPool = nullptr;
             PS2Runtime::RecompiledFunction setupTheme = nullptr;
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         std::string upper(std::string text)
         {
@@ -135,7 +134,7 @@ namespace dave_mirra::xbox_themes
                     roots.disc = paths.cdRoot;
                 if (roots.disc.empty())
                     roots.image = PS2Runtime::cdImageFileSystem();
-                if (const char *mods = ps2x::boot::text("PS2X_MODS_DIR"); mods && *mods)
+                if (const char *mods = zx::boot::text("ZX_MODS_DIR"); mods && *mods)
                     roots.mods = gf::modsRoots(mods);
                 fileSystem = std::make_unique<gf::GameFileSystem>(std::move(roots));
             }
@@ -233,8 +232,8 @@ namespace dave_mirra::xbox_themes
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
             State &st = state();
-            std::vector<zx::ArchiveEntry> entries;
-            if (!zx::readArchive(bytes, entries))
+            std::vector<zx::zaxis::ArchiveEntry> entries;
+            if (!zx::zaxis::readArchive(bytes, entries))
                 return false;
             bool changed = false;
             // ParkMenu.zif ("LOADLIB Themes UILIB:ParkMenu.zif"): our pictures, named by value.
@@ -243,21 +242,21 @@ namespace dave_mirra::xbox_themes
                 std::vector<std::string> names;
                 for (size_t i = 0; i < st.themes.size(); ++i)
                     names.push_back(std::to_string(value(i)));
-                for (zx::ArchiveEntry &entry : entries)
-                    if (entry.nameHash == ps2x::zaxis_text::keyHash("PARKMENU.ZIF"))
+                for (zx::zaxis::ArchiveEntry &entry : entries)
+                    if (entry.nameHash == zx::zaxis_text::keyHash("PARKMENU.ZIF"))
                     {
-                        const size_t added = zx::addAssets(entry.data, *pictures, names).size();
+                        const size_t added = zx::zaxis::addAssets(entry.data, *pictures, names).size();
                         changed = changed || added != 0;
                         std::cout << kTag << " ParkMenu.zif: " << added << " pictures" << std::endl;
                     }
             }
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) != "ParkMenu")
+                if (zx::zaxis::scriptName(entry) != "ParkMenu")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
-                zx::Span select = zx::findObject(text, "ParkMenu/SelectTheme");
-                const zx::Span last = select.found() ? zx::findProperty(text, select, "MaxValue") : zx::Span{};
+                zx::zaxis::Span select = zx::zaxis::findObject(text, "ParkMenu/SelectTheme");
+                const zx::zaxis::Span last = select.found() ? zx::zaxis::findProperty(text, select, "MaxValue") : zx::zaxis::Span{};
                 const std::string stockLast = std::to_string(st.stock.size() - 1);
                 if (!last.found() || text.compare(last.begin, stockLast.size(), stockLast) != 0 ||
                     text.find_first_not_of("\r\n \t", last.begin + stockLast.size()) < last.end)
@@ -270,7 +269,7 @@ namespace dave_mirra::xbox_themes
                 changed = true;
             }
             if (changed)
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
             return changed;
         }
 
@@ -278,12 +277,12 @@ namespace dave_mirra::xbox_themes
         bool patchStrings(std::vector<uint8_t> &bytes)
         {
             State &st = state();
-            ps2x::zaxis_text::StringTable table;
-            if (!ps2x::zaxis_text::readStringTable(bytes, table))
+            zx::zaxis_text::StringTable table;
+            if (!zx::zaxis_text::readStringTable(bytes, table))
                 return false;
             auto set = [&](const std::string &key, const std::string &text)
             {
-                const uint32_t hash = ps2x::zaxis_text::keyHash(key);
+                const uint32_t hash = zx::zaxis_text::keyHash(key);
                 for (auto &entry : table.entries)
                     if (entry.first == hash)
                     {
@@ -297,7 +296,7 @@ namespace dave_mirra::xbox_themes
                 set("KSTR_THEMENAME_" + std::to_string(value(i)), st.themes[i].name);
                 set("KSTR_THEMEDESC_" + std::to_string(value(i)), kThemeText);
             }
-            bytes = ps2x::zaxis_text::writeStringTable(table);
+            bytes = zx::zaxis_text::writeStringTable(table);
             return true;
         }
 
@@ -380,17 +379,17 @@ namespace dave_mirra::xbox_themes
     bool install(PS2Runtime &runtime)
     {
         State &st = state();
-        const char *on = ps2x::boot::text("PS2X_DM2_XBOX_THEMES");
-        const char *dir = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS_DIR");
+        const char *on = zx::boot::text("ZX_DM2_XBOX_THEMES");
+        const char *dir = zx::boot::text("ZX_DM2_XBOX_LEVELS_DIR");
         if (!on || on[0] != '1')
             return false;
         if (!dir || !*dir)
         {
-            std::cout << kTag << " off: no PS2X_DM2_XBOX_LEVELS_DIR (the files tools/dm2_xbox.py makes)" << std::endl;
+            std::cout << kTag << " off: no ZX_DM2_XBOX_LEVELS_DIR (the files tools/dm2_xbox.py makes)" << std::endl;
             return false;
         }
         st.dir = fs::path(dir) / "themes";
-        st.trace = std::getenv("PS2X_TRACE_XBOXTHEMES") != nullptr;
+        st.trace = std::getenv("ZX_TRACE_XBOXTHEMES") != nullptr;
         if (!readBundle(st))
         {
             std::cerr << kTag << " off: " << st.dir.string() << " has no themes made by tools/dm2_xbox.py" << std::endl;
@@ -408,10 +407,10 @@ namespace dave_mirra::xbox_themes
             !wrap(runtime, sym::dm2::bmxSetupTheme, st.setupTheme, &setupThemeHook, "bmxSetupTheme"))
             return false;
         gf::registerProvider("ASSETS/", &provide, kOwner);
-        ps2x::disc_patch::registerPatch("THEMES.TXT", &patchThemes, kOwner);
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, kOwner);
+        zx::disc_patch::registerPatch("THEMES.TXT", &patchThemes, kOwner);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, kOwner);
         for (const char *strings : {"STRING.EUS", "STRING.EUK", "STRING.GER", "STRING.FRE"})
-            ps2x::disc_patch::registerPatch(strings, &patchStrings, kOwner);
+            zx::disc_patch::registerPatch(strings, &patchStrings, kOwner);
         std::cout << kTag << " on:";
         for (size_t i = 0; i < st.themes.size(); ++i)
             std::cout << (i ? "," : "") << " " << st.themes[i].name << " (theme " << value(i) << ")";

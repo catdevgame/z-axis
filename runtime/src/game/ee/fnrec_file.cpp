@@ -14,7 +14,7 @@ namespace fncheck
     namespace
     {
         // The text of a cut compressed file's problem: the replay workers' job scripts look for it in a job's
-        // ps2xFnCheck and stop a checker without it before a compressed corpus.
+        // zx-fncheck and stop a checker without it before a compressed corpus.
         constexpr char kCutInFrame[] = "cut short: the file ends inside a compressed frame";
         constexpr uint32_t kZstdFrameMagic = 0xFD2FB528u;
         constexpr uint32_t kSkippableMagicMask = 0xFFFFFFF0u;
@@ -149,7 +149,7 @@ namespace fncheck
 
     bool recorderCompresses()
     {
-        const char *plain = std::getenv("PS2X_FNREC_PLAIN");
+        const char *plain = std::getenv("ZX_FNREC_PLAIN");
         return !(plain && std::strcmp(plain, "1") == 0);
     }
 

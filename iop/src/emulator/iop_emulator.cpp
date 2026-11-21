@@ -184,16 +184,16 @@ namespace ps2x::iop::detail
         // Queue interrupts the SPU2 raised (SPU2 IRQ, DMA4/DMA7 completion).
         void schedulePendingDma()
         {
-            Spu2 &spu2 = memory.spu2();
+            zx::Spu2 &spu2 = memory.spu2();
             if (!spu2.hasPendingInterrupts())
                 return;
             const uint32_t raised = spu2.takeInterrupts();
-            if (raised & Spu2::InterruptSpu2)
-                pendingDmaInterrupts[Spu2::IrqSpu2] = totalCycles;
-            if (raised & Spu2::InterruptDma4)
-                pendingDmaInterrupts[Spu2::IrqDma4] = totalCycles;
-            if (raised & Spu2::InterruptDma7)
-                pendingDmaInterrupts[Spu2::IrqDma7] = totalCycles;
+            if (raised & zx::Spu2::InterruptSpu2)
+                pendingDmaInterrupts[zx::Spu2::IrqSpu2] = totalCycles;
+            if (raised & zx::Spu2::InterruptDma4)
+                pendingDmaInterrupts[zx::Spu2::IrqDma4] = totalCycles;
+            if (raised & zx::Spu2::InterruptDma7)
+                pendingDmaInterrupts[zx::Spu2::IrqDma7] = totalCycles;
         }
 
         void advanceSpu2()

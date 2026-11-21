@@ -375,17 +375,17 @@ namespace fncheck
 
     // ---- traced calls ------------------------------------------------------
 
-    // PS2X_FNREC_ATOMIC: no safe points inside a recorded call, so a callee
+    // ZX_FNREC_ATOMIC: no safe points inside a recorded call, so a callee
     // that leaves by a jump (into a block the recompiler split off) is run
     // on to its return here, as ee::call and the scheduler do.
     bool g_followCalleeJumps = false;
     CallRunner g_callRunner = nullptr;
-    // PS2X_FNREC_UNWOUND=0: a recorded function's callee that does not come
+    // ZX_FNREC_UNWOUND=0: a recorded function's callee that does not come
     // back (unwound at a safe point: a checkpoint due in it) ends the
     // recording as before drafter24, instead of the call staying open for
     // the session to be parked at its return point.
     bool g_unwindParking = true;
-    // PS2X_FNREC_MAX_MB (default 512; 0 none): a recording larger than this
+    // ZX_FNREC_MAX_MB (default 512; 0 none): a recording larger than this
     // (its calls, their effects, the I/O log, the lines it touched) is given
     // up and its memory freed (Recording::afterCall).
     uint64_t g_maxRecordBytes = 512ull << 20;
@@ -489,7 +489,7 @@ namespace fncheck
             tracer->cycles(EeScheduler::kGuestDispatchCycles);
         // A call's dispatch is a safe point: due, the frame unwinds and the
         // callee returns to the scheduler, which dispatches the return
-        // address (ps2xFnCheck --safepoints: the call is answered as usual and
+        // address (zx-fncheck --safepoints: the call is answered as usual and
         // the function returns with pc there).
         const bool unwind = isCall && tracer && tracer->safePointDue(EeScheduler::kGuestDispatchCycles);
         if (isCall && tracer)
@@ -560,7 +560,7 @@ namespace fncheck
     // into RAM) would fail instead, so those readers call ps2BeforeHostWrite
     // first (runtime/ps2_host_write.h). The scratchpad (16 KB) and RAM's
     // bytes outside whole pages are copied and compared as before.
-    // PS2X_FNREC_EFFECTS=diff keeps the full RAM diff (the reference).
+    // ZX_FNREC_EFFECTS=diff keeps the full RAM diff (the reference).
     namespace
     {
         class WriteTracker
@@ -894,7 +894,7 @@ namespace fncheck
             uint64_t m_faults = 0;
         };
 
-        // PS2X_FNREC_EFFECTS: pages (the default) or diff.
+        // ZX_FNREC_EFFECTS: pages (the default) or diff.
         bool g_trackPages = true;
     }
 
@@ -1202,7 +1202,7 @@ namespace fncheck
                 // A call that never ends (engineMain, parked and resumed
                 // at every wait of its game loop: 3 GB in 3 minutes, paths6)
                 // or makes too many calls: given up, its memory freed
-                // (PS2X_FNREC_MAX_MB, default 512; drafter24).
+                // (ZX_FNREC_MAX_MB, default 512; drafter24).
                 if (g_maxRecordBytes && m_bytes + m_lines.size() * 64u > g_maxRecordBytes)
                     giveUpTooBig();
             }
@@ -1403,7 +1403,7 @@ namespace fncheck
             uint32_t m_entrySp = 0, m_minSp = 0;
             bool m_broken = false;
             bool m_unwoundOpen = false, m_dropping = false; // (afterCall, dropUnwound)
-            bool m_tooBig = false;   // given up: past PS2X_FNREC_MAX_MB (afterCall)
+            bool m_tooBig = false;   // given up: past ZX_FNREC_MAX_MB (afterCall)
             uint64_t m_bytes = 0;    // the record's calls, effects and I/O log, about
             bool m_lostPages = false;
             bool m_tail = false;
@@ -1422,8 +1422,8 @@ namespace fncheck
             bool created = false; // its file was begun by this run (later records are appended)
             uint64_t calls = 0, kept = 0, skipped = 0, lastVsync = ~0ull;
             uint64_t leftElsewhere = 0, calleeUnwound = 0, lostPages = 0; // why calls were skipped
-            uint64_t tooBig = 0; // given up past PS2X_FNREC_MAX_MB
-            // Recorded to a stop (fncheck_stops.h, PS2X_FNREC_STOPS): its rule, and the calls kept at one.
+            uint64_t tooBig = 0; // given up past ZX_FNREC_MAX_MB
+            // Recorded to a stop (fncheck_stops.h, ZX_FNREC_STOPS): its rule, and the calls kept at one.
             StopRule stop = StopRule::None;
             uint64_t stopped = 0;
             uint64_t selfCallsCut = 0; // of leftElsewhere: still in a call of itself after kMaxSelfCallResumes
@@ -1437,10 +1437,10 @@ namespace fncheck
             uint64_t watched = 0;
             uint32_t firstElsewhere = 0;
             uint32_t thisVsync = 0, stride = 1;
-            uint32_t max = 3000, perVsync = 64; // its caps (PS2X_FNREC_MAX / _PER_VSYNC, or its line in @file)
+            uint32_t max = 3000, perVsync = 64; // its caps (ZX_FNREC_MAX / _PER_VSYNC, or its line in @file)
             uint64_t strideBlock = 250;         // calls kept before the stride doubles
-            // PS2X_FNREC_NEW_BLOCKS: the original's block table, the blocks a
-            // kept call (or the PS2X_FNREC_COVERED seed) ran, and the calls
+            // ZX_FNREC_NEW_BLOCKS: the original's block table, the blocks a
+            // kept call (or the ZX_FNREC_COVERED seed) ran, and the calls
             // recorded and dropped because they ran none new.
             const fncheck::BlockTable *blocks = nullptr;
             std::vector<uint8_t> seen;
@@ -1455,14 +1455,14 @@ namespace fncheck
             // does a vsync without a call (a new episode).
             uint32_t dullStreak = 0;
             uint64_t restUntil = 0;
-            // PS2X_FNREC_NEW_BLOCKS=3: the calls past the capped sample tried
+            // ZX_FNREC_NEW_BLOCKS=3: the calls past the capped sample tried
             // (by the rules above, on their own vsync count) and the ones kept
             // for a new block; `kept` and the caps count the sample alone.
             uint64_t probeVsync = ~0ull, probesKept = 0;
             uint32_t probesThisVsync = 0;
         };
 
-        // The blocks of one recorded call's original (PS2X_FNREC_NEW_BLOCKS).
+        // The blocks of one recorded call's original (ZX_FNREC_NEW_BLOCKS).
         class CallBlocks final : public fncheck::BlockSink
         {
         public:
@@ -1541,31 +1541,31 @@ namespace fncheck
             std::filesystem::path folder;
             uint32_t max = 3000;
             uint32_t perVsync = 64;
-            uint64_t fromVsync = 0; // PS2X_FNREC_FROM: no calls kept before this vsync
-            // PS2X_FNREC_UNTIL_SCRIPT=<n>: no calls begun once the pad script's clock
-            // (PS2X_PAD_SCRIPT, in vsyncs) is at n: a route's recording ends at its
+            uint64_t fromVsync = 0; // ZX_FNREC_FROM: no calls kept before this vsync
+            // ZX_FNREC_UNTIL_SCRIPT=<n>: no calls begun once the pad script's clock
+            // (ZX_PAD_SCRIPT, in vsyncs) is at n: a route's recording ends at its
             // last input's guest moment on every host, not when the run is stopped.
             bool untilSet = false;
             int64_t untilScript = 0;
-            bool atomic = false;    // PS2X_FNREC_ATOMIC: recorded calls run without EE safe points
+            bool atomic = false;    // ZX_FNREC_ATOMIC: recorded calls run without EE safe points
             uint32_t minCalls = 0;
-            // PS2X_FNREC_NEW_BLOCKS=1: a call is kept only if it ran a block of
-            // its original that no kept call ran (nor the PS2X_FNREC_COVERED
+            // ZX_FNREC_NEW_BLOCKS=1: a call is kept only if it ran a block of
+            // its original that no kept call ran (nor the ZX_FNREC_COVERED
             // seed); the per-vsync cap counts the calls recorded, kept or not,
             // and there is no stride.
             bool newBlocks = false;
-            // PS2X_FNREC_NEW_BLOCKS=2: every call is tried (no rest after dull
+            // ZX_FNREC_NEW_BLOCKS=2: every call is tried (no rest after dull
             // calls, no per-vsync cap, no sampling within a vsync), for one hot
             // function's rare paths; still only the calls that run a new block
             // are kept (gamehand2).
             bool everyCall = false;
-            // PS2X_FNREC_NEW_BLOCKS=3: the capped sample as with the variable
+            // ZX_FNREC_NEW_BLOCKS=3: the capped sample as with the variable
             // unset (the same calls, kept whatever they ran), and also every
             // call past it that runs a block of its original no kept call ran
-            // (nor the PS2X_FNREC_COVERED seed), tried as with 1 (a few a
+            // (nor the ZX_FNREC_COVERED seed), tried as with 1 (a few a
             // vsync, picked across the frame, resting after dull ones).
             bool alsoNewBlocks = false;
-            uint32_t stopFrames = 1; // PS2X_FNREC_STOP_FRAMES: the frame rule's vsyncs (fncheck_stops.h)
+            uint32_t stopFrames = 1; // ZX_FNREC_STOP_FRAMES: the frame rule's vsyncs (fncheck_stops.h)
             std::map<uint32_t, std::unique_ptr<Recorded>> functions;
             std::vector<std::unique_ptr<Recording>> recordings; // one per nesting depth
             size_t depth = 0;
@@ -1580,7 +1580,7 @@ namespace fncheck
         uint64_t strideBlockFor(uint32_t max) { return std::min<uint64_t>(kStrideBlock, std::max<uint64_t>(8u, max / 8u)); }
         constexpr uint32_t kMaxResumes = kMaxSelfCallResumes;
         constexpr uint32_t kMaxStride = 64;
-        constexpr uint64_t kMaxRest = 120; // vsyncs (PS2X_FNREC_NEW_BLOCKS: two seconds)
+        constexpr uint64_t kMaxRest = 120; // vsyncs (ZX_FNREC_NEW_BLOCKS: two seconds)
 
         bool pastUntil()
         {
@@ -1631,8 +1631,8 @@ namespace fncheck
             return true;
         }
 
-        // PS2X_FNREC_NEW_BLOCKS=3: whether a call the capped sample does not
-        // keep is tried for a new block, by PS2X_FNREC_NEW_BLOCKS=1's rules on
+        // ZX_FNREC_NEW_BLOCKS=3: whether a call the capped sample does not
+        // keep is tried for a new block, by ZX_FNREC_NEW_BLOCKS=1's rules on
         // the calls past the sample (its own vsync count and random picks).
         bool probeWanted(Recorded &r, uint64_t vsync)
         {
@@ -1662,7 +1662,7 @@ namespace fncheck
             return true;
         }
 
-        // PS2X_FNREC_ATOMIC: the traced function run as a host-made guest call
+        // ZX_FNREC_ATOMIC: the traced function run as a host-made guest call
         // (PS2Runtime::callGuestFunction holds EE safe points off), as a
         // readable version runs in the game. A long function (one that makes
         // many calls) is otherwise unwound at a safe point in most calls,
@@ -1736,14 +1736,14 @@ namespace fncheck
         // changed while it waited, by anyone) and the traced function goes on
         // from there, to its return as usual, parked again at another wait.
         // At most kMaxParked at once (each holds a RAM image); others are
-        // dropped as before (Recorded::waited). PS2X_FNREC_WAITS=0: none.
+        // dropped as before (Recorded::waited). ZX_FNREC_WAITS=0: none.
         struct Session
         {
             Recorded *recorded = nullptr;
             // False: a call not kept, run traced only for what it reads of its
             // caller's frame (Recording::framePassed); never written or parked.
             bool keep = true;
-            // PS2X_FNREC_NEW_BLOCKS=3: a call past the capped sample, kept
+            // ZX_FNREC_NEW_BLOCKS=3: a call past the capped sample, kept
             // only if it runs a new block (keepRecord).
             bool probe = false;
             std::unique_ptr<Recording> recording;
@@ -1756,12 +1756,12 @@ namespace fncheck
             uint64_t parkedAt = 0; // the vsync
         };
         // A record made (at the function's return, or at its stop): written,
-        // unless PS2X_FNREC_MIN_CALLS or PS2X_FNREC_NEW_BLOCKS leaves it out.
+        // unless ZX_FNREC_MIN_CALLS or ZX_FNREC_NEW_BLOCKS leaves it out.
         void keepRecord(Session &session, Record &record)
         {
             RecorderState &state = *g_recorder;
             Recorded &r = *session.recorded;
-            // PS2X_FNREC_MIN_CALLS=<n>: only calls that made at least n calls
+            // ZX_FNREC_MIN_CALLS=<n>: only calls that made at least n calls
             // (the rare paths of a function that mostly takes one).
             if (record.calls.size() < state.minCalls)
                 return;
@@ -1895,7 +1895,7 @@ namespace fncheck
                     // it (`threw`: the callee threw to the scheduler, and the
                     // thread that made the call is gone or dormant), or, by the
                     // frame rule, when it leaves for the scheduler once
-                    // PS2X_FNREC_STOP_FRAMES vsyncs have passed since the entry.
+                    // ZX_FNREC_STOP_FRAMES vsyncs have passed since the entry.
                     bool stop(bool threw)
                     {
                         Recorded &r = *session->recorded;
@@ -1949,7 +1949,7 @@ namespace fncheck
                             g_resumeSlots[pc] = runtime->lookupFunction(pc);
                             runtime->replaceFunction(pc, &recorderResume);
                         }
-                        if (std::getenv("PS2X_FNREC_WAITS_DEBUG"))
+                        if (std::getenv("ZX_FNREC_WAITS_DEBUG"))
                             std::cerr << "[fncheck] parked " << session->recorded->function->name << " at 0x" << std::hex
                                       << pc << " sp 0x" << sp << std::dec << " thread " << session->thread << std::endl;
                         g_parked.push_back(std::move(session));
@@ -2032,7 +2032,7 @@ namespace fncheck
                 else if (!atReturn())
                 {
                     static uint32_t s_shown = 0;
-                    if (std::getenv("PS2X_FNREC_WAITS_DEBUG") && s_shown++ < 8)
+                    if (std::getenv("ZX_FNREC_WAITS_DEBUG") && s_shown++ < 8)
                         std::cerr << "[fncheck] " << r.function->name << " left elsewhere: pc 0x" << std::hex << ctx->pc
                                   << " sp 0x" << ee::gpr64(ctx, ee::reg::sp) << ", its return 0x" << returnPc << " sp 0x"
                                   << entrySp << " ra 0x" << ee::gpr64(ctx, ee::reg::ra) << std::dec << " thread "
@@ -2143,7 +2143,7 @@ namespace fncheck
                 return;
             }
             static uint32_t s_miss = 0;
-            if (std::getenv("PS2X_FNREC_WAITS_DEBUG") && s_miss++ < 16)
+            if (std::getenv("ZX_FNREC_WAITS_DEBUG") && s_miss++ < 16)
                 for (const auto &p : g_parked)
                     std::cerr << "[fncheck] resume slot 0x" << std::hex << pc << " sp 0x" << sp << std::dec << " thread "
                               << thread << ": parked 0x" << std::hex << p->resumePc << " sp 0x" << p->resumeSp << std::dec
@@ -2169,7 +2169,7 @@ namespace fncheck
                           << " with a callee that did not return"
                           << (r->waited ? ", " + std::to_string(r->waited) + " that waited (unwound to the scheduler)" : std::string())
                           << (r->lostPages ? ", " + std::to_string(r->lostPages) + " with callee writes not kept" : std::string())
-                          << (r->tooBig ? ", " + std::to_string(r->tooBig) + " given up past PS2X_FNREC_MAX_MB" : std::string())
+                          << (r->tooBig ? ", " + std::to_string(r->tooBig) + " given up past ZX_FNREC_MAX_MB" : std::string())
                           << (r->watched ? ", " + std::to_string(r->watched) + " more run for their caller's frame reads" : std::string())
                           << (r->stopped ? "; " + std::to_string(r->stopped) + " of the recorded kept to a stop" : std::string())
                           << (r->blocks && g_recorder->newBlocks
@@ -2208,53 +2208,53 @@ namespace fncheck
 
     bool installRecorder(PS2Runtime &runtime, game::Game game)
     {
-        const char *spec = std::getenv("PS2X_FNREC");
+        const char *spec = std::getenv("ZX_FNREC");
         if (!spec || !*spec)
             return true;
         // A recording is made with readable code off: on, readable functions
         // call each other directly, past the recorder (fncheck.h).
         {
-            const char *readable = std::getenv("PS2X_READABLE");
-            const char *allow = std::getenv("PS2X_FNREC_ALLOW_READABLE");
+            const char *readable = std::getenv("ZX_READABLE");
+            const char *allow = std::getenv("ZX_FNREC_ALLOW_READABLE");
             if (!(readable && std::strcmp(readable, "off") == 0) && !(allow && std::strcmp(allow, "1") == 0))
             {
-                std::cerr << "[fncheck] not recording: PS2X_FNREC is set but PS2X_READABLE is "
+                std::cerr << "[fncheck] not recording: ZX_FNREC is set but ZX_READABLE is "
                           << (readable && *readable ? readable : "unset (the defaults: readable code on)")
-                          << "; recordings are made with PS2X_READABLE=off (readable functions that are on call each "
-                             "other past the recorder), or PS2X_FNREC_ALLOW_READABLE=1 for a deliberate test"
+                          << "; recordings are made with ZX_READABLE=off (readable functions that are on call each "
+                             "other past the recorder), or ZX_FNREC_ALLOW_READABLE=1 for a deliberate test"
                           << std::endl;
                 return false;
             }
         }
-        const char *folder = std::getenv("PS2X_FNREC_DIR");
+        const char *folder = std::getenv("ZX_FNREC_DIR");
         if (!folder || !*folder)
         {
-            std::cerr << "[fncheck] PS2X_FNREC needs PS2X_FNREC_DIR" << std::endl;
+            std::cerr << "[fncheck] ZX_FNREC needs ZX_FNREC_DIR" << std::endl;
             return true;
         }
         static RecorderState state;
         state.folder = folder;
-        state.max = std::max(1u, envNumber("PS2X_FNREC_MAX", 3000u));
-        state.perVsync = std::max(1u, envNumber("PS2X_FNREC_PER_VSYNC", 64u));
-        state.fromVsync = envNumber("PS2X_FNREC_FROM", 0u);
+        state.max = std::max(1u, envNumber("ZX_FNREC_MAX", 3000u));
+        state.perVsync = std::max(1u, envNumber("ZX_FNREC_PER_VSYNC", 64u));
+        state.fromVsync = envNumber("ZX_FNREC_FROM", 0u);
         state.untilSet = false;
-        if (const char *until = std::getenv("PS2X_FNREC_UNTIL_SCRIPT"); until && *until)
+        if (const char *until = std::getenv("ZX_FNREC_UNTIL_SCRIPT"); until && *until)
         {
             state.untilSet = true;
             state.untilScript = std::strtoll(until, nullptr, 0);
         }
-        state.atomic = envNumber("PS2X_FNREC_ATOMIC", 0u) != 0u;
+        state.atomic = envNumber("ZX_FNREC_ATOMIC", 0u) != 0u;
         g_followCalleeJumps = state.atomic;
-        state.minCalls = envNumber("PS2X_FNREC_MIN_CALLS", 0u);
-        const uint32_t newBlocksMode = envNumber("PS2X_FNREC_NEW_BLOCKS", 0u);
+        state.minCalls = envNumber("ZX_FNREC_MIN_CALLS", 0u);
+        const uint32_t newBlocksMode = envNumber("ZX_FNREC_NEW_BLOCKS", 0u);
         state.newBlocks = newBlocksMode == 1u || newBlocksMode == 2u;
         state.everyCall = newBlocksMode == 2u;
         state.alsoNewBlocks = newBlocksMode == 3u;
-        // PS2X_FNREC_COVERED=<file>: the blocks the corpus already runs, a
+        // ZX_FNREC_COVERED=<file>: the blocks the corpus already runs, a
         // line a function: `ADDRESS BLOCK,BLOCK,...` (block start
         // addresses; fncheck_corpus.py coverage --covered-out writes it).
         std::map<uint32_t, std::vector<uint32_t>> covered;
-        if (const char *seed = std::getenv("PS2X_FNREC_COVERED"); (state.newBlocks || state.alsoNewBlocks) && seed && *seed)
+        if (const char *seed = std::getenv("ZX_FNREC_COVERED"); (state.newBlocks || state.alsoNewBlocks) && seed && *seed)
         {
             std::ifstream in(seed);
             std::string line;
@@ -2273,16 +2273,16 @@ namespace fncheck
                         out.push_back(static_cast<uint32_t>(std::strtoul(item.c_str(), nullptr, 0)));
             }
             if (!in.eof() && covered.empty())
-                std::cerr << "[fncheck] PS2X_FNREC_COVERED: cannot read " << seed << std::endl;
+                std::cerr << "[fncheck] ZX_FNREC_COVERED: cannot read " << seed << std::endl;
         }
-        if (const char *effects = std::getenv("PS2X_FNREC_EFFECTS"); effects && *effects)
+        if (const char *effects = std::getenv("ZX_FNREC_EFFECTS"); effects && *effects)
             g_trackPages = std::string(effects) != "diff";
-        // PS2X_FNREC_WAITS=0: a call that waits is dropped (before drafter23).
-        g_acrossWaits = envNumber("PS2X_FNREC_WAITS", 1u) != 0u;
-        g_unwindParking = envNumber("PS2X_FNREC_UNWOUND", 1u) != 0u;
-        g_maxRecordBytes = static_cast<uint64_t>(envNumber("PS2X_FNREC_MAX_MB", 512u)) << 20;
+        // ZX_FNREC_WAITS=0: a call that waits is dropped (before drafter23).
+        g_acrossWaits = envNumber("ZX_FNREC_WAITS", 1u) != 0u;
+        g_unwindParking = envNumber("ZX_FNREC_UNWOUND", 1u) != 0u;
+        g_maxRecordBytes = static_cast<uint64_t>(envNumber("ZX_FNREC_MAX_MB", 512u)) << 20;
 
-        // PS2X_FNREC=<items> or @<file>: items are names, addresses or `all`,
+        // ZX_FNREC=<items> or @<file>: items are names, addresses or `all`,
         // comma separated; a file has one per line (or commas), `#` starts a
         // comment, and a line may give the function its own caps:
         // `ADDRESS 200 8` (calls kept, at most per vsync).
@@ -2306,12 +2306,12 @@ namespace fncheck
             }
             game::readable::Function *f = game::readable::find(item, game);
             if (f && f->game != game)
-                std::cerr << "[fncheck] PS2X_FNREC: " << item << " is " << game::gameName(f->game)
+                std::cerr << "[fncheck] ZX_FNREC: " << item << " is " << game::gameName(f->game)
                           << "'s, the game running is " << game::gameName(game) << std::endl;
             else if (f)
                 chosen.push_back({f, max, perVsync});
             else
-                std::cerr << "[fncheck] PS2X_FNREC: not a registered function"
+                std::cerr << "[fncheck] ZX_FNREC: not a registered function"
                           << (game == game::Game::Ai ? "" : std::string(" of ") + game::gameName(game)) << ": " << item
                           << std::endl;
         };
@@ -2320,7 +2320,7 @@ namespace fncheck
             std::ifstream list(spec + 1);
             if (!list)
             {
-                std::cerr << "[fncheck] PS2X_FNREC: cannot read " << (spec + 1) << std::endl;
+                std::cerr << "[fncheck] ZX_FNREC: cannot read " << (spec + 1) << std::endl;
                 return true;
             }
             std::string line;
@@ -2358,7 +2358,7 @@ namespace fncheck
             if (!f->traced)
             {
                 std::cerr << "[fncheck] " << f->name << ": this build has no traced original (configure with "
-                          << "PS2X_RUNNER_GENERATED_DIR)" << std::endl;
+                          << "ZX_RUNNER_GENERATED_DIR)" << std::endl;
                 continue;
             }
             auto r = std::make_unique<Recorded>();
@@ -2391,14 +2391,14 @@ namespace fncheck
                 continue;
             state.functions[f->address] = std::move(r);
         }
-        // PS2X_FNREC_STOPS=1: the stop table's functions (fncheck_stops.h)
-        // recorded to a stop; PS2X_FNREC_STOP=<names or addresses>: more, by
+        // ZX_FNREC_STOPS=1: the stop table's functions (fncheck_stops.h)
+        // recorded to a stop; ZX_FNREC_STOP=<names or addresses>: more, by
         // the frame rule (experiments).
-        state.stopFrames = std::max(1u, envNumber("PS2X_FNREC_STOP_FRAMES", 1u));
+        state.stopFrames = std::max(1u, envNumber("ZX_FNREC_STOP_FRAMES", 1u));
         {
-            const bool table = envNumber("PS2X_FNREC_STOPS", 0u) != 0u;
+            const bool table = envNumber("ZX_FNREC_STOPS", 0u) != 0u;
             std::set<std::string> extra;
-            if (const char *more = std::getenv("PS2X_FNREC_STOP"); more && *more)
+            if (const char *more = std::getenv("ZX_FNREC_STOP"); more && *more)
             {
                 std::stringstream items(more);
                 std::string item;

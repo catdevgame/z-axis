@@ -5,7 +5,7 @@
 // CPU time for the perf logs and tools: CLOCK_THREAD_CPUTIME_ID on POSIX,
 // thread / process cycle times on Windows (macOS reads other threads
 // through Mach ports where it is used).
-namespace ps2x
+namespace zx
 {
     // The calling thread, in seconds.
     double currentThreadCpuSeconds();

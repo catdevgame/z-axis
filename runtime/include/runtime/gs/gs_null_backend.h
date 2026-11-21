@@ -9,7 +9,7 @@
 // Raster backend that keeps every GS memory semantic (image transfers in
 // both directions, local-to-local copies, CLUT loads, framebuffer clears,
 // VRAM reads/writes, presentation of whatever is in local memory) but drops
-// drawn primitives. Selected with PS2X_GS_NULL=1 so game logic can run at
+// drawn primitives. Selected with ZX_GS_NULL=1 so game logic can run at
 // full speed when only guest state matters (e.g. comparing against a
 // reference run). Everything except Submit() forwards to a wrapped backend.
 class GSNullBackend final : public GSRasterBackend
@@ -49,15 +49,15 @@ private:
 };
 
 // The raster backend selected by the environment: GSNullBackend around a
-// GSCpuBackend with PS2X_GS_NULL=1, else the first registered factory's
+// GSCpuBackend with ZX_GS_NULL=1, else the first registered factory's
 // backend (if it returns one), else a plain GSCpuBackend.
 std::unique_ptr<GSRasterBackend> createConfiguredRasterBackend();
 
-// PS2X_GS_NULL is set and not 0.
+// ZX_GS_NULL is set and not 0.
 bool gsNullRequested();
 
 // Backends linked into the executable register a factory here (the SDL_GPU
-// one: src/lib/gs/gs_gpu_register.cpp, PS2X_GS_BACKEND=gpu). A factory
+// one: src/lib/gs/gs_gpu_register.cpp, ZX_GS_BACKEND=gpu). A factory
 // returns nullptr when it is not selected.
 using GSRasterBackendFactory = std::unique_ptr<GSRasterBackend> (*)();
 void registerRasterBackendFactory(GSRasterBackendFactory factory);

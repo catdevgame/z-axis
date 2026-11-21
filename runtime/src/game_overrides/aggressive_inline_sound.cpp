@@ -8,8 +8,8 @@
 // ChanSetParam takes a sample's handle, a fade with flag 2 ends its stream;
 // ZGE3's streams, each with its own SPU rings.
 //
-// PS2X_SOUND=spu2: ZAUDIO on the IOP and the emulated SPU2 (docs/SPU2.md);
-// PS2X_MOVIES=hle needs it too (the movie sound's ring is the IOP's to drain).
+// ZX_SOUND=spu2: ZAUDIO on the IOP and the emulated SPU2 (docs/SPU2.md);
+// ZX_MOVIES=hle needs it too (the movie sound's ring is the IOP's to drain).
 #include "aggressive_inline_sound.h"
 #include "sym/game_overrides/aggressive_inline_sound.cpp.h"
 
@@ -35,14 +35,14 @@ namespace aggressive_inline::native_sound
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
         using zge_host::sound::Replacement;
         using zge_host::sound::StreamSource;
 
         // ---- French speech (the Xbox release's speech01.zsd) ----------------------------
 
         // A decoded line as a reader: mono, both channels the same.
-        class PcmReader final : public ps2x::audio_file::Reader
+        class PcmReader final : public zx::audio_file::Reader
         {
         public:
             explicit PcmReader(std::shared_ptr<const std::vector<int16_t>> pcm) : m_pcm(std::move(pcm)) {}
@@ -74,11 +74,11 @@ namespace aggressive_inline::native_sound
             std::mutex mutex;
             bool tried = false;
             std::vector<uint8_t> bank;
-            std::vector<ps2x::xbox_audio::Wave> waves;
-            std::vector<ps2x::xbox_audio::Wave> ps2;
+            std::vector<zx::xbox_audio::Wave> waves;
+            std::vector<zx::xbox_audio::Wave> ps2;
             std::map<uint32_t, std::shared_ptr<const std::vector<int16_t>>> decoded;
         };
-        FrenchSpeech &frenchSpeech() { return ps2x::session::state<FrenchSpeech>(); }
+        FrenchSpeech &frenchSpeech() { return zx::session::state<FrenchSpeech>(); }
 
         // The wave of the PS2 bank `file` starting in the sector at `start`,
         // or -1; loads both tables the first time.
@@ -93,13 +93,13 @@ namespace aggressive_inline::native_sound
                 bool xbox = true;
                 if (file.read(0, head.data(), head.size()) == head.size())
                 {
-                    const size_t end = ps2x::xbox_audio::waveTableEnd(head.data(), head.size());
+                    const size_t end = zx::xbox_audio::waveTableEnd(head.data(), head.size());
                     head.resize(end);
                     if (end && file.read(0, head.data(), end) == end)
-                        ps2x::xbox_audio::readWaveTable(head, f.ps2, &xbox);
+                        zx::xbox_audio::readWaveTable(head, f.ps2, &xbox);
                 }
                 if (!ps2_xbox_disc::readFile("audio/speech01.zsd", f.bank) ||
-                    !ps2x::xbox_audio::readWaveTable(f.bank, f.waves, &xbox) || !xbox || f.waves.size() != f.ps2.size())
+                    !zx::xbox_audio::readWaveTable(f.bank, f.waves, &xbox) || !xbox || f.waves.size() != f.ps2.size())
                 {
                     std::cerr << "[sound] French speech not available (" << f.ps2.size() << " PS2 lines, "
                               << f.waves.size() << " Xbox)" << std::endl;
@@ -133,7 +133,7 @@ namespace aggressive_inline::native_sound
                 if (static_cast<uint64_t>(w.offset) + w.size > f.bank.size())
                     return nullptr;
                 slot = std::make_shared<const std::vector<int16_t>>(
-                    ps2x::xbox_audio::decodeAdpcm(f.bank.data() + w.offset, w.size));
+                    zx::xbox_audio::decodeAdpcm(f.bank.data() + w.offset, w.size));
             }
             return slot;
         }

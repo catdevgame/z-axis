@@ -13,9 +13,9 @@ class PS2Runtime;
 // Several games booted one after another in one process, each torn down as
 // leaving a game for the collection's menu does (no menu drawn): the check
 // that a game booted after others runs as it does in a process of its own
-// (tooling/checks/seqcheck.py; ps2EntryRunner --sequence).
+// (tooling/checks/seqcheck.py; zx-runner --sequence).
 //
-//   ps2EntryRunner --sequence ai:STEPFILE,dm2:STEPFILE[,...]
+//   zx-runner --sequence ai:STEPFILE,dm2:STEPFILE[,...]
 //
 // A step file is one NAME=VALUE per line (# starts a comment line):
 //
@@ -28,14 +28,14 @@ class PS2Runtime;
 //   stop_after=PATH  stopped once this file exists (a check's last dump)
 //   mc_root=PATH     the memory card folder (optional)
 //   cwd=PATH         the working directory while it runs (optional)
-//   PS2X_...=VALUE   the boot's BootConfig value (a name it carries)
+//   ZX_...=VALUE   the boot's BootConfig value (a name it carries)
 //
 // Each step: the process's I/O folders and working directory as they were
 // when the sequence began, a runtime made with the step's BootConfig on the
 // host the sequence keeps up (HostOptions::hostOwned), the ELF loaded, run
 // until a stop, the game's shutdown hooks, the runtime destroyed. The host
 // comes down after the last step.
-namespace ps2x::sequence
+namespace zx::sequence
 {
     struct Step
     {
@@ -72,7 +72,7 @@ namespace ps2x::sequence
     bool parseArgument(const std::string &argument, std::vector<Step> &steps, std::string *error = nullptr);
 
     // Runs the steps in order. afterLoad, when given, runs after each ELF is
-    // loaded (the runner's PS2X_CD_IMAGE and other folder overrides). A step
+    // loaded (the runner's ZX_CD_IMAGE and other folder overrides). A step
     // that does not boot ends the sequence. The host is shut down at the end
     // if it is up.
     std::vector<Outcome> run(const std::vector<Step> &steps, const char *title,

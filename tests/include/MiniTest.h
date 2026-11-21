@@ -146,8 +146,8 @@ public:
                 const std::string& testName = cc.first;
                 const TestRunnerCallback& testFn = cc.second;
 
-                // PS2X_TEST_FILTER=text: only tests whose name contains it.
-                static const char* filter = std::getenv("PS2X_TEST_FILTER");
+                // ZX_TEST_FILTER=text: only tests whose name contains it.
+                static const char* filter = std::getenv("ZX_TEST_FILTER");
                 if (filter && filter[0] && testName.find(filter) == std::string::npos)
                 {
                     continue;

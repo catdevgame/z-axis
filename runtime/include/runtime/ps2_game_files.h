@@ -15,13 +15,24 @@
 //      one)
 //   1. <mod>/<path> in each mod folder, the last given first (loose
 //      replacement files at the game's own paths, names case-insensitive;
-//      the folders come from PS2X_MODS_DIR, modsRoots: the collection lists
+//      the folders come from ZX_MODS_DIR, modsRoots: the collection lists
 //      the mods and their order, collection/mods.h). A mod folder may be a
 //      zip, or a folder inside one, read in place (runtime/ps2_zip_archive.h).
+//      For a .ZAL archive a mod may instead have a folder of that name
+//      holding single entries (ASSETS/UILIB.ZAL/CommonFonts.zif): each mod's
+//      entries above the file found (a mod's below them, or 2 or 3) replace
+//      those of the archive, the lowest mod's first, so mods with other
+//      entries of one archive all count (zx/zal_archive.h: findEntry
+//      names an entry; one the archive has not is left out, with a line in
+//      the log). The archive made is kept for the boot (every file system
+//      over the same folders shares it).
 //   2. a registered provider for the path (files a game override makes in
 //      memory, e.g. a level converted from another release of the game)
 //   3. the disc folder, or the disc image when there is no folder
-// and then, whichever file was found, a registered patch for its name
+// and then, whichever file was found, a registered head for its path is
+// served over its first bytes (registerHead: the rest of the file is read
+// through, so a large file is never read whole; made once a boot, as the
+// archives with mods' entries are), or a registered patch for its name
 // changes its bytes in memory.
 
 #include <cstddef>
@@ -36,12 +47,12 @@
 #include <unordered_map>
 #include <vector>
 
-namespace ps2x::iop
+namespace zx::disc
 {
     class Iso9660Image;
 }
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     // "cdrom0:\ASSETS\UILIB.ZAL;1" -> "ASSETS/UILIB.ZAL": device prefix and
     // version suffix dropped, '\' -> '/', no leading or doubled '/', "." and
@@ -78,11 +89,11 @@ namespace ps2x::game_files
     struct GameFileRoots
     {
         std::filesystem::path disc;                          // extracted disc folder
-        std::shared_ptr<const ps2x::iop::Iso9660Image> image; // used when disc is empty
+        std::shared_ptr<const zx::disc::Iso9660Image> image; // used when disc is empty
         std::vector<std::filesystem::path> mods;             // overlays, lowest first: a later one's file wins
     };
 
-    // PS2X_MODS_DIR: one or more folders with the platform's path-list
+    // ZX_MODS_DIR: one or more folders with the platform's path-list
     // separator between them (';' on Windows, ':' elsewhere), lowest first.
     constexpr char kModsSeparator =
 #if defined(_WIN32)
@@ -90,7 +101,7 @@ namespace ps2x::game_files
 #else
         ':';
 #endif
-    // The folders of a PS2X_MODS_DIR text, in its order (an empty entry
+    // The folders of a ZX_MODS_DIR text, in its order (an empty entry
     // dropped).
     std::vector<std::filesystem::path> modsRoots(std::string_view text);
     // The text for those folders.
@@ -106,6 +117,14 @@ namespace ps2x::game_files
     // One of them (`relative` as listFilesBelow gives it, or any case): its
     // bytes, or false. Safe from any thread, on the same zip too.
     bool readFileBelow(const std::filesystem::path &folder, const std::string &relative, std::vector<uint8_t> &out);
+
+    // A mod's single entries of an archive (above): whether a path is an
+    // archive's (it ends in .ZAL), and the files of such a folder that are
+    // passed over without a word, being no entries: zal.txt (zal's list,
+    // in a folder copied in whole) and the host's own (".DS_Store", any name
+    // starting with a dot).
+    bool isArchivePath(std::string_view normalized);
+    bool ignoredInArchiveFolder(std::string_view name);
 
     struct ZipPath; // runtime/ps2_zip_archive.h
 
@@ -128,6 +147,16 @@ namespace ps2x::game_files
         std::filesystem::path resolveHost(const std::filesystem::path &root, const std::string &normalized,
                                           bool wantDirectory = false);
         std::shared_ptr<GameFile> openOriginal(const std::string &normalized);
+        // A provider's file, else the disc's (2 and 3 above).
+        std::shared_ptr<GameFile> openBelowMods(const std::string &normalized);
+        // A mod's file at the path (null for none), and its folder of the
+        // archive's entries at the path (empty for none).
+        std::shared_ptr<GameFile> openInMod(const std::filesystem::path &root, const std::string &normalized);
+        std::filesystem::path entryFolderIn(const std::filesystem::path &root, const std::string &normalized);
+        // The archive `base` with the entries of `folders` (the lowest mod's
+        // first) put in it; `base` as it is when it is no archive.
+        std::shared_ptr<GameFile> withEntries(const std::string &normalized, std::shared_ptr<GameFile> base,
+                                              const std::vector<std::filesystem::path> &folders);
         // The zip a mod folder is in (or is), null for a folder on the host.
         const ZipPath &zipRoot(const std::filesystem::path &root);
 
@@ -150,6 +179,16 @@ namespace ps2x::game_files
     // Every provider registered with this name (a game's session ending).
     void removeProviders(const std::string &name);
     void clearProviders();
+
+    // A new head for a file: `make` gets the file found at the path (any of
+    // 0 to 3 above) and returns the bytes served over its first ones (a
+    // sound bank's tables with more waves, say), or null to leave the file as
+    // it is; the bytes after them are the file's own, and a head longer than
+    // the file makes it that long. Asked once a boot for each file found at
+    // the path (by its source and size); the boot's, as providers are.
+    using Head = std::function<std::shared_ptr<const std::vector<uint8_t>>(GameFile &file)>;
+    void registerHead(const std::string &path, Head make, std::string name = {});
+    void removeHeads(const std::string &name);
 
     // A memory folder: files by their disc path (normalized when
     // registered), each its bytes: files a host made for a boot, given to it

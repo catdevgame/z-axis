@@ -1,6 +1,6 @@
 #pragma once
 
-// GS texture memory audit (developers; PS2X_GSMEM_AUDIT=1, off by default).
+// GS texture memory audit (developers; ZX_GSMEM_AUDIT=1, off by default).
 //
 // Aggressive Inline's, Dave Mirra BMX 2's and BMX XXX's GS texture cache
 // (the engine's placeTextureLevel, the same code in all three; its state
@@ -28,7 +28,7 @@
 //   frames        vsyncs in which at least one allocation overran
 // and logs a summary per level when the level changes, every 600 vsyncs
 // while it is played (if anything changed) and at each first overrun of a
-// level. PS2X_GSMEM_AUDIT=2 also logs every overrunning allocation (the
+// level. ZX_GSMEM_AUDIT=2 also logs every overrunning allocation (the
 // texture's name). Nothing in the game's RAM, its GS memory or its timing
 // changes: the wrapper charges no cycles and writes nothing.
 
@@ -39,7 +39,7 @@
 
 class PS2Runtime;
 
-namespace ps2x::gs_texture_audit
+namespace zx::gs_texture_audit
 {
     constexpr uint32_t kGsWords = 0x100000u; // 4 MB of GS memory, in 32-bit words
     constexpr uint32_t kWordsPerBlock = 64u;
@@ -103,7 +103,7 @@ namespace ps2x::gs_texture_audit
     using LabelSource = std::function<std::string(const uint8_t *rdram)>;
     void addLabelSource(LabelSource source);
 
-    // PS2X_GSMEM_AUDIT set and not "0": wraps the game's level allocator
+    // ZX_GSMEM_AUDIT set and not "0": wraps the game's level allocator
     // (after whatever wrapped it before, so both run) and adds a vsync hook;
     // `name` names the level from the game's own state. Otherwise nothing.
     bool install(PS2Runtime &runtime, const GameCache &cache, LabelSource name);

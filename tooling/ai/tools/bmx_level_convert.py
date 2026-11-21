@@ -118,6 +118,7 @@ class BmxConverter(C.Converter):
     RECORDS = B
     # BMX XXX's respawn takes the nearest spawn of any name (findSpawnFace): its own are unnamed (name hash 0).
     SPAWN_NAMES = {"playerone": "PlayerOne", "playertwo": "PlayerTwo", "respawn": ""}
+    GAME = "bmx"
     MAKES_CAMERA = True
     SKY = BMX_SKY
     DYNAMICS = BMX_DYNAMICS
@@ -159,12 +160,14 @@ class BmxConverter(C.Converter):
             world = [tuple(a + b for a, b in zip(C.to_ai(G.quat_rotate(node.rotation, tuple(c * s for c, s in zip(p, node.scale)))),
                                                  C.to_ai(node.translation))) for p in prim.positions]
             for i, k in prim.lines:
-                self.edge_marks.append(C.EdgeMark(world[i], world[k], LINK_KINDS[word], T.EdgeTag8.GRINDABLE, 0))
+                self.edge_marks.append(C.EdgeMark(world[i], world[k], LINK_KINDS[word], T.EdgeTag8.GRINDABLE, 0, C.tag_word(tags)))
 
     def unique_id(self, name):
-        """A name's hash, the next one up if another name took it (an id must name one object or part)."""
+        """A name's hash, the next one up if another object or part took it: an id names one (two objects of the
+        same name, a #deco mesh and its collidable one, say, get two ids; with one the instances of both drew the
+        last one's geometry and the other's faces were lost)."""
         h = L.name_hash(name)
-        while h in self.ids and self.ids[h] != name or h <= 0xFFFF:
+        while h in self.ids or h <= 0xFFFF:
             h = (h + 1) & 0xFFFFFFFF
         self.ids[h] = name
         return h
@@ -188,11 +191,12 @@ class BmxConverter(C.Converter):
                          uvs=W.IndexedStream.make([struct.pack("<2f", *uv) for uv in piece.uvs]),
                          face_normals=W.IndexedStream.make(face_normals),
                          flags=self.SKY.part_flags if piece.sky else C.PART_FLAGS, material_count=len(surfaces))
-        kinds = [(self.surfaces[s].kind, self.surfaces[s].launch) for s, _, _, _ in piece.faces]
-        used = sorted({k for k in kinds if k[0]})
+        # a record for each (kind, launch, tag word) the faces have (the word the objectives find faces by)
+        kinds = [(self.surfaces[s].kind, self.surfaces[s].launch, self.surfaces[s].word) for s, _, _, _ in piece.faces]
+        used = sorted({k for k in kinds if k[0] or k[2]})
         if used and piece.collides:
-            part.face_tags = W.TagBuffer([T.FaceTag12(0, kind, launch) for kind, launch in used],
-                                         [used.index(k) if k[0] else None for k in kinds])
+            part.face_tags = W.TagBuffer([T.FaceTag12(word, kind, launch) for kind, launch, word in used],
+                                         [used.index(k) if k[0] or k[2] else None for k in kinds])
         mats = []
         for s in surfaces:
             m = C.mati(self.surfaces[s].name, self.surfaces[s].texture, self.surfaces[s].two_sided, self.surfaces[s].layer)
@@ -229,10 +233,11 @@ class BmxConverter(C.Converter):
                     mark = next((m for m in index.near(a) if C.on_segment(a, m) and C.on_segment(b, m)), None)
                     if mark is None:
                         continue
-                    if mark.kind not in index_of:
-                        index_of[mark.kind] = len(records)
-                        records.append(T.EdgeTag8(0, link_kind=mark.kind, flags=mark.flags))
-                    indices[3 * f + k] = index_of[mark.kind]
+                    key = (mark.kind, mark.word)
+                    if key not in index_of:
+                        index_of[key] = len(records)
+                        records.append(T.EdgeTag8(mark.word, link_kind=mark.kind, flags=mark.flags))
+                    indices[3 * f + k] = index_of[key]
             if records:
                 part.edge_tags = W.TagBuffer(records, indices)
                 tagged.add(inst.geometry_id)

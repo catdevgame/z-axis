@@ -48,8 +48,7 @@ namespace ps2_aggressive_inline
 
     namespace
     {
-        namespace st = ps2x::settings;
-        namespace zx = ps2x::zaxis;
+        namespace st = zx::settings;
 
         // ---- the game's script engine ---------------------------------------
 
@@ -63,7 +62,7 @@ namespace ps2_aggressive_inline
         {
             PS2Runtime::RecompiledFunction registerNative = nullptr;
         };
-        Engine &engine() { return ps2x::session::state<Engine>(); }
+        Engine &engine() { return zx::session::state<Engine>(); }
 
         // The script engine as host code reaches it, and the page's rows
         // and keys: zge_settings.cpp, shared with the other two games.
@@ -154,7 +153,7 @@ namespace ps2_aggressive_inline
             std::atomic<uint64_t> frontEndBackAt{0}; // vsync of the last Back pressed for a request
             PS2Runtime *runtime = nullptr;
         };
-        Requests &requests() { return ps2x::session::state<Requests>(); }
+        Requests &requests() { return zx::session::state<Requests>(); }
 
         uint64_t nowVsync()
         {
@@ -177,7 +176,7 @@ namespace ps2_aggressive_inline
         {
             std::atomic<uint32_t> widget{0};
         };
-        PauseMenu &pauseMenuState() { return ps2x::session::state<PauseMenu>(); }
+        PauseMenu &pauseMenuState() { return zx::session::state<PauseMenu>(); }
 
         // Pause.Show (or Tutorial.Show) ended: the pause menu is up. A
         // Settings... pause gets its page in the menu's place.
@@ -377,7 +376,7 @@ namespace ps2_aggressive_inline
         {
             std::vector<uint32_t> address = std::vector<uint32_t>(allNatives().size(), 0u);
         };
-        NativeSlots &nativeSlots() { return ps2x::session::state<NativeSlots>(); }
+        NativeSlots &nativeSlots() { return zx::session::state<NativeSlots>(); }
 
         // func_170820 wrapper: after the first native of one of the game's
         // sets, ours go into the same table.
@@ -1401,24 +1400,24 @@ namespace ps2_aggressive_inline
         // (Cmd+, and Back).
         bool patchTutorialPause(std::string &text)
         {
-            zx::Span tutorial = zx::findObject(text, "InGameUI/PauseMenus/Frame/Tutorial");
-            if (!tutorial.found() || !zx::findObject(text, "Menu", tutorial).found() ||
-                !zx::findObject(text, "Show", tutorial).found())
+            zx::zaxis::Span tutorial = zx::zaxis::findObject(text, "InGameUI/PauseMenus/Frame/Tutorial");
+            if (!tutorial.found() || !zx::zaxis::findObject(text, "Menu", tutorial).found() ||
+                !zx::zaxis::findObject(text, "Show", tutorial).found())
                 return false;
             // Later positions first: the group's end, its Show, then its menu.
-            text.insert(zx::objectEnd(text, tutorial), zx::indentBlock(kPauseGoToPcSettings, zx::indentAt(text, tutorial.begin) + 1));
-            tutorial = zx::findObject(text, "InGameUI/PauseMenus/Frame/Tutorial");
-            zx::Span show = zx::findObject(text, "Show", tutorial);
-            const std::string showTabs(static_cast<size_t>(zx::indentAt(text, show.begin) + 2), '\t');
-            if (!zx::replaceIn(text, show, showTabs + "SETFOCUS Menu\r\n",
+            text.insert(zx::zaxis::objectEnd(text, tutorial), zx::zaxis::indentBlock(kPauseGoToPcSettings, zx::zaxis::indentAt(text, tutorial.begin) + 1));
+            tutorial = zx::zaxis::findObject(text, "InGameUI/PauseMenus/Frame/Tutorial");
+            zx::zaxis::Span show = zx::zaxis::findObject(text, "Show", tutorial);
+            const std::string showTabs(static_cast<size_t>(zx::zaxis::indentAt(text, show.begin) + 2), '\t');
+            if (!zx::zaxis::replaceIn(text, show, showTabs + "SETFOCUS Menu\r\n",
                                showTabs + "SETFOCUS Menu\r\n" + showTabs + "CALL pcSettingsPauseShown .Tutorial\r\n"))
                 return false;
             // Restart Lesson's blank in the completed-lesson column.
-            if (!zx::replaceIn(text, show, "CALL inlinePausePopulateTutorialCheckboxes Menu.CompletedCheckboxes",
+            if (!zx::zaxis::replaceIn(text, show, "CALL inlinePausePopulateTutorialCheckboxes Menu.CompletedCheckboxes",
                                "CALL pcTutorialCheckboxes Menu.CompletedCheckboxes"))
                 return false;
-            zx::Span menu = zx::findObject(text, "Menu", tutorial);
-            const std::string t(static_cast<size_t>(zx::indentAt(text, menu.begin) + 2), '\t');
+            zx::zaxis::Span menu = zx::zaxis::findObject(text, "Menu", tutorial);
+            const std::string t(static_cast<size_t>(zx::zaxis::indentAt(text, menu.begin) + 2), '\t');
             // This menu is the lesson list, not a pause menu: Restart Lesson
             // (the current lesson again, as its item would) stays second,
             // after Resume Tutorial, where a lesson is restarted from; the
@@ -1426,26 +1425,26 @@ namespace ps2_aggressive_inline
             // (SelectedIndex less two). The port's other lines are one block
             // after the game's last, Exit Game: Photo Mode, Settings, Quit to
             // Desktop.
-            if (!zx::replaceIn(text, menu, t + "Resume Tutorial\r\n", t + "Resume Tutorial\r\n" + t + "Restart Lesson\r\n") ||
-                !zx::replaceIn(text, menu, t + "IF SelectedText == {\"Resume Tutorial\"} GOTO Resume\r\n",
+            if (!zx::zaxis::replaceIn(text, menu, t + "Resume Tutorial\r\n", t + "Resume Tutorial\r\n" + t + "Restart Lesson\r\n") ||
+                !zx::zaxis::replaceIn(text, menu, t + "IF SelectedText == {\"Resume Tutorial\"} GOTO Resume\r\n",
                                t + "IF SelectedText == {\"Resume Tutorial\"} GOTO Resume\r\n" + t +
                                    "IF SelectedText == {\"Restart Lesson\"} GOTO PcRestartLesson\r\n") ||
-                !zx::replaceIn(text, menu, t + "CALL inlinePauseJumpToTutorial SelectedIndex\r\n",
+                !zx::zaxis::replaceIn(text, menu, t + "CALL inlinePauseJumpToTutorial SelectedIndex\r\n",
                                t + "CALL pcJumpToLesson .Menu\r\n") ||
-                !zx::replaceIn(text, menu, t + ":LevelSelect\r\n",
+                !zx::zaxis::replaceIn(text, menu, t + ":LevelSelect\r\n",
                                t + ":PcRestartLesson\r\n" + t + "CALL pcRestartLesson\r\n" + t + "PLAY OnCancel\r\n" + t +
                                    "GOTO End\r\n" + t + ":LevelSelect\r\n"))
                 return false;
-            return zx::replaceIn(text, menu, t + ":Exit\r\n",
+            return zx::zaxis::replaceIn(text, menu, t + ":Exit\r\n",
                                  t + ":PcSettings\r\n" + t + "PLAY .GoToPcSettings\r\n" + t + "GOTO End\r\n" + t +
                                      ":PcPhoto\r\n" + t + "CALL pcPhotoMode\r\n" + t + "GOTO End\r\n" + t +
                                      ":PcQuit\r\n" + t + "CALL pcQuitToDesktop\r\n" + t + "GOTO End\r\n" + t + ":Exit\r\n") &&
-                   zx::replaceIn(text, menu, t + "IF SelectedText == {\"Exit Game\"} GOTO Exit\r\n",
+                   zx::zaxis::replaceIn(text, menu, t + "IF SelectedText == {\"Exit Game\"} GOTO Exit\r\n",
                                  t + "IF SelectedText == {\"Settings\"} GOTO PcSettings\r\n" + t +
                                      "IF SelectedText == {\"Photo Mode\"} GOTO PcPhoto\r\n" + t +
                                      "IF SelectedText == {\"Quit to Desktop\"} GOTO PcQuit\r\n" + t +
                                      "IF SelectedText == {\"Exit Game\"} GOTO Exit\r\n") &&
-                   zx::replaceIn(text, menu, t + "Exit Game\r\n",
+                   zx::zaxis::replaceIn(text, menu, t + "Exit Game\r\n",
                                  t + "Exit Game\r\n" + t + "Photo Mode\r\n" + t + "Settings\r\n" + t + "Quit to Desktop\r\n");
         }
 
@@ -1476,15 +1475,15 @@ namespace ps2_aggressive_inline
 
         bool patchRestartItems(std::string &text)
         {
-            zx::Span pause = zx::findObject(text, "InGameUI/PauseMenus/Frame/Pause");
-            zx::Span menu = zx::findObject(text, "Menu", pause);
-            zx::Span exitAction = zx::findObject(text, "ExitGameToLevelSelect", menu);
+            zx::zaxis::Span pause = zx::zaxis::findObject(text, "InGameUI/PauseMenus/Frame/Pause");
+            zx::zaxis::Span menu = zx::zaxis::findObject(text, "Menu", pause);
+            zx::zaxis::Span exitAction = zx::zaxis::findObject(text, "ExitGameToLevelSelect", menu);
             if (!pause.found() || !menu.found() || !exitAction.found())
                 return false;
-            text.insert(exitAction.end, zx::indentBlock(kRestartAction, zx::indentAt(text, exitAction.begin)));
-            pause = zx::findObject(text, "InGameUI/PauseMenus/Frame/Pause");
-            zx::Span show = zx::findObject(text, "Show", pause);
-            menu = zx::findObject(text, "Menu", pause);
+            text.insert(exitAction.end, zx::zaxis::indentBlock(kRestartAction, zx::zaxis::indentAt(text, exitAction.begin)));
+            pause = zx::zaxis::findObject(text, "InGameUI/PauseMenus/Frame/Pause");
+            zx::zaxis::Span show = zx::zaxis::findObject(text, "Show", pause);
+            menu = zx::zaxis::findObject(text, "Menu", pause);
             // The Show action comes after the menu: edit it first. Its lists
             // as patchInGame left them each end "...Level Select\nExit\nPhoto
             // Mode\nSettings\nQuit to Desktop": Timed Run's (with End Run)
@@ -1492,11 +1491,11 @@ namespace ps2_aggressive_inline
             // View Loot) Restart Level.
             const std::string tail = "\\nLevel Select\\nExit\\nPhoto Mode";
             bool ok = show.found() && menu.found() &&
-                      zx::replaceIn(text, show, "\\nEnd Run\\nTrick List\\nSound Options" + tail,
+                      zx::zaxis::replaceIn(text, show, "\\nEnd Run\\nTrick List\\nSound Options" + tail,
                                     "\\nEnd Run\\nTrick List\\nSound Options\\nLevel Select\\nExit\\nRestart Run\\nPhoto Mode") &&
-                      zx::replaceIn(text, show, "{\"Resume Game\\nTrick List\\nSound Options" + tail,
+                      zx::zaxis::replaceIn(text, show, "{\"Resume Game\\nTrick List\\nSound Options" + tail,
                                     "{\"Resume Game\\nTrick List\\nSound Options\\nLevel Select\\nExit\\nRestart Level\\nPhoto Mode") &&
-                      zx::replaceIn(text, show, "\\nView Loot\\nTrick List\\nSound Options" + tail,
+                      zx::zaxis::replaceIn(text, show, "\\nView Loot\\nTrick List\\nSound Options" + tail,
                                     "\\nView Loot\\nTrick List\\nSound Options\\nLevel Select\\nExit\\nRestart Level\\nPhoto Mode");
             if (!ok)
                 return false;
@@ -1518,12 +1517,12 @@ namespace ps2_aggressive_inline
                 std::lock_guard<std::mutex> lock(g_careerItemsMutex);
                 g_careerItemsRetry = items;
             }
-            const std::string showTabs(static_cast<size_t>(zx::indentAt(text, at)), '\t');
+            const std::string showTabs(static_cast<size_t>(zx::zaxis::indentAt(text, at)), '\t');
             text.insert(lineEnd + 2u, showTabs + "CALL pcPauseCareerItems Menu\r\n");
-            pause = zx::findObject(text, "InGameUI/PauseMenus/Frame/Pause");
-            menu = zx::findObject(text, "Menu", pause);
-            const std::string t(static_cast<size_t>(zx::indentAt(text, menu.begin) + 2), '\t');
-            return zx::replaceIn(text, menu, t + ":Sound Options\r\n",
+            pause = zx::zaxis::findObject(text, "InGameUI/PauseMenus/Frame/Pause");
+            menu = zx::zaxis::findObject(text, "Menu", pause);
+            const std::string t(static_cast<size_t>(zx::zaxis::indentAt(text, menu.begin) + 2), '\t');
+            return zx::zaxis::replaceIn(text, menu, t + ":Sound Options\r\n",
                                  t + ":Restart Level\r\n" + t + "PLAY PcRestartGame\r\n" + t + "GOTO End\r\n" + t +
                                      ":Restart Run\r\n" + t + "PLAY .Hide\r\n" + t + "CALL inlinePauseModeExit\r\n" + t +
                                      "CALL inlinePauseRestartTimedRun\r\n" + t + "GOTO End\r\n" + t + ":Retry Challenge\r\n" +
@@ -1821,46 +1820,46 @@ namespace ps2_aggressive_inline
         bool patchConfirm(std::string &text, const std::string &root)
         {
             std::string edited = text;
-            zx::Span ui = zx::findObject(edited, root);
+            zx::zaxis::Span ui = zx::zaxis::findObject(edited, root);
             if (!ui.found())
                 return false;
-            edited.insert(zx::objectEnd(edited, ui), zx::indentBlock(confirmFrame(root), zx::indentAt(edited, ui.begin) + 1));
-            zx::Span menu = zx::findObject(edited, root + "/PauseMenus/Frame/Pause/Menu");
+            edited.insert(zx::zaxis::objectEnd(edited, ui), zx::zaxis::indentBlock(confirmFrame(root), zx::zaxis::indentAt(edited, ui.begin) + 1));
+            zx::zaxis::Span menu = zx::zaxis::findObject(edited, root + "/PauseMenus/Frame/Pause/Menu");
             if (!menu.found())
                 return false;
-            const std::string t(static_cast<size_t>(zx::indentAt(edited, menu.begin) + 2), '\t');
+            const std::string t(static_cast<size_t>(zx::zaxis::indentAt(edited, menu.begin) + 2), '\t');
             bool ok = true;
             if (root == "InGameUI")
             {
-                ok = zx::replaceIn(edited, menu,
+                ok = zx::zaxis::replaceIn(edited, menu,
                                    t + ":Level Select\r\n" + t + "CALL inlinePauseTimedRunEndRun\r\n" + t +
                                        "PLAY ExitGameToLevelSelect\r\n",
                                    t + ":Level Select\r\n" + askLines(root, t, 0, 1)) &&
-                     zx::replaceIn(edited, menu,
+                     zx::zaxis::replaceIn(edited, menu,
                                    t + "// Exit\r\n" + t + "CALL inlinePauseTimedRunEndRun\r\n" + t + "PLAY ExitGame\r\n",
                                    t + "// Exit\r\n" + askLines(root, t, 0, 2) + t + "GOTO End\r\n") &&
-                     zx::replaceIn(edited, menu, t + ":Quit to Desktop\r\n" + t + "CALL pcQuitToDesktop\r\n",
+                     zx::zaxis::replaceIn(edited, menu, t + ":Quit to Desktop\r\n" + t + "CALL pcQuitToDesktop\r\n",
                                    t + ":Quit to Desktop\r\n" + askLines(root, t, 0, 3));
                 // The Tutorial's lesson list.
-                zx::Span tutorial = zx::findObject(edited, root + "/PauseMenus/Frame/Tutorial/Menu");
-                const std::string tt(static_cast<size_t>(tutorial.found() ? zx::indentAt(edited, tutorial.begin) + 2 : 0), '\t');
+                zx::zaxis::Span tutorial = zx::zaxis::findObject(edited, root + "/PauseMenus/Frame/Tutorial/Menu");
+                const std::string tt(static_cast<size_t>(tutorial.found() ? zx::zaxis::indentAt(edited, tutorial.begin) + 2 : 0), '\t');
                 ok = ok && tutorial.found() &&
-                     zx::replaceIn(edited, tutorial, tt + "PLAY ..Pause.Menu.ExitGameToLevelSelect \r\n",
+                     zx::zaxis::replaceIn(edited, tutorial, tt + "PLAY ..Pause.Menu.ExitGameToLevelSelect \r\n",
                                    askLines(root, tt, 1, 1)) &&
-                     zx::replaceIn(edited, tutorial, tt + "CALL inlinePauseExit\r\n", askLines(root, tt, 1, 2)) &&
-                     zx::replaceIn(edited, tutorial, tt + ":PcQuit\r\n" + tt + "CALL pcQuitToDesktop\r\n",
+                     zx::zaxis::replaceIn(edited, tutorial, tt + "CALL inlinePauseExit\r\n", askLines(root, tt, 1, 2)) &&
+                     zx::zaxis::replaceIn(edited, tutorial, tt + ":PcQuit\r\n" + tt + "CALL pcQuitToDesktop\r\n",
                                    tt + ":PcQuit\r\n" + askLines(root, tt, 1, 3));
             }
             else
             {
-                ok = zx::replaceIn(edited, menu,
+                ok = zx::zaxis::replaceIn(edited, menu,
                                    t + "// Level Select\r\n" + t + "CALL inlinePauseTimedRunEndRun\r\n" + t +
                                        "CALL inlinePauseExitToLevelSelect\r\n",
                                    t + "// Level Select\r\n" + askLines(root, t, 0, 1)) &&
-                     zx::replaceIn(edited, menu,
+                     zx::zaxis::replaceIn(edited, menu,
                                    t + "// Exit\r\n" + t + "CALL inlinePauseTimedRunEndRun\r\n" + t + "CALL inlinePauseExit\r\n",
                                    t + "// Exit\r\n" + askLines(root, t, 0, 2)) &&
-                     zx::replaceIn(edited, menu, t + "CALL pcQuitToDesktop\r\n", askLines(root, t, 0, 3));
+                     zx::zaxis::replaceIn(edited, menu, t + "CALL pcQuitToDesktop\r\n", askLines(root, t, 0, 3));
             }
             if (!ok)
                 return false;
@@ -1873,12 +1872,12 @@ namespace ps2_aggressive_inline
         bool patchInGame(std::string &text)
         {
             std::string edited = text;
-            zx::Span frame = zx::findObject(edited, "InGameUI/PauseMenus/Frame");
-            zx::Span options = zx::findObject(edited, "Options", frame);
-            zx::Span pause = zx::findObject(edited, "Pause", frame);
-            zx::Span menu = zx::findObject(edited, "Menu", pause);
-            zx::Span show = zx::findObject(edited, "Show", pause);
-            zx::Span goToOptions = zx::findObject(edited, "GoToOptions", pause);
+            zx::zaxis::Span frame = zx::zaxis::findObject(edited, "InGameUI/PauseMenus/Frame");
+            zx::zaxis::Span options = zx::zaxis::findObject(edited, "Options", frame);
+            zx::zaxis::Span pause = zx::zaxis::findObject(edited, "Pause", frame);
+            zx::zaxis::Span menu = zx::zaxis::findObject(edited, "Menu", pause);
+            zx::zaxis::Span show = zx::zaxis::findObject(edited, "Show", pause);
+            zx::zaxis::Span goToOptions = zx::zaxis::findObject(edited, "GoToOptions", pause);
             if (!frame.found() || !options.found() || !pause.found() || !menu.found() || !show.found() ||
                 !goToOptions.found())
             {
@@ -1886,8 +1885,8 @@ namespace ps2_aggressive_inline
                 return false;
             }
             // Later positions first.
-            edited.insert(options.end, zx::indentBlock(withRows(kPausePage, kPauseLayout, 1), zx::indentAt(edited, options.begin)));
-            edited.insert(goToOptions.end, zx::indentBlock(kPauseGoToPcSettings, zx::indentAt(edited, goToOptions.begin)));
+            edited.insert(options.end, zx::zaxis::indentBlock(withRows(kPausePage, kPauseLayout, 1), zx::zaxis::indentAt(edited, options.begin)));
+            edited.insert(goToOptions.end, zx::zaxis::indentBlock(kPauseGoToPcSettings, zx::zaxis::indentAt(edited, goToOptions.begin)));
             // The Show action comes after the menu: edit it first, so the
             // menu's span stays valid. Each game mode's list (Career,
             // Freeskate, Timed Run) ends with the game's Exit: the port's
@@ -1897,30 +1896,30 @@ namespace ps2_aggressive_inline
             bool ok = true;
             int step = 0;
             for (int i = 0; i < 3 && ok; ++i, ++step)
-                ok = zx::replaceIn(edited, show, "Level Select\\nExit\"}",
+                ok = zx::zaxis::replaceIn(edited, show, "Level Select\\nExit\"}",
                                    "Level Select\\nExit\\nPhoto Mode\\nSettings\\nQuit to Desktop\"}");
-            const std::string showTabs(static_cast<size_t>(zx::indentAt(edited, show.begin) + 2), '\t');
-            ok = ok && zx::replaceIn(edited, show, showTabs + "SETFOCUS Menu\r\n",
+            const std::string showTabs(static_cast<size_t>(zx::zaxis::indentAt(edited, show.begin) + 2), '\t');
+            ok = ok && zx::zaxis::replaceIn(edited, show, showTabs + "SETFOCUS Menu\r\n",
                                      showTabs + "SETFOCUS Menu\r\n" + showTabs + "CALL pcSettingsPauseShown .Pause\r\n");
             step = ok ? 10 : step;
-            const int itemDepth = zx::indentAt(edited, menu.begin) + 2;
+            const int itemDepth = zx::zaxis::indentAt(edited, menu.begin) + 2;
             const std::string tabs(static_cast<size_t>(itemDepth), '\t');
             // The items' scripts (OnItemSelect goes to the label named as
             // the item): Settings opens the page; Photo Mode
             // (aggressive_inline_photo.cpp) keeps the game paused and comes
             // back to this menu after.
-            ok = ok && zx::replaceIn(edited, menu, tabs + ":Sound Options\r\n",
+            ok = ok && zx::zaxis::replaceIn(edited, menu, tabs + ":Sound Options\r\n",
                                      tabs + ":Settings\r\n" + tabs + "PLAY .GoToPcSettings\r\n" + tabs + "GOTO End\r\n" + tabs +
                                          ":Photo Mode\r\n" + tabs + "CALL pcPhotoMode\r\n" + tabs + "GOTO End\r\n" + tabs +
                                          ":Sound Options\r\n");
             step = ok ? 20 : step;
-            ok = ok && zx::replaceIn(edited, menu, tabs + ":Exit\r\n",
+            ok = ok && zx::zaxis::replaceIn(edited, menu, tabs + ":Exit\r\n",
                                      tabs + ":Quit to Desktop\r\n" + tabs + "CALL pcQuitToDesktop\r\n" + tabs + "Goto End\r\n" +
                                          tabs + ":Exit\r\n");
             step = ok ? 30 : step;
             // The menu's own list (the Career's, until its Show sets it):
             // the same block after Exit.
-            ok = ok && zx::replaceIn(edited, menu, tabs + "Exit\r\n",
+            ok = ok && zx::zaxis::replaceIn(edited, menu, tabs + "Exit\r\n",
                                      tabs + "Exit\r\n" + tabs + "Photo Mode\r\n" + tabs + "Settings\r\n" + tabs +
                                          "Quit to Desktop\r\n");
             step = ok ? 40 : step;
@@ -1962,32 +1961,32 @@ namespace ps2_aggressive_inline
         bool patchMultiplayer(std::string &text)
         {
             std::string edited = text;
-            zx::Span frame = zx::findObject(edited, "MultiplayerUI/PauseMenus/Frame");
-            zx::Span options = zx::findObject(edited, "Options", frame);
-            zx::Span pause = zx::findObject(edited, "Pause", frame);
-            zx::Span goToOptions = zx::findObject(edited, "GoToOptions", pause);
+            zx::zaxis::Span frame = zx::zaxis::findObject(edited, "MultiplayerUI/PauseMenus/Frame");
+            zx::zaxis::Span options = zx::zaxis::findObject(edited, "Options", frame);
+            zx::zaxis::Span pause = zx::zaxis::findObject(edited, "Pause", frame);
+            zx::zaxis::Span goToOptions = zx::zaxis::findObject(edited, "GoToOptions", pause);
             if (!frame.found() || !options.found() || !pause.found() || !goToOptions.found() ||
-                !zx::findObject(edited, "Menu", pause).found() || !zx::findObject(edited, "Show", pause).found())
+                !zx::zaxis::findObject(edited, "Menu", pause).found() || !zx::zaxis::findObject(edited, "Show", pause).found())
             {
                 std::cerr << "[aggressive-inline] Multiplayer.zsc: anchors not found, pause settings page not added" << std::endl;
                 return false;
             }
-            edited.insert(options.end, zx::indentBlock(withRows(kPausePage, kPauseLayout, 1), zx::indentAt(edited, options.begin)));
-            edited.insert(goToOptions.end, zx::indentBlock(kPauseGoToPcSettings, zx::indentAt(edited, goToOptions.begin)));
-            pause = zx::findObject(edited, "MultiplayerUI/PauseMenus/Frame/Pause");
-            zx::Span show = zx::findObject(edited, "Show", pause);
-            const std::string showTabs(static_cast<size_t>(zx::indentAt(edited, show.begin) + 2), '\t');
-            bool ok = zx::replaceIn(edited, show, showTabs + "SETFOCUS Menu\r\n",
+            edited.insert(options.end, zx::zaxis::indentBlock(withRows(kPausePage, kPauseLayout, 1), zx::zaxis::indentAt(edited, options.begin)));
+            edited.insert(goToOptions.end, zx::zaxis::indentBlock(kPauseGoToPcSettings, zx::zaxis::indentAt(edited, goToOptions.begin)));
+            pause = zx::zaxis::findObject(edited, "MultiplayerUI/PauseMenus/Frame/Pause");
+            zx::zaxis::Span show = zx::zaxis::findObject(edited, "Show", pause);
+            const std::string showTabs(static_cast<size_t>(zx::zaxis::indentAt(edited, show.begin) + 2), '\t');
+            bool ok = zx::zaxis::replaceIn(edited, show, showTabs + "SETFOCUS Menu\r\n",
                                     showTabs + "SETFOCUS Menu\r\n" + showTabs + "CALL pcSettingsPauseShown .Pause\r\n");
-            zx::Span menu = zx::findObject(edited, "Menu", pause);
-            const std::string t(static_cast<size_t>(zx::indentAt(edited, menu.begin) + 2), '\t');
+            zx::zaxis::Span menu = zx::zaxis::findObject(edited, "Menu", pause);
+            const std::string t(static_cast<size_t>(zx::zaxis::indentAt(edited, menu.begin) + 2), '\t');
             // Items 0-5 are the game's: Resume Game, Game Select, Trick List,
             // Sound Options, Level Select, Exit Game (its script falls
             // through to End). After them Photo Mode 6, Settings 7, Quit to
             // Desktop 8, their scripts before Exit Game's label.
-            ok = ok && zx::replaceIn(edited, menu, t + "Exit Game\r\n",
+            ok = ok && zx::zaxis::replaceIn(edited, menu, t + "Exit Game\r\n",
                                      t + "Exit Game\r\n" + t + "Photo Mode\r\n" + t + "Settings\r\n" + t + "Quit to Desktop\r\n");
-            ok = ok && zx::replaceIn(edited, menu, t + ":5\r\n",
+            ok = ok && zx::zaxis::replaceIn(edited, menu, t + ":5\r\n",
                                      t + ":6\r\n" + t + "CALL pcPhotoMode\r\n" + t + "GOTO End\r\n" + t + ":7\r\n" + t +
                                          "PLAY .GoToPcSettings\r\n" + t + "GOTO End\r\n" + t + ":8\r\n" + t +
                                          "CALL pcQuitToDesktop\r\n" + t + "GOTO End\r\n" + t + ":5\r\n");
@@ -2003,22 +2002,22 @@ namespace ps2_aggressive_inline
             // Mode, Settings and Quit to Desktop two further down (8, 9, 10).
             {
                 std::string withRestart = edited;
-                zx::Span restartMenu = zx::findObject(withRestart, "MultiplayerUI/PauseMenus/Frame/Pause/Menu");
+                zx::zaxis::Span restartMenu = zx::zaxis::findObject(withRestart, "MultiplayerUI/PauseMenus/Frame/Pause/Menu");
                 bool restartOk = restartMenu.found();
                 if (restartOk)
                 {
-                    withRestart.insert(zx::objectEnd(withRestart, restartMenu),
-                                       zx::indentBlock(kRestartAction, zx::indentAt(withRestart, restartMenu.begin) + 1));
-                    restartMenu = zx::findObject(withRestart, "MultiplayerUI/PauseMenus/Frame/Pause/Menu");
+                    withRestart.insert(zx::zaxis::objectEnd(withRestart, restartMenu),
+                                       zx::zaxis::indentBlock(kRestartAction, zx::zaxis::indentAt(withRestart, restartMenu.begin) + 1));
+                    restartMenu = zx::zaxis::findObject(withRestart, "MultiplayerUI/PauseMenus/Frame/Pause/Menu");
                 }
                 for (int k = 8; k >= 6 && restartOk; --k)
-                    restartOk = zx::replaceIn(withRestart, restartMenu, t + ":" + std::to_string(k) + "\r\n",
+                    restartOk = zx::zaxis::replaceIn(withRestart, restartMenu, t + ":" + std::to_string(k) + "\r\n",
                                               t + ":" + std::to_string(k + 2) + "\r\n");
                 restartOk = restartOk &&
-                            zx::replaceIn(withRestart, restartMenu, t + "Exit Game\r\n" + t + "Photo Mode\r\n",
+                            zx::zaxis::replaceIn(withRestart, restartMenu, t + "Exit Game\r\n" + t + "Photo Mode\r\n",
                                           t + "Exit Game\r\n" + t + "Restart Run\r\n" + t + "Restart Level\r\n" + t +
                                               "Photo Mode\r\n") &&
-                            zx::replaceIn(withRestart, restartMenu, t + ":8\r\n",
+                            zx::zaxis::replaceIn(withRestart, restartMenu, t + ":8\r\n",
                                           t + ":6\r\n" + t + "PLAY .Hide\r\n" + t + "CALL inlinePauseModeExit\r\n" + t +
                                               "CALL pcRestartRun\r\n" + t + "GOTO End\r\n" + t + ":7\r\n" + t +
                                               "PLAY PcRestartGame\r\n" + t + "GOTO End\r\n" + t + ":8\r\n");
@@ -2172,18 +2171,18 @@ ACTION "Interpolate" "PcPoll"
         // and the focus natives. False if an anchor is missing.
         bool patchFrontEndQuit(std::string &text)
         {
-            zx::Span options = zx::findObject(text, "FrontEnd/Background/Options");
-            zx::Span optionsMenu = zx::findObject(text, "Menu", options);
-            zx::Span main = zx::findObject(text, "FrontEnd/Background/Main");
-            zx::Span mainMenu = zx::findObject(text, "Menu", main);
+            zx::zaxis::Span options = zx::zaxis::findObject(text, "FrontEnd/Background/Options");
+            zx::zaxis::Span optionsMenu = zx::zaxis::findObject(text, "Menu", options);
+            zx::zaxis::Span main = zx::zaxis::findObject(text, "FrontEnd/Background/Main");
+            zx::zaxis::Span mainMenu = zx::zaxis::findObject(text, "Menu", main);
             if (!optionsMenu.found() || !main.found() || !mainMenu.found())
             {
                 std::cerr << "[aggressive-inline] FrontEnd.zsc: " << (optionsMenu.found() ? "" : "Options.Menu ")
                           << (main.found() ? "" : "Main ") << (mainMenu.found() ? "" : "Main.Menu ") << "not found" << std::endl;
                 return false;
             }
-            const std::string optionTabs(static_cast<size_t>(zx::indentAt(text, optionsMenu.begin) + 1), '\t');
-            if (!zx::replaceIn(text, optionsMenu, optionTabs + "OnGetFocus\t\"SET PreviousIndex SelectedIndex\"\r\n",
+            const std::string optionTabs(static_cast<size_t>(zx::zaxis::indentAt(text, optionsMenu.begin) + 1), '\t');
+            if (!zx::zaxis::replaceIn(text, optionsMenu, optionTabs + "OnGetFocus\t\"SET PreviousIndex SelectedIndex\"\r\n",
                                optionTabs + "OnGetFocus\t{\r\n" + optionTabs + "\tSET PreviousIndex SelectedIndex\r\n" +
                                    optionTabs + "\tCALL pcOptionsFocus .\r\n" + optionTabs + "\t}\r\n" + optionTabs +
                                    "OnLostFocus\t\"CALL pcMenuBlur .\"\r\n"))
@@ -2196,26 +2195,26 @@ ACTION "Interpolate" "PcPoll"
             // go back from them to the main menu. Later positions first.
             {
                 std::string withBack = text;
-                zx::Span parkMenu = zx::findObject(withBack, "FrontEnd/Background/LevelSelect/ParkEditorDialog/ParkEditorMenu");
-                const std::string p(static_cast<size_t>(parkMenu.found() ? zx::indentAt(withBack, parkMenu.begin) + 1 : 0), '\t');
+                zx::zaxis::Span parkMenu = zx::zaxis::findObject(withBack, "FrontEnd/Background/LevelSelect/ParkEditorDialog/ParkEditorMenu");
+                const std::string p(static_cast<size_t>(parkMenu.found() ? zx::zaxis::indentAt(withBack, parkMenu.begin) + 1 : 0), '\t');
                 bool backOk = parkMenu.found() &&
-                              zx::replaceIn(withBack, parkMenu, p + "OnGetFocus\t\"SET SelectedIndex {0}\"\r\n",
+                              zx::zaxis::replaceIn(withBack, parkMenu, p + "OnGetFocus\t\"SET SelectedIndex {0}\"\r\n",
                                             p + "OnGetFocus\t{\r\n" + p + "\tSET SelectedIndex {0}\r\n" + p +
                                                 "\tCALL pcBackFocus .\r\n" + p + "\t}\r\n" + p +
                                                 "OnLostFocus\t\"CALL pcMenuBlur .\"\r\n");
-                zx::Span levelMenu = zx::findObject(withBack, "FrontEnd/Background/LevelSelect/Menu");
-                const std::string l(static_cast<size_t>(levelMenu.found() ? zx::indentAt(withBack, levelMenu.begin) + 1 : 0), '\t');
+                zx::zaxis::Span levelMenu = zx::zaxis::findObject(withBack, "FrontEnd/Background/LevelSelect/Menu");
+                const std::string l(static_cast<size_t>(levelMenu.found() ? zx::zaxis::indentAt(withBack, levelMenu.begin) + 1 : 0), '\t');
                 backOk = backOk && levelMenu.found() &&
-                         zx::replaceIn(withBack, levelMenu, l + "OnCancel\t{\r\n",
+                         zx::zaxis::replaceIn(withBack, levelMenu, l + "OnCancel\t{\r\n",
                                        l + "OnGetFocus\t\"CALL pcBackFocus .\"\r\n" + l +
                                            "OnLostFocus\t\"CALL pcMenuBlur .\"\r\n" + l + "OnCancel\t{\r\n");
-                zx::Span skater = zx::findObject(withBack, "FrontEnd/Background/CharacterSelect/Menu/SkaterSelector");
-                const std::string c(static_cast<size_t>(skater.found() ? zx::indentAt(withBack, skater.begin) + 1 : 0), '\t');
+                zx::zaxis::Span skater = zx::zaxis::findObject(withBack, "FrontEnd/Background/CharacterSelect/Menu/SkaterSelector");
+                const std::string c(static_cast<size_t>(skater.found() ? zx::zaxis::indentAt(withBack, skater.begin) + 1 : 0), '\t');
                 backOk = backOk && skater.found() &&
-                         zx::replaceIn(withBack, skater, c + "OnLostFocus\t\"SET Stats.ScrollBar.Active {0}\"\r\n",
+                         zx::zaxis::replaceIn(withBack, skater, c + "OnLostFocus\t\"SET Stats.ScrollBar.Active {0}\"\r\n",
                                        c + "OnLostFocus\t{\r\n" + c + "\tSET Stats.ScrollBar.Active {0}\r\n" + c +
                                            "\tCALL pcMenuBlur .\r\n" + c + "\t}\r\n") &&
-                         zx::replaceIn(withBack, skater, c + "\tSET Stats.ScrollBar.Active {1}\r\n",
+                         zx::zaxis::replaceIn(withBack, skater, c + "\tSET Stats.ScrollBar.Active {1}\r\n",
                                        c + "\tSET Stats.ScrollBar.Active {1}\r\n" + c + "\tCALL pcBackFocus .\r\n");
                 if (backOk)
                     text = std::move(withBack);
@@ -2224,13 +2223,13 @@ ACTION "Interpolate" "PcPoll"
                               << std::endl;
             }
             // Later positions first: the Main group's end, then its menu.
-            main = zx::findObject(text, "FrontEnd/Background/Main");
-            text.insert(zx::objectEnd(text, main), zx::indentBlock(kQuitPrompt, zx::indentAt(text, main.begin) + 1));
-            mainMenu = zx::findObject(text, "Menu", main);
-            const std::string tabs(static_cast<size_t>(zx::indentAt(text, mainMenu.begin) + 1), '\t');
+            main = zx::zaxis::findObject(text, "FrontEnd/Background/Main");
+            text.insert(zx::zaxis::objectEnd(text, main), zx::zaxis::indentBlock(kQuitPrompt, zx::zaxis::indentAt(text, main.begin) + 1));
+            mainMenu = zx::zaxis::findObject(text, "Menu", main);
+            const std::string tabs(static_cast<size_t>(zx::zaxis::indentAt(text, mainMenu.begin) + 1), '\t');
             // The menu (a guiToggler) has no Cancel or Start handlers: a key
             // sniffer beside it is active while it has the focus.
-            return zx::replaceIn(text, mainMenu, tabs + "EnableSound\t1\r\n",
+            return zx::zaxis::replaceIn(text, mainMenu, tabs + "EnableSound\t1\r\n",
                                  tabs + "EnableSound\t1\r\n" + tabs + "OnGetFocus\t\"CALL pcMainMenuFocus .\"\r\n" + tabs +
                                      "OnLostFocus\t\"CALL pcMainMenuBlur .\"\r\n");
         }
@@ -2240,23 +2239,23 @@ ACTION "Interpolate" "PcPoll"
         bool patchFrontEnd(std::string &text)
         {
             std::string edited = text;
-            zx::Span options = zx::findObject(edited, "FrontEnd/Background/Options");
-            zx::Span menu = zx::findObject(edited, "Menu", options);
-            zx::Span controller = zx::findObject(edited, "FrontEnd/Background/Controller");
-            zx::Span goToController = zx::findObject(edited, "GoToController", options);
-            zx::Span movieStart = zx::findObject(edited, "FrontEnd/Movie/Start");
+            zx::zaxis::Span options = zx::zaxis::findObject(edited, "FrontEnd/Background/Options");
+            zx::zaxis::Span menu = zx::zaxis::findObject(edited, "Menu", options);
+            zx::zaxis::Span controller = zx::zaxis::findObject(edited, "FrontEnd/Background/Controller");
+            zx::zaxis::Span goToController = zx::zaxis::findObject(edited, "GoToController", options);
+            zx::zaxis::Span movieStart = zx::zaxis::findObject(edited, "FrontEnd/Movie/Start");
             if (!options.found() || !menu.found() || !controller.found() || !goToController.found() || !movieStart.found())
             {
                 std::cerr << "[aggressive-inline] FrontEnd.zsc: anchors not found, settings screen not added" << std::endl;
                 return false;
             }
             // From the end of the file backwards, so earlier spans stay valid.
-            const int depth = zx::indentAt(edited, controller.begin);
-            edited.insert(controller.end, zx::indentBlock(withRows(kFrontEndPage, kFrontEndLayout), depth));
-            edited.insert(goToController.end, zx::indentBlock(kGoToPcSettings, zx::indentAt(edited, goToController.begin)));
-            if (!zx::replaceIn(edited, menu, "SET Label.Text {\"Controller\"}", "SET Label.Text {\"Settings\"}") ||
-                !zx::replaceIn(edited, menu, "PLAY .GoToController", "PLAY .GoToPcSettings") ||
-                !zx::replaceIn(edited, movieStart, "PLAY StartAKAMovie", "CALL pcSettingsIntro .Movie"))
+            const int depth = zx::zaxis::indentAt(edited, controller.begin);
+            edited.insert(controller.end, zx::zaxis::indentBlock(withRows(kFrontEndPage, kFrontEndLayout), depth));
+            edited.insert(goToController.end, zx::zaxis::indentBlock(kGoToPcSettings, zx::zaxis::indentAt(edited, goToController.begin)));
+            if (!zx::zaxis::replaceIn(edited, menu, "SET Label.Text {\"Controller\"}", "SET Label.Text {\"Settings\"}") ||
+                !zx::zaxis::replaceIn(edited, menu, "PLAY .GoToController", "PLAY .GoToPcSettings") ||
+                !zx::zaxis::replaceIn(edited, movieStart, "PLAY StartAKAMovie", "CALL pcSettingsIntro .Movie"))
             {
                 std::cerr << "[aggressive-inline] FrontEnd.zsc: menu lines not found, settings screen not added" << std::endl;
                 return false;
@@ -2295,9 +2294,9 @@ ACTION "Interpolate" "PcPoll"
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
+            std::vector<zx::zaxis::ArchiveEntry> entries;
             std::string error;
-            if (!zx::readArchive(bytes, entries, &error))
+            if (!zx::zaxis::readArchive(bytes, entries, &error))
             {
                 std::cerr << "[aggressive-inline] UILIB.ZAL: " << error << std::endl;
                 return false;
@@ -2306,9 +2305,9 @@ ACTION "Interpolate" "PcPoll"
             // the font atlases the game loads (zge_prompts.cpp reads them
             // from this patch's result).
             bool changed = aggressive_inline::language::patchUiLibrary(entries);
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) == "InGameUI")
+                if (zx::zaxis::scriptName(entry) == "InGameUI")
                 {
                     std::string text(entry.data.begin(), entry.data.end());
                     if (patchInGame(text))
@@ -2318,7 +2317,7 @@ ACTION "Interpolate" "PcPoll"
                     }
                     continue;
                 }
-                if (zx::scriptName(entry) == "MultiplayerUI")
+                if (zx::zaxis::scriptName(entry) == "MultiplayerUI")
                 {
                     std::string text(entry.data.begin(), entry.data.end());
                     if (patchMultiplayer(text))
@@ -2328,7 +2327,7 @@ ACTION "Interpolate" "PcPoll"
                     }
                     continue;
                 }
-                if (zx::scriptName(entry) != "FrontEnd")
+                if (zx::zaxis::scriptName(entry) != "FrontEnd")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 // Two FrontEnd scripts are in the archive; the one the game
@@ -2342,9 +2341,9 @@ ACTION "Interpolate" "PcPoll"
                 }
             }
             if (changed && ps2_host::menuAvailable())
-                for (zx::ArchiveEntry &entry : entries)
+                for (zx::zaxis::ArchiveEntry &entry : entries)
                 {
-                    const std::string script = zx::scriptName(entry);
+                    const std::string script = zx::zaxis::scriptName(entry);
                     if (script != "InGameUI" && script != "MultiplayerUI" && script != "FrontEnd")
                         continue;
                     std::string text(entry.data.begin(), entry.data.end());
@@ -2352,20 +2351,20 @@ ACTION "Interpolate" "PcPoll"
                         entry.data.assign(text.begin(), text.end());
                 }
             if (changed)
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
             return changed;
         }
     }
 
     void installSettingsMenus(PS2Runtime &runtime)
     {
-        // On in the app (it sets PS2X_GAME_SETTINGS_MENUS=1), off in the
+        // On in the app (it sets ZX_GAME_SETTINGS_MENUS=1), off in the
         // developer runner unless asked: the extra widgets and natives move
         // the game's heap, and the logic and replay checks compare heap
         // addresses with PCSX2's.
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
         {
-            std::cerr << "[aggressive-inline] settings screen off (PS2X_GAME_SETTINGS_MENUS=1 adds it)" << std::endl;
+            std::cerr << "[aggressive-inline] settings screen off (ZX_GAME_SETTINGS_MENUS=1 adds it)" << std::endl;
             return;
         }
         zge_host::settings::setStyle(kStyle);
@@ -2393,7 +2392,7 @@ ACTION "Interpolate" "PcPoll"
             nativeSlots().address[i] = address;
             address += 4u;
         }
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
         // The pages' room in zgui's heap (aggressive_inline_settings_room.cpp).
         aggressive_inline::settings_room::install(runtime);
         installPrompts(runtime);

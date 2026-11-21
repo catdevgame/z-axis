@@ -3,16 +3,16 @@
 // The host's services to the engine's disc device (zge/host/disc_device.cpp):
 // the game's files, as the platform's file API, and the kernel's objects and
 // waits a device function makes as the PS2 one does. One boot's state
-// (ps2x::session): a game booted after another in the same process reads its
+// (zx::session): a game booted after another in the same process reads its
 // own disc.
 //
 // The files: one open per file, <mod>/<path> in each mod folder (the last
 // first), then the disc folder or image, then in-memory patches (AI's
 // settings menus' UI scripts), by the path as the game gives it
 // ("dvd0:\ASSETS\LEVELS\TUT\TUT.TXR" or the device's part of it).
-// PS2X_MODS_DIR: the mod folders in order (the app sets the game's Mods
-// folder and each mod in it, collection/mods.h; ps2x::game_files::modsRoots
-// reads the text). The trace (configure: PS2X_TRACE_DISC) logs every
+// ZX_MODS_DIR: the mod folders in order (the app sets the game's Mods
+// folder and each mod in it, collection/mods.h; zx::game_files::modsRoots
+// reads the text). The trace (configure: ZX_TRACE_DISC) logs every
 // open (path, size, where it came from) at 1, every read and seek too at 2;
 // an open from anywhere but the disc, or of a file that is not there, is
 // logged always.
@@ -23,7 +23,7 @@
 #include <memory>
 #include <string>
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     class GameFile;
 }
@@ -69,7 +69,7 @@ namespace game::host::disc
     uint32_t size(uint32_t handle);
 
     // A file as the device serves it (Mods first), for the host's own readers.
-    std::shared_ptr<ps2x::game_files::GameFile> openGameFile(const std::string &path);
+    std::shared_ptr<zx::game_files::GameFile> openGameFile(const std::string &path);
 
     // A path the game gave (at most 256 characters, to its NUL).
     std::string guestPath(uint32_t address);

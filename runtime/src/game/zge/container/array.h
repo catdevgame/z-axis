@@ -15,7 +15,7 @@
 
 namespace zge
 {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     // ZGE2's array record (0x14 bytes; read in DM2's newCursorArray and every array function of
     // array.cpp at its DM2 address): whole words, the references a word of their own, and no sharing word: the
     // record and its items both come from the heap, and ZGE2 has one constructor (newCursorArray).

@@ -1,5 +1,5 @@
 // Debug helper: print instructions around addresses (args: addr [before] [after]).
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;

@@ -9,29 +9,29 @@
 #include <iterator>
 #include <limits>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     namespace
     {
         // A menu sound: its wave once. The banks end each one with a block
         // that loops on itself (flags 7), which the games' sounds never
         // reach audibly; played once, the voice is free at the wave's end.
-        class OnceSource final : public ps2x::spu::BlockSource
+        class OnceSource final : public zx::spu::BlockSource
         {
         public:
-            explicit OnceSource(std::shared_ptr<const ps2x::spu::DecodedSample> sample) : m_sample(std::move(sample)) {}
+            explicit OnceSource(std::shared_ptr<const zx::spu::DecodedSample> sample) : m_sample(std::move(sample)) {}
             bool nextBlock(int16_t *out) override
             {
                 const std::vector<int16_t> &pcm = m_sample->pcm;
-                if (m_position + ps2x::spu::kSamplesPerBlock > pcm.size())
+                if (m_position + zx::spu::kSamplesPerBlock > pcm.size())
                     return false;
-                std::memcpy(out, pcm.data() + m_position, ps2x::spu::kSamplesPerBlock * sizeof(int16_t));
-                m_position += ps2x::spu::kSamplesPerBlock;
+                std::memcpy(out, pcm.data() + m_position, zx::spu::kSamplesPerBlock * sizeof(int16_t));
+                m_position += zx::spu::kSamplesPerBlock;
                 return true;
             }
 
         private:
-            std::shared_ptr<const ps2x::spu::DecodedSample> m_sample;
+            std::shared_ptr<const zx::spu::DecodedSample> m_sample;
             size_t m_position = 0;
         };
 
@@ -44,7 +44,7 @@ namespace ps2x::collection
             return true;
         }
 
-        void setUp(ps2x::spu::Voice &voice, const BankSound &sound, uint32_t level)
+        void setUp(zx::spu::Voice &voice, const BankSound &sound, uint32_t level)
         {
             uint16_t left = 0, right = 0;
             sound.voiceVolumes(level, left, right);
@@ -118,7 +118,7 @@ namespace ps2x::collection
             return;
         }
         setUp(slot.voice, it->second.music, m_musicLevel);
-        slot.voice.keyOn(std::make_unique<ps2x::spu::SampleSource>(it->second.music.wave));
+        slot.voice.keyOn(std::make_unique<zx::spu::SampleSource>(it->second.music.wave));
     }
 
     void MenuAudio::playMusic(std::string_view game)
@@ -151,13 +151,13 @@ namespace ps2x::collection
         const BankSound &s = it->second.sounds[static_cast<size_t>(sound)];
         if (!s.wave)
             return;
-        ps2x::spu::Voice &voice = m_sounds[m_nextSound];
+        zx::spu::Voice &voice = m_sounds[m_nextSound];
         m_nextSound = (m_nextSound + 1u) % kSoundVoices;
         setUp(voice, s, m_effectsLevel);
         voice.keyOn(std::make_unique<OnceSource>(s.wave));
     }
 
-    void MenuAudio::playMovie(std::shared_ptr<ps2x::movie::PssAudio> sound, size_t frames)
+    void MenuAudio::playMovie(std::shared_ptr<zx::movie::PssAudio> sound, size_t frames)
     {
         std::lock_guard lock(m_mutex);
         m_movie = std::move(sound);
@@ -219,7 +219,7 @@ namespace ps2x::collection
                 left += static_cast<int64_t>(l) * slot.gain / kFull;
                 right += static_cast<int64_t>(r) * slot.gain / kFull;
             }
-            for (ps2x::spu::Voice &voice : m_sounds)
+            for (zx::spu::Voice &voice : m_sounds)
             {
                 int32_t l = 0, r = 0;
                 voice.mix(l, r);

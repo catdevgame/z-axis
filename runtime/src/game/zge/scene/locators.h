@@ -22,7 +22,7 @@ namespace zge
     // bytes, the index and the tags' size in words.
     struct ScenePoint
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t kindHash;       // DM2 +0x00 what findLocators matches (a spawn point: its entity type)
         uint32_t nameHash;       // DM2 +0x04
         uint32_t index;          // DM2 +0x08 findScenePoint's third key
@@ -57,7 +57,7 @@ namespace zge
         uint32_t headerBytes; // +0x00 this part's size
         uint32_t kindHash;    // +0x04
         uint32_t nameHash;    // +0x08
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t index;       // DM2 +0x0C
 #else
         uint16_t index;       // +0x0C

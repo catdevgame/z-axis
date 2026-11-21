@@ -38,7 +38,7 @@ early), so only the first --dump of a run is exact; use one run per image.
 
 The log OUT.log has one line per poll: "vsync polls w0 w1 ..." (hex words).
 A record is taken at the game's pad poll, after the poll; natively the same
-point is the scePadRead HLE (PS2X_PAD_LOG / PS2X_PAD_DUMP in PS2Recomp), and
+point is the scePadRead HLE (ZX_PAD_LOG / ZX_PAD_DUMP in the runtime), and
 `logiccheck.py frames` compares the two logs per level frame.
 """
 

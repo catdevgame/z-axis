@@ -1,7 +1,7 @@
 // BMX XXX (SLUS-20415): Exit to Collection in the main menu and the pause
 // menu, in the collection only (zge_host.h); the pause menu's RESTART line
-// (unless PS2X_RESTART=0) and PHOTO MODE line (with photo mode); and the main
-// menu's PARK EDITOR line (PS2X_BMX_PARK_EDITOR=1).
+// (unless ZX_RESTART=0) and PHOTO MODE line (with photo mode); and the main
+// menu's PARK EDITOR line (ZX_BMX_PARK_EDITOR=1).
 //
 // Both menus get their lines from the game's code: a builder writes one
 // "$KSTR_..." line per entry of an action-id list into a text and sets the
@@ -58,7 +58,7 @@
 //   PHOTO MODE (with photo mode, bmx_xxx_photo.cpp): after RESTART. Chosen,
 //   photo mode starts in the pause and the pause menu is back after it.
 //
-// The lines the menus' builders leave out (PS2X_BMX_MENU_LINES=1, [extras]
+// The lines the menus' builders leave out (ZX_BMX_MENU_LINES=1, [extras]
 // menu_lines): lines with the game's own texts and choices, whose handlers
 // are whole, which no release's builder puts up. Each goes in among the
 // game's lines where its choice comes in the handler's order, its choice in
@@ -109,7 +109,6 @@
 
 namespace bmx_xxx::exit_menu
 {
-    namespace zx = ps2x::zaxis;
 
     constexpr zge_host::ScriptFunctions kScriptFunctions{
         "bmx-xxx",
@@ -189,12 +188,12 @@ namespace bmx_xxx::exit_menu
         bool building = false;  // the main menu's builder is running
         bool mainMenuHooked = false; // the main menu's builder and setVariable wrapped
         bool setVariableHooked = false; // setVariable wrapped (the main menu's and the game over's builders)
-        bool menuLines = false;  // the lines the builders leave out wanted (PS2X_BMX_MENU_LINES=1)
+        bool menuLines = false;  // the lines the builders leave out wanted (ZX_BMX_MENU_LINES=1)
         PS2Runtime::RecompiledFunction gameOverHandler = nullptr;
         bool gameOverBuilding = false; // gameOverScreenMessage is making its menu
         int gameOverAdded = 0;  // lines it got
-        bool parkEditor = false; // the PARK EDITOR line wanted (PS2X_BMX_PARK_EDITOR=1)
-        bool restart = false;   // the RESTART line wanted (PS2X_RESTART is not 0)
+        bool parkEditor = false; // the PARK EDITOR line wanted (ZX_BMX_PARK_EDITOR=1)
+        bool restart = false;   // the RESTART line wanted (ZX_RESTART is not 0)
         bool collection = false; // Exit to Collection wanted (in the collection)
         bool photo = false;     // the Photo Mode line wanted (photo mode installed)
         bool settings = false;  // the Settings line wanted (the Settings page installed)
@@ -206,7 +205,7 @@ namespace bmx_xxx::exit_menu
         int pauseSettingsLine = -1;
         int countAdded = 0;     // lines added to the menu being built
     };
-    State &state() { return ps2x::session::state<State>(); }
+    State &state() { return zx::session::state<State>(); }
 
     int addExitLine(char *p, size_t size)
     {
@@ -652,19 +651,19 @@ namespace bmx_xxx::exit_menu
     bool patchMainMenu(std::string &text)
     {
         std::string edited = text;
-        zx::Span menu = zx::findObject(edited, "UI_menu/CommonBackground/FrameMainMenu/Menu");
+        zx::zaxis::Span menu = zx::zaxis::findObject(edited, "UI_menu/CommonBackground/FrameMainMenu/Menu");
         if (!menu.found())
             return false;
-        const std::string p(static_cast<size_t>(zx::indentAt(edited, menu.begin) + 1), '\t');
+        const std::string p(static_cast<size_t>(zx::zaxis::indentAt(edited, menu.begin) + 1), '\t');
         const std::string t = p + "\t";
         const std::string isExit = t + "IF SelectedText == {\"" + zge_host::kExitItem + "\"} GOTO ";
         const bool ok =
-            zx::replaceIn(edited, menu,
+            zx::zaxis::replaceIn(edited, menu,
                           p + "OnItemSelect\t{\r\n" + t + "SET Root.MsgType {0}\r\n" + t + "CALL bmxuiHandler\r\n" + t + "}\r\n",
                           p + "OnItemSelect\t{\r\n" + isExit + "PcExit\r\n" + t + "SET Root.MsgType {0}\r\n" + t +
                               "CALL bmxuiHandler\r\n" + t + "GOTO PcEnd\r\n" + t + ":PcExit\r\n" + t + "CALL " +
                               zge_host::kExitFunction + "\r\n" + t + ":PcEnd\r\n" + t + "}\r\n") &&
-            zx::replaceIn(edited, menu,
+            zx::zaxis::replaceIn(edited, menu,
                           p + "OnChange\t{\r\n" + t + "SET Root.MsgType {2}\r\n" + t + "CALL bmxuiHandler\r\n" + t + "}\r\n",
                           p + "OnChange\t{\r\n" + isExit + "PcEnd\r\n" + t + "SET Root.MsgType {2}\r\n" + t +
                               "CALL bmxuiHandler\r\n" + t + ":PcEnd\r\n" + t + "}\r\n");
@@ -676,13 +675,13 @@ namespace bmx_xxx::exit_menu
 
     bool patchUiLibrary(std::vector<uint8_t> &bytes)
     {
-        std::vector<zx::ArchiveEntry> entries;
-        if (!zx::readArchive(bytes, entries))
+        std::vector<zx::zaxis::ArchiveEntry> entries;
+        if (!zx::zaxis::readArchive(bytes, entries))
             return false;
         bool changed = false;
-        for (zx::ArchiveEntry &entry : entries)
+        for (zx::zaxis::ArchiveEntry &entry : entries)
         {
-            if (zx::scriptName(entry) != "UI_menu")
+            if (zx::zaxis::scriptName(entry) != "UI_menu")
                 continue;
             std::string text(entry.data.begin(), entry.data.end());
             if (patchMainMenu(text))
@@ -699,7 +698,7 @@ namespace bmx_xxx::exit_menu
             }
         }
         if (changed)
-            bytes = zx::writeArchive(entries);
+            bytes = zx::zaxis::writeArchive(entries);
         return changed;
     }
 
@@ -780,7 +779,7 @@ namespace bmx_xxx
         installParkEditorLine(runtime);
         installMenuLines(runtime);
         State &st = state();
-        const char *restart = std::getenv("PS2X_RESTART");
+        const char *restart = std::getenv("ZX_RESTART");
         st.restart = !(restart && restart[0] == '0');
         st.collection = zge_host::inCollection();
         if (!st.restart && !st.collection)
@@ -796,7 +795,7 @@ namespace bmx_xxx
         // The pause line works without a script function; the main menu's
         // needs one.
         if (zge_host::installExitFunction(runtime, kScriptFunctions))
-            ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
+            zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
         return true;
     }
     const zge_host::ScriptFunctions &scriptFunctions() { return exit_menu::kScriptFunctions; }
@@ -804,7 +803,7 @@ namespace bmx_xxx
     bool installParkEditorLine(PS2Runtime &runtime)
     {
         using namespace exit_menu;
-        const char *on = ps2x::boot::text("PS2X_BMX_PARK_EDITOR");
+        const char *on = zx::boot::text("ZX_BMX_PARK_EDITOR");
         if (!on || on[0] != '1')
             return false;
         if (!installMainMenuHooks(runtime))
@@ -820,7 +819,7 @@ namespace bmx_xxx
     bool installMenuLines(PS2Runtime &runtime)
     {
         using namespace exit_menu;
-        const char *on = ps2x::boot::text("PS2X_BMX_MENU_LINES");
+        const char *on = zx::boot::text("ZX_BMX_MENU_LINES");
         if (!on || on[0] != '1')
             return false;
         if (!installPauseHook(runtime) || !installGameOverHook(runtime) || !installMainMenuHooks(runtime))

@@ -13,7 +13,7 @@
 
 #include "collection/extras/disc_image.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     class GameCubeDisc final : public DiscFiles
     {

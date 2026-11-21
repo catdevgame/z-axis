@@ -1,7 +1,7 @@
 #pragma once
 
 // Which cores the emulator's busy threads run on (Linux and Android), behind
-// PS2X_THREAD_PLACEMENT=1 (off by default: the scheduler places them). Phone
+// ZX_THREAD_PLACEMENT=1 (off by default: the scheduler places them). Phone
 // chips have tiers of cores (on the test handheld's Snapdragon 8 Gen 2 one prime,
 // four mid and three little); the scheduler moved the game (EE) thread and
 // the GS worker on and off the prime core, and the one off it ran a third
@@ -18,7 +18,7 @@
 #endif
 #include <cstdlib>
 
-namespace ps2x::placement
+namespace zx::placement
 {
     enum class Role
     {
@@ -26,13 +26,13 @@ namespace ps2x::placement
         Graphics, // the VIF1/VU1 and GS workers
     };
 
-    // PS2X_THREAD_PLACEMENT=1 on Linux and Android.
+    // ZX_THREAD_PLACEMENT=1 on Linux and Android.
     inline bool enabled()
     {
 #if defined(__linux__)
         static const bool on = []()
         {
-            const char *v = std::getenv("PS2X_THREAD_PLACEMENT");
+            const char *v = std::getenv("ZX_THREAD_PLACEMENT");
             return v && v[0] == '1';
         }();
         return on;
@@ -87,4 +87,4 @@ namespace ps2x::placement
         static_cast<void>(role);
 #endif
     }
-} // namespace ps2x::placement
+} // namespace zx::placement

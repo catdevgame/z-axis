@@ -6,6 +6,7 @@
 #include "collection/maps.h"
 #include "runtime/ps2_game_files.h"
 #include "runtime/ps2_zip_archive.h"
+#include "zx/zal_archive.h"
 #include "strings.h"
 
 #include <algorithm>
@@ -15,11 +16,11 @@
 #include <sstream>
 #include <system_error>
 
-namespace ps2x::app
+namespace zx::app
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
 
         std::string upper(std::string text)
         {
@@ -30,9 +31,10 @@ namespace ps2x::app
 
         const char *const kGameIds[] = {"ai", "dm2", "bmx"};
         // The games that read a mod's tuning.ini: Aggressive Inline's developer
-        // tuning table (aggressive_inline_devtools.cpp). Dave Mirra BMX 2 has no
-        // tuning table; BMX XXX's is the GameCube release's only.
-        const char *const kTuningGames[] = {"ai"};
+        // tuning table (aggressive_inline_devtools.cpp) and BMX XXX's, its
+        // GameCube release's on the PS2's values (bmx_xxx_tuning.cpp). Dave
+        // Mirra BMX 2 has no tuning table.
+        const char *const kTuningGames[] = {"ai", "bmx"};
         bool knownGame(std::string_view id)
         {
             return std::find(std::begin(kGameIds), std::end(kGameIds), id) != std::end(kGameIds);
@@ -163,7 +165,7 @@ namespace ps2x::app
                 else if (!error.empty())
                     mod.problem = "mod.ini: " + error;
                 CustomMap map;
-                if (parseMapDescription(text, map))
+                if (parseMapDescription(text, map, nullptr, mod.ownGame))
                 {
                     mod.map = map;
                     mod.contents |= kModMap;
@@ -173,7 +175,7 @@ namespace ps2x::app
             {
                 CustomMap map;
                 std::string error;
-                if (parseMapDescription(text, map, &error))
+                if (parseMapDescription(text, map, &error, mod.ownGame))
                 {
                     mod.map = map;
                     mod.contents |= kModMap;
@@ -222,7 +224,7 @@ namespace ps2x::app
                 std::none_of(std::begin(kTuningGames), std::end(kTuningGames), [&](const char *game) { return mod.forGame(game); }))
             {
                 mod.contents &= ~kModTuning;
-                mod.notes.push_back("tuning.ini not read, only Aggressive Inline has the tuning table.");
+                mod.notes.push_back("tuning.ini not read, only Aggressive Inline and BMX XXX have a tuning table.");
             }
         }
 
@@ -248,11 +250,36 @@ namespace ps2x::app
             return std::find(list.begin(), list.end(), item) != list.end();
         }
 
-        // A mod's things for the winners: disc files by path, songs by
-        // number, tuning.ini, textures by file name.
-        std::vector<std::string> thingsOf(const Mod &mod, std::string_view game)
+        // The archive a mod's file is a single entry of ("ASSETS/UILIB.ZAL"
+        // for ASSETS/UILIB.ZAL/CommonFonts.zif), "" for a file of no archive.
+        std::string archiveOf(const std::string &normalized)
         {
-            std::vector<std::string> things;
+            const size_t slash = normalized.rfind('/');
+            return slash != std::string::npos && gf::isArchivePath(normalized.substr(0, slash)) ? normalized.substr(0, slash) : std::string();
+        }
+
+        // An archive entry's key for the winners: its archive and its id, as
+        // the names a mod may give it mean it (zal::findEntry): "0x..." an
+        // id, a number a zfile library's group, else a name's hash.
+        std::string entryKey(const std::string &archive, std::string_view name)
+        {
+            namespace zal = zx::zal;
+            const std::string_view stem = name.substr(0, name.find('.'));
+            if (stem.size() == 10 && stem[0] == '0' && (stem[1] == 'x' || stem[1] == 'X') &&
+                std::all_of(stem.begin() + 2, stem.end(), [](char c) { return std::isxdigit(static_cast<unsigned char>(c)) != 0; }))
+                return archive + " entry " + zal::idName(uint32_t(std::stoul(std::string(stem.substr(2)), nullptr, 16)));
+            if (!stem.empty() && std::all_of(stem.begin(), stem.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)) || c == '-'; }))
+                return archive + " entry " + std::string(stem);
+            return archive + " entry " + zal::idName(zal::nameHash(name));
+        }
+
+        // A mod's things for the winners (key: what is shown): disc files by
+        // path, archive entries by entryKey, songs by number, tuning.ini,
+        // textures by file name.
+        std::map<std::string, std::string> thingsOf(const Mod &mod, std::string_view game)
+        {
+            std::map<std::string, std::string> things;
+            auto add = [&things](std::string key, std::string shown) { things.emplace(std::move(key), std::move(shown)); };
             if (mod.contents & (kModFiles | kModMusic | kModTuning))
                 for (const std::string &file : gf::listFilesBelow(mod.folder))
                 {
@@ -267,18 +294,25 @@ namespace ps2x::app
                         if (song.find('/') == std::string::npos && song.size() >= 2u && std::isdigit(static_cast<unsigned char>(song[0])) &&
                             std::isdigit(static_cast<unsigned char>(song[1])) &&
                             (song.size() == 2u || !std::isdigit(static_cast<unsigned char>(song[2]))))
-                            things.push_back("song " + song.substr(0, 2));
+                            add("song " + song.substr(0, 2), "song " + song.substr(0, 2));
                         continue;
                     }
                     if (slash == std::string::npos)
                     {
                         if (path == "TUNING.INI")
-                            things.push_back("tuning.ini");
+                            add("tuning.ini", "tuning.ini");
                         else if (!aboutTheMod(path))
-                            things.push_back(path);
+                            add(path, path);
                         continue;
                     }
-                    things.push_back(path);
+                    if (const std::string archive = archiveOf(path); !archive.empty())
+                    {
+                        const std::string name = file.substr(file.rfind('/') + 1u);
+                        if (!gf::ignoredInArchiveFolder(name))
+                            add(entryKey(archive, name), archive + "/" + name);
+                        continue;
+                    }
+                    add(path, path);
                 }
             if (const std::filesystem::path textures = modTextureFolder(mod, game); !textures.empty())
                 for (const std::string &file : gf::listFilesBelow(textures))
@@ -286,11 +320,34 @@ namespace ps2x::app
                     // (a picture's key is its file name, wherever it is below)
                     const std::string path = gf::normalizePath(file);
                     const size_t slash = path.rfind('/');
-                    things.push_back("texture " + (slash == std::string::npos ? path : path.substr(slash + 1u)));
+                    const std::string picture = "texture " + (slash == std::string::npos ? path : path.substr(slash + 1u));
+                    add(picture, picture);
                 }
-            std::sort(things.begin(), things.end());
-            things.erase(std::unique(things.begin(), things.end()), things.end());
             return things;
+        }
+
+        // The first bytes of a file the game file system opens: its directory, when it is an archive.
+        bool readArchiveDirectory(gf::GameFile &file, zx::zal::Archive &archive, std::string &error)
+        {
+            std::vector<uint8_t> head(20);
+            if (file.read(0, head.data(), head.size()) != head.size())
+            {
+                error = "too short to be one";
+                return false;
+            }
+            const uint64_t bytes = zx::zal::directoryBytes(head.data(), head.size());
+            if (bytes == 0 || bytes > file.size())
+            {
+                error = "not a ZDIR archive or a zfile library";
+                return false;
+            }
+            head.resize(static_cast<size_t>(bytes));
+            if (file.read(0, head.data(), head.size()) != head.size())
+            {
+                error = "cannot be read";
+                return false;
+            }
+            return zx::zal::readDirectory(head.data(), head.size(), archive, &error);
         }
     }
 
@@ -427,6 +484,32 @@ namespace ps2x::app
             mods.push_back(std::move(mod));
         }
         return mods;
+    }
+
+    std::vector<CustomMap> listGameMaps(const std::filesystem::path &modsRoot, std::string_view game)
+    {
+        std::vector<CustomMap> maps;
+        std::error_code ec;
+        if (modsRoot.empty() || !std::filesystem::is_directory(modsRoot, ec))
+            return maps;
+        for (const std::filesystem::path &entry : entriesOf(modsRoot))
+        {
+            Mod mod;
+            mod.name = entry.filename().string();
+            mod.folder = entry;
+            mod.zip = !std::filesystem::is_directory(entry, ec);
+            mod.ownGame = std::string(game);
+            mod.place = "games/" + std::string(game) + "/" + kModsFolder;
+            if (mod.zip && !gf::ZipArchive::open(entry))
+                continue;
+            describe(mod);
+            if (!mod.isMap())
+                continue;
+            CustomMap map = mod.map;
+            map.where = mod.orderKey();
+            maps.push_back(std::move(map));
+        }
+        return maps;
     }
 
     std::vector<Mod> listSharedMods(const std::filesystem::path &sharedRoot)
@@ -635,18 +718,75 @@ namespace ps2x::app
         return packs;
     }
 
+    void checkArchiveEntries(std::vector<Mod> &mods, const std::filesystem::path &modsRoot, const std::filesystem::path &discRoot)
+    {
+        std::vector<std::filesystem::path> below = {modsRoot}; // (as modsRoots gives them)
+        for (Mod &mod : mods)
+        {
+            mod.entriesNotRead.clear();
+            if (!mod.read || mod.isMap())
+                continue;
+            if (mod.contents & kModFiles)
+            {
+                std::map<std::string, std::vector<std::string>> entries; // archive -> its entries' names
+                for (const std::string &file : gf::listFilesBelow(mod.folder))
+                {
+                    const std::string path = gf::normalizePath(file);
+                    if (const std::string archive = archiveOf(path); !archive.empty())
+                    {
+                        const std::string name = file.substr(file.rfind('/') + 1u);
+                        if (!gf::ignoredInArchiveFolder(name))
+                            entries[archive].push_back(name);
+                        continue;
+                    }
+                    // A file in a folder inside an archive's.
+                    for (size_t slash = path.find('/'); slash != std::string::npos; slash = path.find('/', slash + 1u))
+                        if (gf::isArchivePath(path.substr(0, slash)))
+                        {
+                            mod.entriesNotRead.push_back(file + " is in a folder inside " + path.substr(0, slash) + "'s, where entries are not");
+                            break;
+                        }
+                }
+                gf::GameFileRoots roots;
+                roots.disc = discRoot;
+                roots.mods = below;
+                gf::GameFileSystem files(std::move(roots));
+                for (const auto &[archive, names] : entries)
+                {
+                    const std::shared_ptr<gf::GameFile> file = files.open(archive);
+                    zx::zal::Archive directory;
+                    std::string error;
+                    if (!file)
+                        mod.entriesNotRead.push_back(archive + " is not one of the game's files, so its " + std::to_string(names.size()) +
+                                                     (names.size() == 1 ? " entry is" : " entries are") + " not read");
+                    else if (!readArchiveDirectory(*file, directory, error))
+                        mod.entriesNotRead.push_back(archive + " is not an archive (" + error + "), so its entries are not read");
+                    else
+                        for (const std::string &name : names)
+                            if (!zx::zal::findEntry(directory, name))
+                                mod.entriesNotRead.push_back(archive + " has no entry " + name);
+                }
+            }
+            below.push_back(mod.folder);
+        }
+    }
+
     std::vector<ModWinners> modWinners(const std::vector<Mod> &mods, std::string_view game)
     {
         std::vector<ModWinners> winners(mods.size());
         std::map<std::string, std::vector<size_t>> holders; // thing -> the mods read that have it, in order
+        std::map<std::string, std::string> shown;           // thing -> how the page says it
         for (size_t i = 0; i < mods.size(); ++i)
         {
             if (!mods[i].read || mods[i].isMap())
                 continue;
-            const std::vector<std::string> things = thingsOf(mods[i], game);
+            const std::map<std::string, std::string> things = thingsOf(mods[i], game);
             winners[i].things = things.size();
-            for (const std::string &thing : things)
+            for (const auto &[thing, text] : things)
+            {
                 holders[thing].push_back(i);
+                shown.emplace(thing, text);
+            }
         }
         auto count = [](std::vector<ModOverlap> &list, size_t mod, const std::string &thing)
         {
@@ -660,13 +800,29 @@ namespace ps2x::app
         };
         for (const auto &[thing, list] : holders)
         {
-            if (list.size() < 2u)
+            // An entry (its key "<archive> entry <id>"): a whole archive of a
+            // later mod wins over it too.
+            std::vector<size_t> over = list;
+            if (const size_t at = thing.find(" entry "); at != std::string::npos)
+                if (const auto whole = holders.find(thing.substr(0, at)); whole != holders.end())
+                    for (const size_t archive : whole->second)
+                        if (archive > list.back())
+                        {
+                            for (const size_t entry : list)
+                            {
+                                count(winners[archive].winsOver, entry, shown[thing]);
+                                count(winners[entry].losesTo, archive, shown[thing]);
+                            }
+                            over.clear();
+                            break;
+                        }
+            if (over.size() < 2u)
                 continue;
-            const size_t winner = list.back();
-            for (size_t k = 0; k + 1u < list.size(); ++k)
+            const size_t winner = over.back();
+            for (size_t k = 0; k + 1u < over.size(); ++k)
             {
-                count(winners[winner].winsOver, list[k], thing);
-                count(winners[list[k]].losesTo, winner, thing);
+                count(winners[winner].winsOver, over[k], shown[thing]);
+                count(winners[over[k]].losesTo, winner, shown[thing]);
             }
         }
         return winners;

@@ -4,7 +4,7 @@
 // text of the game's Xbox release (runtime/ps2_xbox_disc.h: files bundled
 // when the app is built, never a disc image at run time).
 //
-// PS2X_LANGUAGE = english (us) | french | german | spanish (uk: the PS2
+// ZX_LANGUAGE = english (us) | french | german | spanish (uk: the PS2
 // disc's STRING.EUK, developer use). With French, German or Spanish and the
 // Xbox files there, the game shows:
 //   - every text it draws (menus, HUD, challenge names and descriptions,
@@ -26,7 +26,7 @@
 //   - the Settings rows' help lines in the language (written here).
 // English changes nothing: no file is replaced and nothing is hooked here.
 // The text primitives are only hooked with the settings menus
-// (PS2X_GAME_SETTINGS_MENUS=1, the app), so the language needs those.
+// (ZX_GAME_SETTINGS_MENUS=1, the app), so the language needs those.
 
 #include <functional>
 #include <string>
@@ -34,7 +34,7 @@
 
 class PS2Runtime;
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     struct ArchiveEntry;
 }
@@ -49,7 +49,7 @@ namespace aggressive_inline::language
         Spanish,
     };
 
-    // Reads PS2X_LANGUAGE; registers the string table patch. True when a
+    // Reads ZX_LANGUAGE; registers the string table patch. True when a
     // language other than English is shown with the Xbox text.
     bool install(PS2Runtime &runtime);
     bool active();
@@ -68,10 +68,10 @@ namespace aggressive_inline::language
     // Xbox fonts in place of the PS2 ones, and the text widgets the Xbox
     // scripts narrow for their longer texts as narrow (the Tutorial's
     // lesson list in the pause menu). True if an entry changed.
-    bool patchUiLibrary(std::vector<ps2x::zaxis::ArchiveEntry> &entries);
+    bool patchUiLibrary(std::vector<zx::zaxis::ArchiveEntry> &entries);
 
     // French speech (the Xbox speech01.zsd) in place of SPEECH.ZSD's
     // English: the settings row audio.french_voices when there is one, else
-    // PS2X_FRENCH_VOICES=1, else on with French. Any thread.
+    // ZX_FRENCH_VOICES=1, else on with French. Any thread.
     bool frenchVoices();
 }

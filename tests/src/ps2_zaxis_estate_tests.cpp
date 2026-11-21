@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace estate = ps2x::zaxis::estate;
+namespace estate = zx::zaxis::estate;
 
 namespace
 {
@@ -247,8 +247,8 @@ void register_ps2_zaxis_estate_tests()
                 return;
             const uint8_t top8[] = {0, 1, 2, 3, 4, 5, 6, 7};
             const uint8_t top4[] = {5, 6, 7, 8, 1, 2, 3, 4}; // high nibble first, rows reversed
-            t.Equals(keys[0].indexHash, ps2x::texture_replace::indexHash(top8, 8), "8-bit");
-            t.Equals(keys[1].indexHash, ps2x::texture_replace::indexHash(top4, 8), "4-bit");
+            t.Equals(keys[0].indexHash, zx::texture_replace::indexHash(top8, 8), "8-bit");
+            t.Equals(keys[1].indexHash, zx::texture_replace::indexHash(top4, 8), "4-bit");
             t.IsTrue(keys[0].width == 4u && keys[0].height == 2u && keys[0].name == "EIGHT", "size and name");
             const std::vector<estate::TextureKey> back = estate::readTextureKeys(estate::writeTextureKeys(keys));
             t.IsTrue(back.size() == 2u && back[1].indexHash == keys[1].indexHash && back[1].name == "FOUR" &&
@@ -342,9 +342,9 @@ void register_ps2_zaxis_estate_tests()
             const std::string text(still.begin(), still.end());
             t.IsTrue(text.find("estate_still.bmp") != std::string::npos && text.find("TBMP") != std::string::npos,
                      "its source and an 8-bit picture");
-            const std::vector<std::string> added = ps2x::zaxis::addAssets(library, still, {estate::kStillName});
+            const std::vector<std::string> added = zx::zaxis::addAssets(library, still, {estate::kStillName});
             t.IsTrue(added.size() == 1u && added[0] == estate::kStillName, "added to a library with still_bkg_01");
-            t.IsTrue(ps2x::zaxis::addAssets(library, still, {estate::kStillName}).empty(), "not twice");
+            t.IsTrue(zx::zaxis::addAssets(library, still, {estate::kStillName}).empty(), "not twice");
         });
 
         tc.Run("build: the files the game loads, or a reason", [](TestCase &t)

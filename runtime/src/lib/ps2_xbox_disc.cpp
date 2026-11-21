@@ -187,7 +187,7 @@ namespace ps2_xbox_disc
         {
             std::mutex mutex;
             bool initialized = false;
-            uint64_t boot = 0; // the boot that opened it (each its own PS2X_XBOX_DIR)
+            uint64_t boot = 0; // the boot that opened it (each its own ZX_XBOX_DIR)
             std::shared_ptr<Disc> disc;
             std::string description = "no Xbox files";
         };
@@ -210,18 +210,18 @@ namespace ps2_xbox_disc
     {
         State &s = state();
         std::lock_guard<std::mutex> lock(s.mutex);
-        if (s.initialized && s.boot == ps2x::boot::generation())
+        if (s.initialized && s.boot == zx::boot::generation())
             return s.disc != nullptr;
         s.initialized = true;
-        s.boot = ps2x::boot::generation();
+        s.boot = zx::boot::generation();
         s.disc.reset();
         s.description = "no Xbox files";
         std::string path;
-        if (const char *env = ps2x::boot::text("PS2X_XBOX_DIR"); env && env[0])
+        if (const char *env = zx::boot::text("ZX_XBOX_DIR"); env && env[0])
             path = env;
         if (path.empty())
         {
-            s.description = "no Xbox files (PS2X_XBOX_DIR; the app: Resources/xbox)";
+            s.description = "no Xbox files (ZX_XBOX_DIR; the app: Resources/xbox)";
             return false;
         }
         std::string why;
@@ -243,7 +243,7 @@ namespace ps2_xbox_disc
         State &s = state();
         std::lock_guard<std::mutex> lock(s.mutex);
         s.initialized = true;
-        s.boot = ps2x::boot::generation();
+        s.boot = zx::boot::generation();
         s.disc.reset();
         if (!disc)
         {

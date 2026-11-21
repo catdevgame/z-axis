@@ -57,7 +57,7 @@ namespace zge
     struct ColourBox
     {
         ee::Ptr<ColourBox> parent;    // +0x00 0 for the first box
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // BMX +0x04: the halves split from it, the pixels at or below the split's middle first; one merged back
         // into it is 0 again.
         ee::Ptr<ColourBox> halves[2];
@@ -68,7 +68,7 @@ namespace zge
         uint32_t blueSum;             // +0x10 (BMX +0x18)
         uint32_t alphaSum;            // +0x14 (BMX +0x1C)
         uint32_t error;               // +0x18 (BMX +0x20) its pixels' squared distances from their mean
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint16_t children;            // BMX +0x24 the boxes split from it
         int16_t paletteEntry;         // BMX +0x26 the palette entry its pixels take (-1 in the blank box)
         uint8_t splitChannel;         // BMX +0x28 the channel it was split on: red, green, blue, alpha
@@ -88,7 +88,7 @@ namespace zge
     // none; setHalf a box made its parent's half; unlinkHalf a half merged back into its parent no longer one of its
     // halves; keepSplit where a box was split, and splitChannelOf / splitMiddleOf read it back; setPaletteEntry and
     // paletteEntryOf the palette entry a leaf's pixels take.
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline ee::Ptr<ColourBox> halfOf(ee::Ptr<ColourBox> box, uint32_t half) { return box->halves[half]; }
     inline void setHalf(ee::Ptr<ColourBox> parent, uint32_t half, ee::Ptr<ColourBox> box) { parent->halves[half] = box; }
     inline void unlinkHalf(ee::Ptr<ColourBox> parent, ee::Ptr<ColourBox> half)

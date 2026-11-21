@@ -6,7 +6,7 @@
 // references, and every branch into F's body from outside comes from O (ignoring
 // unreferenced dead-code functions) via a non-"j" branch instruction.
 // Args: [dry]
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;

@@ -63,7 +63,7 @@ namespace zge
     struct TextStyle
     {
         Vec4 position;          // +0x00 the text's anchor on the screen
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2 +0x10: ZGE2's style carries the text's orientation (DM2's
         // drawGuiTreeView copies its widget's quaternion here before
         // drawText): measureText turns the scale by it, drawTextQuads the
@@ -74,7 +74,7 @@ namespace zge
         ee::Float scaleY;       // +0x14
         ee::Float scaleExtra[2]; // +0x18 the third and fourth values of a SCALE{} escape
         uint8_t colour[4];      // +0x20 RGBA
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         // +0x24 (BMX +0x2C) bits 0-3 horizontal (0 the anchor is the left,
         // 1 the middle, 2 the right), bits 4-7 vertical (0 top, 1 middle, 2
         // bottom).
@@ -82,7 +82,7 @@ namespace zge
 #endif
         ee::Float lineSpacing;  // +0x28 (BMX +0x24) lines are font height * this apart
         int32_t letterSpacing;  // +0x2C (BMX +0x28) added to each advance (texels)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t align;         // BMX +0x2C
         // BMX +0x30: ZGE4 keeps monospaced in bit 4 of this word (BMX XXX's
         // measureText and drawTextQuads read that bit alone). Its low four
@@ -108,7 +108,7 @@ namespace zge
         ee::Float angle;        // +0x38 (BMX +0x34) the text's rotation (times g_angleUnitsPerUnit: an Angle)
         ee::Float width;        // +0x3C (BMX +0x38) measured (drawText)
         ee::Float height;       // +0x40 (BMX +0x3C)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t _44[3];        // (ZGE4's style ends at 0x40)
 #endif
 
@@ -120,7 +120,7 @@ namespace zge
     // monospaced). Always inlined: AI's callers compile as with the store.
     [[gnu::always_inline]] inline void clearStyleReserved(TextStyle &style)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         style.reservedBits = 0;
 #else
         style.reserved = 0;
@@ -130,7 +130,7 @@ namespace zge
     // The same where ZGE3's caller clears only the word's low byte.
     [[gnu::always_inline]] inline void clearStyleReservedByte(TextStyle &style)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         style.reservedBits = 0;
 #else
         std::memset(&style.reserved, 0, 1);
@@ -141,22 +141,22 @@ namespace zge
     // style has one: none there).
     inline Quaternion *styleOrientation([[maybe_unused]] TextStyle &style)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         return &style.orientation;
 #else
         return nullptr;
 #endif
     }
-#if !PS2X_GAME_DM2 && !PS2X_GAME_BMX
+#if !ZX_GAME_DM2 && !ZX_GAME_BMX
     static_assert(sizeof(TextStyle) == 0x50);
     static_assert(offsetof(TextStyle, monospaced) == 0x34);
 #endif
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
     static_assert(offsetof(TextStyle, angle) == game::readable::perGame(0x38u, 0x38u, 0x34u) &&
                   offsetof(TextStyle, width) == game::readable::perGame(0x3Cu, 0x3Cu, 0x38u) &&
                   offsetof(TextStyle, height) == game::readable::perGame(0x40u, 0x40u, 0x3Cu));
 #endif
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(sizeof(TextStyle) == 0x40 && offsetof(TextStyle, reserved) == 0x30);
 #endif
     static_assert(offsetof(TextStyle, scaleX) == game::readable::perGame(0x10u, 0x20u, 0x10u) &&
@@ -170,7 +170,7 @@ namespace zge
     // XXX's drawTextQuads).
     struct TextQuadRecord
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         Vec4 corners[4];      // BMX +0x00
         uint32_t texture;     // BMX +0x40
 #else
@@ -181,7 +181,7 @@ namespace zge
         ee::Float u[4];       // +0x50 (BMX +0x44)
         ee::Float v[4];       // +0x60 (BMX +0x54)
         uint8_t colour[4];    // +0x70 (BMX +0x64)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _68[2];
 #else
         uint32_t _74[3];

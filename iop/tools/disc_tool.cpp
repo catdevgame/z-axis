@@ -1,14 +1,14 @@
-// ps2x_disc: a PS2 disc image's files, whatever format it is in (an ISO, a
+// zx-disc: a PS2 disc image's files, whatever format it is in (an ISO, a
 // BIN/CUE dump by its CUE or its BIN, a CHD, a CSO or a ZSO), read as the
-// app reads them (ps2x/iop/iso9660.h). The build's tools take each game's
+// app reads them (zx/disc/iso9660.h). The build's tools take each game's
 // boot ELF from the player's disc with it (tooling/recompile.sh).
 //
-//   ps2x_disc list IMAGE                    each file: its size and path
-//   ps2x_disc extract IMAGE OUTDIR [PATH...] the files named (all: none named)
+//   zx-disc list IMAGE                    each file: its size and path
+//   zx-disc extract IMAGE OUTDIR [PATH...] the files named (all: none named)
 //                                           into OUTDIR, in their folders
-//   ps2x_disc to-iso IMAGE OUT              OUT: the image's 2048-byte ISO
-#include "ps2x/iop/cue_sheet.h"
-#include "ps2x/iop/iso9660.h"
+//   zx-disc to-iso IMAGE OUT              OUT: the image's 2048-byte ISO
+#include "zx/disc/cue_sheet.h"
+#include "zx/disc/iso9660.h"
 
 #include <cstdio>
 #include <filesystem>
@@ -20,8 +20,8 @@
 namespace
 {
     namespace fs = std::filesystem;
-    using ps2x::iop::IsoEntry;
-    using ps2x::iop::Iso9660Image;
+    using zx::disc::IsoEntry;
+    using zx::disc::Iso9660Image;
 
     constexpr size_t kChunk = 4u * 1024u * 1024u;
 
@@ -35,7 +35,7 @@ namespace
 
     int fail(const std::string &message)
     {
-        std::cerr << "ps2x_disc: " << message << std::endl;
+        std::cerr << "zx-disc: " << message << std::endl;
         return 1;
     }
 
@@ -48,9 +48,9 @@ namespace
             return image;
         std::ifstream in(image, std::ios::binary);
         const std::string text((std::istreambuf_iterator<char>(in)), {});
-        if (!ps2x::iop::isCueSheet(text))
+        if (!zx::disc::isCueSheet(text))
             return image;
-        const std::string data = ps2x::iop::cueDataTrackFile(text);
+        const std::string data = zx::disc::cueDataTrackFile(text);
         return data.empty() ? fs::path() : image.parent_path() / pathOf(data);
     }
 
@@ -96,9 +96,9 @@ int main(int argc, char **argv)
     const bool toIso = args.size() == 3 && args[0] == "to-iso";
     if (!list && !extract && !toIso)
     {
-        std::cerr << "usage: ps2x_disc list IMAGE\n"
-                     "       ps2x_disc extract IMAGE OUTDIR [PATH...]\n"
-                     "       ps2x_disc to-iso IMAGE OUT\n";
+        std::cerr << "usage: zx-disc list IMAGE\n"
+                     "       zx-disc extract IMAGE OUTDIR [PATH...]\n"
+                     "       zx-disc to-iso IMAGE OUT\n";
         return 2;
     }
     const fs::path picked = pathOf(args[1]);
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     {
         if (!copyOut(image, 0u, image.sizeBytes(), pathOf(args[2])))
             return fail("cannot write " + args[2]);
-        std::cout << "ps2x_disc: " << textOf(data.filename()) << " -> " << args[2] << " ("
+        std::cout << "zx-disc: " << textOf(data.filename()) << " -> " << args[2] << " ("
                   << image.sizeBytes() / Iso9660Image::kSectorSize << " sectors)" << std::endl;
         return 0;
     }

@@ -5,8 +5,8 @@
                                       ride, START, PHOTO MODE (the camera moved, Cross saves a picture, Circle back),
                                       then SETTINGS (every section, a row stepped Right and Left, Back), CONTINUE, ride
 
-With the app's settings (PS2X_GAME_SETTINGS_MENUS=1: the pause menu's PHOTO MODE and SETTINGS lines) and GS on (the
-picture is the point); PS2X_SCREENSHOT_DIR the run's photos/. The pause menu's lines are counted from its end: SETTINGS
+With the app's settings (ZX_GAME_SETTINGS_MENUS=1: the pause menu's PHOTO MODE and SETTINGS lines) and GS on (the
+picture is the point); ZX_SCREENSHOT_DIR the run's photos/. The pause menu's lines are counted from its end: SETTINGS
 last, PHOTO MODE the one above (dave_mirra_settings.cpp, bmx_xxx_exit.cpp); the shots show each screen.
 
 Its numbers: the rider's position and the level's frame count before, all through and after photo mode (the game
@@ -120,10 +120,10 @@ def play(game, name, level=0):
         menu = g.menu_script(level, 0)
     d = os.path.join(g.SCRATCH, 'sessions', name)
     os.makedirs(d, exist_ok=True)
-    env = {'PS2X_GAME_SETTINGS_MENUS': '1', 'PS2X_EE_SCALE': '4096'}
+    env = {'ZX_GAME_SETTINGS_MENUS': '1', 'ZX_EE_SCALE': '4096'}
     cfg = g.run_config(name, menu.text(), env=env, max_secs=int(os.environ.get('MAX_SECS', '900')), gs=True)
     photos = os.path.join(cfg.root, name, 'photos')
-    cfg.env['PS2X_SCREENSHOT_DIR'] = photos
+    cfg.env['ZX_SCREENSHOT_DIR'] = photos
     log = player_dm2.Log(os.path.join(d, 'play.log'))
     with core.Run(cfg) as run:
         bot = Bot(run, g, lambda text: log(bot.st, text))
@@ -162,7 +162,7 @@ def play_ai(name, line_photo=None, line_settings=None):
     import ai
     rows, cursors = [], []
     photos = os.path.join(ai.SCRATCH, 'runs', name, 'photos')
-    env = {'PS2X_GAME_SETTINGS_MENUS': '1', 'PS2X_SCREENSHOT_DIR': photos}
+    env = {'ZX_GAME_SETTINGS_MENUS': '1', 'ZX_SCREENSHOT_DIR': photos}
 
     def note(bot, what):
         s = bot.s

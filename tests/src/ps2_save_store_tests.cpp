@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-using namespace ps2x::saves;
+using namespace zx::saves;
 
 namespace
 {
@@ -18,7 +18,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = std::filesystem::temp_directory_path() / ("ps2x-saves-" + std::to_string(now));
+            path = std::filesystem::temp_directory_path() / ("zx-saves-" + std::to_string(now));
             std::filesystem::create_directories(path);
         }
         ~TempDir()

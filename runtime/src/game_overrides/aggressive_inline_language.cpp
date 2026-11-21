@@ -31,9 +31,8 @@ namespace aggressive_inline::language
     // files in the same translation unit.
     namespace detail
     {
-        namespace zt = ps2x::zaxis_text;
-        namespace zx = ps2x::zaxis;
-        namespace gf = ps2x::game_files;
+        namespace zt = zx::zaxis_text;
+        namespace gf = zx::game_files;
 
         struct Tables
         {
@@ -43,9 +42,9 @@ namespace aggressive_inline::language
             std::shared_ptr<const zt::Translation> table;
             std::mutex tableMutex;
             std::mutex traceMutex;
-            std::set<std::string> traced; // PS2X_TRACE_LANGUAGE: texts shown once
+            std::set<std::string> traced; // ZX_TRACE_LANGUAGE: texts shown once
         };
-        Tables &tables() { return ps2x::session::state<Tables>(); }
+        Tables &tables() { return zx::session::state<Tables>(); }
 
         const char *extension(Language language)
         {
@@ -94,7 +93,7 @@ namespace aggressive_inline::language
         {
             std::unique_ptr<gf::GameFileSystem> files;
         };
-        Disc &disc() { return ps2x::session::state<Disc>(); }
+        Disc &disc() { return zx::session::state<Disc>(); }
 
         gf::GameFileSystem &files()
         {
@@ -582,7 +581,7 @@ namespace aggressive_inline::language
     {
         (void)runtime;
         using namespace detail;
-        const char *value = ps2x::boot::text("PS2X_LANGUAGE");
+        const char *value = zx::boot::text("ZX_LANGUAGE");
         const std::string name = lower(value ? value : "");
         if (name == "french" || name == "fre" || name == "fr" || name == "francais")
             tables().language = Language::French;
@@ -594,9 +593,9 @@ namespace aggressive_inline::language
             tables().language = Language::English;
         if (tables().language == Language::English)
             return false;
-        if (const char *menus = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !menus || menus[0] != '1')
+        if (const char *menus = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !menus || menus[0] != '1')
         {
-            std::cerr << "[language] " << name << " needs PS2X_GAME_SETTINGS_MENUS=1 (the app); English" << std::endl;
+            std::cerr << "[language] " << name << " needs ZX_GAME_SETTINGS_MENUS=1 (the app); English" << std::endl;
             return false;
         }
         if (!ps2_xbox_disc::init() || !ps2_xbox_disc::exists(std::string("string.") + extension(tables().language)))
@@ -605,7 +604,7 @@ namespace aggressive_inline::language
             return false;
         }
         tables().active = true;
-        ps2x::disc_patch::registerPatch("STRING.EUS", &patchStringTable, "ai");
+        zx::disc_patch::registerPatch("STRING.EUS", &patchStringTable, "ai");
         std::cout << "[language] " << name << " from the Xbox release (" << ps2_xbox_disc::description() << ")"
                   << std::endl;
         return true;
@@ -630,11 +629,11 @@ namespace aggressive_inline::language
             return {};
         const auto words = detail::table();
         std::string out = words ? words->translate(english) : std::string();
-        // PS2X_TRACE_LANGUAGE=1: each text drawn without a translation, once
+        // ZX_TRACE_LANGUAGE=1: each text drawn without a translation, once
         // (2: every text drawn, with its translation, once).
         static const int trace = []()
         {
-            const char *value = std::getenv("PS2X_TRACE_LANGUAGE");
+            const char *value = std::getenv("ZX_TRACE_LANGUAGE");
             return value ? std::atoi(value) : 0;
         }();
         if (trace >= 2 || (trace == 1 && out.empty()))
@@ -649,7 +648,7 @@ namespace aggressive_inline::language
         return out;
     }
 
-    bool patchUiLibrary(std::vector<ps2x::zaxis::ArchiveEntry> &entries)
+    bool patchUiLibrary(std::vector<zx::zaxis::ArchiveEntry> &entries)
     {
         using namespace detail;
         if (!tables().active)
@@ -657,9 +656,9 @@ namespace aggressive_inline::language
         // Build the table now, before anything is drawn.
         table();
         std::vector<uint8_t> bytes;
-        std::vector<zx::ArchiveEntry> xbox;
+        std::vector<zx::zaxis::ArchiveEntry> xbox;
         std::string error;
-        if (!ps2_xbox_disc::readFile("uilib.zal", bytes) || !zx::readArchive(bytes, xbox, &error))
+        if (!ps2_xbox_disc::readFile("uilib.zal", bytes) || !zx::zaxis::readArchive(bytes, xbox, &error))
         {
             std::cerr << "[language] Xbox uilib.zal not read " << error << ": PS2 fonts" << std::endl;
             return false;
@@ -670,18 +669,18 @@ namespace aggressive_inline::language
         // in the pause menu at 0.8 of its width, the Trick List and Sound
         // Options titles); the PS2 widgets of the same path take the Xbox's
         // width (zaxis::narrowLike).
-        for (zx::ArchiveEntry &entry : entries)
+        for (zx::zaxis::ArchiveEntry &entry : entries)
         {
-            const std::string script = zx::scriptName(entry);
+            const std::string script = zx::zaxis::scriptName(entry);
             if (script.empty())
                 continue;
-            for (const zx::ArchiveEntry &donor : xbox)
+            for (const zx::zaxis::ArchiveEntry &donor : xbox)
             {
-                if (donor.nameHash != entry.nameHash || zx::scriptName(donor) != script)
+                if (donor.nameHash != entry.nameHash || zx::zaxis::scriptName(donor) != script)
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 const std::string theirs(donor.data.begin(), donor.data.end());
-                const std::vector<std::string> narrowed = zx::narrowLike(text, theirs);
+                const std::vector<std::string> narrowed = zx::zaxis::narrowLike(text, theirs);
                 for (const std::string &path : narrowed)
                     std::cout << "[language] " << script << ": " << path << " as narrow as the Xbox's" << std::endl;
                 if (!narrowed.empty())
@@ -692,17 +691,17 @@ namespace aggressive_inline::language
                 break;
             }
         }
-        for (zx::ArchiveEntry &entry : entries)
+        for (zx::zaxis::ArchiveEntry &entry : entries)
         {
-            std::vector<zx::LibraryFont> fonts;
-            if (!zx::readLibrary(entry.data, nullptr, &fonts) || fonts.empty())
+            std::vector<zx::zaxis::LibraryFont> fonts;
+            if (!zx::zaxis::readLibrary(entry.data, nullptr, &fonts) || fonts.empty())
                 continue;
-            for (const zx::ArchiveEntry &donor : xbox)
+            for (const zx::zaxis::ArchiveEntry &donor : xbox)
             {
                 if (donor.nameHash != entry.nameHash)
                     continue;
                 const size_t before = entry.data.size();
-                const std::vector<std::string> replaced = zx::replaceFonts(entry.data, donor.data);
+                const std::vector<std::string> replaced = zx::zaxis::replaceFonts(entry.data, donor.data);
                 if (replaced.empty())
                     continue;
                 changed = true;
@@ -717,9 +716,9 @@ namespace aggressive_inline::language
 
     bool frenchVoices()
     {
-        if (ps2x::settings::has("audio.french_voices"))
-            return ps2x::settings::value("audio.french_voices", 0) != 0;
-        if (const char *value = ps2x::boot::text("PS2X_FRENCH_VOICES"); value && *value)
+        if (zx::settings::has("audio.french_voices"))
+            return zx::settings::value("audio.french_voices", 0) != 0;
+        if (const char *value = zx::boot::text("ZX_FRENCH_VOICES"); value && *value)
             return value[0] == '1';
         return current() == Language::French;
     }

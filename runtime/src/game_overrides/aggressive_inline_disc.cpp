@@ -7,7 +7,7 @@
 // release's skaters are served in place of the PS2 files (below).
 //
 // [host] disc = ps2: none of this is installed (ZCDDVD over the emulated IOP
-// and cdvdman, as on the console). PS2X_MODS_DIR, PS2X_TRACE_DISC: zge_disc.cpp.
+// and cdvdman, as on the console). ZX_MODS_DIR, ZX_TRACE_DISC: zge_disc.cpp.
 #include "aggressive_inline_disc.h"
 #include "sym/game_overrides/aggressive_inline_disc.cpp.h"
 #include "zge_host.h"
@@ -44,16 +44,16 @@ namespace game::readable
 
 namespace aggressive_inline
 {
-    std::shared_ptr<ps2x::game_files::GameFile> openGameFile(const std::string &path)
+    std::shared_ptr<zx::game_files::GameFile> openGameFile(const std::string &path)
     {
         return zge_host::openGameFile(path);
     }
 
-    // The Xbox release's skaters (made at build time by ps2xNativeAssets
-    // --xbox-models into <PS2X_XBOX_PACK>/models/<PS2 path>: the PS2 model
+    // The Xbox release's skaters (made at build time by zx-native-assets
+    // --xbox-models into <ZX_XBOX_PACK>/models/<PS2 path>: the PS2 model
     // file with the Xbox geometry, ready for the game's own loader). Served
     // in place of the PS2 files when Settings > Display > Xbox Skaters is on
-    // (display.xbox_skaters, on by default; PS2X_XBOX_MODELS=0 turns it off
+    // (display.xbox_skaters, on by default; ZX_XBOX_MODELS=0 turns it off
     // without the app's row) and the readable packet builder runs; from the
     // next skater load.
     namespace xbox_models
@@ -67,7 +67,7 @@ namespace aggressive_inline
             std::mutex mutex;
             std::unordered_map<std::string, std::shared_ptr<const std::vector<uint8_t>>> cache; // by normalized path
         };
-        XboxModels &models() { return ps2x::session::state<XboxModels>(); }
+        XboxModels &models() { return zx::session::state<XboxModels>(); }
 
         // The PS2's packet builder (buildPartPacket) builds a first packet
         // in a fixed 160 KB buffer that the larger Xbox skaters overrun; the
@@ -76,7 +76,7 @@ namespace aggressive_inline
 
         bool wanted()
         {
-            const bool on = ps2x::settings::has(kKey) ? ps2x::settings::value(kKey) != 0 : models().envOn;
+            const bool on = zx::settings::has(kKey) ? zx::settings::value(kKey) != 0 : models().envOn;
             if (!on)
                 return false;
             if (!game::readable::runsInGame(kPacketBuilder))
@@ -85,7 +85,7 @@ namespace aggressive_inline
                 {
                     models().saidNeedsReadable = true;
                     std::cout << "[disc] Xbox skaters need the readable packet builder (buildPartPacket, "
-                                 "PS2X_READABLE): the PS2 skaters"
+                                 "ZX_READABLE): the PS2 skaters"
                               << std::endl;
                 }
                 return false;
@@ -114,24 +114,24 @@ namespace aggressive_inline
 
         void install()
         {
-            const char *pack = ps2x::boot::text("PS2X_XBOX_PACK");
+            const char *pack = zx::boot::text("ZX_XBOX_PACK");
             std::error_code ec;
             if (!pack || !pack[0] || !std::filesystem::is_directory(std::filesystem::path(pack) / "models", ec))
                 return;
             models().folder = std::filesystem::path(pack) / "models";
-            const char *on = ps2x::boot::text("PS2X_XBOX_MODELS");
-            models().envOn = !on || on[0] != '0'; // on unless PS2X_XBOX_MODELS=0
-            ps2x::game_files::registerProvider("ASSETS/SKATERS/", &provide, "xbox-skaters");
-            ps2x::session::onEnd([]() { ps2x::game_files::removeProviders("xbox-skaters"); });
-            if (!ps2x::settings::has(kKey))
+            const char *on = zx::boot::text("ZX_XBOX_MODELS");
+            models().envOn = !on || on[0] != '0'; // on unless ZX_XBOX_MODELS=0
+            zx::game_files::registerProvider("ASSETS/SKATERS/", &provide, "xbox-skaters");
+            zx::session::onEnd([]() { zx::game_files::removeProviders("xbox-skaters"); });
+            if (!zx::settings::has(kKey))
             {
-                ps2x::settings::Setting row;
+                zx::settings::Setting row;
                 row.key = kKey;
                 row.label = "Xbox Skaters";
                 row.help = "More detailed skaters, from the next level.";
                 row.current = [] { return models().envOn ? 1 : 0; };
                 row.apply = [](int value) { models().envOn = value != 0; };
-                ps2x::session::addSetting(row);
+                zx::session::addSetting(row);
             }
             std::cout << "[disc] Xbox skaters from " << models().folder.string() << " (" << (wanted() ? "on" : "off") << ")"
                       << std::endl;

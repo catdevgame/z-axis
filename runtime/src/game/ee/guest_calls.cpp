@@ -1,10 +1,10 @@
-// PS2X_GUEST_CALL: guest functions called at a chosen vsync, for recording
+// ZX_GUEST_CALL: guest functions called at a chosen vsync, for recording
 // paths no input reaches (docs/DEVTOOLS.md). The game's input
 // recorder (replayFrame) records and plays back only after
 // setReplayMode is called with 1 or 2, which only the debug code
 // cycleReplayMode does, and nothing calls that; a route sets the modes this way:
 //
-//   PS2X_GUEST_CALL=HOOK@VSYNC:TARGET[:A0[:A1[:A2[:A3]]]][,...]
+//   ZX_GUEST_CALL=HOOK@VSYNC:TARGET[:A0[:A1[:A2[:A3]]]][,...]
 //
 // At the first call of HOOK at or after vsync VSYNC, TARGET is called with
 // a0 and a1 (and a2, a3 when given: paths6, e.g. scriptSendEvent's three)
@@ -13,19 +13,19 @@
 // Off unless set; it changes what the game does (a test route only).
 // Example (the career input, the Movie Lot): record from tick 1500, play
 // back from 2100, off at 2700:
-//   PS2X_GUEST_CALL=replayFrame@1500:setReplayMode:1,replayFrame@2100:setReplayMode:2,replayFrame@2700:setReplayMode:0
+//   ZX_GUEST_CALL=replayFrame@1500:setReplayMode:1,replayFrame@2100:setReplayMode:2,replayFrame@2700:setReplayMode:0
 //
 // Strings and buffers (paths7): an argument `$N` passes the address of a
-// copy of the N-th string of PS2X_GUEST_STRINGS (strings separated by `|`,
+// copy of the N-th string of ZX_GUEST_STRINGS (strings separated by `|`,
 // so they may hold `:` and `,`), and `#N` the address of N zero bytes (an
 // out parameter). They are written on the guest stack below HOOK's caller's
 // sp, the callee's stack below them, so they last for the call only. Up to
 // eight arguments (a0-a3, then t0-t3) with these. Example: zgui's library
 // load with a completion name (an asynchronous load, which only DM2's menus
 // and AI's leftover MENU/MAIN.ZSC ask for):
-//   PS2X_GUEST_STRINGS='P7Test|uilib:PauseMenu.Zif|LoadComplete'
-//   PS2X_GUEST_CALL=renderFrame@900:loadZguiLibrary:$0:$1:$2
-// An argument `^N` passes what the N-th call of PS2X_GUEST_CALL (from 0, in
+//   ZX_GUEST_STRINGS='P7Test|uilib:PauseMenu.Zif|LoadComplete'
+//   ZX_GUEST_CALL=renderFrame@900:loadZguiLibrary:$0:$1:$2
+// An argument `^N` passes what the N-th call of ZX_GUEST_CALL (from 0, in
 // the order given) returned in v0 (0 before it ran): a handle one call opens
 // and the next ones use. Calls due at the same hook entry run in that order.
 // VSYNC `+N`: N vsyncs after the item before it ran (and not before), so a
@@ -70,7 +70,7 @@ namespace game::guest_calls
             // paths7: the arguments as given when one is a string ($N) or a
             // buffer (#N), or there are more than four; empty otherwise
             std::vector<std::string> raw;
-            size_t index = 0; // its place in PS2X_GUEST_CALL
+            size_t index = 0; // its place in ZX_GUEST_CALL
             bool relative = false; // VSYNC was +N: due N vsyncs after the item before ran
             // paths8: TARGET was `~ADDR`: the call is made as an invocation on the
             // thread (EeScheduler::invokeCurrent), so it may wait (a semaphore,
@@ -81,7 +81,7 @@ namespace game::guest_calls
             char store = 0;
         };
 
-        std::vector<std::string> g_strings; // PS2X_GUEST_STRINGS
+        std::vector<std::string> g_strings; // ZX_GUEST_STRINGS
         std::vector<uint32_t> g_returned;   // each call's v0 (^N), by index
         std::vector<uint64_t> g_ranAt;      // the vsync each item ran at (+N), by index; ~0 not yet
 
@@ -395,11 +395,11 @@ namespace game::guest_calls
 
     void install(PS2Runtime &runtime)
     {
-        const char *spec = std::getenv("PS2X_GUEST_CALL");
+        const char *spec = std::getenv("ZX_GUEST_CALL");
         if (!spec || !*spec)
             return;
         std::string all(spec);
-        if (const char *strings = std::getenv("PS2X_GUEST_STRINGS"))
+        if (const char *strings = std::getenv("ZX_GUEST_STRINGS"))
         {
             std::string s(strings);
             size_t from = 0;

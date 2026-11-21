@@ -36,7 +36,7 @@ namespace zge
         uint32_t kind;          // +0x00 the box's kind (the handlers are by pairs of kinds)
         uint32_t isHigh;        // +0x04 0: a box's low end
         uint32_t box;           // +0x08 the box it is an end of (its ends share it): what the handlers are given
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         ee::Ptr<SweepBox> ends; // +0x0C its box's record
         // Whether its box never makes a contact with box `other` (its
         // record's ignore list), and its box's record set (sweepAddBody).

@@ -17,7 +17,7 @@
 // View menu has. Full screen is the window library's (a borderless window
 // covering the display), for both full screen modes.
 
-namespace ps2x_app::platform
+namespace zx_app::platform
 {
     namespace
     {

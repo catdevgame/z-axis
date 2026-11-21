@@ -18,7 +18,7 @@
 #include <set>
 #include <tuple>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {
@@ -495,6 +495,46 @@ namespace ps2x::app::extras
             return count;
         }
 
+        // ---- pictures made small, to pair by picture -------------------------
+
+        // (RGB, opaque) rows of a picture.
+        using Image = std::vector<std::vector<std::pair<Rgb, bool>>>;
+
+        // A PS2 picture as (RGB, opaque) rows: its colour key transparent.
+        Image ps2Image(const Indexed &picture)
+        {
+            Image out;
+            for (const Bytes &row : picture.rows)
+            {
+                std::vector<std::pair<Rgb, bool>> texels;
+                for (uint8_t index : row)
+                {
+                    const Rgb &c = picture.palette[index];
+                    texels.push_back({c, !isColourKey(c)});
+                }
+                out.push_back(std::move(texels));
+            }
+            return out;
+        }
+
+        // A picture box-averaged to w x h cells (each cell the mean of the
+        // texels it covers, as Cell holds it).
+        Thumb boxAverage(const Image &image, int w, int h)
+        {
+            const int sh = int(image.size()), sw = sh ? int(image[0].size()) : 0;
+            Thumb out;
+            for (int gy = 0; gy < h; ++gy)
+                for (int gx = 0; gx < w; ++gx)
+                {
+                    std::vector<std::pair<Rgb, bool>> samples;
+                    for (int y = gy * sh / h; y < std::max(gy * sh / h + 1, (gy + 1) * sh / h); ++y)
+                        for (int x = gx * sw / w; x < std::max(gx * sw / w + 1, (gx + 1) * sw / w); ++x)
+                            samples.push_back(image[size_t(y)][size_t(x)]);
+                    out.push_back(cellOf(samples));
+                }
+            return out;
+        }
+
         // (mean RGB difference where both are opaque, mean difference of the opaque share)
         std::pair<double, double> thumbDiff(const Thumb &a, const Thumb &b)
         {
@@ -514,6 +554,31 @@ namespace ps2x::app::extras
                 cover += std::fabs(a[i].opaqueShare - b[i].opaqueShare);
             }
             return {colourCells ? colourSum / double(colourCells) : 0.0, cover / double(a.size())};
+        }
+
+        // Latin-1 bytes as UTF-8 (the report's names).
+        std::string utf8OfLatin1(const std::string &text)
+        {
+            std::string out;
+            for (unsigned char c : text)
+            {
+                if (c < 0x80)
+                    out += char(c);
+                else
+                {
+                    out += char(0xC0 | (c >> 6));
+                    out += char(0x80 | (c & 0x3F));
+                }
+            }
+            return out;
+        }
+
+        template <typename... Args>
+        std::string format(const char *pattern, Args... args)
+        {
+            char buffer[512];
+            std::snprintf(buffer, sizeof buffer, pattern, args...);
+            return buffer;
         }
 
         // ---- matching ---------------------------------------------------------
@@ -579,6 +644,7 @@ namespace ps2x::app::extras
         {
             const Texture *ps2;
             const Texture *xbox;
+            std::string byPicture = {}; // paired by picture: the report's line (empty: by name)
         };
 
         // The pairs of one file: each PS2 texture with the Xbox one of its
@@ -613,6 +679,93 @@ namespace ps2x::app::extras
                     out.push_back({&p, x});
             }
             return out;
+        }
+
+        // An Xbox picture the pack can put in for a PS2 texture: DXT3 with
+        // its mips, at least as many texels.
+        bool canReplace(const Texture &ps2, const Texture &xbox)
+        {
+            return xbox.xboxFormat == kXboxDxt3 && xbox.mipLevels >= 1 &&
+                   xbox.width * xbox.height >= ps2.width * std::abs(ps2.height);
+        }
+
+        // The side pictures are compared at when paired by picture: small
+        // enough that DXT3's blocks and the PS2 palettes' steps average out.
+        constexpr int kPictureSide = 32;
+
+        // The PS2 textures of an archive with no Xbox picture by name, paired
+        // by picture (BMX XXX's level props: their Xbox names drop the size,
+        // "NDMBURNB_ID1128" -> "NDMBURNB_ID1", and a few are renamed): each
+        // with the most alike of the archive's Xbox pictures that can replace
+        // it and are at least its width and height, both box-averaged to at
+        // most kPictureSide a side, when the mean RGB difference where both
+        // are opaque is at most options.maxPictureDiff and the mean
+        // difference of the opaque share at most options.maxPictureCover.
+        // `rejected` gets a line for each texture left as it is, with the
+        // nearest picture.
+        void addPicturePairs(std::vector<Pair> &pairs, const std::vector<Texture> &ps2, const std::vector<Texture> &xbox,
+                             const XboxTexturePackOptions &options, std::vector<std::string> &rejected)
+        {
+            // A pair by name with an Xbox picture the pack cannot put in (not
+            // DXT3, or smaller) is tried by picture too.
+            std::map<const Texture *, const Texture *> namedUnusable;
+            for (const Pair &pair : pairs)
+                if (!canReplace(*pair.ps2, *pair.xbox))
+                    namedUnusable[pair.ps2] = pair.xbox;
+            std::erase_if(pairs, [](const Pair &pair) { return !canReplace(*pair.ps2, *pair.xbox); });
+            // The keys (size, index hash) paired by name or tried by picture:
+            // a texture kept in several of the archive's entries is tried once.
+            std::set<std::tuple<int, int, uint64_t>> paired;
+            for (const Pair &pair : pairs)
+                paired.insert({pair.ps2->width, std::abs(pair.ps2->height), fnv1a64(bmpRows(*pair.ps2).rows)});
+            std::map<std::tuple<const Texture *, int, int>, Thumb> small; // each Xbox picture made small once
+            for (const Texture &p : ps2)
+            {
+                const int pw = p.width, ph = std::abs(p.height);
+                const Indexed indexed = bmpRows(p);
+                // One index everywhere: no key of its own (as below).
+                if (oneIndex(indexed.rows) || !paired.insert({pw, ph, fnv1a64(indexed.rows)}).second)
+                    continue;
+                const int w = std::min(kPictureSide, pw), h = std::min(kPictureSide, ph);
+                const Thumb mine = boxAverage(ps2Image(indexed), w, h);
+                const Texture *best = nullptr;
+                double bestDiff = 0.0, bestCover = 0.0;
+                for (const Texture &x : xbox)
+                {
+                    if (!canReplace(p, x) || x.width < pw || x.height < ph ||
+                        x.pixels + dxtLevelSizes(x.width, x.height, 1)[0] > x.data.size)
+                        continue;
+                    auto it = small.find({&x, w, h});
+                    if (it == small.end())
+                        it = small.emplace(std::make_tuple(&x, w, h),
+                                           boxAverage(dxt3Decode(x.data.data + x.pixels, x.width, x.height), w, h)).first;
+                    const auto [diff, cover] = thumbDiff(mine, it->second);
+                    if (!best || diff + 255.0 * cover < bestDiff + 255.0 * bestCover)
+                    {
+                        best = &x;
+                        bestDiff = diff;
+                        bestCover = cover;
+                    }
+                }
+                const std::string pName = utf8OfLatin1(p.name);
+                std::string why = "no Xbox picture alike";
+                if (const auto it = namedUnusable.find(&p); it != namedUnusable.end())
+                    why = format("its Xbox picture by name is %dx%d in D3D format 0x%02X, none other alike", it->second->width,
+                                 it->second->height, unsigned(it->second->xboxFormat));
+                if (!best)
+                {
+                    rejected.push_back(format("%s %dx%d: %s", pName.c_str(), pw, ph, why.c_str()));
+                    continue;
+                }
+                const std::string xbox = format("%s %dx%d (colour %.1f, cover %.2f)", utf8OfLatin1(best->name).c_str(),
+                                                best->width, best->height, bestDiff, bestCover);
+                if (bestDiff > options.maxPictureDiff || bestCover > options.maxPictureCover)
+                {
+                    rejected.push_back(format("%s %dx%d: %s, nearest %s", pName.c_str(), pw, ph, why.c_str(), xbox.c_str()));
+                    continue;
+                }
+                pairs.push_back({&p, best, format("%s %dx%d -> %s", pName.c_str(), pw, ph, xbox.c_str())});
+            }
         }
 
         // ---- the pack ---------------------------------------------------------
@@ -685,31 +838,6 @@ namespace ps2x::app::extras
             return out;
         }
 
-        // Latin-1 bytes as UTF-8 (the report's names).
-        std::string utf8OfLatin1(const std::string &text)
-        {
-            std::string out;
-            for (unsigned char c : text)
-            {
-                if (c < 0x80)
-                    out += char(c);
-                else
-                {
-                    out += char(0xC0 | (c >> 6));
-                    out += char(0x80 | (c & 0x3F));
-                }
-            }
-            return out;
-        }
-
-        template <typename... Args>
-        std::string format(const char *pattern, Args... args)
-        {
-            char buffer[512];
-            std::snprintf(buffer, sizeof buffer, pattern, args...);
-            return buffer;
-        }
-
         bool endsWithAny(const std::string &path, std::initializer_list<const char *> endings)
         {
             const std::string low = lowerAscii(path);
@@ -770,7 +898,7 @@ namespace ps2x::app::extras
     {
         const auto started = std::chrono::steady_clock::now();
         std::vector<std::string> report;
-        long files = 0, ps2Count = 0, packed = 0, keys = 0, rejectedCount = 0, packBytesTotal = 0;
+        long files = 0, ps2Count = 0, packed = 0, keys = 0, rejectedCount = 0, packBytesTotal = 0, byPicture = 0;
         long long ps2Texels = 0, xboxTexels = 0;
         for (const std::string &xboxPath : xbox.files())
         {
@@ -800,14 +928,18 @@ namespace ps2x::app::extras
 
             std::vector<PackEntry> entries;
             std::vector<Span> pictures;
-            std::vector<std::string> rejected;
+            std::vector<std::string> rejected, byPictureLines;
+            std::vector<Pair> pairs = pairsIn(relative, ps2Textures, xboxTextures);
+            if (endsWithAny(relative, {".zal"}))
+                addPicturePairs(pairs, ps2Textures, xboxTextures, options, rejected);
             std::set<std::tuple<int, int, uint64_t>> seen;
+            std::map<const Texture *, size_t> pictureOf; // an Xbox picture paired by picture with several PS2 ones: once
             long long texels[2] = {0, 0};
-            for (const Pair &pair : pairsIn(relative, ps2Textures, xboxTextures))
+            for (const Pair &pair : pairs)
             {
                 const Texture &p = *pair.ps2, &x = *pair.xbox;
                 const int pw = p.width, ph = std::abs(p.height);
-                if (x.xboxFormat != kXboxDxt3 || x.mipLevels < 1 || x.width * x.height < pw * ph)
+                if (!canReplace(p, x))
                     continue;
                 const std::vector<size_t> sizes = dxtLevelSizes(x.width, x.height, x.mipLevels);
                 size_t chain = 0;
@@ -848,8 +980,12 @@ namespace ps2x::app::extras
                 const uint64_t hash = fnv1a64(indexed.rows);
                 if (!seen.insert({pw, ph, hash}).second)
                     continue;
-                const size_t picture = pictures.size();
-                pictures.push_back(payload);
+                const auto placed = pictureOf.emplace(&x, pictures.size());
+                const size_t picture = placed.first->second;
+                if (placed.second)
+                    pictures.push_back(payload);
+                if (!pair.byPicture.empty())
+                    byPictureLines.push_back(pair.byPicture);
                 entries.push_back({pw, ph, p.bitsPerPixel, hash, x.width, x.height, x.mipLevels, picture, p.name});
                 // The PS2 mip levels show the same picture (the GS samples
                 // them with the same normalized coordinates).
@@ -882,21 +1018,26 @@ namespace ps2x::app::extras
                                         pictures.size(), entries.size(), rejected.size(),
                                         double(texels[1]) / double(std::max(1ll, texels[0])), data.size() >> 10));
             }
+            for (const std::string &line : byPictureLines)
+                report.push_back("    by picture: " + line);
             for (const std::string &r : rejected)
                 report.push_back("    rejected: " + r);
             ps2Count += long(ps2Textures.size());
             packed += long(pictures.size());
             keys += long(entries.size());
             rejectedCount += long(rejected.size());
+            byPicture += long(byPictureLines.size());
             ps2Texels += texels[0];
             xboxTexels += texels[1];
         }
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+        // (AI's, with no archives, as tools/xbox_pack.py's)
+        const std::string byPictureNote = options.archives ? format(", %ld of them paired by picture", byPicture) : "";
         const std::string summary = format(
-            "%ld Xbox textures (%ld keys) for %ld PS2 files (%ld indexed PS2 textures in the paired files, %ld pairs "
+            "%ld Xbox textures (%ld keys) for %ld PS2 files (%ld indexed PS2 textures in the paired files%s, %ld pairs "
             "rejected), %.2fx the texels, %ld MB, %.1f s",
-            packed, keys, files, ps2Count, rejectedCount, double(xboxTexels) / double(std::max(1ll, ps2Texels)),
-            packBytesTotal >> 20, seconds);
+            packed, keys, files, ps2Count, byPictureNote.c_str(), rejectedCount,
+            double(xboxTexels) / double(std::max(1ll, ps2Texels)), packBytesTotal >> 20, seconds);
         std::string text = format("%-40s %5s %5s %5s %4s %6s %8s", "PS2 file", "ps2#", "xbox", "keys", "rej", "texels", "KB");
         text += "\n(ps2#: indexed PS2 textures in the file; xbox: replaced by an Xbox picture; keys: with the PS2 mip "
                 "levels; texels: Xbox / PS2 texels of the replaced ones)\n";

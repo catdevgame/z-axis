@@ -11,7 +11,7 @@
 //
 // In the game they go to the runtime (PS2Runtime::LoadN / StoreN, as the
 // generated code's accesses do, with the same side effects: a store to a
-// channel's CHCR starts it). ps2xFnCheck answers the loads from the
+// channel's CHCR starts it). zx-fncheck answers the loads from the
 // recording's I/O log and compares the stores with it, in order
 // (fncheck::IoPort; the recorder keeps the traced original's accesses,
 // fncheck.h Record::io).
@@ -143,7 +143,7 @@ namespace ee::io
     }
 
     // EI: interrupts enabled (COP0 Status.EIE, as generated code sets it;
-    // ps2xFnCheck compares the status a function leaves).
+    // zx-fncheck compares the status a function leaves).
     inline void enableInterrupts() { t_ee.frame->ctx->cop0_status |= 0x10000u; }
     // DI.
     inline void disableInterrupts() { t_ee.frame->ctx->cop0_status &= ~0x10000u; }
@@ -152,7 +152,7 @@ namespace ee::io
     // reads (PS2Runtime::readCop0Count: the scheduler's EE cycle plus the
     // bias an MTC0 Count set), kept in the context as it does. It charges
     // nothing; the value depends on the cycles charged so far, so read it
-    // where the original does relative to its loops and calls (ps2xFnCheck
+    // where the original does relative to its loops and calls (zx-fncheck
     // starts Count at 0 for both replays: readCycleCounter's timer).
     //
     //     const uint32_t now = ee::io::cop0Count();   // mfc0 $a0, Count

@@ -11,7 +11,7 @@
 #include <memory>
 #include <unordered_set>
 
-namespace ps2x::zaxis::zoo
+namespace zx::zaxis::zoo
 {
     namespace
     {
@@ -409,7 +409,7 @@ namespace ps2x::zaxis::zoo
 
     std::vector<uint8_t> picturePack(const std::vector<xbox::HostTexture> &host)
     {
-        namespace tr = ps2x::texture_replace;
+        namespace tr = zx::texture_replace;
         std::vector<tr::Entry> entries;
         entries.reserve(host.size());
         for (const xbox::HostTexture &h : host)

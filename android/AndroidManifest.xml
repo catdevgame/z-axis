@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The Z-Axis Collection on Android: SDLActivity (from the pinned SDL3's source)
-     and libps2EntryRunner.so. Built by build-apk.sh, which can give the app
+     and libzx-runner.so. Built by build-apk.sh, which can give the app
      another application id (APP_ID: the classes stay in this package). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="io.github.catdevgame.zaxiscollection"

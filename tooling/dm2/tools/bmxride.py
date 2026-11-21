@@ -121,7 +121,7 @@ def play(name, ride):
     steps = steps()
     cur = {'step': None, 't0': 0, 'b': frozenset()}
     menu = bmx.menu_script(level, rider)
-    cfg = bmx.run_config(name, menu.text(), env={'PS2X_PAD_STICK_CENTER': '0x7f'}, max_secs=900, root=OUT)
+    cfg = bmx.run_config(name, menu.text(), env={'ZX_PAD_STICK_CENTER': '0x7f'}, max_secs=900, root=OUT)
     d = os.path.join(OUT, name)
     os.makedirs(d, exist_ok=True)
     sched, log = [], open(os.path.join(d, 'log.txt'), 'w')

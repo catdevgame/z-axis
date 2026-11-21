@@ -1,6 +1,6 @@
 // The engine's Xbox model converter (zge/native/xbox_models.h) for the
 // extras' setup (collection/extras/ai_xbox_skaters.h engineXboxModelMaker).
-// Built into the app and ps2xExtras, which link the game's code; not into
+// Built into the app and zx-extras, which link the game's code; not into
 // the collection's library (game.cmake).
 #include "collection/extras/ai_xbox_skaters.h"
 
@@ -8,7 +8,7 @@
 
 #include <sstream>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     XboxModelMaker engineXboxModelMaker()
     {

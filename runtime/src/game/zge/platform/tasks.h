@@ -26,12 +26,12 @@ namespace zge
     struct RenderStage
     {
         List tasks;      // +0x00 Task records
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         int32_t enabled; // +0x0C 0: runRenderStage skips the stage
 #endif
     };
     static_assert(sizeof(RenderStage) == game::readable::perGame(0x10u, 0x0Cu));
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
     static_assert(offsetof(RenderStage, enabled) == 0x0C);
 #endif
     // ZGE2 has seven stages (DM2's task pool follows the seventh, 0x54 bytes on), ZGE3 eight.
@@ -40,7 +40,7 @@ namespace zge
     // Whether runRenderStage walks a stage, and initRenderStages' switch on.
     inline bool renderStageEnabled(const RenderStage &stage)
     {
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         return stage.enabled != 0;
 #else
         (void)stage;
@@ -49,7 +49,7 @@ namespace zge
     }
     inline void enableRenderStage(RenderStage &stage)
     {
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         stage.enabled = 1;
 #else
         (void)stage;

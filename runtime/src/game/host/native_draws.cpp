@@ -31,12 +31,12 @@ namespace game::host::native_draws
             // Records whenever frame interpolation is on (attach), unless the Native Meshes row is off.
             bool followInterpolation = false;
             std::atomic<bool> meshesOn{true};
-            ps2x::zaxis::RigidDrawForm rigidDraw;
-            ps2x::zaxis::SkinnedDrawForm skinnedDraw;
+            zx::zaxis::RigidDrawForm rigidDraw;
+            zx::zaxis::SkinnedDrawForm skinnedDraw;
             std::unordered_set<uint32_t> noMeshSeen; // parts noteNoMesh printed
             std::unordered_set<uint32_t> streamsSeen; // parts noteStreamsChanged printed
         };
-        Boot &boot() { return ps2x::session::state<Boot>(); }
+        Boot &boot() { return zx::session::state<Boot>(); }
         std::array<std::atomic<uint64_t>, static_cast<size_t>(Count::kCount)> g_counts{};
         std::atomic<uint64_t> g_draws{0}, g_declined{0};
         int g_trace = 0;
@@ -62,8 +62,8 @@ namespace game::host::native_draws
         }
     }
 
-    void attach(PS2Runtime &runtime, bool records, const ps2x::zaxis::RigidDrawForm &rigidDraw,
-                const ps2x::zaxis::SkinnedDrawForm &skinnedDraw, bool followInterpolation)
+    void attach(PS2Runtime &runtime, bool records, const zx::zaxis::RigidDrawForm &rigidDraw,
+                const zx::zaxis::SkinnedDrawForm &skinnedDraw, bool followInterpolation)
     {
         g_runtime.store(&runtime);
         boot().records.store(records);
@@ -75,12 +75,12 @@ namespace game::host::native_draws
             c.store(0);
         g_draws.store(0);
         g_declined.store(0);
-        const char *v = std::getenv("PS2X_TRACE_NATIVE");
+        const char *v = std::getenv("ZX_TRACE_NATIVE");
         g_trace = v ? std::atoi(v) : 0;
     }
 
-    const ps2x::zaxis::RigidDrawForm &rigidDraw() { return boot().rigidDraw; }
-    const ps2x::zaxis::SkinnedDrawForm &skinnedDraw() { return boot().skinnedDraw; }
+    const zx::zaxis::RigidDrawForm &rigidDraw() { return boot().rigidDraw; }
+    const zx::zaxis::SkinnedDrawForm &skinnedDraw() { return boot().skinnedDraw; }
 
     void setRecords(bool on) { boot().records.store(on); }
     void setMeshesOn(bool on) { boot().meshesOn.store(on); }
@@ -88,7 +88,7 @@ namespace game::host::native_draws
     {
         const Boot &b = boot();
         return b.records.load(std::memory_order_relaxed) ||
-               (b.followInterpolation && b.meshesOn.load(std::memory_order_relaxed) && ps2x::gs_interpolate::enabled());
+               (b.followInterpolation && b.meshesOn.load(std::memory_order_relaxed) && zx::gs_interpolate::enabled());
     }
 
     bool fromRecords() { return !ee::t_ee.callHandler && recordsWanted(); }
@@ -106,7 +106,7 @@ namespace game::host::native_draws
     bool xboxCharacterLighting()
     {
         PS2Runtime *runtime = g_runtime.load();
-        return boot().skinnedDraw.xboxLights && ps2x::gs_quality::xboxLighting() && runtime &&
+        return boot().skinnedDraw.xboxLights && zx::gs_quality::xboxLighting() && runtime &&
                runtime->gs().nativeDrawsOnBackend();
     }
 

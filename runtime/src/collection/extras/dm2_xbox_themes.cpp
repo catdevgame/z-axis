@@ -17,7 +17,7 @@
 #include <limits>
 #include <optional>
 
-namespace ps2x::app::extras::dm2
+namespace zx::app::extras::dm2
 {
     namespace
     {

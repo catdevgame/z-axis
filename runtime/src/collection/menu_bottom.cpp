@@ -5,7 +5,7 @@
 #include <cmath>
 #include <utility>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     namespace
     {
@@ -123,8 +123,48 @@ namespace ps2x::collection
         return line;
     }
 
+    // A setup or update running: what it does, and each game's part as the
+    // top screen's rows show it, a bar under each; nothing to tap.
+    void drawBusy(Canvas &canvas, const BottomLayout &layout, const BottomView &view, const BitmapFont &font)
+    {
+        const float scale = static_cast<float>(canvas.height()) / kDesignHeight;
+        const auto Y = [scale](int v) { return static_cast<int>(std::lround(v * scale)); };
+        canvas.clear(rgba(12, 12, 14));
+        canvas.text(font, layout.name.x, layout.name.y, view.busy, 2.4f * scale, rgba(255, 255, 255));
+        if (!view.busyLine.empty())
+            canvas.text(font, layout.line.x, layout.line.y, view.busyLine, 1.3f * scale, rgba(200, 200, 200));
+        const std::vector<FrontGame> empty;
+        const std::vector<FrontGame> &games = view.games ? *view.games : empty;
+        const int left = layout.name.x, room = layout.name.width;
+        int y = Y(200);
+        for (size_t row = 0; row < view.busyGames.size(); ++row)
+        {
+            const size_t game = static_cast<size_t>(view.busyGames[row]);
+            if (game < view.names.size())
+                canvas.text(font, left, y, view.names[game], 1.6f * scale, rgba(235, 235, 235));
+            if (game < view.lines.size())
+                canvas.text(font, left, y + Y(48), view.lines[game], 1.3f * scale, rgba(200, 200, 200));
+            const Rect bar{left, y + Y(96), room, std::max(2, Y(8))};
+            canvas.fill(bar, rgba(255, 255, 255, 40));
+            if (row < view.busyDone.size() && view.busyDone[row] > 0.0f)
+            {
+                const uint32_t colour = game < games.size() ? games[game].colour : rgba(220, 160, 60);
+                canvas.fill({bar.x, bar.y, static_cast<int>(std::lround(bar.width * std::min(1.0f, view.busyDone[row]))), bar.height},
+                            colour);
+            }
+            y += Y(150);
+        }
+        if (!view.busyHint.empty())
+            centred(canvas, font, layout.hint, view.busyHint, 1.4f * scale, rgba(190, 190, 190));
+    }
+
     void drawBottom(Canvas &canvas, const BottomLayout &layout, const BottomView &view, const BitmapFont &font)
     {
+        if (!view.busy.empty())
+        {
+            drawBusy(canvas, layout, view, font);
+            return;
+        }
         const std::vector<FrontGame> empty;
         const std::vector<FrontGame> &games = view.games ? *view.games : empty;
         const int chosen = games.empty() ? -1 : std::clamp(view.chosen, 0, static_cast<int>(games.size()) - 1);
@@ -229,6 +269,11 @@ namespace ps2x::collection
         view.heads = shown->heads.get();
         view.chosen = shown->chosen;
         view.pad = shown->pad;
+        view.busy = shown->busy;
+        view.busyLine = shown->busyLine;
+        view.busyHint = shown->busyHint;
+        view.busyGames = shown->busyGames;
+        view.busyDone = shown->busyDone;
         static const BitmapFont kNoFont;
         drawBottom(canvas, layout, view, shown->font ? *shown->font : kNoFont);
         return true;
@@ -236,7 +281,7 @@ namespace ps2x::collection
 
     BottomHit BottomScreen::hitAt(float x, float y, int width, int height) const
     {
-        if (!m_scene || !m_scene->games)
+        if (!m_scene || !m_scene->games || !m_scene->busy.empty()) // (busy: nothing to tap)
             return {};
         const size_t heads = m_scene->heads ? m_scene->heads->size() : 0;
         return bottomHit(bottomLayout(width, height, m_scene->games->size(), heads, m_scene->freeplay), x, y);

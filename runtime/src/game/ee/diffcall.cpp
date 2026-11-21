@@ -1,34 +1,34 @@
-// PS2X_DIFFCALL: generated calls of functions no recording reaches.
+// ZX_DIFFCALL: generated calls of functions no recording reaches.
 //
 // Some registered functions have no recording: no route reaches them, so
 // nothing compares their readable versions with the originals. This runs such
 // a function from a real game state with generated arguments and keeps the
-// call as a recording, which ps2xFnCheck then replays as any other. The tool
+// call as a recording, which zx-fncheck then replays as any other. The tool
 // on top (tools/diffcall.py) makes the arguments, drives the rounds and sorts
 // the verdicts; a pass from it is its own lower evidence tier, never Verified.
 //
-//   PS2X_DIFFCALL=HOOK@V1,V2,...   snapshots at the first call of HOOK at or
+//   ZX_DIFFCALL=HOOK@V1,V2,...   snapshots at the first call of HOOK at or
 //                                  after vsync V1, V2 ...
-//   PS2X_DIFFCALL=HOOK@trigger     ... whenever the file DIR/trigger appears
+//   ZX_DIFFCALL=HOOK@trigger     ... whenever the file DIR/trigger appears
 //                                  (its first word names the snapshot); a
 //                                  route waits on the game, then touches it
-//   PS2X_DIFFCALL_DIR=DIR          the folder (required)
-//   PS2X_DIFFCALL_BANK=1           the argument bank: every registered
+//   ZX_DIFFCALL_DIR=DIR          the folder (required)
+//   ZX_DIFFCALL_BANK=1           the argument bank: every registered
 //                                  function's table slot wrapped, keeping the
 //                                  last distinct argument values each was
 //                                  called with
-//   PS2X_DIFFCALL_WAIT=<s>         how long a snapshot waits for the tool
+//   ZX_DIFFCALL_WAIT=<s>         how long a snapshot waits for the tool
 //                                  (default 3600), then the game goes on
-//   PS2X_DIFFCALL_CASE_MS=<ms>     a case's time limit (default 1000; after
+//   ZX_DIFFCALL_CASE_MS=<ms>     a case's time limit (default 1000; after
 //                                  three hangs a target's other cases of the
 //                                  batch are skipped)
-//   PS2X_DIFFCALL_CASE_MB=<mb>     a case's memory above what it was forked
+//   ZX_DIFFCALL_CASE_MB=<mb>     a case's memory above what it was forked
 //                                  with (default 1024)
-//   PS2X_DIFFCALL_PATHS=1          the search's feedback: each returned case
+//   ZX_DIFFCALL_PATHS=1          the search's feedback: each returned case
 //                                  reports the blocks its target's original
 //                                  ran, and only the first cases of a set of
 //                                  them keep their recordings
-//   PS2X_DIFFCALL_PATH_KEEP=<n>    how many (default 4), and 8 times that for
+//   ZX_DIFFCALL_PATH_KEEP=<n>    how many (default 4), and 8 times that for
 //                                  cases that read other values than every
 //                                  kept case of the path
 //
@@ -42,7 +42,7 @@
 //
 //   ID TARGET A0,..,T3(hex) F12,..,F19(float bits, hex) POKES
 //
-// TARGET `~ADDRESS` makes the call an invocation on the thread (as PS2X_GUEST_CALL's
+// TARGET `~ADDRESS` makes the call an invocation on the thread (as ZX_GUEST_CALL's
 // `~`): it may wait, and the child's copy of the game runs on meanwhile.
 // TARGET `ADDRESS@ENTRY` records ADDRESS but calls ENTRY, a caller of it, which
 // builds the arguments itself (sscanf's FILE for __svfscanf).
@@ -69,7 +69,7 @@
 // address error was signalled: an invalid input, not kept), noreturn (the call did not come back to its return address), waited (it
 // waited: thrown to the scheduler), hang (the time limit), memory (the cap),
 // signal<N> (the child died), skipped (three hangs of this target before it).
-// BLOCKS (PS2X_DIFFCALL_PATHS): the original's blocks the case ran, hex with
+// BLOCKS (ZX_DIFFCALL_PATHS): the original's blocks the case ran, hex with
 // commas. A case with a set new at this snapshot (or one that faulted) appends
 // to batch-<n>.reads what the search reads from it: `#ID`, `S SP` (the call's
 // stack pointer), then `R BLOCK VISIT ADDRESS SIZE VALUE` per read, `C SITE TARGET V0 F0BITS` per call, and for a
@@ -470,7 +470,7 @@ namespace game::diffcall
             g_bankOn = false;
             g_vsyncs.clear();
             g_triggerMode = false;
-            const bool debug = envNumber("PS2X_DIFFCALL_DEBUG", 0u) != 0u; // the child's output kept
+            const bool debug = envNumber("ZX_DIFFCALL_DEBUG", 0u) != 0u; // the child's output kept
             if (const int null = ::open("/dev/null", O_WRONLY); null >= 0 && !debug)
             {
                 ::dup2(null, 1);
@@ -488,21 +488,21 @@ namespace game::diffcall
 
             char address[16];
             std::snprintf(address, sizeof(address), "0x%08x", c.target);
-            const bool paths = envNumber("PS2X_DIFFCALL_PATHS", 0u) != 0u;
+            const bool paths = envNumber("ZX_DIFFCALL_PATHS", 0u) != 0u;
             if (paths)
             {
                 // Every call tried, the first with new blocks kept; the blocks told back.
-                setenv("PS2X_FNREC_NEW_BLOCKS", "2", 1);
-                unsetenv("PS2X_FNREC_COVERED");
+                setenv("ZX_FNREC_NEW_BLOCKS", "2", 1);
+                unsetenv("ZX_FNREC_COVERED");
             }
-            setenv("PS2X_FNREC", address, 1);
-            setenv("PS2X_FNREC_DIR", folder.c_str(), 1);
-            setenv("PS2X_FNREC_ATOMIC", "1", 1);
-            setenv("PS2X_FNREC_MAX_MB", "256", 1);
-            unsetenv("PS2X_FNREC_FROM");
+            setenv("ZX_FNREC", address, 1);
+            setenv("ZX_FNREC_DIR", folder.c_str(), 1);
+            setenv("ZX_FNREC_ATOMIC", "1", 1);
+            setenv("ZX_FNREC_MAX_MB", "256", 1);
+            unsetenv("ZX_FNREC_FROM");
             // (generated calls of one function, made here directly: what readable code calls past the recorder
             // does not matter to them)
-            setenv("PS2X_FNREC_ALLOW_READABLE", "1", 1);
+            setenv("ZX_FNREC_ALLOW_READABLE", "1", 1);
             fncheck::installRecorder(*runtime, g_game);
             g_countWild = true;
             g_caseRdram = rdram;
@@ -568,7 +568,7 @@ namespace game::diffcall
             {
                 if (c.invoke)
                 {
-                    // The scheduler's own kind of guest call, as PS2X_GUEST_CALL's
+                    // The scheduler's own kind of guest call, as ZX_GUEST_CALL's
                     // `~`: it may wait, and this copy of the game runs on meanwhile.
                     static auto s_leave = leave;
                     EeScheduler &scheduler = runtime->eeScheduler();
@@ -749,7 +749,7 @@ namespace game::diffcall
                 const std::string arguments(reinterpret_cast<const char *>(c.a), sizeof(c.a));
                 inputKey = key + ":" + std::to_string(std::hash<std::string>{}(arguments + details));
                 const auto seen = g_paths.find(key);
-                const uint64_t kept = seen == g_paths.end() ? 0u : seen->second, limit = envNumber("PS2X_DIFFCALL_PATH_KEEP", 4u);
+                const uint64_t kept = seen == g_paths.end() ? 0u : seen->second, limit = envNumber("ZX_DIFFCALL_PATH_KEEP", 4u);
                 newPath = kept < limit || (kept < limit * kOtherInputs && g_pathInputs.find(inputKey) == g_pathInputs.end());
                 newHere = g_snapshotPaths.find(key) == g_snapshotPaths.end();
                 feedback.close();
@@ -798,8 +798,8 @@ namespace game::diffcall
 
         void runBatch(const fs::path &folder, const fs::path &file, uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
-            const uint32_t limitMs = static_cast<uint32_t>(envNumber("PS2X_DIFFCALL_CASE_MS", 1000u));
-            const uint64_t capBytes = envNumber("PS2X_DIFFCALL_CASE_MB", 1024u) << 20;
+            const uint32_t limitMs = static_cast<uint32_t>(envNumber("ZX_DIFFCALL_CASE_MS", 1000u));
+            const uint64_t capBytes = envNumber("ZX_DIFFCALL_CASE_MB", 1024u) << 20;
             const uint64_t before = hashGuestMemory(rdram);
             fs::path outName = file;
             outName.replace_extension(".out");
@@ -876,7 +876,7 @@ namespace game::diffcall
             std::ofstream(folder / "ready").put('\n');
             std::fprintf(stderr, "[diffcall] snapshot %s at vsync %llu\n", name.c_str(), static_cast<unsigned long long>(vsync));
 
-            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(envNumber("PS2X_DIFFCALL_WAIT", 3600u));
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(envNumber("ZX_DIFFCALL_WAIT", 3600u));
             for (uint32_t n = 0; std::chrono::steady_clock::now() < deadline;)
             {
                 if (fs::exists(folder / "finish"))
@@ -935,13 +935,13 @@ namespace game::diffcall
 
     void install(PS2Runtime &runtime, game::Game game)
     {
-        const char *spec = std::getenv("PS2X_DIFFCALL");
-        const char *dir = std::getenv("PS2X_DIFFCALL_DIR");
+        const char *spec = std::getenv("ZX_DIFFCALL");
+        const char *dir = std::getenv("ZX_DIFFCALL_DIR");
         if (!spec || !*spec)
             return;
         if (!dir || !*dir)
         {
-            std::fprintf(stderr, "[diffcall] PS2X_DIFFCALL needs PS2X_DIFFCALL_DIR\n");
+            std::fprintf(stderr, "[diffcall] ZX_DIFFCALL needs ZX_DIFFCALL_DIR\n");
             return;
         }
         g_game = game;
@@ -960,7 +960,7 @@ namespace game::diffcall
         else
             for (const std::string &v : split(when, ','))
                 g_vsyncs.push_back(std::strtoull(v.c_str(), nullptr, 0));
-        if (envNumber("PS2X_DIFFCALL_BANK", 0u) != 0u)
+        if (envNumber("ZX_DIFFCALL_BANK", 0u) != 0u)
             installBank(runtime, game);
         if (!runtime.hasFunction(g_hookAddress))
         {

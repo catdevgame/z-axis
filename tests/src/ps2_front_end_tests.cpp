@@ -2,7 +2,7 @@
 // the menu's sound (collection/sound_bank.h, menu_audio.h), the pictures and
 // movies it takes from each game's disc with every "not set up" case
 // (front_art.h), and the Thor's bottom screen (menu_bottom.h). With
-// PS2X_TEST_DISCS (a folder of <id>/disc folders) the real banks' music too.
+// ZX_TEST_DISCS (a folder of <id>/disc folders) the real banks' music too.
 #include "MiniTest.h"
 
 #include "collection/front_art.h"
@@ -27,7 +27,7 @@
 
 namespace
 {
-    namespace col = ps2x::collection;
+    namespace col = zx::collection;
     namespace fs = std::filesystem;
 
     void put16(std::vector<uint8_t> &out, size_t at, uint16_t value)
@@ -124,7 +124,7 @@ namespace
     fs::path scratch(const std::string &name)
     {
         const fs::path dir = fs::temp_directory_path() /
-                             ("ps2x-front-end-" + name + "-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+                             ("zx-front-end-" + name + "-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         fs::create_directories(dir);
         return dir;
     }
@@ -335,9 +335,9 @@ void register_ps2_front_end_tests()
             t.Equals(peak(), 0, "music level 0 is silent");
         });
 
-        tc.Run("the discs' front end music (with PS2X_TEST_DISCS)", [](TestCase &t)
+        tc.Run("the discs' front end music (with ZX_TEST_DISCS)", [](TestCase &t)
         {
-            const char *root = std::getenv("PS2X_TEST_DISCS");
+            const char *root = std::getenv("ZX_TEST_DISCS");
             if (!root)
                 return;
             // Decoded by hand from each disc's SFXMEN00.ZSD sample 0 (front1's
@@ -644,17 +644,17 @@ void register_ps2_front_end_tests()
 
         tc.Run("the menu's settings: the intro's logo, the music, whose logo next", [](TestCase &t)
         {
-            ps2x::app::Settings settings;
+            zx::app::Settings settings;
             t.IsTrue(settings.introLogo && settings.menuMusic && settings.introTurn == 0, "the logo and the music by default");
             settings.introLogo = false;
             settings.menuMusic = false;
             settings.introTurn = 7;
-            const std::string text = ps2x::app::formatSettings(settings, ps2x::app::everyOptionProfile(), ps2x::app::SettingsScope::App);
+            const std::string text = zx::app::formatSettings(settings, zx::app::everyOptionProfile(), zx::app::SettingsScope::App);
             t.IsTrue(text.find("[menu]") != std::string::npos && text.find("intro_movie = off") != std::string::npos, "in the root file");
-            const ps2x::app::Settings back = ps2x::app::parseSettings(text);
+            const zx::app::Settings back = zx::app::parseSettings(text);
             t.IsTrue(!back.introLogo && !back.menuMusic && back.introTurn == 7, "read back");
-            t.IsTrue(ps2x::app::appWideKey("menu", "intro_movie"), "the app's, not a game's");
-            t.IsTrue(ps2x::app::formatSettings(settings, ps2x::app::everyOptionProfile(), ps2x::app::SettingsScope::Game).find("[menu]") == std::string::npos,
+            t.IsTrue(zx::app::appWideKey("menu", "intro_movie"), "the app's, not a game's");
+            t.IsTrue(zx::app::formatSettings(settings, zx::app::everyOptionProfile(), zx::app::SettingsScope::Game).find("[menu]") == std::string::npos,
                      "not in a game's file");
         });
 
@@ -684,14 +684,51 @@ void register_ps2_front_end_tests()
             screen.show(nullptr);
             t.IsFalse(screen.draw(canvas), "a game runs: its panel again");
         });
+
+        tc.Run("the bottom screen while a setup or update runs: its progress, no Play and no taps", [](TestCase &t)
+        {
+            col::BottomScreen screen;
+            col::Canvas canvas(620, 540);
+            auto scene = std::make_shared<col::BottomScene>();
+            auto games = std::make_shared<std::vector<col::FrontGame>>(3);
+            for (size_t i = 0; i < 3; ++i)
+            {
+                (*games)[i].installed = true;
+                (*games)[i].colour = col::rgba(10, 10, 230);
+            }
+            scene->games = games;
+            scene->names = {"Dave Mirra Freestyle BMX 2", "Aggressive Inline", "BMX XXX"};
+            scene->lines = {"Done", "Building code 50%", "Waiting"};
+            scene->chosen = 1;
+            scene->busy = "Updating...";
+            scene->busyGames = {0, 1, 2};
+            scene->busyDone = {1.0f, 0.5f, 0.0f};
+            screen.show(scene);
+            t.IsTrue(screen.draw(canvas), "drawn");
+            const col::BottomLayout l = col::bottomLayout(620, 540, 3, 0, false);
+            const uint32_t play = canvas.image().at(l.play.x + l.play.width / 2, l.play.y + l.play.height / 2);
+            t.IsTrue((play >> 16 & 0xFF) < 100, "no Play button in the game's colour");
+            screen.press(l.play.x + 5.0f, l.play.y + 5.0f, 620, 540);
+            screen.release(l.play.x + 5.0f, l.play.y + 5.0f, 620, 540);
+            screen.press(l.cards[2].x + 5.0f, l.cards[2].y + 5.0f, 620, 540);
+            screen.release(l.cards[2].x + 5.0f, l.cards[2].y + 5.0f, 620, 540);
+            t.IsTrue(screen.takeTaps().empty(), "nothing to tap while it runs");
+            scene = std::make_shared<col::BottomScene>(*scene);
+            scene->busy.clear();
+            screen.show(scene);
+            screen.press(l.play.x + 5.0f, l.play.y + 5.0f, 620, 540);
+            screen.release(l.play.x + 5.0f, l.play.y + 5.0f, 620, 540);
+            const std::vector<col::BottomHit> taps = screen.takeTaps();
+            t.IsTrue(taps.size() == 1 && taps[0].kind == col::BottomHit::Play, "once it ends, Play again");
+        });
     });
 
     MiniTest::Case("FrontEndFont", [](TestCase &tc)
     {
         tc.Run("the shipped font draws as the menu's bitmap font", [](TestCase &t)
         {
-            // runtime/resources/fonts, found from this file's place in the tree.
-            const fs::path fontFile = fs::path(__FILE__).parent_path().parent_path().parent_path() / "runtime" / "resources" / col::kShippedFontFile;
+            // runtime/resources/fonts, in the tree the tests were built from (tests/CMakeLists.txt).
+            const fs::path fontFile = fs::path(ZX_TEST_RESOURCES_DIR) / col::kShippedFontFile;
             std::ifstream in(fontFile, std::ios::binary);
             const std::vector<uint8_t> ttf((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
             t.IsTrue(ttf.size() > 10000, "the TTF is in the tree");

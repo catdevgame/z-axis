@@ -19,7 +19,7 @@
 
 // A part noted anew drops the host part its positions stream had of its own, and a clone's copied stream takes a
 // copy of its source's (collision_data.cpp keeps those host parts and sets these hooks). The mesh reader only calls
-// them, so it needs no collision code: the asset tools (ps2xNativeAssets) link it alone.
+// them, so it needs no collision code: the asset tools (zx-native-assets) link it alone.
 namespace zge::native
 {
     namespace
@@ -37,24 +37,23 @@ namespace zge::native
 
 namespace zge::native
 {
-    namespace zx = ps2x::zaxis;
 
-    bool packetKindOf(uint32_t renderType, zx::PacketKind &kind)
+    bool packetKindOf(uint32_t renderType, zx::zaxis::PacketKind &kind)
     {
         switch (renderType)
         {
         case 0x04:
         case 0x18:
-            kind = zx::PacketKind::RigidPrelit;
+            kind = zx::zaxis::PacketKind::RigidPrelit;
             return true;
         case 0x20:
-            kind = zx::PacketKind::Terrain;
+            kind = zx::zaxis::PacketKind::Terrain;
             return true;
         case 0x08:
-            kind = zx::PacketKind::Skinned;
+            kind = zx::zaxis::PacketKind::Skinned;
             return true;
         case 0x0C:
-            kind = zx::PacketKind::SkinnedPrelit;
+            kind = zx::zaxis::PacketKind::SkinnedPrelit;
             return true;
         default:
             return false;
@@ -187,9 +186,9 @@ namespace zge::native
         }
     }
 
-    void packetSkinWeights(zx::SkinnedDrawForm::Weights form, uint8_t record[8])
+    void packetSkinWeights(zx::zaxis::SkinnedDrawForm::Weights form, uint8_t record[8])
     {
-        using Weights = zx::SkinnedDrawForm::Weights;
+        using Weights = zx::zaxis::SkinnedDrawForm::Weights;
         struct Bone
         {
             uint8_t &bone, &weight;
@@ -244,8 +243,8 @@ namespace zge::native
         }
     }
 
-    bool buildFileMesh(const GeoFilePart &p, zx::PacketKind kind, zx::RigidMesh &out, std::string *why,
-                       const zx::SkinnedDrawForm &form)
+    bool buildFileMesh(const GeoFilePart &p, zx::zaxis::PacketKind kind, zx::zaxis::RigidMesh &out, std::string *why,
+                       const zx::zaxis::SkinnedDrawForm &form)
     {
         auto fail = [why](const char *reason)
         {
@@ -253,10 +252,10 @@ namespace zge::native
                 *why = reason;
             return false;
         };
-        const bool terrain = kind == zx::PacketKind::Terrain;
-        const bool skinned = kind == zx::PacketKind::Skinned || kind == zx::PacketKind::SkinnedPrelit;
-        const bool lit = kind == zx::PacketKind::Skinned;
-        const bool normals = kind == zx::PacketKind::RigidNormals;
+        const bool terrain = kind == zx::zaxis::PacketKind::Terrain;
+        const bool skinned = kind == zx::zaxis::PacketKind::Skinned || kind == zx::zaxis::PacketKind::SkinnedPrelit;
+        const bool lit = kind == zx::zaxis::PacketKind::Skinned;
+        const bool normals = kind == zx::zaxis::PacketKind::RigidNormals;
         if (normals && (!p.hasNormals || p.normalStride < 12))
             return fail("no normals");
         if (skinned && p.skinWeights.size() < p.vertexCount * 8u)
@@ -300,7 +299,7 @@ namespace zge::native
 
         auto mesh = std::make_shared<GSNativeMesh>();
         mesh->id = GSNativeMesh::nextId();
-        out.runs.assign(runs.size(), zx::RigidMesh::Run{});
+        out.runs.assign(runs.size(), zx::zaxis::RigidMesh::Run{});
         out.chunks = 0;
         for (size_t entry = 0; entry < runs.size(); ++entry)
         {
@@ -310,9 +309,9 @@ namespace zge::native
                 const GeoGroup &g = p.groups[gi];
                 // The builder sends a group in chunks of at most 60 entries,
                 // each one a strip of its own.
-                for (size_t first = 0; first < g.entries.size(); first += zx::kChunkEntries)
+                for (size_t first = 0; first < g.entries.size(); first += zx::zaxis::kChunkEntries)
                 {
-                    const size_t count = std::min<size_t>(zx::kChunkEntries, g.entries.size() - first);
+                    const size_t count = std::min<size_t>(zx::zaxis::kChunkEntries, g.entries.size() - first);
                     ++out.chunks;
                     for (size_t k = 2; k < count; ++k)
                     {
@@ -407,7 +406,7 @@ namespace zge::native
             // Streams the game made (notePartStreamsMade): `part` is them as read from RAM (notePartStreams),
             // not a file's.
             bool streamsMade = false;
-            std::shared_ptr<const zx::RigidMesh> mesh;
+            std::shared_ptr<const zx::zaxis::RigidMesh> mesh;
         };
 
         struct Registry
@@ -439,7 +438,7 @@ namespace zge::native
         // another in the same process: runtime/ps2_boot_config.h).
         Registry &registry()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<Registry>> ofBoot(
+            static zx::boot::PerBoot<std::unique_ptr<Registry>> ofBoot(
                 []
                 {
                     g_notedEpoch.fetch_add(1, std::memory_order_acq_rel);
@@ -562,7 +561,7 @@ namespace zge::native
         {
             discKnown = discOrigin(address, size, discPath, discOffset);
             discOffset += chunkOffset;
-            const uint8_t *bytes = zx::GuestMemory{rdram}.bytes(address, size);
+            const uint8_t *bytes = zx::zaxis::GuestMemory{rdram}.bytes(address, size);
             if (!bytes)
                 return;
             stream.assign(bytes, bytes + size);
@@ -600,7 +599,7 @@ namespace zge::native
                 for (GeoFilePart &part : object.parts)
                     (*parts)[part.chunkOffset] = std::make_shared<const GeoFilePart>(std::move(part));
             static int debug = 0;
-            if (std::getenv("PS2X_NATIVE_MESHES_DEBUG") && debug++ < 3)
+            if (std::getenv("ZX_NATIVE_MESHES_DEBUG") && debug++ < 3)
             {
                 std::cout << "[native-meshes] stream " << key << " error '" << error << "' parts at";
                 for (const auto &[at, _] : *parts)
@@ -612,7 +611,7 @@ namespace zge::native
             }
             r.files[key] = parts;
         }
-        if (std::getenv("PS2X_NATIVE_MESHES_DEBUG"))
+        if (std::getenv("ZX_NATIVE_MESHES_DEBUG"))
             std::cout << "[native-meshes] noted 0x" << std::hex << partAddress << std::dec << " " << key << " +0x"
                       << std::hex << chunkOffset << std::dec << " = "
                       << (discKnown ? discPath : std::string("(disc file not known)")) << " +0x" << std::hex
@@ -635,7 +634,7 @@ namespace zge::native
         Registry &r = registry();
         std::lock_guard<std::mutex> lock(r.mutex);
         auto it = r.parts.find(sourceAddress);
-        if (std::getenv("PS2X_NATIVE_MESHES_DEBUG"))
+        if (std::getenv("ZX_NATIVE_MESHES_DEBUG"))
             std::cout << "[native-meshes] clone 0x" << std::hex << cloneAddress << " of 0x" << sourceAddress << std::dec
                       << (it == r.parts.end() ? " (source not noted)" : "") << std::endl;
         if (it == r.parts.end())
@@ -659,7 +658,7 @@ namespace zge::native
         g_notedEpoch.fetch_add(1, std::memory_order_acq_rel);
         Registry &r = registry();
         std::lock_guard<std::mutex> lock(r.mutex);
-        if (std::getenv("PS2X_NATIVE_MESHES_DEBUG"))
+        if (std::getenv("ZX_NATIVE_MESHES_DEBUG"))
             std::cout << "[native-meshes] streams made 0x" << std::hex << partAddress << std::dec << std::endl;
         NotedPart &n = r.parts[partAddress];
         n = NotedPart{};
@@ -729,21 +728,21 @@ namespace zge::native
         return p != parts->end() ? p->second : nullptr;
     }
 
-    std::shared_ptr<const zx::RigidMesh> fileMeshForPart(uint32_t partAddress, uint32_t renderType)
+    std::shared_ptr<const zx::zaxis::RigidMesh> fileMeshForPart(uint32_t partAddress, uint32_t renderType)
     {
-        zx::PacketKind kind;
+        zx::zaxis::PacketKind kind;
         if (!packetKindOf(renderType, kind))
             return nullptr;
         return fileMeshForPacketKind(partAddress, kind);
     }
 
-    std::shared_ptr<const zx::RigidMesh> fileMeshForPacketKind(uint32_t partAddress, zx::PacketKind kind)
+    std::shared_ptr<const zx::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress, zx::zaxis::PacketKind kind)
     {
-        return fileMeshForPacketKind(partAddress, kind, zx::SkinnedDrawForm{});
+        return fileMeshForPacketKind(partAddress, kind, zx::zaxis::SkinnedDrawForm{});
     }
 
-    std::shared_ptr<const zx::RigidMesh> fileMeshForPacketKind(uint32_t partAddress, zx::PacketKind kind,
-                                                                const zx::SkinnedDrawForm &form)
+    std::shared_ptr<const zx::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress, zx::zaxis::PacketKind kind,
+                                                                const zx::zaxis::SkinnedDrawForm &form)
     {
         const auto part = filePartFor(partAddress);
         if (!part)
@@ -758,7 +757,7 @@ namespace zge::native
             if (it != r.parts.end() && it->second.meshType == renderType && it->second.part == part)
                 return it->second.mesh;
         }
-        auto mesh = std::make_shared<zx::RigidMesh>();
+        auto mesh = std::make_shared<zx::zaxis::RigidMesh>();
         if (!buildFileMesh(*part, kind, *mesh, nullptr, form))
             mesh.reset();
         else
@@ -777,7 +776,7 @@ namespace zge::native
     {
         static const bool on = []
         {
-            const char *v = std::getenv("PS2X_NATIVE_MESHES_CHECK");
+            const char *v = std::getenv("ZX_NATIVE_MESHES_CHECK");
             return v && *v && *v != '0';
         }();
         return on;
@@ -809,8 +808,8 @@ namespace zge::native
             std::map<std::string, uint64_t> reasons;
             int described = 0;
         };
-        // The boot's mesh checks (PS2X_NATIVE_MESHES check mode), by part
-        // address (ps2x::boot::PerBoot).
+        // The boot's mesh checks (ZX_NATIVE_MESHES check mode), by part
+        // address (zx::boot::PerBoot).
         struct Checks
         {
             CheckStats stats;
@@ -819,7 +818,7 @@ namespace zge::native
         };
         Checks &checks()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<Checks>> ofBoot([] { return std::make_unique<Checks>(); });
+            static zx::boot::PerBoot<std::unique_ptr<Checks>> ofBoot([] { return std::make_unique<Checks>(); });
             return *ofBoot.get();
         }
     }
@@ -831,8 +830,8 @@ namespace zge::native
         c.checked.erase(partAddress);
     }
 
-    void checkPartMeshOnce(const uint8_t *rdram, ee::Ptr<zge::ZgePart> part, uint32_t renderType, zx::PacketKind kind,
-                           const zx::SkinnedDrawForm &form)
+    void checkPartMeshOnce(const uint8_t *rdram, ee::Ptr<zge::ZgePart> part, uint32_t renderType, zx::zaxis::PacketKind kind,
+                           const zx::zaxis::SkinnedDrawForm &form)
     {
         checkPartMeshOnce(rdram, part.address, renderType, kind, form);
     }
@@ -842,8 +841,8 @@ namespace zge::native
         notePartClone(clone.address, source.address);
     }
 
-    void checkPartMeshOnce(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, zx::PacketKind kind,
-                           const zx::SkinnedDrawForm &form)
+    void checkPartMeshOnce(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, zx::zaxis::PacketKind kind,
+                           const zx::zaxis::SkinnedDrawForm &form)
     {
         {
             Checks &c = checks();
@@ -856,18 +855,18 @@ namespace zge::native
         checkPartMesh(rdram, partAddress, renderType, kind, form);
     }
 
-    void checkPartMesh(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, zx::PacketKind kind,
-                       const zx::SkinnedDrawForm &form)
+    void checkPartMesh(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, zx::zaxis::PacketKind kind,
+                       const zx::zaxis::SkinnedDrawForm &form)
     {
         const auto part = filePartFor(partAddress);
-        zx::RigidMesh fromFile, fromPacket;
+        zx::zaxis::RigidMesh fromFile, fromPacket;
         std::string fileWhy, packetWhy;
-        const bool skinned = kind == zx::PacketKind::Skinned || kind == zx::PacketKind::SkinnedPrelit;
+        const bool skinned = kind == zx::zaxis::PacketKind::Skinned || kind == zx::zaxis::PacketKind::SkinnedPrelit;
         const bool haveFile = part && buildFileMesh(*part, kind, fromFile, &fileWhy, form);
-        zx::GuestMemory memory{rdram};
+        zx::zaxis::GuestMemory memory{rdram};
         const bool havePacket =
-            skinned ? zx::decodeSkinnedPart(memory, partAddress, fromPacket, &packetWhy, kind)
-                    : zx::decodeRigidPart(memory, partAddress, fromPacket, &packetWhy, kind);
+            skinned ? zx::zaxis::decodeSkinnedPart(memory, partAddress, fromPacket, &packetWhy, kind)
+                    : zx::zaxis::decodeRigidPart(memory, partAddress, fromPacket, &packetWhy, kind);
 
         // The part as the disc file has it, at the offset the disc layer's
         // reads give: the same streams and strips as the one parsed from RAM.
@@ -957,10 +956,10 @@ namespace zge::native
                 verdict = diff;
             }
         }
-        // PS2X_NATIVE_MESHES_CHECK=2: a line for every part checked.
+        // ZX_NATIVE_MESHES_CHECK=2: a line for every part checked.
         static const bool everyPart = []
         {
-            const char *v = std::getenv("PS2X_NATIVE_MESHES_CHECK");
+            const char *v = std::getenv("ZX_NATIVE_MESHES_CHECK");
             return v && std::atoi(v) >= 2;
         }();
         if (everyPart)

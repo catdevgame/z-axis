@@ -24,7 +24,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     struct ArchiveEntry
     {

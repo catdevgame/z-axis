@@ -36,7 +36,7 @@ namespace zge
     // record, for code its instance compiles and never runs.
     struct Soundtrack
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Ptr<char> nameString;   // BMX +0x00 setSoundtrackName's copy, 0: none
         uint16_t bank;              // BMX +0x04
         uint16_t _06;
@@ -59,7 +59,7 @@ namespace zge
     static_assert(offsetof(Soundtrack, bank) == game::readable::perGame(0x40u, 0x40u, 0x04u) &&
                   offsetof(Soundtrack, newArgument) == game::readable::perGame(0x44u, 0x44u, 0x08u) &&
                   offsetof(Soundtrack, trackCount) == game::readable::perGame(0x48u, 0x48u, 0x0Cu));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(Soundtrack, trackStrings) == 0x10);
 #else
     static_assert(offsetof(Soundtrack, names) == 0x4C && sizeof(Soundtrack) == 0x84C);
@@ -71,7 +71,7 @@ namespace zge
     // ZGE4's own bodies reach these).
     inline ee::Ptr<char> soundtrackNameString(ee::Ptr<Soundtrack> soundtrack)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return soundtrack->nameString;
 #else
         (void)soundtrack;
@@ -80,7 +80,7 @@ namespace zge
     }
     inline void setSoundtrackNameString(ee::Ptr<Soundtrack> soundtrack, ee::Ptr<char> name)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         soundtrack->nameString = name;
 #else
         (void)soundtrack;
@@ -89,7 +89,7 @@ namespace zge
     }
     inline ee::Ptr<SoundtrackTrackStrings> soundtrackTrackStrings(ee::Ptr<Soundtrack> soundtrack)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return soundtrack->trackStrings;
 #else
         (void)soundtrack;
@@ -98,7 +98,7 @@ namespace zge
     }
     inline void setSoundtrackTrackStrings(ee::Ptr<Soundtrack> soundtrack, ee::Ptr<SoundtrackTrackStrings> table)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         soundtrack->trackStrings = table;
 #else
         (void)soundtrack;

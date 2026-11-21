@@ -57,7 +57,7 @@ public:
     uint32_t extendedInUse() const;
 
     // The bytes in use in blocks that start in the 32 MB and in extended memory, and the most each has held at
-    // once since the heap was cleared or the peaks were reset (the high-water marks PS2X_TRACE_HEAP logs:
+    // once since the heap was cleared or the peaks were reset (the high-water marks ZX_TRACE_HEAP logs:
     // runtime/heap_trace.h). Counting changes no block.
     struct Usage
     {

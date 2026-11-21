@@ -15,8 +15,8 @@ plan: the game's own starting points, the level's start in each mode by its menu
 the unproven bytes of the targets a route on that level and mode has run (a body the corpus ran on every level counts on
 each), each with N seeds of the closed-loop player (its choices differ by seed: the input variety).
 
-run: each planned session played by the game's player with the target list recorded (PS2X_FNREC=@list, the recorder's
-PS2X_FNREC_NEW_BLOCKS=1 seeded with the corpus's covered blocks, PS2X_FNREC_COVERED=SEED: a call is kept only if it
+run: each planned session played by the game's player with the target list recorded (ZX_FNREC=@list, the recorder's
+ZX_FNREC_NEW_BLOCKS=1 seeded with the corpus's covered blocks, ZX_FNREC_COVERED=SEED: a call is kept only if it
 runs a block no corpus file ran), readable off, unpaced, null GS, muted, a scratch HOME, at most 2 at once. Each session
 into STORE/<game>-v1/<session>; a folder whose runs kept nothing is removed.
 
@@ -150,10 +150,10 @@ def cmd_run(a):
         shutil.rmtree(out, ignore_errors=True)
         os.makedirs(out)
         env = dict(os.environ)
-        env.update({'PS2X_FNREC': '@' + listing, 'PS2X_FNREC_DIR': out, 'PS2X_FNREC_ATOMIC': '1',
-                    'PS2X_FNREC_MAX': '1000', 'PS2X_FNREC_PER_VSYNC': '8', 'PS2X_FNREC_NEW_BLOCKS': '1',
-                    'PS2X_FNREC_COVERED': os.path.abspath(a.seed_file), 'ZAXIS_AUDIO': 'off',
-                    'SDL_AUDIODRIVER': 'dummy', 'SDL_VIDEODRIVER': 'dummy', 'PS2X_HEADLESS': '1'})
+        env.update({'ZX_FNREC': '@' + listing, 'ZX_FNREC_DIR': out, 'ZX_FNREC_ATOMIC': '1',
+                    'ZX_FNREC_MAX': '1000', 'ZX_FNREC_PER_VSYNC': '8', 'ZX_FNREC_NEW_BLOCKS': '1',
+                    'ZX_FNREC_COVERED': os.path.abspath(a.seed_file), 'ZX_AUDIO': 'off',
+                    'SDL_AUDIODRIVER': 'dummy', 'SDL_VIDEODRIVER': 'dummy', 'ZX_HEADLESS': '1'})
         if a.game == 'dm2':
             cmd = [sys.executable, os.path.join(HERE, 'dm2.py'), 'play', p['name'], 'mode=' + p['mode'],
                    'level=%d' % p['level'], 'seed=%d' % p['seed'], 'ticks=%d' % p['ticks']]

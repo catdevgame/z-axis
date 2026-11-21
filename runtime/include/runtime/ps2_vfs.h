@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 #include "ps2x/iop/ps2_path.h"
 
 #include <cstddef>
@@ -22,7 +22,7 @@ struct PS2VfsMounts
     std::filesystem::path cdRoot;
     std::filesystem::path memoryCard0Root;
     // When set, cdrom0: is this disc image instead of cdRoot.
-    std::shared_ptr<const ps2x::iop::Iso9660Image> cdImage;
+    std::shared_ptr<const zx::disc::Iso9660Image> cdImage;
 };
 
 struct PS2VfsStat

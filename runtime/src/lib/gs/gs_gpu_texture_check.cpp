@@ -28,7 +28,7 @@
 #include <execinfo.h>
 #endif
 
-namespace ps2x::gpu_texture_check
+namespace zx::gpu_texture_check
 {
     namespace
     {
@@ -152,10 +152,10 @@ namespace ps2x::gpu_texture_check
             static State *s = []()
             {
                 State *st = new State; // never destroyed: used until exit
-                const char *v = std::getenv("PS2X_GPU_TEXTURE_CHECK");
+                const char *v = std::getenv("ZX_GPU_TEXTURE_CHECK");
                 st->on = v && v[0] == '1';
                 if (st->on)
-                    std::fprintf(stderr, "[gpu-check] PS2X_GPU_TEXTURE_CHECK=1: released GPU textures kept %.1f s, uses "
+                    std::fprintf(stderr, "[gpu-check] ZX_GPU_TEXTURE_CHECK=1: released GPU textures kept %.1f s, uses "
                                          "of them reported\n",
                                  st->holdSeconds);
                 return st;

@@ -9,7 +9,7 @@
 // three). The game reads values as lw categories+0x28k, lwc1 off(base),
 // mostly in per-frame code; only the level camera setup FUN_001901C0 writes
 // one (Far Clip, from the level or the split screen entries). Mods/tuning.ini
-// (PS2X_TUNING_INI: another file) sets entries before the game starts; Far
+// (ZX_TUNING_INI: another file) sets entries before the game starts; Far
 // Clip, which the game rewrites, is set again at every vsync.
 //
 // Debug menu. Game mode 6 (the mode table 0x24B810: enter 0x1BC470, exit
@@ -17,17 +17,18 @@
 // split screen): Resume, Art Viewer, Tuning (the table's categories and
 // entries, left/right change a value: inlineTuneUp/Down), Respawn, Toggle
 // Debug; inlineDebugMenuSelect (0x1BC600) acts on the choice. Nothing in
-// the retail game enters mode 6. With PS2X_DEV_MENU=1, F1 in a level (game
-// mode 2) or `set dev.debug_menu 1` (PS2X_CONTROL) enters it from the
+// the retail game enters mode 6. With ZX_DEV_MENU=1, F1 in a level (game
+// mode 2) or `set dev.debug_menu 1` (ZX_CONTROL) enters it from the
 // level's update (0x1ACA68), as func_001A70F0(6).
 //
 // Language. The game loads one string table at start, "assets\string.eus"
 // (0x268788, FUN_001BC9F0 -> 0x1483B8); the disc also has STRING.EUK, .FRE
-// and .GER with the same 236 keys. PS2X_LANGUAGE=uk|french|german changes
+// and .GER with the same 236 keys. ZX_LANGUAGE=uk|french|german changes
 // the name's extension before the game runs.
 
 #include "aggressive_inline_devtools.h"
 #include "aggressive_inline_language.h"
+#include "zge_devtools.h"
 
 #include "ps2_runtime.h"
 #include "runtime/ps2_pad.h"
@@ -52,7 +53,7 @@ namespace aggressive_inline
 {
     namespace
     {
-        namespace tn = ps2x::tuning;
+        namespace tn = zx::tuning;
 
         constexpr uint32_t kCategories = 0x0024AD28u;
         constexpr uint32_t kCategorySize = 0x28u;
@@ -88,7 +89,7 @@ namespace aggressive_inline
 
             std::vector<Pinned> pinned;
         };
-        DevTools &devTools() { return ps2x::session::state<DevTools>(); }
+        DevTools &devTools() { return zx::session::state<DevTools>(); }
 
         uint32_t readWord(const uint8_t *rdram, uint32_t address)
         {
@@ -154,57 +155,14 @@ namespace aggressive_inline
             return entries;
         }
 
-        // A mod folder's tuning.ini: in the folder, or in the zip the mod is
-        // packed in (runtime/ps2_zip_archive.h). Its text, false for none.
-        bool readTuningText(const std::filesystem::path &file, std::string &text)
-        {
-            if (const ps2x::game_files::ZipPath zip = ps2x::game_files::zipPathOf(file); zip.zip)
-            {
-                std::vector<uint8_t> bytes;
-                if (!zip.zip->read(zip.inside, bytes))
-                    return false;
-                text.assign(bytes.begin(), bytes.end());
-                return true;
-            }
-            std::ifstream in(file, std::ios::binary);
-            if (!in)
-                return false;
-            std::ostringstream all;
-            all << in.rdbuf();
-            text = all.str();
-            return true;
-        }
-
-        bool hasTuningFile(const std::filesystem::path &file)
-        {
-            if (const ps2x::game_files::ZipPath zip = ps2x::game_files::zipPathOf(file); zip.zip)
-                return zip.zip->hasFile(zip.inside);
-            std::error_code ec;
-            return std::filesystem::is_regular_file(file, ec);
-        }
-
-        // PS2X_TUNING_INI, else tuning.ini in the last mod folder that has
-        // one (PS2X_MODS_DIR, ps2_game_files.h; a zip's too), else the first
-        // folder's (where the reference is written).
-        std::filesystem::path tuningFile()
-        {
-            if (const char *file = std::getenv("PS2X_TUNING_INI"); file && *file)
-                return file;
-            if (const char *text = ps2x::boot::text("PS2X_MODS_DIR"); text && *text)
-            {
-                const std::vector<std::filesystem::path> mods = ps2x::game_files::modsRoots(text);
-                for (auto root = mods.rbegin(); root != mods.rend(); ++root)
-                    if (hasTuningFile(*root / "tuning.ini"))
-                        return *root / "tuning.ini";
-                if (!mods.empty())
-                    return mods.front() / "tuning.ini";
-            }
-            return {};
-        }
+        // (Mods/tuning.ini: zge_devtools.h tuningFile, shared with BMX XXX)
+        using zge_host::devtools::hasTuningFile;
+        using zge_host::devtools::readTuningText;
+        using zge_host::devtools::tuningFile;
 
         bool envOn(const char *name)
         {
-            const char *value = ps2x::boot::text(name);
+            const char *value = zx::boot::text(name);
             return value && value[0] == '1';
         }
 
@@ -212,7 +170,7 @@ namespace aggressive_inline
 
         void applyLanguage(uint8_t *rdram)
         {
-            const char *language = ps2x::boot::text("PS2X_LANGUAGE");
+            const char *language = zx::boot::text("ZX_LANGUAGE");
             if (!language || !*language)
                 return;
             // French, German and Spanish from the Xbox release replace the
@@ -231,7 +189,7 @@ namespace aggressive_inline
                 extension = "ger";
             if (!extension)
             {
-                std::cerr << "[aggressive-inline] unknown PS2X_LANGUAGE " << language << " (english, french, german, spanish, uk)" << std::endl;
+                std::cerr << "[aggressive-inline] unknown ZX_LANGUAGE " << language << " (english, french, german, spanish, uk)" << std::endl;
                 return;
             }
             const size_t length = std::strlen(kStringTableUs);
@@ -292,14 +250,10 @@ namespace aggressive_inline
 
         void writeReference(const std::vector<tn::Entry> &entries)
         {
-            std::filesystem::path file = tuningFile();
-            if (file.empty())
-                return;
             // (beside the tuning.ini in use; one in a zip: in the first folder)
-            if (ps2x::game_files::zipPathOf(file).zip)
-                if (const char *text = ps2x::boot::text("PS2X_MODS_DIR"); text && *text)
-                    file = ps2x::game_files::modsRoots(text).front() / "tuning.ini";
-            const std::filesystem::path reference = file.parent_path() / "tuning-reference.ini";
+            const std::filesystem::path reference = zge_host::devtools::tuningReferenceFile();
+            if (reference.empty())
+                return;
             std::error_code ec;
             std::filesystem::create_directories(reference.parent_path(), ec);
             std::ofstream out(reference, std::ios::binary | std::ios::trunc);
@@ -342,7 +296,7 @@ namespace aggressive_inline
                 std::cerr << "[aggressive-inline] debug menu hook not installed" << std::endl;
                 return;
             }
-            ps2x::settings::Setting open;
+            zx::settings::Setting open;
             open.key = "dev.debug_menu";
             open.label = "Debug Menu";
             open.help = "Opens the game's debug menu in a level.";
@@ -352,7 +306,7 @@ namespace aggressive_inline
                 if (value != 0)
                     devTools().debugMenuRequest = true;
             };
-            ps2x::session::addSetting(open);
+            zx::session::addSetting(open);
             std::cout << "[aggressive-inline] developer menu on: F1 in a level opens the game's debug menu" << std::endl;
         }
     }
@@ -371,7 +325,7 @@ namespace aggressive_inline
         if (!rdram)
             return;
         applyLanguage(rdram);
-        const bool devMenu = envOn("PS2X_DEV_MENU");
+        const bool devMenu = envOn("ZX_DEV_MENU");
         const std::filesystem::path tuning = tuningFile();
         const bool hasTuning = !tuning.empty() && hasTuningFile(tuning);
         if (!devMenu && !hasTuning)

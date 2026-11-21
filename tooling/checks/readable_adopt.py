@@ -305,7 +305,7 @@ def move(args):
     only = None
     if args.only:
         only = set(l.split('\t')[0].strip() for l in open(args.only[1:])) if args.only.startswith('@') else set(args.only.split(','))
-    sweep = os.path.join(args.build, 'ps2xRuntime', 'readable_sweep')
+    sweep = os.path.join(args.build, 'runtime', 'readable_sweep')
     batches = {}
     per_file = collections.defaultdict(list)
     removed = collections.defaultdict(set)

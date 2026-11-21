@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dead_code_dm2.py [OUT.tsv]: Dave Mirra BMX 2's dead-code table (PS2Recomp docs/DEAD-CODE.md,
+"""dead_code_dm2.py [OUT.tsv]: Dave Mirra BMX 2's dead-code table (docs/DEAD-CODE.md,
 "DM2"), AI's tools/dead_code.py's groups for a game with no sweep manifest: every function of DM2's
 PS2 ELF that nothing reaches, with the evidence for each.
 

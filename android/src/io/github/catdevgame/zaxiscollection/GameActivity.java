@@ -14,7 +14,7 @@ import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
 
-// SDLActivity runs the game (SDL_main in libps2EntryRunner.so, which has SDL3
+// SDLActivity runs the game (SDL_main in libzx-runner.so, which has SDL3
 // linked in statically) on the top screen; a device's second screen shows
 // SecondScreenPanel, which comes and goes with the activity and the display.
 // The setup's disc pickers are Documents'.
@@ -24,7 +24,7 @@ public class GameActivity extends SDLActivity implements DisplayManager.DisplayL
 
     @Override
     protected String[] getLibraries() {
-        return new String[] { "ps2EntryRunner" };
+        return new String[] { "zx-runner" };
     }
 
     @Override

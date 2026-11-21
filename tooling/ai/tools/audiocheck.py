@@ -9,7 +9,7 @@ For each scene the native runner and PCSX2 are driven to the same spot and
 the same stretch of sound is recorded from:
 
   pcsx2  PCSX2's output, recorded from the process (tools/appaudio.swift)
-  tap    our exact SPU2 mix (PS2X_SPU2_WAV), in emulated time
+  tap    our exact SPU2 mix (ZX_SPU2_WAV), in emulated time
   host   what our process really played (appaudio on the runner), i.e. the
          tap after the host ring buffer, rate correction and SDL
 
@@ -48,8 +48,8 @@ one process only, so other sound on the Mac does not matter, but CPU load
 does: the host recording only stays clean while the runner keeps 100 %
 speed (the report shows the load average and the runner's SPU2 stats).
 
-Environment: RUNNER (ps2EntryRunner), AUDIOCHECK_SCRATCH (default
-recomp/run/audiocheck), extra PS2X_* vars pass through to the runner.
+Environment: RUNNER (zx-runner), AUDIOCHECK_SCRATCH (default
+recomp/run/audiocheck), extra ZX_* vars pass through to the runner.
 Needs Screen Recording permission for the terminal (appaudio).
 """
 import argparse
@@ -75,7 +75,7 @@ import logiccheck as lc  # noqa: E402
 RECOMP = os.path.join(ROOT, "recomp")
 SCRATCH = os.environ.get("AUDIOCHECK_SCRATCH", os.path.join(RECOMP, "run", "audiocheck"))
 OUT_ROOT = os.path.join(RECOMP, "logs", "audiocheck")
-RUNNER = os.environ.get("RUNNER", os.path.join(os.path.dirname(os.path.dirname(ROOT)), "out", "build-ai", "ps2xRuntime", "ps2EntryRunner"))
+RUNNER = os.environ.get("RUNNER", os.path.join(os.path.dirname(os.path.dirname(ROOT)), "out", "build-ai", "runtime", "zx-runner"))
 DISC_ELF = os.path.join(RECOMP, "disc-root", "SLUS_203.27")
 WINID = os.path.join(RECOMP, "tools", "winid")
 PCSX2PAD = os.path.join(HERE, "pcsx2pad.py")
@@ -88,7 +88,7 @@ GUEST_VSYNC = 0x231CA4
 
 # PCSX2 side: "boot" = fresh launch, then wait for the game's vsync counter;
 # a number = savestate slot. Native side: pad script (vsync clock) and the
-# condition (PS2X_DUMP_WHEN syntax) that marks the spot; recording runs from
+# condition (ZX_DUMP_WHEN syntax) that marks the spot; recording runs from
 # the window appearing until `secs + after` seconds past the mark.
 SCENES = {
     "intro": dict(desc="boot movies: Z-Axis + INTRO.PSS (MPEG audio)", px="boot", px_vsync=1260,
@@ -242,32 +242,32 @@ def stop_recorder_when_done(rec):
 
 def runner_env(name, raw, sc):
     env = dict(os.environ)
-    env.setdefault("PS2X_DEBUG_UI", "0")
+    env.setdefault("ZX_DEBUG_UI", "0")
     mc = os.path.join(RECOMP, "run", "mc-audio")
     for d in (mc, mc + "_slot1"):
         if os.path.isdir(d):
             shutil.rmtree(d)
     os.makedirs(mc)
-    env["PS2X_MC_ROOT"] = mc
+    env["ZX_MC_ROOT"] = mc
     # The memory card path: the boot timing the reference was taken with.
-    env.setdefault("PS2X_SAVES", "card")
+    env.setdefault("ZX_SAVES", "card")
     support = os.path.join(SCRATCH, "support")
     os.makedirs(support, exist_ok=True)
-    env.setdefault("PS2X_CONTROLS_INI", os.path.join(support, "controls.ini"))
-    env.setdefault("PS2X_APP_SUPPORT_DIR", support)
-    env.setdefault("PS2X_APP_LOG_DIR", os.path.join(support, "Logs"))
-    env["ZAXIS_AUDIO"] = "on"  # the host recording is what the process plays: the one run that is heard
-    env["PS2X_SPU2_WAV"] = os.path.join(raw, "%s-tap.wav" % name)
-    env["PS2X_SPU2_WAV_SECONDS"] = str(sc["timeout"] + sc["after"] + 30)
-    env.setdefault("PS2X_SPU2_STATS", "5")
-    env["PS2X_DUMP_PREFIX"] = os.path.join(raw, "mark-" + name)
+    env.setdefault("ZX_CONTROLS_INI", os.path.join(support, "controls.ini"))
+    env.setdefault("ZX_APP_SUPPORT_DIR", support)
+    env.setdefault("ZX_APP_LOG_DIR", os.path.join(support, "Logs"))
+    env["ZX_AUDIO"] = "on"  # the host recording is what the process plays: the one run that is heard
+    env["ZX_SPU2_WAV"] = os.path.join(raw, "%s-tap.wav" % name)
+    env["ZX_SPU2_WAV_SECONDS"] = str(sc["timeout"] + sc["after"] + 30)
+    env.setdefault("ZX_SPU2_STATS", "5")
+    env["ZX_DUMP_PREFIX"] = os.path.join(raw, "mark-" + name)
     if "script" in sc:
         script, v = native_script(*sc["script"])
-        env["PS2X_PAD_SCRIPT_CLOCK"] = "vsync"
-        env["PS2X_PAD_SCRIPT"] = script
-        env["PS2X_DUMP_WHEN"] = "audiomark:script>=%d" % v
+        env["ZX_PAD_SCRIPT_CLOCK"] = "vsync"
+        env["ZX_PAD_SCRIPT"] = script
+        env["ZX_DUMP_WHEN"] = "audiomark:script>=%d" % v
     else:
-        env["PS2X_DUMP_WHEN"] = "audiomark:" + sc["native_mark"]
+        env["ZX_DUMP_WHEN"] = "audiomark:" + sc["native_mark"]
     return env
 
 

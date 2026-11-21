@@ -15,7 +15,7 @@
 
 #include "collection/extras/disc_image.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     class XboxDisc final : public DiscFiles
     {

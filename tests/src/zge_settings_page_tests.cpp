@@ -44,7 +44,8 @@ namespace
         "game.dm2_xbox_levels", "game.create_player", "game.xbox_themes", "game.retro_movie", "game.attract_demo",
         "game.park_editor", "game.xbox_challenges", "game.editor_pieces",
         "game.level_previews", "game.logo_movie", "game.intro_movie", "game.gc_levels", "game.menu_lines",
-        "game.all_mp_modes",
+        "game.all_mp_modes", "game.logo_splash", "game.trailers", "game.car_textures", "game.green_skin",
+        "game.topless_girl", "game.xbox_songs",
         "game.zoo_unlock", "game.tuning",
         "game.career_scripts", "game.ape", "game.xbox_free_skate", "game.record_play", "game.recordings",
     };

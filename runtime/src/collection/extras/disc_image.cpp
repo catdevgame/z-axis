@@ -11,7 +11,7 @@
 #include <mutex>
 #include <system_error>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {

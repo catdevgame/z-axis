@@ -69,7 +69,7 @@ namespace zge
         // +0x04 called after each chunk a handler took, (reader, context)
         // (setAfterChunkHook; 0: none).
         uint32_t afterChunk;
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // BMX +0x08: where the file stood when the reader was opened (openChunkFile asks filePosition): ZGE4's
         // seekChunk seeks from there, so a chunk file can sit inside a bigger one
         uint32_t openPosition;
@@ -92,7 +92,7 @@ namespace zge
     // offsets are from the file's start.
     inline uint32_t chunkFileOrigin(const ChunkReader &reader)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return reader.openPosition;
 #else
         (void)reader;
@@ -112,7 +112,7 @@ namespace zge
     static_assert(sizeof(ChunkHandlerRecord) == 0x10);
 
     // The progress hook (ChunkParser::progressHook): how far a load is. BMX XXX's takes the context set with it too.
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     using ChunkProgressHook = ee::FunctionPtr<void(const char *name, uint32_t bytesDone, uint32_t totalBytes, uint32_t context)>;
 #else
     using ChunkProgressHook = ee::FunctionPtr<void(const char *name, uint32_t bytesDone, uint32_t totalBytes)>;
@@ -133,7 +133,7 @@ namespace zge
         // when a reader is closed (0: none). BMX XXX's takes the context set
         // with it too.
         ChunkProgressHook progressHook;
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t progressContext;   // BMX +0x28 the progress hook's last argument (setChunkProgressHook's second)
 #endif
     };
@@ -152,7 +152,7 @@ namespace zge
     // ZGE4's reader keeps where its file stood when it was opened (chunkFileOrigin).
     inline void keepChunkFileOrigin(ChunkReader &reader, uint32_t position)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         reader.openPosition = position;
 #else
         (void)reader;
@@ -163,7 +163,7 @@ namespace zge
     // The progress hook called as each game's takes it: BMX XXX's with the context set with it.
     inline void callProgressHook(const ChunkParser &parser, const char *name, uint32_t bytesDone, uint32_t totalBytes)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         parser.progressHook(name, bytesDone, totalBytes, parser.progressContext);
 #else
         parser.progressHook(name, bytesDone, totalBytes);
@@ -173,7 +173,7 @@ namespace zge
     // The progress hook's context set (ZGE4's: ZGE2 and ZGE3 keep none).
     inline void setProgressContext(ChunkParser &parser, uint32_t context)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         parser.progressContext = context;
 #else
         (void)parser;

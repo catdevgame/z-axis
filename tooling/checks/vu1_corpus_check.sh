@@ -1,8 +1,8 @@
 #!/bin/zsh
-# vu1_corpus_check.sh CHECKER [DIR|FILE ...]: every VU1 run corpus (*.vu1r) replayed by ps2xVu1Check twice, with the
-# ahead-of-time code and with PS2X_VU1_AOT=0 (the interpreter), each run compared bit for bit with its recording
-# (VU1_CORPUS.md). CHECKER: a ps2xVu1Check built with the three games' VU1 AOT folders, as the collection's and the
-# app's builds are (PS2X_VU1_AOT_DIR, PS2X_VU1_AOT_EXTRA_DIRS), so it holds the AOT code the app ships. Default
+# vu1_corpus_check.sh CHECKER [DIR|FILE ...]: every VU1 run corpus (*.vu1r) replayed by zx-vu1check twice, with the
+# ahead-of-time code and with ZX_VU1_AOT=0 (the interpreter), each run compared bit for bit with its recording
+# (VU1_CORPUS.md). CHECKER: a zx-vu1check built with the three games' VU1 AOT folders, as the collection's and the
+# app's builds are (ZX_VU1_AOT_DIR, ZX_VU1_AOT_EXTRA_DIRS), so it holds the AOT code the app ships. Default
 # corpora: the games' traces/vu1 folders, AI_WORKSPACE's, DM2_WORKSPACE's and BMX_DATA's recomp/traces/vu1 (a game
 # without one is named and fails the check: a corpus gone is no pass). One line per corpus and side: runs,
 # mismatching, cycles, and which code ran. The AOT side fails where a corpus's micro memory image has no AOT code in
@@ -42,7 +42,7 @@ done
 runs=0
 for c in $corpora; do
   for side in aot int; do
-    if [[ $side == aot ]]; then out=$($CHECKER $c --quiet 2>&1); else out=$(PS2X_VU1_AOT=0 $CHECKER $c --quiet 2>&1); fi
+    if [[ $side == aot ]]; then out=$($CHECKER $c --quiet 2>&1); else out=$(ZX_VU1_AOT=0 $CHECKER $c --quiet 2>&1); fi
     k=$?
     # (the checker's lines per micro memory image say which code ran: "ahead-of-time code", "interpreter (...)")
     code=$(print -r -- $out | grep '^\[vu1\] micro memory' | sed 's/^\[vu1\] micro memory //' | tr '\n' ';' | sed 's/;$//')

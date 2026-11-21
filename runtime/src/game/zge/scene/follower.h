@@ -21,7 +21,7 @@ namespace zge
     // path +8).
     struct PathPoint
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // ZGE2's point keeps its hashes first and its position last: the kind and name hashes at +0x00 and +0x04
         // and the order word at +0x08 (a word; DM2's findScenePoint compares the three, loadWaypoints reads the
         // order), the tag record at +0x10 (pathPointTags), the position at +0x20 (followerPosition, followerHeading).

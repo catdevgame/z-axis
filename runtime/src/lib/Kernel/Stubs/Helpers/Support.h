@@ -340,16 +340,16 @@ namespace
         }
 
         // Disc image as the file system: real LBNs, read from the image.
-        if (const std::shared_ptr<const ps2x::iop::Iso9660Image> iso = PS2Runtime::cdImageFileSystem())
+        if (const std::shared_ptr<const zx::disc::Iso9660Image> iso = PS2Runtime::cdImageFileSystem())
         {
-            std::optional<ps2x::iop::IsoEntry> found = iso->find(normalizeCdPathNoPrefix(ps2Path));
+            std::optional<zx::disc::IsoEntry> found = iso->find(normalizeCdPathNoPrefix(ps2Path));
             if (!found || found->directory)
             {
                 // Same fallbacks as for a folder: a unique leaf name, then
                 // the loose (numeric-insensitive) path key.
-                static std::unordered_map<std::string, ps2x::iop::IsoEntry> leafIndex;
-                static std::unordered_map<std::string, ps2x::iop::IsoEntry> looseIndex;
-                static const ps2x::iop::Iso9660Image *indexed = nullptr;
+                static std::unordered_map<std::string, zx::disc::IsoEntry> leafIndex;
+                static std::unordered_map<std::string, zx::disc::IsoEntry> looseIndex;
+                static const zx::disc::Iso9660Image *indexed = nullptr;
                 if (indexed != iso.get())
                 {
                     leafIndex.clear();
@@ -360,7 +360,7 @@ namespace
                     {
                         const std::string dir = pending.back();
                         pending.pop_back();
-                        for (const ps2x::iop::IsoEntry &child : iso->list(dir))
+                        for (const zx::disc::IsoEntry &child : iso->list(dir))
                         {
                             const std::string childPath = dir.empty() ? child.name : dir + "/" + child.name;
                             if (child.directory)

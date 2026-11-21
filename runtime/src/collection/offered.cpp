@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::app
+namespace zx::app
 {
     namespace
     {
@@ -137,35 +137,38 @@ namespace ps2x::app
         Installed installed = platformInstalled();
 
         // Aggressive Inline's Xbox disc: its files, and what the setup made of them.
-        const fs::path xbox = xboxAssets(folderOf(bootText, "PS2X_XBOX_DIR"));
+        const fs::path xbox = xboxAssets(folderOf(bootText, "ZX_XBOX_DIR"));
         installed.set(Need::XboxText, isFile(xbox, "string.fre"));
         installed.set(Need::XboxSpeech, isFile(xbox, "audio/speech01.zsd"));
         installed.set(Need::XboxLevelScripts, isFile(xbox, "levels/CIVIC/CIVIC.bin"));
         installed.set(Need::XboxFreeSkate, isFile(xbox, "levels/BRDWLK/BRDWLKT.bin") || isFile(xbox, "levels/CANNERY/CANNERYT.bin"));
-        installed.set(Need::XboxApe, isFile(folderOf(bootText, "PS2X_XBOX_CONVERTED"), "ASSETS/SKATERS/GORILLA/GOR.ZIT") &&
+        installed.set(Need::XboxApe, isFile(folderOf(bootText, "ZX_XBOX_CONVERTED"), "ASSETS/SKATERS/GORILLA/GOR.ZIT") &&
                                          isFile(xbox, "uilib.zal"));
-        const fs::path pack = folderOf(bootText, "PS2X_XBOX_PACK");
+        const fs::path pack = folderOf(bootText, "ZX_XBOX_PACK");
         installed.set(Need::XboxTextures, isFolder(pack, "textures"));
         installed.set(Need::XboxSkaters, isFolder(pack, "models"));
         installed.set(Need::XboxMovies, isFolder(pack, "movies"));
 
         // Aggressive Inline's GameCube disc.
-        installed.set(Need::Estate, !folderOf(bootText, "PS2X_ESTATE_DIR").empty());
+        installed.set(Need::Estate, !folderOf(bootText, "ZX_ESTATE_DIR").empty());
 
         // Dave Mirra BMX 2's Xbox disc.
-        const fs::path dm2 = folderOf(bootText, "PS2X_DM2_XBOX_LEVELS_DIR");
+        const fs::path dm2 = folderOf(bootText, "ZX_DM2_XBOX_LEVELS_DIR");
         installed.set(Need::Dm2XboxLevels, isFile(dm2, "levels.txt"));
         installed.set(Need::Dm2XboxThemes, isFolder(dm2, "themes"));
         installed.set(Need::Dm2RetroMovie, isFile(dm2, "movies/ASSETS/MOVIE/RETRO.PSS") || isFile(dm2, "movies/ASSETS/MOVIE/RETRO.BIK"));
 
         // BMX XXX's Xbox and GameCube discs.
-        const fs::path bmx = folderOf(bootText, "PS2X_BMX_RELEASES_DIR");
+        const fs::path bmx = folderOf(bootText, "ZX_BMX_RELEASES_DIR");
         installed.set(Need::BmxText, isFolder(bmx, "strings"));
         installed.set(Need::BmxChallenges, isFolder(bmx, "challenges"));
         installed.set(Need::BmxEditorPieces, isFile(bmx, "editor/OBJECT.OBJ"));
         installed.set(Need::BmxLevelPreviews, holdsFileOf(bmx, "movies/ASSETS/MOVIES/MENU", {".PSM", ".XMV"}));
         installed.set(Need::BmxLogoMovie, isFile(bmx, "movies/ASSETS/MOVIES/ZAXIS.PSS") || isFile(bmx, "movies/ASSETS/MOVIES/ZAXIS.XMV"));
         installed.set(Need::BmxGcLevels, isFolder(bmx, "levels/ASSETS/LEVELS"));
+        installed.set(Need::BmxTrailers, holdsFileOf(bmx, "movies/ASSETS/MOVIES/COMPEDGE", {".PSS", ".XMV"}));
+        installed.set(Need::BmxCreate, isFile(bmx, "create/added.txt"));
+        installed.set(Need::BmxSongs, isFile(bmx, "music/songs.txt"));
         return installed;
     }
 
@@ -213,6 +216,12 @@ namespace ps2x::app
             case O::BmxLevelPreviews: return Need::BmxLevelPreviews;
             case O::BmxLogoMovie: return Need::BmxLogoMovie;
             case O::BmxGcLevels: return Need::BmxGcLevels;
+            case O::BmxLogoSplash: return Need::BmxLogoMovie;
+            case O::BmxTrailers: return Need::BmxTrailers;
+            case O::BmxCarTextures: return Need::BmxCreate;
+            case O::BmxGreenSkin: return Need::BmxCreate;
+            case O::BmxTopless: return Need::BmxCreate;
+            case O::BmxXboxSongs: return Need::BmxSongs;
             default: return Need::Nothing; // (the intro movie is the PS2 disc's own)
             }
         return Need::Nothing;

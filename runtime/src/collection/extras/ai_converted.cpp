@@ -9,7 +9,7 @@
 
 #include <sstream>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {
@@ -26,22 +26,22 @@ namespace ps2x::app::extras
     bool makeAiZooAndApe(const SourceFiles &xbox, const std::filesystem::path &ps2Disc, const std::filesystem::path &out,
                          std::vector<std::string> &log, std::string *error)
     {
-        namespace zoo = ps2x::zaxis::zoo;
-        ps2x::game_files::GameFileRoots roots;
+        namespace zoo = zx::zaxis::zoo;
+        zx::game_files::GameFileRoots roots;
         roots.disc = ps2Disc.string();
-        ps2x::game_files::GameFileSystem disc(roots);
+        zx::game_files::GameFileSystem disc(roots);
         const zoo::Reader xboxFiles = [&xbox](const std::string &path, std::vector<uint8_t> &data)
         { return xbox.readAny(path, data); };
         const zoo::Reader ps2Files = [&disc](const std::string &path, std::vector<uint8_t> &data)
         {
-            std::shared_ptr<ps2x::game_files::GameFile> file = disc.open(path);
-            return file && ps2x::game_files::readAll(*file, data);
+            std::shared_ptr<zx::game_files::GameFile> file = disc.open(path);
+            return file && zx::game_files::readAll(*file, data);
         };
         zoo::Made made;
         std::ostringstream text;
         std::string why;
         const bool ok = zoo::build(xboxFiles, ps2Files, zoo::Options(), made, text, &why) &&
-                        ps2x::zaxis::ape::build(xboxFiles, made, text, &why);
+                        zx::zaxis::ape::build(xboxFiles, made, text, &why);
         keepLines(text, log);
         if (!ok)
         {
@@ -57,7 +57,7 @@ namespace ps2x::app::extras
     bool makeAiEstate(const SourceFiles &gc, const std::filesystem::path &out, std::vector<std::string> &log,
                       std::string *error)
     {
-        namespace estate = ps2x::zaxis::estate;
+        namespace estate = zx::zaxis::estate;
         const estate::Reader files = [&gc](const std::string &name, std::vector<uint8_t> &data)
         { return gc.readAny("levels/TUT/Estate/" + name, data); };
         estate::Made made;

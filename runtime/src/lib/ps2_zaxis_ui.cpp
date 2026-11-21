@@ -7,7 +7,7 @@
 #include <map>
 #include <set>
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     namespace
     {
@@ -360,7 +360,7 @@ namespace ps2x::zaxis
     }
 }
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     namespace
     {

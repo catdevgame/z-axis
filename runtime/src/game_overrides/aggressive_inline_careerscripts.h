@@ -9,7 +9,7 @@ class PS2Runtime;
 
 namespace aggressive_inline
 {
-    // The Xbox release's career scripts (PS2X_CAREER_SCRIPTS=xbox, or ps2
+    // The Xbox release's career scripts (ZX_CAREER_SCRIPTS=xbox, or ps2
     // to keep the PS2's for levels not yet played): their bug fixes. A
     // level a skater has played keeps the script its saved progress is from.
     void installXboxCareerScripts(PS2Runtime &runtime);

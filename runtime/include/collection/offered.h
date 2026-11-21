@@ -16,35 +16,38 @@
 #include <cstdint>
 #include <string_view>
 
-namespace ps2x::app
+namespace zx::app
 {
     // One thing an option needs that a setup may lack.
     enum class Need : uint8_t
     {
         Nothing,          // the game's PS2 disc alone
-        // Aggressive Inline's Xbox disc (extras/xbox, PS2X_XBOX_DIR; xbox-converted, PS2X_XBOX_CONVERTED).
+        // Aggressive Inline's Xbox disc (extras/xbox, ZX_XBOX_DIR; xbox-converted, ZX_XBOX_CONVERTED).
         XboxText,         // its other languages' string tables (string.fre ...)
         XboxSpeech,       // its French speech (audio/speech01.zsd)
         XboxLevelScripts, // its career levels' scripts (levels/<LEVEL>/<LEVEL>.bin)
         XboxFreeSkate,    // its free skate scripts of the Boardwalk and the Cannery (levels/<LEVEL>/<LEVEL>T.bin)
         XboxApe,          // the Ape: its model made at setup (GOR.ZIT) and the Xbox uilib.zal
-        // The Xbox pack (xbox-pack, PS2X_XBOX_PACK).
+        // The Xbox pack (xbox-pack, ZX_XBOX_PACK).
         XboxTextures,     // textures/
         XboxSkaters,      // models/
         XboxMovies,       // movies/
-        // Aggressive Inline's GameCube disc: the Estate (estate, PS2X_ESTATE_DIR).
+        // Aggressive Inline's GameCube disc: the Estate (estate, ZX_ESTATE_DIR).
         Estate,
-        // Dave Mirra BMX 2's Xbox disc (xbox-levels, PS2X_DM2_XBOX_LEVELS_DIR).
+        // Dave Mirra BMX 2's Xbox disc (xbox-levels, ZX_DM2_XBOX_LEVELS_DIR).
         Dm2XboxLevels,    // levels.txt and the levels
         Dm2XboxThemes,    // themes/
         Dm2RetroMovie,    // movies/ASSETS/MOVIE/RETRO.PSS (or the Xbox's RETRO.BIK)
-        // BMX XXX's Xbox and GameCube discs (releases, PS2X_BMX_RELEASES_DIR).
+        // BMX XXX's Xbox and GameCube discs (releases, ZX_BMX_RELEASES_DIR).
         BmxText,          // strings/: the fuller French, German and Spanish
         BmxChallenges,    // challenges/: the Xbox and GameCube challenge scripts
         BmxEditorPieces,  // editor/OBJECT.OBJ: the Pool and the Receptacle
         BmxLevelPreviews, // movies/ASSETS/MOVIES/MENU: the Xbox's level-select movies
         BmxLogoMovie,     // movies/ASSETS/MOVIES/ZAXIS.PSS (or the Xbox's ZAXIS.XMV)
         BmxGcLevels,      // levels/ASSETS/LEVELS: the GameCube's four levels
+        BmxTrailers,      // movies/ASSETS/MOVIES/COMPEDGE: the Xbox's Turok and Vexx trailers (PSS or XMV)
+        BmxCreate,        // create/added.txt: create-a-rider's libraries with the other releases' textures and parts
+        BmxSongs,         // music/songs.txt: the Xbox's unused songs (the files beside it)
         // The code: Dave Mirra BMX 2's created riders' models are the readable
         // newRider's (dave_mirra::createPlayerCanRun).
         Dm2ReadableRider,
@@ -65,8 +68,8 @@ namespace ps2x::app
     };
 
     // The setup's folders as a boot is given them (`bootText`: the boot
-    // config's PS2X_XBOX_DIR, PS2X_XBOX_CONVERTED, PS2X_XBOX_PACK,
-    // PS2X_ESTATE_DIR, PS2X_DM2_XBOX_LEVELS_DIR, PS2X_BMX_RELEASES_DIR),
+    // config's ZX_XBOX_DIR, ZX_XBOX_CONVERTED, ZX_XBOX_PACK,
+    // ZX_ESTATE_DIR, ZX_DM2_XBOX_LEVELS_DIR, ZX_BMX_RELEASES_DIR),
     // each looked into for the files its options read (any case), and this
     // build's platform. Dm2ReadableRider is the caller's to set (the game's).
     Installed findInstalled(const GetEnv &bootText);

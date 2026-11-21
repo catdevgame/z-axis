@@ -303,7 +303,7 @@ namespace ps2_host_input
     // in slot 1 alone when there is one, else no pad at all (connected
     // false: the game sees an empty port, as on a PS2 with one controller;
     // a copy of port 0 made games that read both ports, like DM2's cheat
-    // sniffer, see every press twice). mirrorPort1 (PS2X_PAD_PORT1=mirror,
+    // sniffer, see every press twice). mirrorPort1 (ZX_PAD_PORT1=mirror,
     // developer runs that drive split screen with one input) gives the old
     // routing: port 1 without its own pad copies port 0's last report.
     // Gamepads off: no slot for any port. Ports past 1 (no multitap): none.
@@ -373,7 +373,7 @@ namespace ps2_host_input
     // then turn about `up`. Identity for a degenerate offset.
     Quat lookRotation(const Vec3 &offset, const Vec3 &up, float yawDeg, float pitchDeg);
 
-    // Stick byte for a deflection in -1..1, as PS2X_PAD_SCRIPT and the
+    // Stick byte for a deflection in -1..1, as ZX_PAD_SCRIPT and the
     // gamepad path compute it (centre 0x80).
     uint8_t stickByte(float value);
     // Pressure byte for a pressed button, 1..255.
@@ -447,7 +447,7 @@ namespace ps2_host_input
         double m_lookIdleVsyncs = 0.0;
     };
 
-    // PS2X_HOST_INPUT_SCRIPT: scripted host keyboard/mouse/focus events that
+    // ZX_HOST_INPUT_SCRIPT: scripted host keyboard/mouse/focus events that
     // go through the same mapping as real input. Comma-separated entries:
     //   <t>:KEY=<name>[:<dur>]       hold a key or mouse button (default 0.25 s)
     //   <t>:MOUSE=<dx>/<dy>[:<dur>]  relative mouse motion in pixels: at t, or
@@ -455,7 +455,7 @@ namespace ps2_host_input
     //   <t>:FOCUS=0|1                window loses / gains focus
     //   <t>:WHEEL=<steps>            mouse wheel steps (away from the user positive)
     // Times and durations are seconds or vsyncs with a "v" suffix, on the
-    // PS2X_PAD_SCRIPT clock (vsyncs from the first pad read; SYNC/WAIT
+    // ZX_PAD_SCRIPT clock (vsyncs from the first pad read; SYNC/WAIT
     // anchors of a pad script shift it too).
     class HostInputScript
     {

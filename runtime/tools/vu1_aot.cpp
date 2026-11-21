@@ -1,12 +1,12 @@
-// ps2xVu1Aot: ahead-of-time compiled C++ for VU1 micro memory images.
+// zx-vu1aot: ahead-of-time compiled C++ for VU1 micro memory images.
 //
-//   ps2xVu1Aot <out-dir> <input>...
+//   zx-vu1aot <out-dir> <input>...
 //
-// Inputs are VU1 corpora (PS2X_VU1_RECORD, every micro memory image their
-// runs used) or raw 16 KiB images (PS2X_VU1_CODE_DUMP, *.vu1code). For each
+// Inputs are VU1 corpora (ZX_VU1_RECORD, every micro memory image their
+// runs used) or raw 16 KiB images (ZX_VU1_CODE_DUMP, *.vu1code). For each
 // distinct image it writes <out-dir>/vu1_aot_<hash>.cpp and its chunks (the
 // generator: runtime/ps2_vu1_aot_generator.h, src/lib/vu/ps2_vu1_aot.h).
-// Build them into the runner with -DPS2X_VU1_AOT_DIR=<out-dir>; the app's
+// Build them into the runner with -DZX_VU1_AOT_DIR=<out-dir>; the app's
 // first run builds them into a game's module.
 #include "runtime/ps2_vu1.h"
 #include "runtime/ps2_vu1_aot_generator.h"
@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 {
     if (argc < 3)
     {
-        std::fprintf(stderr, "usage: ps2xVu1Aot <out-dir> <corpus.vu1r | image.vu1code>...\n");
+        std::fprintf(stderr, "usage: zx-vu1aot <out-dir> <corpus.vu1r | image.vu1code>...\n");
         return 2;
     }
     std::map<uint64_t, std::vector<uint8_t>> images;
@@ -62,9 +62,9 @@ int main(int argc, char **argv)
     }
     for (const auto &[hash, code] : images)
     {
-        ps2x::vu1aot::Written written;
+        zx::vu1aot::Written written;
         std::string error;
-        if (!ps2x::vu1aot::writeProgram(code, argv[1], written, error))
+        if (!zx::vu1aot::writeProgram(code, argv[1], written, error))
         {
             std::fprintf(stderr, "%016llx: %s\n", static_cast<unsigned long long>(hash), error.c_str());
             return 1;

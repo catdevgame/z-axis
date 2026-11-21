@@ -2,10 +2,10 @@
 """readable_entries.py: a readable source as the build compiles it, with each registered function's entry.
 
 Game code calls a game function by its name, `moveObjectBox(box, delta)`, and the source defines it under that
-name. The call still has to do what a call of a game function does: under ps2xFnCheck the replay answers it
-from the recording, a function switched off (PS2X_READABLE) or hooked by an override is reached through the
+name. The call still has to do what a call of a game function does: under zx-fncheck the replay answers it
+from the recording, a function switched off (ZX_READABLE) or hooked by an override is reached through the
 function table, a function that waits gets its fiber, and a readable callee runs in its own frame
-(game::detail::Route, ee/readable.h). The game and ps2xFnCheck link the same objects, so that cannot be decided
+(game::detail::Route, ee/readable.h). The game and zx-fncheck link the same objects, so that cannot be decided
 at the definition: the name callers call and the body have to be two functions.
 
 This tool makes them, at build time and only in the build dir. It copies SOURCE to OUT with, for every
@@ -38,7 +38,7 @@ function-pointer parameter, a registration with no definition in the file) stops
     readable_entries.py --own-inline SOURCE OUT
                                              the source as written but for its own bodies (_OWN), each defined
                                              READABLE_OWN_INLINE(GAME) as in the build copy: what a build that
-                                             compiles the source itself (tests/' ps2_test_lib) needs, so an own
+                                             compiles the source itself (tests/' zx_test_lib) needs, so an own
                                              body that calls its game's _ONLY functions is not emitted there either
     readable_entries.py --check SOURCE...    parse only: every registration has its definition
 """

@@ -12,7 +12,7 @@
 //     return result;
 //
 // readable_draft.py writes them for the registers the generated callers
-// read; ps2xFnCheck notes a readable function that leaves another value
+// read; zx-fncheck notes a readable function that leaves another value
 // (regs_left). Off a readable call (no context) they do nothing.
 
 #include "abi.h"

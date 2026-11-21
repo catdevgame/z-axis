@@ -243,7 +243,7 @@ class Tree:
             if '/src/game/' in c['file'] and c['file'].endswith('.cpp'):
                 rel = c['file'].split('/src/game/', 1)[1]
                 # (the readable library's own compile, not a test's or a tool's)
-                if rel not in self.commands or 'ps2_game_readable' in c['command']:
+                if rel not in self.commands or 'zx_game_readable' in c['command']:
                     self.commands[rel] = c
                     self.build_tree = self.build_tree or re.split(r'/(?:%s)/src/game/' % '|'.join(zlayout.FOLDERS['runtime']), c['file'])[0]
         self.files = []

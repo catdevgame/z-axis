@@ -39,7 +39,7 @@ namespace zge_host::photo
         // looks at, its field of view in degrees), the camera kept within
         // maxDistance of there: the game's free input on, the filter and the
         // help shown.
-        void begin(const ps2x::photo::Vec3 &eye, const ps2x::photo::Vec3 &target, float fieldOfView, float maxDistance);
+        void begin(const zx::photo::Vec3 &eye, const zx::photo::Vec3 &target, float fieldOfView, float maxDistance);
         // One game frame: the free camera moved and the keys done. False
         // when the player leaves (Back, Esc) or requestExit was called:
         // the caller then puts its game back and calls end().
@@ -51,7 +51,7 @@ namespace zge_host::photo
         void requestExit() { exitRequest_ = true; }
 
         bool active() const { return active_.load(); }
-        const ps2x::photo::FreeCamera &camera() const { return camera_; }
+        const zx::photo::FreeCamera &camera() const { return camera_; }
         // The camera's roll in degrees (+ clockwise as seen through it);
         // read by a game's matrix hook.
         float roll() const { return roll_.load(); }
@@ -68,8 +68,8 @@ namespace zge_host::photo
         std::atomic<bool> active_{false};
         bool exitRequest_ = false;
         uint64_t vsync_ = 0;
-        ps2x::photo::FreeCamera camera_;
-        ps2x::photo::FreeCamera cameraStart_;
+        zx::photo::FreeCamera camera_;
+        zx::photo::FreeCamera cameraStart_;
         std::atomic<float> roll_{0.0f};
         size_t preset_ = 0;
         // The full help, at the start for a while and when asked (H); else

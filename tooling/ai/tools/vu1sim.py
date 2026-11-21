@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Independent VU1 micro-mode simulator for differential checks of recorded runs.
 
-Written from the VU manual / PCSX2 semantics, separately from PS2Recomp's
+Written from the VU manual / PCSX2 semantics, separately from the runtime's
 VU1Interpreter, to cross-check what a recorded run emits:
 
   vu1sim.py <corpus.vu1r> [--first N] [--count N] [--pc 0xPC] [--fused] [--verbose]

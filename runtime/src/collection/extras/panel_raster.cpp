@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     namespace
     {

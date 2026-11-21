@@ -17,7 +17,7 @@
 
 namespace
 {
-    namespace col = ps2x::collection;
+    namespace col = zx::collection;
 
     col::MenuInput key(const char *name)
     {
@@ -941,6 +941,41 @@ void register_ps2_collection_tests()
             t.Equals(shell.freeplayGame(), 0, "the player page again: Left to the first");
             shell.input(key("Enter"), players, {}, playerPage);
             t.IsTrue(shell.page() == col::MenuPage::FreeplayMap, "Enter on a player: the map page");
+
+            // A game whose maps do not start (AI's without the Estate) has no
+            // tile there: the page's tiles are the players offered.
+            {
+                col::Shell offered(3, true);
+                offered.start();
+                offered.setFreeplayPlayers({1, 2});
+                t.IsTrue(offered.freeplayPlayers() == std::vector<int>({1, 2}), "the players offered");
+                offered.showPage(col::MenuPage::FreeplayPlayer);
+                t.Equals(offered.freeplayGame(), 1, "the page opens on the first player offered");
+                const col::Layout two = col::layout(960, 720, 2);
+                offered.input(key("Left"), two, {}, playerPage);
+                t.Equals(offered.freeplayGame(), 1, "Left on the first: no tile before it");
+                offered.input(key("Right"), two, {}, playerPage);
+                t.Equals(offered.freeplayGame(), 2, "Right: the next one offered");
+                offered.input(key("Right"), two, {}, playerPage);
+                t.Equals(offered.freeplayGame(), 2, "the last one");
+                offered.choose(0);
+                t.Equals(offered.freeplayGame(), 2, "a card of a game not offered chooses nothing");
+                const col::Rect first = two.tiles[0];
+                col::MenuInput point;
+                point.pointerMoved = true;
+                point.pointerX = first.x + 2.0f;
+                point.pointerY = first.y + 2.0f;
+                offered.input(point, two, {}, playerPage);
+                t.Equals(offered.freeplayGame(), 1, "the first tile is the first player offered");
+                offered.setFreeplayPlayers({2});
+                t.Equals(offered.freeplayGame(), 2, "a player no longer offered: the first one that is");
+                offered.setFreeplayPlayers({});
+                t.IsTrue(offered.freeplayOnBack(), "none offered: Back");
+                offered.input(key("Up"), col::layout(960, 720, 0), {}, playerPage);
+                t.IsTrue(offered.freeplayOnBack(), "Up: still Back, no player to go to");
+                offered.input(key("Enter"), col::layout(960, 720, 0), {}, playerPage);
+                t.IsTrue(offered.page() == col::MenuPage::Tiles, "Enter: Back to the tiles");
+            }
 
             // The map page's rows, one per map whatever game it was made in:
             // a playable map's Enter is a Boot with it, its help the same line

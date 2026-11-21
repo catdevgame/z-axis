@@ -1,7 +1,7 @@
 #ifndef PS2_VU1_AOT_H
 #define PS2_VU1_AOT_H
 
-// Support for ahead-of-time compiled VU1 microprograms. ps2xVu1Aot writes one
+// Support for ahead-of-time compiled VU1 microprograms. zx-vu1aot writes one
 // source per micro memory image: the image's decoded pairs as constants and a
 // function that runs the interpreter's own step (stepPair) on them, with a
 // goto per pair for sequential flow and a switch on pc for everything else.

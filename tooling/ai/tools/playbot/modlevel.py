@@ -15,7 +15,7 @@
                                                --tour: the map's features in turn (aipark.tour) instead of the lines;
                                                the features reached printed either way (parkmap.Reached)
 
-The run: PS2X_MODS_DIR is FOLDER, PS2X_ESTATE=1 with PS2X_ESTATE_DIR (the app's Estate folder, AI_DATA/dist/.estate
+The run: ZX_MODS_DIR is FOLDER, ZX_ESTATE=1 with ZX_ESTATE_DIR (the app's Estate folder, AI_DATA/dist/.estate
 unless set) so the free skate level select has an entry for level 7; mods are read before the Estate's provider, so
 the level is the folder's. Everything else is ai.py's (its clock, card, scratch, Player and behaviours).
 """
@@ -35,7 +35,7 @@ import core  # noqa: E402
 import nav  # noqa: E402
 import parkmap  # noqa: E402
 
-ESTATE_DIR = os.environ.get('PS2X_ESTATE_DIR', os.path.join(zpaths.AI_DATA, 'dist', '.estate'))
+ESTATE_DIR = os.environ.get('ZX_ESTATE_DIR', os.path.join(zpaths.AI_DATA, 'dist', '.estate'))
 
 
 def build(folder, slot='TUT'):
@@ -163,9 +163,9 @@ def ride_session(name, folder, ticks, seed=1, entry=7, shots=0, slot='TUT', tour
     m = build(folder, slot)
     plan = ai.Plan(slot)
     reached = parkmap.Reached(parkmap.Plan(m, run_up=14.0, clear=1.2))
-    env = {'PS2X_MODS_DIR': os.path.abspath(folder), 'PS2X_ESTATE': '1', 'PS2X_ESTATE_DIR': ESTATE_DIR}
+    env = {'ZX_MODS_DIR': os.path.abspath(folder), 'ZX_ESTATE': '1', 'ZX_ESTATE_DIR': ESTATE_DIR}
     if shots:
-        env['PS2X_HEADLESS'] = '1'
+        env['ZX_HEADLESS'] = '1'
     numbers = Numbers()
     pictures = []
 

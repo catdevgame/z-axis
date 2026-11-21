@@ -306,7 +306,7 @@ def view(bot, what, pitch=1.0, zoom=1.0, frames=90):
 def session(name, program, ticks=60000, env=None, script_extra=None):
     import dm2routes
     menu = dm2routes.Script()
-    e = {'PS2X_HEADLESS': '1'}
+    e = {'ZX_HEADLESS': '1'}
     e.update(env or {})
     cfg = dm2.run_config(name, menu.text(), env=e, max_secs=max(900, ticks // 12), gs=SHOTS)
     rec = core.Recorder()

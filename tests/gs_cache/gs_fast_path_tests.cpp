@@ -1,7 +1,7 @@
 // Differential tests for the queued/tiled fast path of GSCpuBackend
 // (gs_cpu_fast.cpp): a random stream of draws, CLUT loads, TEXFLUSHes,
 // uploads, copies and clears goes to a backend running the reference
-// rasterizer (PS2X_GS_REFERENCE=1) and to one running the fast path; local
+// rasterizer (ZX_GS_REFERENCE=1) and to one running the fast path; local
 // memory must stay identical bit for bit.
 #include "gs_test_support.h"
 #include "../../runtime/src/lib/gs/gs_cpu_shared.h"
@@ -18,17 +18,17 @@ using namespace GSTest;
 
 namespace
 {
-    // PS2X_GS_REFERENCE set to "1" or removed (Windows has _putenv_s, an
+    // ZX_GS_REFERENCE set to "1" or removed (Windows has _putenv_s, an
     // empty value removes the variable there).
     void setReference(bool on)
     {
 #if defined(_WIN32)
-        _putenv_s("PS2X_GS_REFERENCE", on ? "1" : "");
+        _putenv_s("ZX_GS_REFERENCE", on ? "1" : "");
 #else
         if (on)
-            setenv("PS2X_GS_REFERENCE", "1", 1);
+            setenv("ZX_GS_REFERENCE", "1", 1);
         else
-            unsetenv("PS2X_GS_REFERENCE");
+            unsetenv("ZX_GS_REFERENCE");
 #endif
     }
 

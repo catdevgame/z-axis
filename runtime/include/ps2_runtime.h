@@ -36,7 +36,7 @@
 #include "runtime/ps2_rom_device.h"
 #include "runtime/ps2_vfs.h"
 #include "ps2x/iop/iop_types.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 #include "runtime/guest_cpu.h"
 
 namespace ps2x::iop
@@ -67,7 +67,7 @@ inline uint8_t ps2PathWatchExtractByteFromWrite(uint32_t writeAddr, uint32_t wat
     return static_cast<uint8_t>((valueHi >> ((byteIndex - 8u) * 8u)) & 0xFFu);
 }
 
-namespace ps2x
+namespace zx
 {
     class BootConfig; // runtime/ps2_boot_config.h
     namespace boot
@@ -108,7 +108,7 @@ public:
         // Bilinear filtering for the non-integer fit (default: nearest).
         bool smoothFilter = false;
         // 16:9 presentation for games whose override renders 16:9 (see
-        // markWidescreenFrame). PS2X_WIDESCREEN=1/0 overrides it.
+        // markWidescreenFrame). ZX_WIDESCREEN=1/0 overrides it.
         bool widescreen = false;
         // The host (window, GPU device, audio device, gamepads) belongs to
         // the caller, which keeps it up across runtimes and shuts it down
@@ -122,7 +122,7 @@ public:
     // app's per-game settings and paths, a check's per-game switches;
     // runtime/ps2_boot_config.h). The default: the environment alone.
     PS2Runtime();
-    explicit PS2Runtime(ps2x::BootConfig config);
+    explicit PS2Runtime(zx::BootConfig config);
     ~PS2Runtime();
 
     bool initialize(const char *title = "PS2 Game");
@@ -146,7 +146,7 @@ public:
     void setWidescreen(bool enabled) { m_widescreen.store(enabled, std::memory_order_relaxed); }
     [[nodiscard]] bool widescreen() const { return m_widescreen.load(std::memory_order_relaxed); }
     // The widescreen aspect (width / height, 16:9 by default; 0 follows the
-    // window's shape, clamped to 4:3..32:9). PS2X_ASPECT=16:9|16:10|21:9|
+    // window's shape, clamped to 4:3..32:9). ZX_ASPECT=16:9|16:10|21:9|
     // 32:9|window|<number> overrides it.
     void setWideAspect(float aspect) { m_wideAspect.store(aspect, std::memory_order_relaxed); }
     [[nodiscard]] float wideAspectSetting() const { return m_wideAspect.load(std::memory_order_relaxed); }
@@ -155,8 +155,8 @@ public:
     [[nodiscard]] float wideAspect() const;
     // View settings for game overrides (EE thread), render-side only; the
     // defaults are the game's own look. Motion blur: 0 off, 1 low, 2 the
-    // game's (PS2X_MOTION_BLUR). Draw distance: 0 the game's, 1 far, 2
-    // farthest (PS2X_DRAW_DISTANCE).
+    // game's (ZX_MOTION_BLUR). Draw distance: 0 the game's, 1 far, 2
+    // farthest (ZX_DRAW_DISTANCE).
     void setMotionBlur(int level) { m_motionBlur.store(level, std::memory_order_relaxed); }
     [[nodiscard]] int motionBlur() const { return m_motionBlur.load(std::memory_order_relaxed); }
     void setDrawDistance(int level) { m_drawDistance.store(level, std::memory_order_relaxed); }
@@ -165,13 +165,13 @@ public:
     // The picture is stretched to wideAspect() while such frames are shown;
     // other frames (movies, 2D screens) stay 4:3.
     void markWidescreenFrame() { m_widescreenMarks.fetch_add(1u, std::memory_order_relaxed); }
-    // Makes the GS renderer again from PS2X_GS_BACKEND / PS2X_GS_SCALE
+    // Makes the GS renderer again from ZX_GS_BACKEND / ZX_GS_SCALE
     // (renderer settings changed while running); done by run() between two
     // host frames, once no image transfer is under way. Window thread.
     void requestRasterBackendReload() { m_rasterReloadRequested = true; }
     // Display buffer flips so far (the game's frames, for a frame rate counter).
     static uint64_t displayFlips();
-    // Saves the next presented picture as a PNG (as PS2X_CONTROL "shot"
+    // Saves the next presented picture as a PNG (as ZX_CONTROL "shot"
     // does: the displayed aspect at the renderer's internal resolution);
     // done(ok) runs on a worker thread once written. Any thread.
     void requestScreenshot(std::string path, std::function<void(bool ok)> done = {});
@@ -270,7 +270,7 @@ public:
     // shim) runs as it would through the dispatcher; `direct` is the
     // recompiled function, called when the table holds it (or the target
     // is outside the table). As in the game, no EE cycles are charged and
-    // there is no safe point. sourcePc (the jump) is for PS2X_TAILCALL_STATS.
+    // there is no safe point. sourcePc (the jump) is for ZX_TAILCALL_STATS.
     void tailCall(uint8_t *rdram, R5900Context *ctx, uint32_t targetPc, uint32_t sourcePc,
                   RecompiledFunction direct)
     {
@@ -295,7 +295,7 @@ public:
         bool stats;
     };
     static inline TailCallTable s_tailCallTable{};
-    // PS2X_TAILCALL_STATS=1: counts tail calls that reached a replaced
+    // ZX_TAILCALL_STATS=1: counts tail calls that reached a replaced
     // function, by site; written to stderr at exit.
     static void noteReplacedTailCall(uint32_t sourcePc, uint32_t targetPc);
     struct TailCallCount
@@ -306,10 +306,10 @@ public:
     };
     // The counts so far, by target then site.
     static std::vector<TailCallCount> replacedTailCalls();
-    // With PS2X_TAILCALL_STATS: the addresses whose table entry is no longer
+    // With ZX_TAILCALL_STATS: the addresses whose table entry is no longer
     // the generated function.
     static std::vector<uint32_t> replacedFunctions();
-    // PS2X_WATCH32 support (see ps2_runtime.cpp).
+    // ZX_WATCH32 support (see ps2_runtime.cpp).
     void checkWatch32(uint8_t *rdram, R5900Context *ctx, uint32_t sourcePc, uint32_t targetPc, const char *where);
     // The start of every dispatch: pc at the target, its cycles charged. False
     // when a checkpoint is due there: the guest thread unwinds, pc at the target.
@@ -336,7 +336,7 @@ public:
     static const IoPaths &getIoPaths();
     static void setIoPaths(const IoPaths &paths);
     // The disc image as a file system when IoPaths::cdFromImage is set.
-    static std::shared_ptr<const ps2x::iop::Iso9660Image> cdImageFileSystem();
+    static std::shared_ptr<const zx::disc::Iso9660Image> cdImageFileSystem();
     static void configureIoPathsFromElf(const std::string &elfPath, bool deriveRoots = true);
 
     void SignalException(R5900Context *ctx, PS2Exception exception);
@@ -391,7 +391,7 @@ public:
     // Bytes of extended memory in use (for logs).
     uint32_t extendedHeapInUse() const;
     // The heap's bytes in use, in the 32 MB and in extended memory, and the most each has held since the
-    // last reset of the peaks (GuestHeap::Usage; PS2X_TRACE_HEAP logs them per level: runtime/heap_trace.h).
+    // last reset of the peaks (GuestHeap::Usage; ZX_TRACE_HEAP logs them per level: runtime/heap_trace.h).
     GuestHeap::Usage guestHeapUsage() const;
     void resetGuestHeapPeaks();
     uint32_t reserveAsyncCallbackStack(uint32_t size, uint32_t alignment = 16u);
@@ -526,7 +526,7 @@ private:
 public:
     // Game override: true while the guest shows a loading screen (EE RAM at
     // a VBlank). The scheduler runs such stretches unpaced while the sound
-    // output is silent (EeScheduler, PS2X_LOAD_FAST_FORWARD).
+    // output is silent (EeScheduler, ZX_LOAD_FAST_FORWARD).
     using LoadingScreenProbe = bool (*)(const uint8_t *rdram);
     void setLoadingScreenProbe(LoadingScreenProbe probe) noexcept { m_loadingScreenProbe = probe; }
     [[nodiscard]] LoadingScreenProbe loadingScreenProbe() const noexcept { return m_loadingScreenProbe; }
@@ -535,7 +535,7 @@ public:
     // Game override: a native sound driver that replaces the game's IOP
     // sound module plays its 48 kHz stereo frames (made in guest time) here;
     // while setNativeAudio(true) the SPU2's own output is not played. The
-    // frames go the way the SPU2's did (movie sound mixed in, PS2X_SPU2_WAV,
+    // frames go the way the SPU2's did (movie sound mixed in, ZX_SPU2_WAV,
     // the host stream, the silence that lets a loading screen run unpaced).
     void setNativeAudio(bool active) noexcept;
     void submitNativeAudio(const int16_t *interleavedStereo, size_t frames);
@@ -550,7 +550,7 @@ public:
     }
     // Game override: IRX file names (e.g. "PADMAN.IRX") whose
     // sceSifLoadModule succeeds without loading anything, for drivers the
-    // game loads but never uses. PS2X_LOAD_ALL_IOP_MODULES=1 loads them.
+    // game loads but never uses. ZX_LOAD_ALL_IOP_MODULES=1 loads them.
     void setSkippedIopModules(std::vector<std::string> names) { m_skippedIopModules = std::move(names); }
     // Game override: the game needs nothing the IOP runs (every module it
     // loads is skipped and replaced on the host). The IOP then does not run
@@ -573,7 +573,7 @@ private:
 
 private:
     // First: every other member is made within the boot, and gone before it ends.
-    std::unique_ptr<ps2x::boot::Scope> m_boot;
+    std::unique_ptr<zx::boot::Scope> m_boot;
     PS2Memory m_memory;
     GifArbiter m_gifArbiter;
     GS m_gs;

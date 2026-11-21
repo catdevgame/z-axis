@@ -1,7 +1,7 @@
-// ps2xFnCheck: checks readable functions against the recompiled originals
+// zx-fncheck: checks readable functions against the recompiled originals
 // on recorded calls (the method is described in fncheck.h).
 //
-//   ps2xFnCheck [options] <recording.fnrec | folder>...
+//   zx-fncheck [options] <recording.fnrec | folder>...
 //     --only <name|0xaddress>   only these functions (repeatable; dm2:ADDRESS
 //                               or dm2:name for another game's, ee/game_id.h)
 //     --limit <n>               at most n calls per function
@@ -164,7 +164,7 @@
 #include <mach/mach.h>
 #endif
 
-// ps2_runtime needs a function table; here it holds the replay stubs.
+// zx_runtime needs a function table; here it holds the replay stubs.
 extern const uint32_t g_ps2RecompiledFunctionTableBase = 0x00000000u;
 extern const uint32_t g_ps2RecompiledFunctionTableEnd = PS2_RAM_SIZE;
 extern const uint32_t g_ps2RecompiledFunctionTableSlotCount = PS2_RAM_SIZE >> 2;
@@ -385,8 +385,8 @@ namespace
         (void)context;
 #endif
 #if defined(__linux__)
-        // PS2X_FNCHECK_PROBES=1: where (a debugging aid; not signal-safe).
-        if (const char *v = std::getenv("PS2X_FNCHECK_PROBES"); v && *v == '1')
+        // ZX_FNCHECK_PROBES=1: where (a debugging aid; not signal-safe).
+        if (const char *v = std::getenv("ZX_FNCHECK_PROBES"); v && *v == '1')
         {
             void *frames[32];
             const int n = backtrace(frames, 32);
@@ -1645,10 +1645,10 @@ namespace
         std::unordered_set<uint32_t> m_written;
     };
 
-    // PS2X_FNCHECK_PROBES=1: a line per call looked at on stderr.
+    // ZX_FNCHECK_PROBES=1: a line per call looked at on stderr.
     bool showProbes()
     {
-        static const bool show = [] { const char *v = std::getenv("PS2X_FNCHECK_PROBES"); return v && *v == '1'; }();
+        static const bool show = [] { const char *v = std::getenv("ZX_FNCHECK_PROBES"); return v && *v == '1'; }();
         return show;
     }
 
@@ -2017,9 +2017,9 @@ namespace
         g_trace = ProbeTrace{};
         g_trace.limit = limit;
         g_probing = true;
-        // PS2X_FNCHECK_PROBE_VERIFY=1: the open pages compared before and
+        // ZX_FNCHECK_PROBE_VERIFY=1: the open pages compared before and
         // after (what a probe changed that the sandbox did not undo).
-        static const bool s_verify = [] { const char *v = std::getenv("PS2X_FNCHECK_PROBE_VERIFY"); return v && *v == '1'; }();
+        static const bool s_verify = [] { const char *v = std::getenv("ZX_FNCHECK_PROBE_VERIFY"); return v && *v == '1'; }();
         std::vector<uint8_t> before;
         if (s_verify && g_openPages)
             for (uint32_t page : *g_openPages)
@@ -5445,7 +5445,7 @@ int main(int argc, char **argv)
         }
         else if (!arg.empty() && arg[0] == '-')
         {
-            std::cerr << "usage: ps2xFnCheck [--only fn] [--limit n] [--show n] [--list] [--cycles] [--semantic] [--no-callee-reads] [--frame-reads-out dir] [--frame-reads-in dir] [--frame-reads-only] [--no-frame-residue] [--markers] [--safepoints [p [c]]] [--safepoints-paths n] "
+            std::cerr << "usage: zx-fncheck [--only fn] [--limit n] [--show n] [--list] [--cycles] [--semantic] [--no-callee-reads] [--frame-reads-out dir] [--frame-reads-in dir] [--frame-reads-only] [--no-frame-residue] [--markers] [--safepoints [p [c]]] [--safepoints-paths n] "
                          "[--call-blocks] [--call-timeout s] [--max-mem-mb mb] [--runaway k] [--generate fn n] [--self-test-stops] <recording|folder>..."
                       << std::endl;
             return 2;

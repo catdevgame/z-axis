@@ -24,7 +24,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::tuning
+namespace zx::tuning
 {
     struct Entry
     {

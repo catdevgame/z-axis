@@ -10,7 +10,7 @@
 #include <sstream>
 #include <system_error>
 
-namespace ps2x::app
+namespace zx::app
 {
     // ---- SHA-256 (FIPS 180-4) ----------------------------------------------
 

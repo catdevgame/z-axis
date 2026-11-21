@@ -1,4 +1,4 @@
-# Writes OUT (play_recording_commit.h: ZAXIS_BUILD_COMMIT, the source tree's
+# Writes OUT (play_recording_commit.h: ZX_BUILD_COMMIT, the source tree's
 # git commit, "+changes" when tracked files differ from it) for the play
 # recordings' header (runtime/play_recording.h). Rewritten only when the
 # text changes, so a build without a new commit recompiles nothing.
@@ -13,7 +13,7 @@ if(rc EQUAL 0 AND NOT head STREQUAL "")
         string(APPEND commit "+changes")
     endif()
 endif()
-set(text "#define ZAXIS_BUILD_COMMIT \"${commit}\"\n")
+set(text "#define ZX_BUILD_COMMIT \"${commit}\"\n")
 set(old "")
 if(EXISTS "${OUT}")
     file(READ "${OUT}" old)

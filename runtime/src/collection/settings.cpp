@@ -19,7 +19,7 @@
 #include <sstream>
 #include <system_error>
 
-namespace ps2x::app
+namespace zx::app
 {
     std::string envString(const GetEnv &getEnv, const char *name)
     {
@@ -97,7 +97,7 @@ namespace ps2x::app
         // A [graphics] key of a picture quality option (gs_quality), or -1.
         int qualityKey(const std::string &key)
         {
-            for (const ps2x::gs_quality::OptionInfo &q : ps2x::gs_quality::options())
+            for (const zx::gs_quality::OptionInfo &q : zx::gs_quality::options())
                 if (key == q.iniKey)
                     return static_cast<int>(q.option);
             return -1;
@@ -107,7 +107,7 @@ namespace ps2x::app
     AppPaths resolveAppPaths(const std::string &appName, const GetEnv &getEnv)
     {
         AppPaths paths;
-        const std::string overrideDir = envString(getEnv, "PS2X_APP_SUPPORT_DIR");
+        const std::string overrideDir = envString(getEnv, "ZX_APP_SUPPORT_DIR");
         const std::string home = envString(getEnv, "HOME");
         std::filesystem::path logDir;
         if (!overrideDir.empty())
@@ -130,7 +130,7 @@ namespace ps2x::app
             logDir = (state.empty() ? std::filesystem::path(home) / ".local" / "state" : std::filesystem::path(state)) / appName;
 #endif
         }
-        if (const std::string logOverride = envString(getEnv, "PS2X_APP_LOG_DIR"); !logOverride.empty())
+        if (const std::string logOverride = envString(getEnv, "ZX_APP_LOG_DIR"); !logOverride.empty())
             logDir = logOverride;
 
         paths.settingsFile = paths.supportDir / "settings.ini";
@@ -360,6 +360,18 @@ namespace ps2x::app
                 ok = parseBool(value, settings.bmxMenuLines);
             else if (section == "extras" && key == "all_mp_modes")
                 ok = parseBool(value, settings.bmxAllMpModes);
+            else if (section == "extras" && key == "logo_splash")
+                ok = parseBool(value, settings.bmxLogoSplash);
+            else if (section == "extras" && key == "trailers")
+                ok = parseBool(value, settings.bmxTrailers);
+            else if (section == "extras" && key == "car_textures")
+                ok = parseBool(value, settings.bmxCarTextures);
+            else if (section == "extras" && key == "green_skin")
+                ok = parseBool(value, settings.bmxGreenSkin);
+            else if (section == "extras" && key == "topless_girl")
+                ok = parseBool(value, settings.bmxTopless);
+            else if (section == "extras" && key == "xbox_songs")
+                ok = parseBool(value, settings.bmxXboxSongs);
             else if (section == "graphics" && key == "renderer")
             {
                 const std::string v = lower(value);
@@ -396,7 +408,7 @@ namespace ps2x::app
             else if (section == "graphics" && qualityKey(key) >= 0)
             {
                 const int q = qualityKey(key);
-                ok = ps2x::gs_quality::parseValue(static_cast<ps2x::gs_quality::Option>(q), value, settings.quality[q]);
+                ok = zx::gs_quality::parseValue(static_cast<zx::gs_quality::Option>(q), value, settings.quality[q]);
             }
             else if (section == "graphics" && key == "internal_resolution")
             {
@@ -484,7 +496,7 @@ namespace ps2x::app
         // A game (runtime/ps2_games.h) with its options.
         GameSettingsProfile profile(const char *id, std::vector<GameOption> options)
         {
-            return {ps2x::games::game(id), std::move(options)};
+            return {zx::games::game(id), std::move(options)};
         }
 
         // Each game's options (in the collection's order).
@@ -524,11 +536,15 @@ namespace ps2x::app
                 // (with Syracuse's timers by the tuning), the level select's
                 // preview movies, the Z-Axis logo movie in the gallery, the
                 // intro movie at boot (and so the intro movies' skip), the
-                // GameCube's levels; the menus' left-out lines (bmx_xxx_exit.cpp);
-                // every multiplayer mode in SELECT GAME (bmx_xxx_modes.cpp).
+                // GameCube's levels, the GameCube's logo at boot, the Xbox's two
+                // trailers and unused songs, create-a-rider's textures and parts
+                // and its Green Skin and Topless Girl modes; the menus' left-out lines
+                // (bmx_xxx_exit.cpp); every multiplayer mode in SELECT GAME
+                // (bmx_xxx_modes.cpp).
                 profile("bmx", {O::Language, O::DeveloperMenu, O::Tuning, O::BmxParkEditor, O::BmxXboxChallenges,
                                 O::BmxEditorPieces, O::BmxLevelPreviews, O::BmxLogoMovie, O::BmxIntroMovie,
-                                O::BmxGcLevels, O::BmxMenuLines, O::BmxAllMpModes, O::SaveProfile,
+                                O::BmxGcLevels, O::BmxMenuLines, O::BmxAllMpModes, O::BmxLogoSplash, O::BmxTrailers,
+                                O::BmxCarTextures, O::BmxGreenSkin, O::BmxTopless, O::BmxXboxSongs, O::SaveProfile,
                                 O::Pcsx2Import, O::GameplayPages, O::SkipIntroMovies, O::Widescreen, O::MotionBlur,
                                 O::DrawDistance, O::MovieVolume}),
             };
@@ -547,7 +563,7 @@ namespace ps2x::app
 
     const GameSettingsProfile &gameSettingsProfile(std::string_view idOrElf)
     {
-        const std::string_view id = ps2x::games::game(idOrElf).id;
+        const std::string_view id = zx::games::game(idOrElf).id;
         for (const GameSettingsProfile &game : profiles())
             if (id == game.id)
                 return game;
@@ -689,11 +705,11 @@ namespace ps2x::app
                 << "# anti_aliasing off | fxaa; texture_filtering off | 2x | 4x | 8x | 16x (anisotropic);\n"
                 << "# fog original (eight bands) | smooth; shadows original | sharp; depth_precision\n"
                 << "# original (16-bit) | high; perspective_correct false | true (shading, character textures).\n";
-            for (const ps2x::gs_quality::OptionInfo &q : ps2x::gs_quality::options())
+            for (const zx::gs_quality::OptionInfo &q : zx::gs_quality::options())
             {
                 const int v = settings.quality[static_cast<size_t>(q.option)];
                 out << q.iniKey << " = "
-                    << (q.choices.size() == 2u && q.choices[1] == "on" ? boolText(v != 0) : ps2x::gs_quality::valueName(q.option, v))
+                    << (q.choices.size() == 2u && q.choices[1] == "on" ? boolText(v != 0) : zx::gs_quality::valueName(q.option, v))
                     << "\n";
             }
             out << "\n[audio]\n"
@@ -787,7 +803,9 @@ namespace ps2x::app
             option(GameOption::BmxParkEditor) || option(GameOption::BmxXboxChallenges) || option(GameOption::BmxEditorPieces) ||
             option(GameOption::BmxLevelPreviews) || option(GameOption::BmxLogoMovie) || option(GameOption::BmxIntroMovie) ||
             option(GameOption::BmxGcLevels) || option(GameOption::BmxMenuLines) ||
-            option(GameOption::BmxAllMpModes))
+            option(GameOption::BmxAllMpModes) || option(GameOption::BmxLogoSplash) || option(GameOption::BmxTrailers) ||
+            option(GameOption::BmxCarTextures) || option(GameOption::BmxGreenSkin) || option(GameOption::BmxTopless) ||
+            option(GameOption::BmxXboxSongs))
             out << "\n[extras]\n";
         if (option(GameOption::Zoo))
             out << "# The Zoo, the level cut from the PS2 release, in Free Skate and Timed Run: the\n"
@@ -878,6 +896,33 @@ namespace ps2x::app
                 << "# FIVE, RANDOM SPOT, WIPEOUT and the eight three-chance contests besides SKILLZ,\n"
                 << "# PAINTBALL and STRIP CHALLENGE. Applies at the next start.\n"
                 << "all_mp_modes = " << boolText(settings.bmxAllMpModes) << "\n";
+        if (option(GameOption::BmxLogoSplash))
+            out << "# The Z-Axis logo movie at boot in place of the developer's picture, as the\n"
+                << "# GameCube release starts (Skip Intro Movies still skips it). Needs the Xbox disc\n"
+                << "# (its logo movie) at setup; applies at the next start.\n"
+                << "logo_splash = " << boolText(settings.bmxLogoSplash) << "\n";
+        if (option(GameOption::BmxTrailers))
+            out << "# The Turok and Vexx trailers in the Competitive Edge movies, as the Xbox release\n"
+                << "# lists them. Needs its disc at setup; applies at the next start.\n"
+                << "trailers = " << boolText(settings.bmxTrailers) << "\n";
+        if (option(GameOption::BmxCarTextures))
+            out << "# Create-a-rider's textures and parts of the Xbox and GameCube releases: hats,\n"
+                << "# tops, suspenders, a soul patch, clown shoes. A rider saved with one has them by\n"
+                << "# itself. Needs those discs at setup; applies at the next start.\n"
+                << "car_textures = " << boolText(settings.bmxCarTextures) << "\n";
+        if (option(GameOption::BmxGreenSkin))
+            out << "# Green Skin, the Xbox and GameCube releases' mode: create-a-rider's green skins\n"
+                << "# and faces. Needs those discs at setup; applies at the next start.\n"
+                << "green_skin = " << boolText(settings.bmxGreenSkin) << "\n";
+        if (option(GameOption::BmxTopless))
+            out << "# Topless Girl, the Xbox and GameCube releases' mode: create-a-rider's topless\n"
+                << "# top for a female rider. Needs those discs at setup; applies at the next start.\n"
+                << "topless_girl = " << boolText(settings.bmxTopless) << "\n";
+        if (option(GameOption::BmxXboxSongs))
+            out << "# The eight songs on the Xbox disc that no release's soundtrack names, as the\n"
+                << "# soundtrack's tracks 21 to 28, played in their turn. Needs its disc at setup;\n"
+                << "# applies at the next start.\n"
+                << "xbox_songs = " << boolText(settings.bmxXboxSongs) << "\n";
         if (option(GameOption::SaveProfile))
             out << "\n[saves]\n"
                 << "# Saves/<profile>.sav in this folder; another name starts (or picks) another career.\n"
@@ -1133,9 +1178,9 @@ namespace ps2x::app
 
     std::vector<std::pair<std::string, std::string>> rendererValues(const Settings &settings)
     {
-        return {{"PS2X_GS_BACKEND", settings.gpuRenderer ? "gpu" : "cpu"},
-                {"PS2X_GS_SCALE", std::to_string(settings.internalResolution)},
-                {"PS2X_GS_FULL_HEIGHT", settings.fullHeight ? "1" : "0"}};
+        return {{"ZX_GS_BACKEND", settings.gpuRenderer ? "gpu" : "cpu"},
+                {"ZX_GS_SCALE", std::to_string(settings.internalResolution)},
+                {"ZX_GS_FULL_HEIGHT", settings.fullHeight ? "1" : "0"}};
     }
 
     namespace
@@ -1170,12 +1215,12 @@ namespace ps2x::app
             const char *folder;
         };
         constexpr ReleaseFolder kReleaseFolders[] = {
-            {"PS2X_XBOX_DIR", "xbox"},                     // AI's Xbox files (runtime/ps2_xbox_disc.h)
-            {"PS2X_XBOX_CONVERTED", "xbox-converted"},     // the Zoo and the Ape made from them
-            {"PS2X_XBOX_PACK", "xbox-pack"},               // their textures, movies and skaters
-            {"PS2X_ESTATE_DIR", "estate"},                 // AI's GameCube Estate
-            {"PS2X_DM2_XBOX_LEVELS_DIR", "xbox-levels"},   // DM2's Xbox levels, themes and movie
-            {"PS2X_BMX_RELEASES_DIR", "releases"},         // BMX XXX's Xbox and GameCube content
+            {"ZX_XBOX_DIR", "xbox"},                     // AI's Xbox files (runtime/ps2_xbox_disc.h)
+            {"ZX_XBOX_CONVERTED", "xbox-converted"},     // the Zoo and the Ape made from them
+            {"ZX_XBOX_PACK", "xbox-pack"},               // their textures, movies and skaters
+            {"ZX_ESTATE_DIR", "estate"},                 // AI's GameCube Estate
+            {"ZX_DM2_XBOX_LEVELS_DIR", "xbox-levels"},   // DM2's Xbox levels, themes and movie
+            {"ZX_BMX_RELEASES_DIR", "releases"},         // BMX XXX's Xbox and GameCube content
         };
     }
 
@@ -1193,11 +1238,11 @@ namespace ps2x::app
         return out;
     }
 
-    ps2x::BootConfig gameBootConfig(const std::string &gameId, const Settings &settings, const AppPaths &paths,
+    zx::BootConfig gameBootConfig(const std::string &gameId, const Settings &settings, const AppPaths &paths,
                                     const GameSettingsProfile &profile, const BootFolders &folders,
                                     const GetEnv &getEnv)
     {
-        ps2x::BootConfig config;
+        zx::BootConfig config;
         config.game = gameId;
         auto has = [&profile](GameOption option) { return profile.has(option); };
         auto flag = [](bool on) { return std::string(on ? "1" : "0"); };
@@ -1212,9 +1257,9 @@ namespace ps2x::app
         };
 
         if (!folders.gamepadMappings.empty())
-            config.set("PS2X_GAMEPAD_MAPPINGS", folders.gamepadMappings);
+            config.set("ZX_GAMEPAD_MAPPINGS", folders.gamepadMappings);
         // The game's saves (native save files, see the game override).
-        config.set("PS2X_SAVES_DIR", paths.savesDir.string());
+        config.set("ZX_SAVES_DIR", paths.savesDir.string());
         // The game's mods (collection/mods.h): the game's Mods folder's loose
         // files, then each mod it reads (its own folder's and the
         // collection's), in order, as the engine's file system reads them
@@ -1228,7 +1273,7 @@ namespace ps2x::app
                                      settings.modsOff, gameId),
                             listSharedMods(folders.sharedMods), settings.modOrder, settings.modsOff);
             if (folders.customMap.empty())
-                config.set("PS2X_MODS_DIR", ps2x::game_files::modsText(modsRoots(modsDir, mods)));
+                config.set("ZX_MODS_DIR", zx::game_files::modsText(modsRoots(modsDir, mods)));
             else
             {
                 // Custom Freeplay (collection/maps.h): the map's folder read
@@ -1237,147 +1282,165 @@ namespace ps2x::app
                 // into the slot's free play with the entry it needs on.
                 CustomMap map;
                 map.folder = folders.customMap;
-                config.set("PS2X_MODS_DIR",
-                           ps2x::game_files::modsText(freeplayModsRoots(modsDir, mods, map, folders.customMapConverted)));
+                config.set("ZX_MODS_DIR",
+                           zx::game_files::modsText(freeplayModsRoots(modsDir, mods, map, folders.customMapConverted)));
             }
             if (const std::vector<std::filesystem::path> packs = texturePacks(mods, gameId); !packs.empty())
-                config.set("PS2X_TEXTURE_PACKS", ps2x::game_files::modsText(packs));
+                config.set("ZX_TEXTURE_PACKS", zx::game_files::modsText(packs));
             logModsRead(gameId, mods);
         }
         // The GPU renderer's pipelines this game has used, made ahead at the
         // next start (GSGpuBackendOptions::pipelineFile).
-        config.set("PS2X_GS_PIPELINE_CACHE", (paths.supportDir / "gpu_pipelines.txt").string());
+        config.set("ZX_GS_PIPELINE_CACHE", (paths.supportDir / "gpu_pipelines.txt").string());
         // Files from the Xbox release, extracted when the app was built
         // (tools/make-app.sh; runtime/ps2_xbox_disc.h), and what the build
         // made from them in the PS2's formats (the Zoo, the Ape:
-        // ps2xXboxConvert). Optional.
-        bundled("PS2X_XBOX_DIR");
-        bundled("PS2X_XBOX_CONVERTED");
-        config.set("PS2X_SAVE_PROFILE", settings.saveProfile);
+        // zx-xbox-convert). Optional.
+        bundled("ZX_XBOX_DIR");
+        bundled("ZX_XBOX_CONVERTED");
+        config.set("ZX_SAVE_PROFILE", settings.saveProfile);
         // The game's own menus get the Settings screen (game override).
-        config.set("PS2X_GAME_SETTINGS_MENUS", "1");
+        config.set("ZX_GAME_SETTINGS_MENUS", "1");
         // The game's string table and the developer menu (game override).
         if (has(GameOption::Language))
-            config.set("PS2X_LANGUAGE", kLanguages[std::clamp(settings.language, 0, 3)]);
+            config.set("ZX_LANGUAGE", kLanguages[std::clamp(settings.language, 0, 3)]);
         if (has(GameOption::FrenchVoices) && settings.frenchVoices >= 0)
-            config.set("PS2X_FRENCH_VOICES", flag(settings.frenchVoices != 0));
+            config.set("ZX_FRENCH_VOICES", flag(settings.frenchVoices != 0));
         if (has(GameOption::DeveloperMenu))
-            config.set("PS2X_DEV_MENU", flag(settings.developerMenu));
+            config.set("ZX_DEV_MENU", flag(settings.developerMenu));
         // The cut Zoo level (game override).
         if (has(GameOption::Zoo))
-            config.set("PS2X_ZOO", flag(settings.zoo));
+            config.set("ZX_ZOO", flag(settings.zoo));
         // TUT/Estate made at build time from the GameCube disc
-        // (ps2xGcConvert from tools/make-app.sh). Optional.
-        bundled("PS2X_ESTATE_DIR");
+        // (zx-gc-convert from tools/make-app.sh). Optional.
+        bundled("ZX_ESTATE_DIR");
         if (has(GameOption::Estate))
-            config.set("PS2X_ESTATE", flag(settings.estate));
+            config.set("ZX_ESTATE", flag(settings.estate));
         // Dave Mirra BMX 2's Xbox-only levels made into its PS2 formats at
         // build time (tools/dm2_xbox.py from tools/make-app.sh),
         // bundled with DM2's files. Optional.
-        bundled("PS2X_DM2_XBOX_LEVELS_DIR");
+        bundled("ZX_DM2_XBOX_LEVELS_DIR");
         if (has(GameOption::Dm2XboxLevels))
-            config.set("PS2X_DM2_XBOX_LEVELS", flag(settings.dm2XboxLevels));
+            config.set("ZX_DM2_XBOX_LEVELS", flag(settings.dm2XboxLevels));
         // From the same folder (game override): the park editor's Desert and
         // Highway, the gallery's Retro movie; and the attract demo.
         if (has(GameOption::Dm2XboxThemes))
-            config.set("PS2X_DM2_XBOX_THEMES", flag(settings.dm2XboxThemes));
+            config.set("ZX_DM2_XBOX_THEMES", flag(settings.dm2XboxThemes));
         if (has(GameOption::Dm2RetroMovie))
-            config.set("PS2X_DM2_RETRO_MOVIE", flag(settings.dm2RetroMovie));
+            config.set("ZX_DM2_RETRO_MOVIE", flag(settings.dm2RetroMovie));
         if (has(GameOption::Dm2AttractDemo))
-            config.set("PS2X_DM2_ATTRACT_DEMO", flag(settings.dm2AttractDemo));
+            config.set("ZX_DM2_ATTRACT_DEMO", flag(settings.dm2AttractDemo));
         if (has(GameOption::ZooUnlock))
-            config.set("PS2X_ZOO_UNLOCK", kZooUnlocks[std::clamp(settings.zooUnlock, 0, 1)]);
+            config.set("ZX_ZOO_UNLOCK", kZooUnlocks[std::clamp(settings.zooUnlock, 0, 1)]);
         // The Xbox release's gameplay balance and career scripts (game override).
         if (has(GameOption::Tuning))
-            config.set("PS2X_TUNING", kTunings[std::clamp(settings.tuning, 0, 1)]);
+            config.set("ZX_TUNING", kTunings[std::clamp(settings.tuning, 0, 1)]);
         if (has(GameOption::CareerScripts))
-            config.set("PS2X_CAREER_SCRIPTS", kTunings[std::clamp(settings.careerScripts, 0, 1)]);
+            config.set("ZX_CAREER_SCRIPTS", kTunings[std::clamp(settings.careerScripts, 0, 1)]);
         // The draw distance (zge_view.cpp, dave_mirra_view.cpp): the game's
         // far clips from the boot on (PS2Runtime::initialize), so a game it
         // changes runs with one value throughout.
         if (has(GameOption::DrawDistance))
-            config.set("PS2X_DRAW_DISTANCE", std::to_string(drawDistanceOf(settings, profile)));
+            config.set("ZX_DRAW_DISTANCE", std::to_string(drawDistanceOf(settings, profile)));
         // The Xbox release's free skate scripts and its Ape skater (game override).
         if (has(GameOption::XboxFreeSkate))
-            config.set("PS2X_XBOX_FREESKATE", flag(settings.xboxFreeSkate));
+            config.set("ZX_XBOX_FREESKATE", flag(settings.xboxFreeSkate));
         if (has(GameOption::Ape))
-            config.set("PS2X_APE", flag(settings.ape));
+            config.set("ZX_APE", flag(settings.ape));
         // DM2's cut Create Player menu (game override). It takes effect only with the readable newRider running
         // (dave_mirra_creator.cpp checks at install): the original makes no model for a created rider, and a ride
-        // with one hangs at END RUN, so with PS2X_READABLE turning newRider off the menu is not added.
+        // with one hangs at END RUN, so with ZX_READABLE turning newRider off the menu is not added.
         if (has(GameOption::Dm2CreatePlayer))
-            config.set("PS2X_DM2_CREATE_PLAYER", flag(settings.dm2CreatePlayer));
+            config.set("ZX_DM2_CREATE_PLAYER", flag(settings.dm2CreatePlayer));
         // BMX XXX's park editor in its main menu (game override).
         if (has(GameOption::BmxParkEditor))
-            config.set("PS2X_BMX_PARK_EDITOR", flag(settings.bmxParkEditor));
+            config.set("ZX_BMX_PARK_EDITOR", flag(settings.bmxParkEditor));
         // BMX XXX's Xbox and GameCube releases' content made into its PS2
         // formats at build time (tools/bmx_releases.py from tools/make-app.sh),
         // bundled with its files, each behind its setting (game override). Optional.
-        bundled("PS2X_BMX_RELEASES_DIR");
+        bundled("ZX_BMX_RELEASES_DIR");
         if (has(GameOption::BmxXboxChallenges))
-            config.set("PS2X_BMX_XBOX_CHALLENGES", flag(settings.bmxXboxChallenges));
+            config.set("ZX_BMX_XBOX_CHALLENGES", flag(settings.bmxXboxChallenges));
         if (has(GameOption::BmxEditorPieces))
-            config.set("PS2X_BMX_EDITOR_PIECES", flag(settings.bmxEditorPieces));
+            config.set("ZX_BMX_EDITOR_PIECES", flag(settings.bmxEditorPieces));
         if (has(GameOption::BmxLevelPreviews))
-            config.set("PS2X_BMX_LEVEL_PREVIEWS", flag(settings.bmxLevelPreviews));
+            config.set("ZX_BMX_LEVEL_PREVIEWS", flag(settings.bmxLevelPreviews));
         if (has(GameOption::BmxLogoMovie))
-            config.set("PS2X_BMX_LOGO_MOVIE", flag(settings.bmxLogoMovie));
+            config.set("ZX_BMX_LOGO_MOVIE", flag(settings.bmxLogoMovie));
         if (has(GameOption::BmxIntroMovie))
-            config.set("PS2X_BMX_INTRO_MOVIE", flag(settings.bmxIntroMovie));
+            config.set("ZX_BMX_INTRO_MOVIE", flag(settings.bmxIntroMovie));
         if (has(GameOption::BmxGcLevels))
-            config.set("PS2X_BMX_GC_LEVELS", flag(settings.bmxGcLevels));
+            config.set("ZX_BMX_GC_LEVELS", flag(settings.bmxGcLevels));
         if (has(GameOption::BmxMenuLines))
-            config.set("PS2X_BMX_MENU_LINES", flag(settings.bmxMenuLines));
+            config.set("ZX_BMX_MENU_LINES", flag(settings.bmxMenuLines));
         if (has(GameOption::BmxAllMpModes))
-            config.set("PS2X_BMX_ALL_MP_MODES", flag(settings.bmxAllMpModes));
+            config.set("ZX_BMX_ALL_MP_MODES", flag(settings.bmxAllMpModes));
+        if (has(GameOption::BmxLogoSplash))
+            config.set("ZX_BMX_LOGO_SPLASH", flag(settings.bmxLogoSplash));
+        if (has(GameOption::BmxTrailers))
+            config.set("ZX_BMX_TRAILERS", flag(settings.bmxTrailers));
+        if (has(GameOption::BmxCarTextures))
+            config.set("ZX_BMX_CAR_TEXTURES", flag(settings.bmxCarTextures));
+        if (has(GameOption::BmxGreenSkin))
+            config.set("ZX_BMX_GREEN_SKIN", flag(settings.bmxGreenSkin));
+        if (has(GameOption::BmxTopless))
+            config.set("ZX_BMX_TOPLESS", flag(settings.bmxTopless));
+        if (has(GameOption::BmxXboxSongs))
+            config.set("ZX_BMX_XBOX_SONGS", flag(settings.bmxXboxSongs));
         // The game's gameplay settings (Camera, Assists, Cheats pages) and
         // where its screenshot key saves (game override).
         if (has(GameOption::GameplayPages))
-            config.set("PS2X_GAMEPLAY_INI", (paths.supportDir / "gameplay.ini").string());
-        config.set("PS2X_SCREENSHOT_DIR", folders.screenshots.string());
+            config.set("ZX_GAMEPLAY_INI", (paths.supportDir / "gameplay.ini").string());
+        config.set("ZX_SCREENSHOT_DIR", folders.screenshots.string());
         // Play recordings (runtime/play_recording.h), when the player turned them on.
         if (settings.recordPlay)
-            config.set("ZAXIS_RECORD", play_recording::folderFor(paths.supportDir).string());
+            config.set("ZX_RECORD", play_recording::folderFor(paths.supportDir).string());
         // The readable code without the held-register table (ee/abi.h leanParts), in the games whose A/B with it
         // off is identical in everything compared (AI: lean1). DM2's and BMX XXX's still differ in words the
         // original leaves from registers and stack it never set (lean1's report): on there once those are proven
         // unused. The checks run the runner with an ELF and keep the table.
         if (std::string_view(profile.id) == "ai")
-            config.set("PS2X_READABLE_LEAN", "1");
+            config.set("ZX_READABLE_LEAN", "1");
         // The host input layer reads controls.ini from the same folder.
-        config.set("PS2X_CONTROLS_INI", paths.controlsFile.string());
+        config.set("ZX_CONTROLS_INI", paths.controlsFile.string());
         // The Xbox release's textures and movies, converted from the user's
         // Xbox disc when the app was built (tools/make-app.sh):
         // Resources/xbox-pack. The game override reads them from there.
-        bundled("PS2X_XBOX_PACK");
-        config.set("PS2X_XBOX_TEXTURES", flag(settings.xboxTextures));
-        config.set("PS2X_XBOX_MOVIES", flag(settings.xboxMovies));
-        config.set("PS2X_XBOX_MODELS", flag(settings.xboxSkaters));
+        bundled("ZX_XBOX_PACK");
+        config.set("ZX_XBOX_TEXTURES", flag(settings.xboxTextures));
+        config.set("ZX_XBOX_MOVIES", flag(settings.xboxMovies));
+        config.set("ZX_XBOX_MODELS", flag(settings.xboxSkaters));
         // Texture packs' dump mode (runtime/ps2_texture_pack.h): off unless asked for.
         if (settings.textureDump)
-            config.set("PS2X_TEXTURE_DUMP", (paths.supportDir / "Texture Dumps").string());
+            config.set("ZX_TEXTURE_DUMP", (paths.supportDir / "Texture Dumps").string());
         // Native meshes on the GPU renderer unless strict is asked for.
-        config.set("PS2X_RENDER_PATH", !settings.nativeMeshes ? "strict" : settings.recordsMeshes ? "records" : "auto");
+        config.set("ZX_RENDER_PATH", !settings.nativeMeshes ? "strict" : settings.recordsMeshes ? "records" : "auto");
         // The disc device's host form, or the game's CD/DVD client over the IOP (zge/host/disc_device.cpp).
-        config.set("ZAXIS_DISC", settings.hostDisc ? "native" : "ps2");
+        config.set("ZX_DISC", settings.hostDisc ? "native" : "ps2");
         // Custom Freeplay's start into the map's slot (collection/maps.h
         // mapSlots), after the game's own options: the entry the start needs
         // (AI: the Estate's) is on whatever its setting says.
         if (!folders.customMap.empty())
             if (const MapSlot *slot = mapSlot(gameId, folders.customMapSlot))
             {
-                config.set("PS2X_DEV_START_LEVEL", slot->startLevel);
-                config.set("PS2X_DEV_START_SKATER", "ask");
+                config.set("ZX_DEV_START_LEVEL", slot->startLevel);
+                config.set("ZX_DEV_START_SKATER", "ask");
                 if (slot->needs[0])
                     config.set(slot->needs, "1");
+                if (slot->keeps[0])
+                    config.set(slot->keeps, "1");
                 // The slot level's own NPCs, kept outside its folder: only
                 // with a map that keeps them.
                 if (slot->slotNpcs[0])
                     config.set(slot->slotNpcs, folders.customMapSlotNpcs ? "1" : "0");
+                // DM2's park slot: the park loads read the map's saved park
+                // (dave_mirra_saves.cpp; a zip's read in place).
+                if (slot->park && !folders.customMapPark.empty())
+                    config.set("ZX_DM2_PARK_FILE", (folders.customMap / folders.customMapPark).string());
             }
         // The renderer settings, unless the environment picks one: then all
         // three are the environment's.
-        const char *backend = getEnv ? getEnv("PS2X_GS_BACKEND") : nullptr;
+        const char *backend = getEnv ? getEnv("ZX_GS_BACKEND") : nullptr;
         if (!backend || !backend[0])
             for (const auto &[name, value] : rendererValues(settings))
                 config.setOverEnvironment(name, value);

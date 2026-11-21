@@ -1,10 +1,10 @@
 #pragma once
 
-// The guest heap's high-water marks per level (developers; PS2X_TRACE_HEAP=1, off by default).
+// The guest heap's high-water marks per level (developers; ZX_TRACE_HEAP=1, off by default).
 //
 // Every malloc of the game and the runtime's own guest allocations go to one heap (runtime/guest_heap.h): the
 // 32 MB heap first, extended memory when it has no room or is asked for. The heap counts the bytes in use in
-// each and the most each has held (GuestHeap::Usage). With PS2X_TRACE_HEAP set (not "0") a VSync hook names the
+// each and the most each has held (GuestHeap::Usage). With ZX_TRACE_HEAP set (not "0") a VSync hook names the
 // level being played every 10 vsyncs from the running game's panel capture (runtime/panel_snapshot.h: the level
 // folder, "level N" without one, "no level" in the front end and while a level loads) and logs, when that name
 // changes, the stretch that ended with its peaks, then starts the peaks again at what is in use; and every 600
@@ -23,9 +23,9 @@
 
 class PS2Runtime;
 
-namespace ps2x::heap_trace
+namespace zx::heap_trace
 {
-    // PS2X_TRACE_HEAP set and not "0".
+    // ZX_TRACE_HEAP set and not "0".
     bool enabled();
     // When enabled: the VSync hook above, on `runtime`. Otherwise nothing.
     void install(PS2Runtime &runtime);

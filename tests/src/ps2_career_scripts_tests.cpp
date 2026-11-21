@@ -1,7 +1,7 @@
 // Aggressive Inline's career scripts setting (game_overrides/
 // aggressive_inline_careerscripts.cpp): the edit that puts the PS2's texts
 // back in the Xbox scripts, on a script written for the test, and on the
-// Xbox files themselves when PS2X_XBOX_DIR has them.
+// Xbox files themselves when ZX_XBOX_DIR has them.
 #include "MiniTest.h"
 
 #include "aggressive_inline_careerscripts.h"
@@ -202,9 +202,9 @@ void register_ps2_career_scripts_tests()
             t.Equals(bin, original, "unchanged");
         });
 
-        tc.Run("the Xbox scripts (with PS2X_XBOX_DIR)", [](TestCase &t)
+        tc.Run("the Xbox scripts (with ZX_XBOX_DIR)", [](TestCase &t)
         {
-            if (!std::getenv("PS2X_XBOX_DIR"))
+            if (!std::getenv("ZX_XBOX_DIR"))
                 return;
             ps2_xbox_disc::reset();
             if (!ps2_xbox_disc::init())
@@ -239,9 +239,9 @@ void register_ps2_career_scripts_tests()
                                                                 cs::nameHash(level.event));
                 t.IsTrue(contains(handler, {kPush, uint32_t(before.strings.size()), kCall, cs::nameHash("displayOverlayText")}),
                          std::string(level.folder) + ": the event shows the text");
-                // PS2X_CAREER_SCRIPTS_DUMP=<dir>: the patched script written
+                // ZX_CAREER_SCRIPTS_DUMP=<dir>: the patched script written
                 // there (to disassemble it).
-                if (const char *dump = std::getenv("PS2X_CAREER_SCRIPTS_DUMP"))
+                if (const char *dump = std::getenv("ZX_CAREER_SCRIPTS_DUMP"))
                 {
                     std::ofstream out(std::string(dump) + "/" + level.folder + ".BIN", std::ios::binary);
                     out.write(reinterpret_cast<const char *>(bin.data()), std::streamsize(bin.size()));

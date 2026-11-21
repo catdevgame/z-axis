@@ -13,7 +13,7 @@
 
 class PS2Runtime;
 
-namespace ps2x::front_end
+namespace zx::front_end
 {
     // First in main, after only the log's redirection: Android's files
     // folder, the environment the Activity cannot give, argv.
@@ -32,7 +32,7 @@ namespace ps2x::front_end
     };
 
     // Each returns true, for the installing file's namespace-scope
-    // `const bool installed = ps2x::front_end::installApp(...)`: set before
+    // `const bool installed = zx::front_end::installApp(...)`: set before
     // main runs. At most one of each in a build.
     bool installPrepare(Prepare prepare);
     bool installApp(App app);

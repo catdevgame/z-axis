@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::app::extras::script_text
+namespace zx::app::extras::script_text
 {
     // Python's whitespace among Latin-1 characters (str.isspace): \t \n \v
     // \f \r, 0x1C to 0x1F, the space, 0x85 (NEL) and 0xA0 (no-break space).

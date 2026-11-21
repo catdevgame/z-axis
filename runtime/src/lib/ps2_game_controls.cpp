@@ -394,9 +394,17 @@ namespace ps2_host_input
                        "right_down  = KP_2, PAGE_DOWN\n"
                        "right_left  = KP_4\n"
                        "right_right = KP_6\n";
-            t.mouseMode = "# The game has no mouse camera yet: stick mode with motion = none, so the\n"
-                          "# mouse moves nothing. motion = right_stick makes it push the right stick\n"
-                          "# (the park editor's zoom); look turns no camera in this game.\n"
+            t.mouseMode = "# look: mouse-look. Moving the mouse turns the follow camera around the\n"
+                          "#   rider: all the way round left and right, and up and down within the\n"
+                          "#   limits below; the game's easing and its keeping clear of walls stay.\n"
+                          "#   The rider's-eyes and first-person views, a bail, the view from above\n"
+                          "#   and the swings stay the game's. The view keeps its angle until you move\n"
+                          "#   it back or auto_recentre runs out (recentre has no key here: R3, the\n"
+                          "#   middle button, is the game's camera button).\n"
+                          "# stick (the default, with motion = none): the mouse moves nothing;\n"
+                          "#   motion = right_stick makes it push the right stick (the park editor's\n"
+                          "#   zoom). Settings > Controls > Mouse Look: Free Look is look, Right\n"
+                          "#   Stick is stick.\n"
                           "mode = stick\n";
             t.recentre = "";
             t.motion = "none";

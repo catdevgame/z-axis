@@ -6,7 +6,7 @@
 // hud.h, globals.h, script.h, timers.cpp). Installed by the override
 // (aggressive_inline_slus20327.cpp) with the question of which level the
 // host serves in the game's folder's place (the Estate in the Tutorial's,
-// aggressive_inline_estate.h); ps2xPanelShot and the unit tests run the same
+// aggressive_inline_estate.h); zx-panelshot and the unit tests run the same
 // capture on a RAM image.
 
 #include "aggressive_inline_panel.h"

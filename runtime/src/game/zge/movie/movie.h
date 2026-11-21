@@ -8,7 +8,7 @@
 //
 // Behind it is the platform's player: on the PS2 Sony's MPEG stream sample
 // driven by the engine (zge/movie/ps2/ps2_movie.h), whose stream the host
-// decodes itself unless PS2X_MOVIES=hle (zge/host/movie_stream.cpp).
+// decodes itself unless ZX_MOVIES=hle (zge/host/movie_stream.cpp).
 
 #include "ee/ee.h"
 

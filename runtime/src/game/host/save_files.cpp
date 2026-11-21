@@ -5,6 +5,7 @@
 
 #include "ps2_runtime.h"
 #include "runtime/ps2_boot_config.h"
+#include "runtime/ps2_game_files.h"
 #include "runtime/ps2_save_store.h"
 #include "runtime/ps2_session.h"
 #include "Stubs/MemoryCard.h"
@@ -25,7 +26,7 @@ namespace game::host::saves
 {
     namespace
     {
-        namespace store = ps2x::saves;
+        namespace store = zx::saves;
         using store::Bytes;
 
         struct Saves
@@ -40,7 +41,7 @@ namespace game::host::saves
             bool wholeImported = false;
             std::string hostPark; // configureHostPark's file
         };
-        Saves &saves() { return ps2x::session::state<Saves>(); }
+        Saves &saves() { return zx::session::state<Saves>(); }
         const Game &g() { return saves().game; }
 
         // ---- guest memory --------------------------------------------------
@@ -60,13 +61,13 @@ namespace game::host::saves
 
         std::string text(const char *name, const char *fallback)
         {
-            const char *value = ps2x::boot::text(name);
+            const char *value = zx::boot::text(name);
             return value && value[0] ? value : fallback;
         }
 
         std::filesystem::path savesRoot()
         {
-            if (const char *dir = ps2x::boot::text("PS2X_SAVES_DIR"); dir && dir[0])
+            if (const char *dir = zx::boot::text("ZX_SAVES_DIR"); dir && dir[0])
                 return dir;
             const std::filesystem::path card = ps2_stubs::memoryCardFolder(0);
             return card.parent_path() / (card.filename().string() + "-saves");
@@ -138,7 +139,7 @@ namespace game::host::saves
 
     std::filesystem::path folder() { return savesRoot(); }
 
-    std::string profile() { return store::safeFileName(text("PS2X_SAVE_PROFILE", "Career"), "Career"); }
+    std::string profile() { return store::safeFileName(text("ZX_SAVE_PROFILE", "Career"), "Career"); }
 
     std::filesystem::path saveFile() { return savesRoot() / (profile() + ".sav"); }
 
@@ -361,7 +362,7 @@ namespace game::host::saves
     {
         static const bool on = []
         {
-            const char *v = std::getenv("PS2X_TRACE_SAVES");
+            const char *v = std::getenv("ZX_TRACE_SAVES");
             return v && v[0] == '1';
         }();
         return on;
@@ -411,8 +412,10 @@ namespace game::host::saves
     {
         const std::string &file = saves().hostPark;
         const char *log = saves().whole.log;
+        // (a file in a folder, or in a zip read in place: runtime/ps2_game_files.h)
+        const std::filesystem::path path(file);
         Bytes data;
-        if (!store::readFile(file, data) || data.empty())
+        if (!zx::game_files::readFileBelow(path.parent_path(), path.filename().string(), data) || data.empty())
         {
             std::cerr << log << ": no park in " << file << std::endl;
             return false;

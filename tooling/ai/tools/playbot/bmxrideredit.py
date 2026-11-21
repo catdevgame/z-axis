@@ -38,7 +38,7 @@ def play(name, ticks=30000):
     sym = goalsteer.Symbols('bmx')
     # (a pad script that only keeps the clock: core.play asks the policy once per script tick)
     gs = os.environ.get('GS') == '1'     # (GS=1: a picture of each name-page try)
-    cfg = bmx.run_config(name, '99999999v:SELECT:1v', env={'PS2X_EE_SCALE': '4096'}, max_secs=1500, gs=gs)
+    cfg = bmx.run_config(name, '99999999v:SELECT:1v', env={'ZX_EE_SCALE': '4096'}, max_secs=1500, gs=gs)
     d = bmx.session_dir(name)
     os.makedirs(d, exist_ok=True)
     log = open(os.path.join(d, 'play.log'), 'w')

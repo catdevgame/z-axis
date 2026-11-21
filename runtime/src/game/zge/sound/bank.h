@@ -30,7 +30,7 @@ namespace zge
         uint16_t pitch;         // +0x02 0x1000: the wave's own
         uint8_t volume;         // +0x04
         int8_t pan;             // +0x05
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint8_t distanceScale;  // +0x06 the listener hears it within 80 * sqrt(this entry of the distance table)
 #endif
         uint8_t attackRate;     // +0x07 (DM2 +0x06) the ADSR's, 7 bits
@@ -38,7 +38,7 @@ namespace zge
         uint8_t sustainRate;    // +0x09 (DM2 +0x08) 7 bits
         uint8_t releaseRate;    // +0x0A (DM2 +0x09) 5 bits
         uint8_t sustainLevel;   // +0x0B (DM2 +0x0A) 4 bits
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint8_t _0b[7];         // DM2 +0x0B
 #else
         uint8_t _0c[6];
@@ -164,7 +164,7 @@ namespace zge
         char magic[8];                      // +0x00 "ZSNDPS2 "
         uint32_t fileBytes;                 // +0x08
         uint32_t tableBytes;                // +0x0C all of the file up to the waves
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t sampleCount;               // BMX +0x10
         ee::Ptr<HashIndex> sampleHashes;    // BMX +0x14 sampleCount of them
         ee::Ptr<BankSample> samples;        // BMX +0x18
@@ -214,7 +214,7 @@ namespace zge
     {
         uint32_t flags;          // +0x00 kBank*
         ee::Ptr<SoundBank> bank; // +0x04
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t wavesHandle;    // BMX +0x08 what the IOP driver gave back for the bank's waves
 #endif
         char path[0x40];         // +0x08 (BMX +0x0C) the file its waves stream from; empty when they went to sound memory
@@ -225,7 +225,7 @@ namespace zge
     // banks have none), all six as one table for uploadSoundBank to make addresses, and the handle of the bank's
     // waves in sound memory (one block, freed with one request when the bank is unloaded; ZGE2 and ZGE3 keep a
     // handle a wave reference, WaveReference::handle, so it is 0 there).
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline ee::Ptr<HashIndex> bankSampleHashes(const SoundBank &bank) { return bank.sampleHashes; }
     inline ee::Ptr<HashIndex> bankWaveHashes(const SoundBank &bank) { return bank.waveHashes; }
     inline ee::Ptr<HashIndex> bankPlaylistHashes(const SoundBank &bank) { return bank.playlistHashes; }

@@ -2,18 +2,27 @@
 // skate level, for measuring without menus or a control channel (the
 // Windows desktop, unattended runs).
 //
-//   PS2X_DEV_START_LEVEL=<entry>|ESTATE
+//   ZX_DEV_START_LEVEL=<entry>|ESTATE
 //       the free skate level-select entry (0 the first; the row as the game
 //       and the overrides made it), or ESTATE (TUT/Estate,
 //       aggressive_inline_estate).
-//   PS2X_DEV_START_SKATER=<n>   the skater-select entry (default 0), or
+//   ZX_DEV_START_SKATER=<n>   the skater-select entry (default 0), or
 //                               "ask": the game's skater select waits for
 //                               the player's own choice (the collection's
 //                               Custom Freeplay), then the route goes on.
-//   PS2X_DEV_START_SKATE=<n>    once placed, n rounds of tools/sweep.py's
+//   ZX_DEV_START_SKATE=<n>    once placed, n rounds of tools/sweep.py's
 //                               skate routine (pushes, jumps, grabs, turns).
-//   PS2X_DEV_START_QUIT=<s>     stop the runner s seconds after the
+//   ZX_DEV_START_QUIT=<s>     stop the runner s seconds after the
 //                               routine (or the placing) ends.
+//   ZX_AI_KEEP_LEVEL_RECORDS=1  the level's records (top speed and the
+//                               rest: its row of the career save's globals,
+//                               0x24CBDC + level x 0x118, a value and the
+//                               holder's name for each of 14) kept as they
+//                               were when the skater was placed: put back
+//                               whenever the run changes them, and the row
+//                               in every career body the native saves write
+//                               (a custom map's: collection/maps.h, whose
+//                               records are not the slot level's).
 //
 // The presses are the game's own pad input (PSPadBackend::
 // setOverrideButtons), each step waiting on the game's state the way
@@ -26,14 +35,15 @@
 // from the level's Cross to the placed skater (the load).
 //
 // Free skate levels other than the Tutorial and the Movie Lot need an
-// unlocked card or PS2X_DEV_UNLOCK_ALL=1.
+// unlocked card or ZX_DEV_UNLOCK_ALL=1.
 //
-// The four values are the boot's (ps2x::boot::text: the environment, else
+// The four values are the boot's (zx::boot::text: the environment, else
 // what the app gave this boot): the collection's Custom Freeplay starts the
 // game into its map's slot with them (collection/maps.h mapSlots).
 
 #include "aggressive_inline_devstart.h"
 #include "aggressive_inline_estate.h"
+#include "aggressive_inline_saves.h"
 
 #include "ps2_runtime.h"
 #include "runtime/ps2_boot_config.h"
@@ -46,6 +56,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -62,6 +73,11 @@ namespace aggressive_inline::devstart
         constexpr uint32_t kPlayerY = 0x002A76F4u;   // player one's position y
         constexpr uint32_t kUnplaced = 0x469C4000u;  // 20000.0: not placed yet
         constexpr uint32_t kNameEntryEnd = 38u;      // a new skater's name entry, the cursor on END
+        // The level records (aggressive_inline_estate.cpp "its own records"):
+        // a row a level index in the career body's globals.
+        constexpr uint32_t kRecordRows = 0x0024CBDCu;
+        constexpr uint32_t kRecordRowBytes = 0x118u;
+        constexpr uint32_t kCareerGlobals = 0x0024CBB8u; // the career body's first bytes
 
         constexpr uint16_t kLeft = 0x0080u, kDown = 0x0040u, kRight = 0x0020u, kUp = 0x0010u, kStart = 0x0008u;
         constexpr uint16_t kSquare = 0x8000u, kCross = 0x4000u, kCircle = 0x2000u, kTriangle = 0x1000u;
@@ -94,10 +110,10 @@ namespace aggressive_inline::devstart
         {
             Step step = Step::Boot;
             Step afterPanel = Step::Done;
-            std::string level;   // PS2X_DEV_START_LEVEL
+            std::string level;   // ZX_DEV_START_LEVEL
             int entry = -1;      // the level-select entry, once known
             uint32_t skater = 0;
-            bool askSkater = false; // PS2X_DEV_START_SKATER=ask: the player picks on the game's skater select
+            bool askSkater = false; // ZX_DEV_START_SKATER=ask: the player picks on the game's skater select
             int skateRounds = 0;
             double quitAfter = -1.0;
             int bootPresses = 0;
@@ -117,7 +133,7 @@ namespace aggressive_inline::devstart
             int routineRound = 0;
             PS2Runtime *runtime = nullptr;
         };
-        State &devStart() { return ps2x::session::state<State>(); }
+        State &devStart() { return zx::session::state<State>(); }
 
         uint32_t word(const uint8_t *rdram, uint32_t address)
         {
@@ -176,6 +192,56 @@ namespace aggressive_inline::devstart
             devStart().afterPanel = next;
             devStart().panelDeadline = now + 1200u;
             devStart().step = Step::WaitPanel;
+        }
+
+        // ZX_AI_KEEP_LEVEL_RECORDS: the placed level's records row as it was.
+        struct KeptRecords
+        {
+            std::mutex mutex;
+            bool on = false;
+            uint32_t row = 0;          // its address
+            std::vector<uint8_t> kept; // empty until the skater is placed
+            int putBack = 0;           // times the run changed it
+            int filtered = 0;          // career bodies given it
+        };
+        KeptRecords &keptRecords() { return zx::session::state<KeptRecords>(); }
+
+        void keepRecords(const uint8_t *rdram, uint32_t level)
+        {
+            KeptRecords &k = keptRecords();
+            std::lock_guard<std::mutex> lock(k.mutex);
+            const uint8_t *row = k.on && k.kept.empty() ? getConstMemPtr(rdram, kRecordRows + level * kRecordRowBytes) : nullptr;
+            if (!row)
+                return;
+            k.row = kRecordRows + level * kRecordRowBytes;
+            k.kept.assign(row, row + kRecordRowBytes);
+            std::cout << "[devstart] level " << level << "'s records kept as they are (the map's are not kept)" << std::endl;
+        }
+
+        // Every vsync: the row as it was kept, whatever the run wrote there.
+        void putRecordsBack(uint8_t *rdram, uint64_t)
+        {
+            KeptRecords &k = keptRecords();
+            std::lock_guard<std::mutex> lock(k.mutex);
+            uint8_t *row = k.kept.empty() ? nullptr : getMemPtr(rdram, k.row);
+            if (!row || std::memcmp(row, k.kept.data(), kRecordRowBytes) == 0)
+                return;
+            std::memcpy(row, k.kept.data(), kRecordRowBytes);
+            if (k.putBack++ == 0)
+                std::cout << "[devstart] the level's records put back as they were (the run set its own)" << std::endl;
+        }
+
+        // A career body the native saves write: the kept row in its place.
+        void filterCareerBody(std::vector<uint8_t> &body)
+        {
+            KeptRecords &k = keptRecords();
+            std::lock_guard<std::mutex> lock(k.mutex);
+            const size_t at = k.row - kCareerGlobals;
+            if (k.kept.empty() || body.size() < at + kRecordRowBytes)
+                return;
+            std::memcpy(body.data() + at, k.kept.data(), kRecordRowBytes);
+            if (k.filtered++ == 0)
+                std::cout << "[devstart] the save gets the level's records as they were" << std::endl;
         }
 
         // Steps the panel's cursor towards `want`; true when it is there.
@@ -390,6 +456,7 @@ namespace aggressive_inline::devstart
                     devStart().placed = std::chrono::steady_clock::now();
                     std::cout << "[devstart] placed in level " << (word(rdram, kLevelIndex) & 0xFFu) << " (" << devStart().level
                               << "): load " << seconds(devStart().crossed) << " s from the level select's Cross" << std::endl;
+                    keepRecords(rdram, word(rdram, kLevelIndex) & 0xFFu);
                     devStart().step = devStart().skateRounds > 0 ? Step::Skating : Step::Placed;
                     devStart().skated = devStart().placed;
                 }
@@ -427,25 +494,31 @@ namespace aggressive_inline::devstart
 
     void install(PS2Runtime &runtime)
     {
-        // The boot's values (ps2x::boot::text: the environment first, then
+        // The boot's values (zx::boot::text: the environment first, then
         // what the app gave this boot: the collection's Custom Freeplay
         // starts the game into its map this way).
-        const char *level = ps2x::boot::text("PS2X_DEV_START_LEVEL");
+        const char *level = zx::boot::text("ZX_DEV_START_LEVEL");
         if (!level || !*level)
             return;
         devStart().level = level;
-        if (const char *skater = ps2x::boot::text("PS2X_DEV_START_SKATER"); skater && *skater)
+        if (const char *skater = zx::boot::text("ZX_DEV_START_SKATER"); skater && *skater)
         {
             // "ask": the game's own skater select waits for the player.
             devStart().askSkater = std::strcmp(skater, "ask") == 0;
             devStart().skater = devStart().askSkater ? 0u : static_cast<uint32_t>(std::atoi(skater));
         }
-        if (const char *skate = ps2x::boot::text("PS2X_DEV_START_SKATE"); skate && *skate)
+        if (const char *skate = zx::boot::text("ZX_DEV_START_SKATE"); skate && *skate)
             devStart().skateRounds = std::atoi(skate);
-        if (const char *quit = ps2x::boot::text("PS2X_DEV_START_QUIT"); quit && *quit)
+        if (const char *quit = zx::boot::text("ZX_DEV_START_QUIT"); quit && *quit)
             devStart().quitAfter = std::atof(quit);
         devStart().runtime = &runtime;
         runtime.addVSyncHook([](uint8_t *rdram, uint64_t vsync) { onVsync(rdram, vsync); });
+        if (const char *keep = zx::boot::text("ZX_AI_KEEP_LEVEL_RECORDS"); keep && keep[0] == '1')
+        {
+            keptRecords().on = true;
+            runtime.addVSyncHook(&putRecordsBack);
+            addCareerBodyFilter(&filterCareerBody);
+        }
         std::cout << "[devstart] on: free skate level " << devStart().level << ", skater "
                   << (devStart().askSkater ? std::string("chosen by the player") : std::to_string(devStart().skater)) << std::endl;
     }

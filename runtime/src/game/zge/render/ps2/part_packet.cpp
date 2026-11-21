@@ -58,7 +58,7 @@ namespace zge
 
         // The size model (packet_size.h) against what the builders wrote,
         // on every build in the game: a difference is logged (the first 16).
-        // PS2X_TRACE_PACKETS=1 also logs each first build, and now and then
+        // ZX_TRACE_PACKETS=1 also logs each first build, and now and then
         // how many calls took each path.
         struct PacketStats
         {
@@ -73,7 +73,7 @@ namespace zge
         {
             static const bool trace = []
             {
-                const char *v = std::getenv("PS2X_TRACE_PACKETS");
+                const char *v = std::getenv("ZX_TRACE_PACKETS");
                 return v && *v && *v != '0';
             }();
             return trace;
@@ -189,7 +189,7 @@ namespace zge
             // The original's 160 KB, or the part's packet if that is more
             // (the class builders write with no bound). Measured from the
             // groups in RAM, which the original never reads itself: not
-            // under ps2xFnCheck, where only the original's reads are there.
+            // under zx-fncheck, where only the original's reads are there.
             uint32_t scratchBytes = kPacketScratchBytes;
             if (native::hostExtrasOn())
             {

@@ -17,7 +17,7 @@
 #include <variant>
 #include <vector>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     // ---- tags ----------------------------------------------------------------------
 
@@ -115,6 +115,7 @@ namespace ps2x::app::levels
         bool facesTwoSided = false; // #2sided=collide too: collided on both sides
         Colour baseColour{1.0, 1.0, 1.0, 1.0};
         std::optional<Bytes> layer; // #layer=<32 hex digits>
+        uint32_t word = 0;          // #tag=W: the faces' tag word (0 none)
         int source = -1;            // the model's material index (-1: none)
         // The bike games' forms: the surface kind and launch byte, BMX XXX's sound.
         bool bikeRead = false;
@@ -160,7 +161,12 @@ namespace ps2x::app::levels
         int kind = 0;
         int flags = 0;
         int sound = 0;
+        uint32_t word = 0; // #tag=W: the edge's tag word
     };
+
+    // #tag=W's word (ai_level_convert.tag_word): a hex word (0x...) as it is,
+    // else the name's hash; 0 without one.
+    uint32_t tagWordOf(const TagMap &tags);
 
     struct Spawn
     {
@@ -366,6 +372,6 @@ namespace ps2x::app::levels
     double floorDiv(double x, double y);
 
     // The other two games' converters (levels/convert_dm2.cpp, convert_bmx.cpp).
-    Converted convertForDm2(const Model &model);
-    Converted convertForBmx(const Model &model);
+    Converted convertForDm2(const Model &model, const std::string &slot);
+    Converted convertForBmx(const Model &model, const std::string &slot);
 }

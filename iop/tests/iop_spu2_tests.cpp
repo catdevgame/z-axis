@@ -16,6 +16,7 @@
 namespace
 {
     using namespace ps2x::iop::detail;
+    using zx::Spu2;
 
     constexpr uint32_t kSpu = 0xBF900000u;
     constexpr uint32_t kCore1 = 0x400u;

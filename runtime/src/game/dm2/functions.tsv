@@ -1,4 +1,4 @@
-# Every function of Dave Mirra BMX 2 (SLUS-20159), from the work database (functions, build dm2_ps2): address, end, layer, best name. game.cmake reads it with PS2X_DM2_CORPUS on: each is built traced and registered for recording. Names and addresses only.
+# Every function of Dave Mirra BMX 2 (SLUS-20159), from the work database (functions, build dm2_ps2): address, end, layer, best name. game.cmake reads it with ZX_DM2_CORPUS on: each is built traced and registered for recording. Names and addresses only.
 0x00100008	0x001000A8	sdk	start
 0x001000A8	0x001000B0	sdk	callSystemHook0
 0x001000B0	0x001000B8	sdk	exitThreadCall

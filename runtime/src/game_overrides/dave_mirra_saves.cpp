@@ -7,19 +7,19 @@
 //
 // File: <saves>/<profile>.sav, the bytes of BMX2SAVE.DAT (game/dm2/game/
 // memory_card.h GameSaveFile: magic, size, the saved game and records),
-// written atomically with a .bak; <saves> = PS2X_SAVES_DIR (the app's Saves
+// written atomically with a .bak; <saves> = ZX_SAVES_DIR (the app's Saves
 // folder), else a sibling of the slot 1 card folder (<card>-saves);
-// <profile> = PS2X_SAVE_PROFILE (the app's [saves] profile: several careers
+// <profile> = ZX_SAVE_PROFILE (the app's [saves] profile: several careers
 // side by side, as Aggressive Inline's) or "Career". On the first load
 // BMX2SAVE.DAT from the card folders (slot 1, then slot 2) is copied in
 // once. The app's PCSX2 import writes the same bytes to the same file. Saves
 // of before profiles (Game.sav, XboxLevels.career) are copied to the Career
 // profile's at the first run that has none of its own; the originals stay as
 // they were, so an older app still finds them.
-// PS2X_SAVES=card: none of this (the card dialogs, as on the console).
-// PS2X_TRACE_SAVES=1 logs each operation.
+// ZX_SAVES=card: none of this (the card dialogs, as on the console).
+// ZX_TRACE_SAVES=1 logs each operation.
 //
-// A park from a host file (PS2X_DM2_PARK_FILE=<file>, the boot's: the
+// A park from a host file (ZX_DM2_PARK_FILE=<file>, the boot's: the
 // collection's Custom Freeplay gives its map's park.dat): the park loads
 // read that file's bytes (one park stream, kParkBytes at most, the rest
 // zero) into the request's park buffer, with no card frame (the host form's
@@ -47,7 +47,7 @@ namespace game::host
 
 namespace dave_mirra::saves
 {
-    namespace store = ps2x::saves;
+    namespace store = zx::saves;
     namespace files = ::game::host::saves;
 
     constexpr uint32_t kMagic = 0x2A81511Cu; // game/dm2/game/memory_card.h kGameSaveMagic
@@ -128,24 +128,24 @@ namespace dave_mirra
     bool installNativeSaves(PS2Runtime &runtime)
     {
         using namespace saves;
-        if (const char *mode = ps2x::boot::text("PS2X_SAVES"); mode && std::string(mode) == "card")
+        if (const char *mode = zx::boot::text("ZX_SAVES"); mode && std::string(mode) == "card")
         {
-            std::cout << "[dave-mirra] saves: memory card dialogs (PS2X_SAVES=card)" << std::endl;
+            std::cout << "[dave-mirra] saves: memory card dialogs (ZX_SAVES=card)" << std::endl;
             return false;
         }
         files::configureWholeSave({.bytes = kSaveSize,
                                    .valid = &validSave,
                                    .beforeFirstLoad = &importFromCard,
                                    .log = "[dave-mirra] saves",
-                                   .trace = std::getenv("PS2X_TRACE_SAVES") != nullptr});
+                                   .trace = std::getenv("ZX_TRACE_SAVES") != nullptr});
         if (!::game::host::install(runtime, game::Game::Dm2, "saves"))
         {
             std::cerr << "[dave-mirra] saves: hooks not installed" << std::endl;
             return false;
         }
         adoptUnprofiledSaves();
-        std::cout << "[dave-mirra] saves: game save in " << files::saveFile().string() << " (PS2X_SAVES=card for the card)" << std::endl;
-        if (const char *park = ps2x::boot::text("PS2X_DM2_PARK_FILE"); park && *park)
+        std::cout << "[dave-mirra] saves: game save in " << files::saveFile().string() << " (ZX_SAVES=card for the card)" << std::endl;
+        if (const char *park = zx::boot::text("ZX_DM2_PARK_FILE"); park && *park)
         {
             files::configureHostPark(park);
             std::cout << "[dave-mirra] saves: park loads read " << park << std::endl;

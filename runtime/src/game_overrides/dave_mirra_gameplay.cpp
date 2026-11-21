@@ -65,8 +65,8 @@
 // Photo mode (dave_mirra_photo.cpp) is installed with the pages; while it is
 // on no widget is drawn.
 //
-// Settings are kept in PS2X_GAMEPLAY_INI (the app: gameplay.ini in the
-// game's support folder). On with the app's settings (PS2X_GAME_SETTINGS_MENUS=1).
+// Settings are kept in ZX_GAMEPLAY_INI (the app: gameplay.ini in the
+// game's support folder). On with the app's settings (ZX_GAME_SETTINGS_MENUS=1).
 
 #include "dave_mirra.h"
 #include "zge_gameplay.h"
@@ -88,7 +88,7 @@ namespace dave_mirra::gameplay
     namespace
     {
         namespace gp = zge_host::gameplay;
-        namespace st = ps2x::settings;
+        namespace st = zx::settings;
 
         // DM2's functions and data, by the names of its readable code
         // (runtime/tools/override_symbols.py).
@@ -159,7 +159,7 @@ namespace dave_mirra::gameplay
             PS2Runtime *runtime = nullptr;
             State() { options.define(kOptions, kOptionCount, kHeader); }
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         int option(Option o) { return state().options.value(o); }
 
@@ -271,7 +271,7 @@ namespace dave_mirra::gameplay
             std::atomic<bool> unlocked{false};
             std::atomic<int64_t> armedUntil{0}; // ms, steady clock
         };
-        Unlocking &unlocking() { return ps2x::session::state<Unlocking>(); }
+        Unlocking &unlocking() { return zx::session::state<Unlocking>(); }
 
         int64_t nowMs()
         {
@@ -443,7 +443,7 @@ namespace dave_mirra::gameplay
             std::atomic<bool> hidden{false};
             std::atomic<uint32_t> skipped{0}; // groups not drawn
         };
-        Hud &hud() { return ps2x::session::state<Hud>(); }
+        Hud &hud() { return zx::session::state<Hud>(); }
 
         void drawWidgetHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
@@ -499,32 +499,32 @@ namespace dave_mirra::gameplay
         void registerSettings()
         {
             gp::Options &o = state().options;
-            ps2x::session::addSetting(
+            zx::session::addSetting(
                 o.rangeRow(kFov, "Field of View", 42, 102, 5, "", "Wider shows more. The game's is 62."));
-            ps2x::session::addSetting(
+            zx::session::addSetting(
                 o.rangeRow(kDistance, "Camera Distance", 50, 250, 10, "%", "How far behind the rider."));
-            ps2x::session::addSetting(
+            zx::session::addSetting(
                 o.rangeRow(kHeight, "Camera Height", 50, 300, 10, "%", "How high above the rider."));
-            ps2x::session::addSetting(o.rangeRow(kGrindTip, "Grind Balance Loss", 0, 100, 25, "%",
+            zx::session::addSetting(o.rangeRow(kGrindTip, "Grind Balance Loss", 0, 100, 25, "%",
                                                  "How fast a grind or lip trick tips over."));
-            ps2x::session::addSetting(o.rangeRow(kWheelieTip, "Manual Balance Loss", 0, 100, 25, "%",
+            zx::session::addSetting(o.rangeRow(kWheelieTip, "Manual Balance Loss", 0, 100, 25, "%",
                                                  "How fast a manual or nose wheelie tips over."));
-            ps2x::session::addSetting(o.row(kPerfectGrind, "Perfect Grind", "Grinds and lip tricks never tip over."));
-            ps2x::session::addSetting(o.row(kPerfectManual, "Perfect Manual", "Manuals and nose wheelies never tip over."));
-            ps2x::session::addSetting(unlockRow());
+            zx::session::addSetting(o.row(kPerfectGrind, "Perfect Grind", "Grinds and lip tricks never tip over."));
+            zx::session::addSetting(o.row(kPerfectManual, "Perfect Manual", "Manuals and nose wheelies never tip over."));
+            zx::session::addSetting(unlockRow());
         }
     }
 
     void install(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         uint8_t *rdram = runtime.memory().getRDRAM();
         if (!rdram)
             return;
         State &s = state();
         s.runtime = &runtime;
-        if (const char *file = ps2x::boot::text("PS2X_GAMEPLAY_INI"); file && file[0])
+        if (const char *file = zx::boot::text("ZX_GAMEPLAY_INI"); file && file[0])
             s.options.setFile(file);
         s.options.load();
         takeCameraValues(rdram);

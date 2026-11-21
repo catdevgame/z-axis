@@ -143,7 +143,7 @@ namespace zge::zgui
         ee::Ptr<Node> nextSibling; // +0x00
         ee::Ptr<Node> firstChild;  // +0x04
         ee::Ptr<Node> parent;      // +0x08
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // +0x0C ZGE4 (BMX XXX) keeps the kind, the two ownership flags, the
         // widget's anchor and the message in one word (its initNode, sendMessage,
         // addListener and destroyNode read and write these bits).
@@ -172,7 +172,7 @@ namespace zge::zgui
             ee::Ptr<VariableType> variableType; // a Variable: what its value is
             ee::Ptr<const char> type;           // a widget's class: its kind's name
             ee::Ptr<const char> itemText;       // a tree view's item (kind 7): its text
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // A ZGE4 (BMX XXX) widget's Alignment (bits 0-3 horizontal, 4-7
             // vertical: widget_parts.h's alignBounds): ZGE4 keeps no kind
             // name, and every kind with an Alignment property points it here
@@ -183,7 +183,7 @@ namespace zge::zgui
         zge::Vec4 position;        // +0x20 in its parent widget
         zge::Vec4 screenPosition;  // +0x30 the parent widget's + position (set when drawn)
 
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         NodeKind kind() const { return static_cast<NodeKind>(kindBits); }
         bool nameIsStatic() const { return staticName; }
         bool isEmbedded() const { return embedded; }
@@ -210,7 +210,7 @@ namespace zge::zgui
     };
     // A widget given its anchor: ZGE4's alone (ZGE3 and ZGE2 keep none; only
     // ZGE4's script reader calls it).
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline void setNodeAnchor(ee::Ptr<Node> node, WidgetAnchor anchor) { node->anchor = static_cast<uint32_t>(anchor); }
 #else
     void setNodeAnchor(ee::Ptr<Node> node, WidgetAnchor anchor);
@@ -219,7 +219,7 @@ namespace zge::zgui
     // initNode's kind and flags (kInitStaticName, kInitEmbedded) given to a
     // node (ZGE4: its anchor cleared). Always inlined: AI's initNode then
     // compiles as it did with the store written in it.
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     [[gnu::always_inline]] inline void setNodeKind(ee::Ptr<Node> node, uint32_t kindAndFlags)
     {
         node->anchor = 0;
@@ -258,7 +258,7 @@ namespace zge::zgui
     {
         ee::Float x, y;
     };
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     // (DM2's own row: the bind table pairs AI's g_sticks with a word that is no data of DM2's.)
     inline ee::Global<Stick[4], sym::dm2::g_sticks> g_sticks;
 #else
@@ -297,7 +297,7 @@ namespace zge::zgui
         uint32_t defaultTexture;  // +0x014
         ee::Float alpha;          // +0x018 colours are scaled by it (1/128 units, inferred)
         PadInput pads[4];         // +0x01C
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4 (BMX XXX): its game code keeps the UI's camera and string
         // table here (setUpUi clears them).
         ee::Ptr<zge::SceneObject> camera;  // +0x25C
@@ -306,9 +306,9 @@ namespace zge::zgui
         uint8_t _25c[8];
 #endif
         uint32_t stickAsDpad;     // +0x264 the sticks press the d-pad's directions
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t _268;            // DM2 +0x268 (not seen used; ZGE2 keeps no frame time here)
-#elif PS2X_GAME_BMX
+#elif ZX_GAME_BMX
         ee::Float seconds;        // +0x268 the frame's time
         int32_t fileOperationCount; // +0x26C the root's FileOperationCount (initZgui; updateZgui counts it)
         uint32_t platformId;      // +0x270 the root's PlatformID (a String, "PS2")
@@ -319,7 +319,7 @@ namespace zge::zgui
         // +0x270 (DM2 +0x26C, BMX XXX +0x274) the UI's sound hooks (0:
         // silent; registerSoundMenuFunctions sets them).
         SoundHook selectSound, cancelSound, moveSound, changeSound, blockedSound;
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2 +0x280: the widget kinds' list, the node kinds, the variable
         // types, the script functions, the UI libraries, the playing list and
         // the pending loads (each its own global); ZGE2 has no destroy queue.
@@ -331,7 +331,7 @@ namespace zge::zgui
         uint32_t startButton;     // +0x310 (DM2 +0x2F0, BMX XXX +0x314) the Input mask that starts
         uint32_t acceptButton;    // +0x314 (DM2 +0x2F4) the Input mask that accepts (initGame sets them)
         uint32_t optionButton;    // +0x318 (DM2 +0x2F8, BMX XXX +0x31C)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4's second option mask (the key sniffer's OnOption2), before the
         // cancel mask.
         uint32_t option2Button;   // +0x320
@@ -339,7 +339,7 @@ namespace zge::zgui
         uint32_t cancelButton;    // +0x31C (DM2 +0x2FC, BMX XXX +0x324)
         uint8_t _320[8];
         Input input;              // +0x328 (DM2 +0x308, BMX XXX +0x330)
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // ZGE3's, which ZGE2 keeps nowhere here: past DM2's globals, for the
         // shared code that names them (DM2 runs none of it).
         ee::Float seconds;
@@ -361,17 +361,17 @@ namespace zge::zgui
     static_assert(offsetof(Zgui, startButton) == game::readable::perGame(0x310u, 0x2F0u, 0x314u) &&
                   offsetof(Zgui, acceptButton) == game::readable::perGame(0x314u, 0x2F4u, 0x318u) &&
                   offsetof(Zgui, cancelButton) == game::readable::perGame(0x31Cu, 0x2FCu, 0x324u));
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
     static_assert(offsetof(Zgui, destroyQueue) == game::readable::perGame(0x284u, 0x284u, 0x288u));
 #endif
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(Zgui, camera) == 0x25C && offsetof(Zgui, platformId) == 0x270 &&
                   offsetof(Zgui, option2Button) == 0x320);
 #endif
     inline ee::Global<Zgui, sym::g_zgui> g_zgui;
     // ZGE4's root FileOperationCount set (its updateZgui's step; ZGE3 keeps
     // none: only declared there, no ZGE3 step calls it).
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline void setFileOperationCount(Zgui &zgui, int32_t count) { zgui.fileOperationCount = count; }
 #else
     void setFileOperationCount(Zgui &zgui, int32_t count);

@@ -95,7 +95,7 @@ owner=frames saved registers and unread words in the frames of a thread's walked
 # of the first free slot (memcpy) and takeSaveMessage copies out only the slot at oldest once its kind is set, so a free
 # slot's words are read by no one before they are written again; the queue pointers (g_saveMessageQueue 0x273DC0,
 # g_saveReplyQueue 0x273DC4) go only to those two, newSaveMessageQueue and stopSaveSystem's free (ELF scan: no other
-# load through them), and the host's saves (game_overrides/zge_saves.cpp, off under PS2X_SAVES=card) read a slot only
+# load through them), and the host's saves (game_overrides/zge_saves.cpp, off under ZX_SAVES=card) read a slot only
 # once its kind is set. A queue stopSaveSystem freed is pointed to by nothing. The rule tests the record's shape: limit
 # 20, oldest below it, every kind 0..16, the slot free in both dumps. (b130 tested A/B: frontend, messages, editor.)
 owner=SaveMessageQueue.freeSlot a free save message slot's value, listBuffer and choice

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <vector>
 
-namespace ph = ps2x::photo;
+namespace ph = zx::photo;
 
 namespace
 {

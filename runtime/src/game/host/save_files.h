@@ -2,18 +2,18 @@
 
 // The host's services to the engine's save jobs (zge/host/save_jobs.cpp): the
 // saves as files and a job's progress between its runs (the kernel's waits
-// and the thread's end: host/kernel.h). One boot's state (ps2x::session).
+// and the thread's end: host/kernel.h). One boot's state (zx::session).
 //
 // The files, each the bytes of the memory card's data file (the save's byte
 // sum as one word, then the save), so moving saves to and from PCSX2 cards
 // stays a copy:
-//   <saves>/<profile>.sav        the game save; <profile> = PS2X_SAVE_PROFILE
+//   <saves>/<profile>.sav        the game save; <profile> = ZX_SAVE_PROFILE
 //                                (the app's save profile), else "Career"
 //   <saves>/Parks/Park NNN.sav   the saves the player picks from a list (the
 //                                park editor's parks), NNN the number their
 //                                name on the card ends in
 // each written atomically with the one before kept as .bak. <saves> =
-// PS2X_SAVES_DIR (the app's Saves folder), else a sibling of the slot 1 card
+// ZX_SAVES_DIR (the app's Saves folder), else a sibling of the slot 1 card
 // folder (<card>-saves). At a boot's first job the saves on the memory card
 // folders (slot 1, then slot 2) are copied in once (<saves>/imported.txt
 // records it); the card folders are left as they are.
@@ -50,7 +50,7 @@ namespace game::host::saves
         // own buffer leaves out (AI: the Ape's career, the extra levels'
         // filters). Null: the buffer as it is.
         void (*completeSave)(const uint8_t *rdram, std::vector<uint8_t> &save) = nullptr;
-        // PS2X_TRACE_SAVES=1: the game save's buffer checked before it is
+        // ZX_TRACE_SAVES=1: the game save's buffer checked before it is
         // written (AI: against its host serializer). Null: none.
         void (*traceSave)(const uint8_t *rdram, PS2Runtime *runtime, const uint8_t *save) = nullptr;
         // After a park's file was written (BMX XXX: whether it needs the other
@@ -154,7 +154,7 @@ namespace game::host::saves
     void bootScreenSkipped(void (*undo)());
     void bootLoadDone();
 
-    // PS2X_TRACE_SAVES=1.
+    // ZX_TRACE_SAVES=1.
     bool tracing();
 
     // ---- a game save that is the card's file as it is (DM2) ----------------
@@ -184,9 +184,9 @@ namespace game::host::saves
 
     // ---- a park from a host file (DM2's Custom Freeplay) -------------------
 
-    // PS2X_DM2_PARK_FILE's file (the collection's Custom Freeplay gives its
-    // map's park.dat): DM2's park loads read it instead of the card. Empty:
-    // the card's.
+    // ZX_DM2_PARK_FILE's file (the collection's Custom Freeplay gives its
+    // map's park.dat; a file in a folder, or in a zip read in place):
+    // DM2's park loads read it instead of the card. Empty: the card's.
     void configureHostPark(const std::string &file);
     bool hostPark();
     // The file's first park.size() bytes into `park`, the rest zero; false

@@ -2548,7 +2548,7 @@ commandStrToken	Verified
 commandRotQuatX	Verified
 commandRotQuatY	Verified
 commandRotQuatZ	Verified
-# cov6: first recorded by cov6-card, -cardmash-4 (the card jobs kept: PS2X_JOB_RETURNS), -cdvd, -pcfs, -debug-s-dam (the debug display byte), identical on every call (the Linux worker's cov6bmxc 1113-220822)
+# cov6: first recorded by cov6-card, -cardmash-4 (the card jobs kept: ZX_JOB_RETURNS), -cdvd, -pcfs, -debug-s-dam (the debug display byte), identical on every call (the Linux worker's cov6bmxc 1113-220822)
 debugTextPrint	Verified
 clipLine	Verified
 drawScreenLineLists	Verified

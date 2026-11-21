@@ -7,7 +7,7 @@ game_overrides/dave_mirra_xcareer.cpp, reads that file and never the disc).
     python3 -I dm2_xbox_career.py show --xbox <DM2 Xbox files>   the tables as text
     python3 -I dm2_xbox_career.py points --dir <convert's out> --level VENICE --out <file>
                                        developers: the gap faces' and goal objects' places
-                                       for the runtime's PS2X_DM2_XCAREER_TEST
+                                       for the runtime's ZX_DM2_XCAREER_TEST
     python3 -I dm2_xbox_career.py selftest
 
 Career goals and gaps are not in the level files: they are tables in the
@@ -570,7 +570,7 @@ def level_points(geo, ins, tags, names):
 
 
 def cmd_points(args):
-    """For the runtime's PS2X_DM2_XCAREER_TEST (developers): the places of
+    """For the runtime's ZX_DM2_XCAREER_TEST (developers): the places of
     a converted level's gap faces and goal objects."""
     with open(os.path.join(args.dir, "CAREER.BIN"), "rb") as f:
         levels, strings, _, _ = read(f.read())

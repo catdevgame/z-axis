@@ -23,7 +23,7 @@ namespace zge
     {
         uint32_t mesh;         // +0x00 the hash of the mesh this region is (findRegionForMesh)
         uint32_t outOfViewMark; // +0x04 g_outOfViewMark when the view's region last hid it
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // ZGE2's region is 0x40 bytes with the box at +0x10 as ZGE3's and the hidden list after it: hiddenCount a word
         // at +0x30, hidden at +0x34 (newRegion, freeRegion, finishRegions; +0x08 and +0x38 are in no DM2 function read).
         uint8_t _08[0x02];

@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::audio_file
+namespace zx::audio_file
 {
     class Reader
     {

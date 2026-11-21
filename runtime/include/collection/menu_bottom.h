@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     // The shared pages' buttons, left to right (Custom Freeplay only when
     // the menu has it).
@@ -77,6 +77,15 @@ namespace ps2x::collection
         // The connected gamepad's buttons (the one last used, else the
         // first), for the bottom line (bottomHint); none: no gamepad.
         std::optional<HintDevice> pad;
+        // A setup or an update running (the top screen's Games page shows
+        // it): what it does ("Updating..."), in place of the cards, Play and
+        // the buttons, so nothing looks there to be chosen. `busyLine`: its
+        // state for a job with no part per game ("Exporting the saves 40%");
+        // `busyGames`: the games with a part, each its line in `lines` and
+        // how far it is in `busyDone` (0 to 1; below 0: no bar).
+        std::string busy, busyLine, busyHint;
+        std::vector<int> busyGames;
+        std::vector<float> busyDone;
     };
 
     // The touch help under the buttons: one clause in sentence case with
@@ -108,6 +117,9 @@ namespace ps2x::collection
         int chosen = 0;
         bool freeplay = false; // the Custom Freeplay button
         std::optional<HintDevice> pad;
+        std::string busy, busyLine, busyHint; // (BottomView's)
+        std::vector<int> busyGames;
+        std::vector<float> busyDone;
     };
 
     // The menu's bottom screen between the menu's thread (the app, which

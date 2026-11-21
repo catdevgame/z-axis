@@ -4,7 +4,7 @@
 #   arm64    ARM64 targets (macOS, Android)
 #   x86_64   x86-64 targets (macOS, Windows)
 # The optimization level is the build's (Release: -O3) in the workshop, -O3 in the app.
-all -DPS2X_GAME_MODULE=1
+all -DZX_GAME_MODULE=1
 # No library header: the module's own view of the runtime (game_module/module_runtime.h) and the declarations the
 # compiler's intrinsics headers reach (game_module/libc).
 all -nostdlibinc

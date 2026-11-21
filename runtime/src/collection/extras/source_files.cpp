@@ -2,10 +2,17 @@
 #include "collection/extras/source_files.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <fstream>
 #include <system_error>
 
-namespace ps2x::app::extras
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
+namespace zx::app::extras
 {
     namespace
     {
@@ -148,6 +155,38 @@ namespace ps2x::app::extras
         return ec ? 0 : bytes;
     }
 
+    LayeredFiles::LayeredFiles(const SourceFiles &base, std::map<std::string, Bytes> over) : m_base(base)
+    {
+        std::vector<std::string> files;
+        for (auto &[path, bytes] : over)
+        {
+            const std::string low = lowerAscii(path);
+            if (m_over.emplace(low, std::move(bytes)).second)
+                files.push_back(m_base.find(path).value_or(path));
+        }
+        for (const std::string &path : m_base.files())
+            if (!m_over.count(lowerAscii(path)))
+                files.push_back(path);
+        setFiles(std::move(files));
+    }
+
+    bool LayeredFiles::read(const std::string &path, Bytes &out) const
+    {
+        if (const auto it = m_over.find(lowerAscii(path)); it != m_over.end())
+        {
+            out = it->second;
+            return true;
+        }
+        return m_base.read(path, out);
+    }
+
+    uint64_t LayeredFiles::size(const std::string &path) const
+    {
+        if (const auto it = m_over.find(lowerAscii(path)); it != m_over.end())
+            return it->second.size();
+        return m_base.size(path);
+    }
+
     bool ImageFiles::open(DiscFiles &disc, std::string_view prefix)
     {
         m_disc = &disc;
@@ -183,14 +222,31 @@ namespace ps2x::app::extras
         std::filesystem::create_directories(path.parent_path(), ec);
         std::filesystem::path partial = path;
         partial += ".partial";
+        // (judged once the file is closed and on the disk: a write the disk could not take shows only at the flush,
+        // the small files' whole write; a file renamed in before it is on the disk can be empty after a power cut,
+        // under its part's key)
+#if defined(_WIN32)
+        FILE *out = _wfopen(partial.c_str(), L"wb");
+#else
+        FILE *out = std::fopen(partial.c_str(), "wb");
+#endif
+        bool written = out != nullptr;
+        if (out)
         {
-            std::ofstream out(partial, std::ios::binary | std::ios::trunc);
-            out.write(text.data(), std::streamsize(text.size()));
-            if (!out)
-            {
-                *error = "Could not write " + path.string() + ".";
-                return false;
-            }
+            written = text.empty() || std::fwrite(text.data(), 1, text.size(), out) == text.size();
+            written = std::fflush(out) == 0 && written;
+#if defined(_WIN32)
+            written = _commit(_fileno(out)) == 0 && written;
+#else
+            written = fsync(fileno(out)) == 0 && written;
+#endif
+            written = std::fclose(out) == 0 && written;
+        }
+        if (!written)
+        {
+            std::filesystem::remove(partial, ec);
+            *error = "Could not write " + path.string() + ".";
+            return false;
         }
         std::filesystem::rename(partial, path, ec);
         if (ec)

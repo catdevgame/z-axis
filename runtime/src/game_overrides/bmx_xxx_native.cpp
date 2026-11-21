@@ -15,9 +15,9 @@
 // host form is not installed; the app's movie volume still applies, in the
 // host mix).
 //
-// [host] disc = ps2, PS2X_MOVIES=hle: the IOP's modules instead.
+// [host] disc = ps2, ZX_MOVIES=hle: the IOP's modules instead.
 // The Xbox textures follow the files the game opens (zge_xbox_textures.h).
-// PS2X_MODS_DIR, PS2X_TRACE_DISC, PS2X_TRACE_MOVIES as for AI.
+// ZX_MODS_DIR, ZX_TRACE_DISC, ZX_TRACE_MOVIES as for AI.
 #include "bmx_xxx.h"
 #include "zge_host.h"
 #include "zge_xbox_textures.h"
@@ -56,15 +56,15 @@ namespace bmx_xxx
         void removeSetting(PS2Runtime &)
         {
             if (g_addedSetting)
-                ps2x::settings::remove("display.native_meshes");
+                zx::settings::remove("display.native_meshes");
             g_addedSetting = false;
         }
     }
 
     bool installNativeDraw(PS2Runtime &runtime)
     {
-        // The render path (PS2X_RENDER_PATH, the app's render_path): anything but strict draws from the records.
-        const char *path = ps2x::boot::text("PS2X_RENDER_PATH");
+        // The render path (ZX_RENDER_PATH, the app's render_path): anything but strict draws from the records.
+        const char *path = zx::boot::text("ZX_RENDER_PATH");
         const bool strict = path && (std::strcmp(path, "strict") == 0 || std::strcmp(path, "0") == 0);
         const bool records = !strict;
         // The rigid clipping program's form: VU1 0x06 at 0x1168, AI's passes; the rigid builder (ZGE4's buildRigid)
@@ -73,21 +73,21 @@ namespace bmx_xxx
         // riders with Aggressive Inline's Xbox lights (the same block in its XBE).
         game::host::native_draws::attach(runtime, records,
                                          {.clipped = GSNativeClip::NearSplit, .normalsForColours = true},
-                                         {.weights = ps2x::zaxis::SkinnedDrawForm::Weights::ThreeBones,
+                                         {.weights = zx::zaxis::SkinnedDrawForm::Weights::ThreeBones,
                                           .xboxLights = true},
                                          /*followInterpolation: its meshes are native only from their records*/ !strict);
-        ps2x::gs_shots::install(runtime); // (PS2X_GS_SHOT_VSYNC, developers)
+        zx::gs_shots::install(runtime); // (ZX_GS_SHOT_VSYNC, developers)
         // The Native Meshes row (Aggressive Inline's key), unless the app added one; switched while the game runs:
         // off, every mesh through VU1 (the strict path) until it is on again.
-        if (!ps2x::settings::has("display.native_meshes"))
+        if (!zx::settings::has("display.native_meshes"))
         {
-            ps2x::settings::Setting setting;
+            zx::settings::Setting setting;
             setting.key = "display.native_meshes";
             setting.label = "Native Meshes";
             setting.help = "Level meshes drawn natively. Off: through the PS2's VU1, as on the console.";
             setting.current = []() { return game::host::native_draws::recordsWanted() ? 1 : 0; };
             setting.apply = [](int value) { game::host::native_draws::setRecords(value != 0); };
-            ps2x::settings::add(setting);
+            zx::settings::add(setting);
             g_addedSetting = true;
             runtime.addStoppedHook(&removeSetting);
         }

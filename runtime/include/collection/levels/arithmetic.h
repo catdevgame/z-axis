@@ -13,7 +13,7 @@
 #include <initializer_list>
 #include <vector>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     double sumOf(std::initializer_list<double> values);
     double sumOf(const std::vector<double> &values);

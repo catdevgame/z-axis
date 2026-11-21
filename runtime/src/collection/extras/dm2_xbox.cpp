@@ -2,7 +2,7 @@
 // order tools/dm2_xbox.py convert makes them, written once all are made.
 #include "dm2_xbox_parts.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     bool makeDm2XboxExtras(const SourceFiles *ps2, const SourceFiles &xbox, const Bytes &defaultXbe,
                            const std::filesystem::path &out, const Dm2XboxOptions &options,

@@ -88,7 +88,7 @@ void register_ps2_game_module_tests()
     {
         tc.Run("the runtime's table names every call a module makes", [](TestCase &t)
         {
-            const ZxRuntimeApi &api = ps2x::game_module::runtimeApi();
+            const ZxRuntimeApi &api = zx::game_module::runtimeApi();
             t.Equals(api.abi, ZX_GAME_MODULE_ABI, "the boundary's version");
             t.Equals(api.size, static_cast<uint32_t>(sizeof(ZxRuntimeApi)), "its size");
             t.Equals(api.cpuContextSize, static_cast<uint32_t>(sizeof(R5900Context)), "R5900Context's size");
@@ -112,9 +112,9 @@ void register_ps2_game_module_tests()
         tc.Run("a module's code is its ELF's generated code", [](TestCase &t)
         {
             std::string error;
-            t.IsTrue(ps2x::game_module::registerEntry(&testEntry, "test module", error), "registered: " + error);
+            t.IsTrue(zx::game_module::registerEntry(&testEntry, "test module", error), "registered: " + error);
             t.Equals(ps2_generated::select("ZXTEST.ELF"), std::string("zxtest"), "chosen by its ELF's name");
-            const ps2x::function_table::View view = ps2x::function_table::active();
+            const zx::function_table::View view = zx::function_table::active();
             t.Equals(view.base, 0x00200000u, "its table's first address");
             t.Equals(view.slotCount, 4u, "its slots");
             t.IsTrue(view.table == reinterpret_cast<PS2Runtime::RecompiledFunction *>(g_table), "its functions");
@@ -135,7 +135,7 @@ void register_ps2_game_module_tests()
             std::memcpy(code + PS2_VU1_CODE_SIZE - 8u, marked, sizeof(marked));
             g_vu1Hash = VU1Interpreter::codeHash(code, PS2_VU1_CODE_SIZE);
             std::string error;
-            t.IsTrue(ps2x::game_module::registerEntry(&vu1Entry, "VU1 test module", error), "registered: " + error);
+            t.IsTrue(zx::game_module::registerEntry(&vu1Entry, "VU1 test module", error), "registered: " + error);
             VU1Interpreter vu1;
             g_vu1Runs = 0;
             vu1.execute(code, PS2_VU1_CODE_SIZE, memory.getVU1Data(), PS2_VU1_DATA_SIZE, gs, &memory, 0u, 0u, 0u, 64u);
@@ -153,15 +153,15 @@ void register_ps2_game_module_tests()
         tc.Run("a module built for another runtime is refused", [](TestCase &t)
         {
             std::string error;
-            t.IsFalse(ps2x::game_module::registerEntry(&otherEntry, "other module", error), "not registered");
+            t.IsFalse(zx::game_module::registerEntry(&otherEntry, "other module", error), "not registered");
             t.IsTrue(error.find("another runtime") != std::string::npos, "and says why: " + error);
             t.IsFalse(ps2_generated::select("ZXOTHER.ELF") == "zxother", "its ELF gets the default code");
         });
 
         tc.Run("the setup's code step without the app's tools says what is missing", [](TestCase &t)
         {
-            ps2x::app::BuiltGameCode step(std::filesystem::path("no-game-code-tools-here"));
-            const ps2x::app::SetupGame game{"zxnone", "No Game", "NONE.ELF", ""};
+            zx::app::BuiltGameCode step(std::filesystem::path("no-game-code-tools-here"));
+            const zx::app::SetupGame game{"zxnone", "No Game", "NONE.ELF", ""};
             const std::filesystem::path here = std::filesystem::path("no-game-folder-here");
             t.IsFalse(step.ready(game, here, here), "not ready: no code, no tools");
             std::string error;
@@ -171,31 +171,31 @@ void register_ps2_game_module_tests()
 
         tc.Run("a single-game app's game is found in the tools by the ELF its config names", [](TestCase &t)
         {
-            const std::filesystem::path root = std::filesystem::temp_directory_path() / "ps2x-game-code-tools-test";
+            const std::filesystem::path root = std::filesystem::temp_directory_path() / "zx-game-code-tools-test";
             std::filesystem::remove_all(root);
             std::filesystem::create_directories(root / "games" / "ai");
             {
                 std::ofstream config(root / "games" / "ai" / "config.toml");
                 config << "[general]\ninput = \"../extracted/SLUS_203.27\"\noutput = \"generated\"\n";
             }
-            ps2x::app::GameCodeTools tools;
+            zx::app::GameCodeTools tools;
             tools.root = root;
-            t.Equals(ps2x::app::gameCodeGame(tools, "game", "SLUS_203.27"), std::string("ai"), "found by its ELF");
-            t.Equals(ps2x::app::gameCodeGame(tools, "ai", "OTHER.ELF"), std::string("ai"), "found by its id");
-            t.Equals(ps2x::app::gameCodeGame(tools, "game", "SLUS_999.99"), std::string("game"), "none: the id as it is");
+            t.Equals(zx::app::gameCodeGame(tools, "game", "SLUS_203.27"), std::string("ai"), "found by its ELF");
+            t.Equals(zx::app::gameCodeGame(tools, "ai", "OTHER.ELF"), std::string("ai"), "found by its id");
+            t.Equals(zx::app::gameCodeGame(tools, "game", "SLUS_999.99"), std::string("game"), "none: the id as it is");
             std::filesystem::remove_all(root);
         });
 
-#if defined(PS2X_TEST_LINKED_MODULES)
+#if defined(ZX_TEST_LINKED_MODULES)
         tc.Run("the setup's code step is ready for a game whose code the program links", [](TestCase &t)
         {
-            ps2x::app::BuiltGameCode step(std::filesystem::path("no-game-code-tools-here"));
-            const ps2x::app::SetupGame game{"zxa", "Test A", "ZXA.ELF", ""};
+            zx::app::BuiltGameCode step(std::filesystem::path("no-game-code-tools-here"));
+            const zx::app::SetupGame game{"zxa", "Test A", "ZXA.ELF", ""};
             const std::filesystem::path here = std::filesystem::path("no-game-folder-here");
             t.IsTrue(step.ready(game, here, here), "ready with no tools: its code is linked");
             uint64_t done = 0, total = 0;
             std::string error;
-            t.IsTrue(step.make(game, here, here, [&](const ps2x::app::SetupProgress &p)
+            t.IsTrue(step.make(game, here, here, [&](const zx::app::SetupProgress &p)
             {
                 done = p.done;
                 total = p.total;

@@ -1,8 +1,8 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): every level open in the level
 // select and every trick open, for developers and test runs (recordings of
 // the rider on several levels and of the locked tricks). Off by default;
-// PS2X_DEV_UNLOCK_ALL=1 (as Aggressive Inline's) turns both on,
-// PS2X_DM2_OPEN_LEVELS=1 the levels alone, PS2X_DM2_OPEN_TRICKS=1 the tricks
+// ZX_DEV_UNLOCK_ALL=1 (as Aggressive Inline's) turns both on,
+// ZX_DM2_OPEN_LEVELS=1 the levels alone, ZX_DM2_OPEN_TRICKS=1 the tricks
 // alone.
 //
 // The level select (UILIB.ZAL's MainMenu.SelectLevel) asks
@@ -20,7 +20,7 @@
 // open, tiers done, the medal) are left as they are. The save the game
 // writes then has the levels open.
 //
-// Every trick open too (PS2X_DEV_UNLOCK_ALL=1 or PS2X_DM2_OPEN_TRICKS=1):
+// Every trick open too (ZX_DEV_UNLOCK_ALL=1 or ZX_DM2_OPEN_TRICKS=1):
 // each rider's record has a bit a trick at +0x3A0 (20 bytes), set: the
 // rider cannot do it. A new roster (FUN_00165698) sets the bit of every
 // trick under 0x48 whose kind (0x245520) has 0x8 (17 air tricks, the tap
@@ -52,7 +52,7 @@ namespace dave_mirra::devlevels
 
         bool enabled(const char *name)
         {
-            const char *value = ps2x::boot::text(name);
+            const char *value = zx::boot::text(name);
             return value && value[0] == '1';
         }
 
@@ -78,15 +78,15 @@ namespace dave_mirra::devlevels
 
     bool install(PS2Runtime &runtime)
     {
-        const bool all = enabled("PS2X_DEV_UNLOCK_ALL");
+        const bool all = enabled("ZX_DEV_UNLOCK_ALL");
         bool any = false;
-        if (all || enabled("PS2X_DM2_OPEN_LEVELS"))
+        if (all || enabled("ZX_DM2_OPEN_LEVELS"))
         {
             runtime.addVSyncHook(&openLevels);
             std::cout << "[dave-mirra] every level open in the level select (developers)" << std::endl;
             any = true;
         }
-        if (all || enabled("PS2X_DM2_OPEN_TRICKS"))
+        if (all || enabled("ZX_DM2_OPEN_TRICKS"))
         {
             runtime.addVSyncHook(&openTricks);
             std::cout << "[dave-mirra] every trick open for every rider (developers)" << std::endl;

@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app
+namespace zx::app
 {
     // One disc the search found.
     struct FoundDisc

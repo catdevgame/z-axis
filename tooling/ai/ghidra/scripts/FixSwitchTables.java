@@ -6,7 +6,7 @@
 // on case blocks (no CALL references, inside the owner's region) are removed, and the
 // owner's body is recomputed.
 // Args: [dry]
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;

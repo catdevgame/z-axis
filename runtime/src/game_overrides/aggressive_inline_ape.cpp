@@ -42,7 +42,7 @@
 //     fixed (0x70400) and the game ignores what follows its own data, so
 //     the file stays a PS2 save. (Appended where the file is written, not
 //     after begin: begin can be suspended in its allocation and finish
-//     after its wrapper returned. With PS2X_SAVES=card the Ape's career is
+//     after its wrapper returned. With ZX_SAVES=card the Ape's career is
 //     not saved.)
 // Index 0 needs no other care: the code lookup 0x1A81E8 returns 0 for "AP"
 // (and for an unknown code, as before), the records' readers index by it
@@ -50,10 +50,10 @@
 // commit 0x194238), and every all-skater loop (unlock cheats) covers 0..19.
 //
 // Model: the Xbox GOR.ZIT made into the PS2's at build time
-// (ps2xXboxConvert, runtime/ps2_zaxis_ape.h: convertModel's textures as
+// (zx-xbox-convert, runtime/ps2_zaxis_ape.h: convertModel's textures as
 // 8-bit BMPs at most 256 a side as the PS2 skaters', strips, materials, and
 // its materials' first colour as every other skater's), served here from
-// PS2X_XBOX_CONVERTED (aggressive_inline_converted.h) with the Xbox
+// ZX_XBOX_CONVERTED (aggressive_inline_converted.h) with the Xbox
 // originals (512) registered for the GPU renderer. Animations are the
 // shared skaters\MOTIONS.ZAL (the same file on both discs). The model has
 // no shadow object, so the Ape casts no shadow, as on the Xbox. Nothing is
@@ -89,8 +89,7 @@ namespace aggressive_inline::ape
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
-        namespace zx = ps2x::zaxis;
+        namespace gf = zx::game_files;
 
         // ---- the skater tables (slot 0 is "None") -------------------------
         constexpr uint32_t kNames = 0x0024B048u;       // 20 x 25 bytes: SCENE model names
@@ -149,7 +148,7 @@ namespace aggressive_inline::ape
             std::shared_ptr<const std::vector<uint8_t>> model;
             bool modelTried = false;
         };
-        Ape &ape() { return ps2x::session::state<Ape>(); }
+        Ape &ape() { return zx::session::state<Ape>(); }
 
         uint32_t rd32(const uint8_t *rdram, uint32_t address)
         {
@@ -498,17 +497,17 @@ namespace aggressive_inline::ape
 
         // ---- files --------------------------------------------------------
 
-        // The model made at build time (ps2xXboxConvert,
+        // The model made at build time (zx-xbox-convert,
         // runtime/ps2_zaxis_ape.h), with the Xbox pictures of its converted
         // textures for the GPU renderer (keyed by the converted textures, as
         // the Zoo's).
         std::shared_ptr<const std::vector<uint8_t>> makeModel()
         {
-            auto bytes = aggressive_inline::converted::read(zx::ape::kModelPath);
+            auto bytes = aggressive_inline::converted::read(zx::zaxis::ape::kModelPath);
             if (!bytes)
                 return nullptr;
             const auto pictures =
-                aggressive_inline::converted::registerPictures(zx::ape::kModelPath, "ape:GOR.ZIT", false);
+                aggressive_inline::converted::registerPictures(zx::zaxis::ape::kModelPath, "ape:GOR.ZIT", false);
             if (pictures.ok)
                 std::cout << "[ape] " << pictures.count << " Xbox originals of the Ape's textures for the GPU renderer"
                           << std::endl;
@@ -550,24 +549,24 @@ namespace aggressive_inline::ape
         // library) and its name in the select screen's Refresh script.
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries, xboxEntries;
+            std::vector<zx::zaxis::ArchiveEntry> entries, xboxEntries;
             std::vector<uint8_t> xbox;
             std::string error;
-            if (!zx::readArchive(bytes, entries, &error) || !ps2_xbox_disc::readFile("uilib.zal", xbox) ||
-                !zx::readArchive(xbox, xboxEntries, &error))
+            if (!zx::zaxis::readArchive(bytes, entries, &error) || !ps2_xbox_disc::readFile("uilib.zal", xbox) ||
+                !zx::zaxis::readArchive(xbox, xboxEntries, &error))
             {
                 std::cerr << "[ape] UILIB.ZAL: " << (error.empty() ? "no Xbox uilib.zal" : error) << std::endl;
                 return false;
             }
             bool picture = false, script = false;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
                 if (!picture)
-                    for (const zx::ArchiveEntry &donor : xboxEntries)
+                    for (const zx::zaxis::ArchiveEntry &donor : xboxEntries)
                         if (donor.nameHash == entry.nameHash &&
-                            !zx::addAssets(entry.data, donor.data, {"cha_ape"}).empty())
+                            !zx::zaxis::addAssets(entry.data, donor.data, {"cha_ape"}).empty())
                             picture = true;
-                if (zx::scriptName(entry) != "FrontEnd")
+                if (zx::zaxis::scriptName(entry) != "FrontEnd")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 if (text.find("\"FreeskateOnChange\"") == std::string::npos)
@@ -589,7 +588,7 @@ namespace aggressive_inline::ape
                           << std::endl;
             if (!picture && !script)
                 return false;
-            bytes = zx::writeArchive(entries);
+            bytes = zx::zaxis::writeArchive(entries);
             std::cout << "[ape] UILIB.ZAL: the Ape in the skater select" << std::endl;
             return true;
         }
@@ -606,13 +605,13 @@ namespace aggressive_inline::ape
 
     void install(PS2Runtime &runtime)
     {
-        const char *on = ps2x::boot::text("PS2X_APE");
+        const char *on = zx::boot::text("ZX_APE");
         if (!on || on[0] != '1')
         {
-            std::cout << "[ape] off (PS2X_APE=1 adds the Xbox release's Ape skater)" << std::endl;
+            std::cout << "[ape] off (ZX_APE=1 adds the Xbox release's Ape skater)" << std::endl;
             return;
         }
-        if (!aggressive_inline::converted::exists(zx::ape::kModelPath) || !ps2_xbox_disc::init() ||
+        if (!aggressive_inline::converted::exists(zx::zaxis::ape::kModelPath) || !ps2_xbox_disc::init() ||
             !ps2_xbox_disc::exists("uilib.zal"))
         {
             std::cout << "[ape] no Ape: no GOR.ZIT made at build time ("
@@ -636,9 +635,9 @@ namespace aggressive_inline::ape
             return;
         }
         gf::registerProvider(kModelFolder, &provide, "ape");
-        ps2x::session::onEnd([]() { gf::removeProviders("ape"); });
-        ps2x::disc_patch::registerPatch("SCENE.TXT", &patchScene, "ai");
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
+        zx::session::onEnd([]() { gf::removeProviders("ape"); });
+        zx::disc_patch::registerPatch("SCENE.TXT", &patchScene, "ai");
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
         ape().on = true;
         std::cout << "[ape] on: the Ape is skater 0 (" << ps2_xbox_disc::description()
                   << "), unlocked with the Mummy (the Museum's hidden challenges)" << std::endl;

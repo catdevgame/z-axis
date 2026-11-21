@@ -15,7 +15,7 @@ namespace zge_host
         {
             static MovieForm form = []
             {
-                const char *mode = std::getenv("PS2X_MOVIES");
+                const char *mode = std::getenv("ZX_MOVIES");
                 return mode && std::string(mode) == "hle" ? MovieForm::Ps2 : MovieForm::Host;
             }();
             return form;

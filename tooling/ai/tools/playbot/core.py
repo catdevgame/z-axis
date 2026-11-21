@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Closed-loop players for the Z-Axis games: the game-neutral part.
 
-A player runs a native runner with PS2X_PLAY_LINK (runtime/ps2_play_link.h): at every port-0 pad read
+A player runs a native runner with ZX_PLAY_LINK (runtime/ps2_play_link.h): at every port-0 pad read
 the game stops, the player reads guest memory, chooses the pad, and the game goes on. Nothing here knows
 a game: dm2.py (and aggressive.py, playai's) give the table of what to read and how to play.
 
     Run(RunConfig(...))        a runner on a link, always with a stop condition, never outliving its player
     Pad                        one pad answer (buttons by name, sticks -1 .. 1)
-    Recorder                   the answers as a PS2X_PAD_SCRIPT (script time, so a run replays tick for tick)
+    Recorder                   the answers as a ZX_PAD_SCRIPT (script time, so a run replays tick for tick)
     Stats                      named counters, sums and bests, printed as a row
     play(run, policy, ...)     the loop: run.read state, policy(state) -> Pad, record, answer
     digest / Trace             a per-tick record of state, to compare two runs tick for tick
@@ -102,7 +102,7 @@ class RunConfig:
     runner: str
     elf: str
     root: str                        # runs go in root/name: scratch HOME, card, cwd, app, shots, link
-    script: str = ''                 # PS2X_PAD_SCRIPT: the way to the level (menus)
+    script: str = ''                 # ZX_PAD_SCRIPT: the way to the level (menus)
     env: dict = dataclasses.field(default_factory=dict)  # None: unset
     max_secs: float = 600.0
     gs: bool = False                 # draw (CPU GS), for pictures; else the null GS
@@ -139,30 +139,30 @@ class Run:
             open(os.path.join(self.dir, 'ctl', f), 'w').close()
         env = dict(os.environ)
         d = self.dir
-        env.update({'PS2X_UNPACED': '1', 'PS2X_DEBUG_UI': '0', 'PS2X_GS_BACKEND': 'cpu', 'PS2X_HOST_INPUT': '0',
-                    'PS2X_PAD_SCRIPT_CLOCK': 'vsync', 'HOME': os.path.join(d, 'home'),
-                    'PS2X_APP_SUPPORT_DIR': os.path.join(d, 'app'), 'PS2X_APP_LOG_DIR': os.path.join(d, 'app'),
-                    'PS2X_SCREENSHOT_DIR': os.path.join(d, 'shots'), 'PS2X_MC_ROOT': os.path.join(d, 'mc0'),
-                    'PS2X_CONTROL': os.path.join(d, 'ctl')})
+        env.update({'ZX_UNPACED': '1', 'ZX_DEBUG_UI': '0', 'ZX_GS_BACKEND': 'cpu', 'ZX_HOST_INPUT': '0',
+                    'ZX_PAD_SCRIPT_CLOCK': 'vsync', 'HOME': os.path.join(d, 'home'),
+                    'ZX_APP_SUPPORT_DIR': os.path.join(d, 'app'), 'ZX_APP_LOG_DIR': os.path.join(d, 'app'),
+                    'ZX_SCREENSHOT_DIR': os.path.join(d, 'shots'), 'ZX_MC_ROOT': os.path.join(d, 'mc0'),
+                    'ZX_CONTROL': os.path.join(d, 'ctl')})
         # (a park's memory run, PARK_MEMORY: the runtime's heap counters per level in its log, memuse.heap)
         if os.environ.get('PARK_MEMORY'):
-            env.setdefault('PS2X_TRACE_HEAP', '1')
-        if cfg.env.get('PS2X_PLAY_LINK', 1) is not None:
-            env['PS2X_PLAY_LINK'] = self.link
+            env.setdefault('ZX_TRACE_HEAP', '1')
+        if cfg.env.get('ZX_PLAY_LINK', 1) is not None:
+            env['ZX_PLAY_LINK'] = self.link
         if not cfg.gs:
-            env.update({'PS2X_GS_NULL': '1', 'PS2X_VU1_SKIP': '1'})
+            env.update({'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1'})
         if cfg.script:
             path = os.path.join(d, 'script.txt')
             with open(path, 'w') as f:
                 f.write(cfg.script)
-            env['PS2X_PAD_SCRIPT'] = '@' + path
+            env['ZX_PAD_SCRIPT'] = '@' + path
         for k, v in cfg.env.items():
             if v is None:
                 env.pop(k, None)
             else:
                 env[k] = str(v)
-        # PLAYBOT_ENV="K=V;K=;...": over any player's own environment (an empty V unsets K), e.g. PS2X_READABLE= for
-        # the readable defaults where a player sets off, or PS2X_SAVES= for the native saves
+        # PLAYBOT_ENV="K=V;K=;...": over any player's own environment (an empty V unsets K), e.g. ZX_READABLE= for
+        # the readable defaults where a player sets off, or ZX_SAVES= for the native saves
         for kv in filter(None, os.environ.get('PLAYBOT_ENV', '').split(';')):
             k, v = kv.split('=', 1)
             if v:
@@ -173,7 +173,7 @@ class Run:
         self.proc = subprocess.Popen([cfg.runner, cfg.elf], cwd=os.path.join(d, 'cwd'), env=env, stdout=self.log,
                                      stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         self.t0 = time.time()
-        if 'PS2X_PLAY_LINK' in env:
+        if 'ZX_PLAY_LINK' in env:
             self.up = os.open(os.path.join(self.link, 'up'), os.O_RDONLY | os.O_NONBLOCK)
         return self
 
@@ -259,7 +259,7 @@ class Run:
         os.write(self.down, p.wire(skip))
 
     def command(self, text):
-        """A PS2X_CONTROL command (a screenshot); runs at the next vsync."""
+        """A ZX_CONTROL command (a screenshot); runs at the next vsync."""
         with open(os.path.join(self.dir, 'ctl', 'cmd'), 'a') as f:
             f.write(text + '\n')
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compares two GS local memory dumps (4 MiB, from ps2xGsReplay --dump-vram).
+"""Compares two GS local memory dumps (4 MiB, from zx-gsreplay --dump-vram).
 
     gs_vram_diff.py <a.vram> <b.vram> [max-pages]
 

@@ -74,7 +74,7 @@ namespace zge
     struct MoboBone
     {
         uint16_t _00;
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint16_t parentNumber; // +0x02 its parent's place among the bones, from 1; 0: a top bone
 #else
         uint16_t hasParent;  // +0x02 0: a top bone
@@ -82,7 +82,7 @@ namespace zge
         ee::Float x, y, z;   // +0x04 its bind position
         uint32_t id;         // +0x10 its name's hash
         char name[0x20];     // +0x14
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t parentId;   // +0x34
         // Its parent among the scene's bones, the record being bone `place`
         // (0: a top bone): the first earlier bone with its parent's id (none
@@ -163,7 +163,7 @@ namespace zge
         Vec4 position;                  // +0x10 where the object puts the model
         Vec4 scale;                     // +0x20 (x, y, z), with kSceneScaled
         Quaternion orientation;         // +0x30
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // BMX +0x40: ZGE4 keeps how many bones the scene has room for apart from how many it
         // uses (newModelPose's second argument, 0x20 for a MOBO's; copyBoneList copies it and
         // initPoseBones sets up that many), so its bone list is three words. Every later field
@@ -178,7 +178,7 @@ namespace zge
         // the next would sit where id and name are): 1 for a scene made from
         // a node tree, 0 for a MOBO's. bindSceneAnimator binds their bones.
         int32_t boneListCount;
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         // +0x54 (BMX +0x58) the animator's changes it follows, 0 if none (DM2's scenes
         // keep no such word: its bindSceneAnimator stores none, and the rest
         // are one word lower there).
@@ -198,7 +198,7 @@ namespace zge
     // them from there; ZGE4's has the capacity first (Scene::boneCapacity).
     struct SceneBoneList
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         int32_t capacity;
 #endif
         int32_t count;
@@ -207,7 +207,7 @@ namespace zge
         // ZGE3 allocate the count).
         int32_t allocated() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return capacity;
 #else
             return count;
@@ -216,7 +216,7 @@ namespace zge
         // The counts another list has (copyBoneList): ZGE4 copies the capacity too.
         void takeCountsOf(const SceneBoneList &from)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             capacity = from.capacity;
 #endif
             count = from.count;
@@ -244,7 +244,7 @@ namespace zge
     static_assert(offsetof(Scene, position) == 0x10 && offsetof(Scene, scale) == 0x20);
     static_assert(offsetof(Scene, orientation) == 0x30 && offsetof(Scene, boneCount) == game::readable::perGame(0x40u, 0x40u, 0x44u));
     static_assert(offsetof(Scene, bones) == game::readable::perGame(0x44u, 0x44u, 0x48u) && offsetof(Scene, node) == game::readable::perGame(0x60u, 0x5Cu, 0x64u));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(Scene, boneCapacity) == 0x40);
     // The first word of the scene's bone lists (SceneBoneList): ZGE4's capacity, else the count.
     inline int32_t &boneListsStart(Scene &scene) { return scene.boneCapacity; }
@@ -258,7 +258,7 @@ namespace zge
 
     // The animator's changes a scene follows, 0 if none, and setting them
     // (bindSceneAnimator). DM2's scenes keep none.
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
     static_assert(offsetof(Scene, changes) == game::readable::perGame(0x54u, 0x54u, 0x58u));
     inline ee::Ptr<PoseChanges> sceneChanges(ee::Ptr<Scene> scene) { return scene->changes; }
     inline void setSceneChanges(ee::Ptr<Scene> scene, ee::Ptr<PoseChanges> changes) { scene->changes = changes; }

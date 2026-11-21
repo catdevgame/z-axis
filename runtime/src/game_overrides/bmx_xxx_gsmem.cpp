@@ -1,4 +1,4 @@
-// BMX XXX (SLUS-20415): the GS texture memory audit (PS2X_GSMEM_AUDIT=1,
+// BMX XXX (SLUS-20415): the GS texture memory audit (ZX_GSMEM_AUDIT=1,
 // developers; runtime/ps2_gs_texture_audit.h), as Aggressive Inline's
 // (aggressive_inline_gsmem.cpp) and DM2's (dave_mirra_gsmem.cpp).
 //
@@ -64,10 +64,10 @@ namespace bmx_xxx
 
     void installGsTextureAudit(PS2Runtime &runtime)
     {
-        ps2x::gs_texture_audit::GameCache cache;
+        zx::gs_texture_audit::GameCache cache;
         cache.game = "BMX";
         cache.levelAllocator = sym::bmx::placeTextureLevel;
         cache.cacheState = sym::bmx::g_textureCache;
-        ps2x::gs_texture_audit::install(runtime, cache, &gsmem::levelName);
+        zx::gs_texture_audit::install(runtime, cache, &gsmem::levelName);
     }
 }

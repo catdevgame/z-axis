@@ -7,8 +7,8 @@ endif()
 
 get_filename_component(PS2_GS_DEFAULT_RUNTIME_DIR "${CMAKE_CURRENT_LIST_DIR}/../../runtime" ABSOLUTE)
 set(PS2_GS_RUNTIME_DIR "${PS2_GS_DEFAULT_RUNTIME_DIR}" CACHE PATH "Runtime source to test")
-# A build dir configured before the tree's folders were renamed (ps2xRuntime became runtime) keeps the old path in
-# its cache: a cached folder that no longer holds the GS sources goes back to the default.
+# A cached folder that no longer holds the GS sources (a build dir configured for a tree that moved) goes back to
+# the default.
 if(NOT EXISTS "${PS2_GS_RUNTIME_DIR}/src/lib/gs")
     set(PS2_GS_RUNTIME_DIR "${PS2_GS_DEFAULT_RUNTIME_DIR}" CACHE PATH "Runtime source to test" FORCE)
 endif()
@@ -16,7 +16,7 @@ option(PS2_GS_CACHE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSan
 option(PS2_GS_CACHE_BUILD_MEMORY_TESTS "Build tests for the new shared cached-reader API" ON)
 
 find_package(Threads REQUIRED)
-add_library(ps2_gs_cache_backend_under_test STATIC
+add_library(zx_gs_cache_backend_under_test STATIC
     "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_cpu_backend.cpp"
     "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_cpu_fast.cpp"
     "${PS2_GS_RUNTIME_DIR}/src/lib/gs/gs_frontend.cpp"
@@ -25,30 +25,30 @@ add_library(ps2_gs_cache_backend_under_test STATIC
     "${PS2_GS_RUNTIME_DIR}/src/lib/gs/ps2_gs_memory.cpp"
     "${PS2_GS_RUNTIME_DIR}/src/lib/ps2_frame_trace.cpp"
 )
-target_include_directories(ps2_gs_cache_backend_under_test PUBLIC "${PS2_GS_RUNTIME_DIR}/include")
-target_compile_features(ps2_gs_cache_backend_under_test PUBLIC cxx_std_20)
-target_compile_definitions(ps2_gs_cache_backend_under_test PRIVATE PS2_RUNTIME_LOGS=0 AGRESSIVE_LOGS=0)
-target_link_libraries(ps2_gs_cache_backend_under_test PUBLIC Threads::Threads)
+target_include_directories(zx_gs_cache_backend_under_test PUBLIC "${PS2_GS_RUNTIME_DIR}/include")
+target_compile_features(zx_gs_cache_backend_under_test PUBLIC cxx_std_20)
+target_compile_definitions(zx_gs_cache_backend_under_test PRIVATE PS2_RUNTIME_LOGS=0 AGRESSIVE_LOGS=0)
+target_link_libraries(zx_gs_cache_backend_under_test PUBLIC Threads::Threads)
 # The CPU renderer names and looks up texture packs' pictures (runtime/ps2_texture_pack.h, texpack1): in the
 # collection's tree those come from the runtime library; a standalone build of these suites has no runtime to take
 # them from.
-if(TARGET ps2_runtime)
-    target_link_libraries(ps2_gs_cache_backend_under_test PUBLIC ps2_runtime)
+if(TARGET zx_runtime)
+    target_link_libraries(zx_gs_cache_backend_under_test PUBLIC zx_runtime)
 endif()
-set_target_properties(ps2_gs_cache_backend_under_test PROPERTIES CXX_EXTENSIONS OFF)
+set_target_properties(zx_gs_cache_backend_under_test PROPERTIES CXX_EXTENSIONS OFF)
 
 if(PS2_GS_CACHE_SANITIZERS)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" OR MSVC)
         message(FATAL_ERROR "PS2_GS_CACHE_SANITIZERS requires a GCC/Clang sanitizer toolchain")
     endif()
-    target_compile_options(ps2_gs_cache_backend_under_test PUBLIC
+    target_compile_options(zx_gs_cache_backend_under_test PUBLIC
         -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all)
-    target_link_options(ps2_gs_cache_backend_under_test PUBLIC -fsanitize=address,undefined)
+    target_link_options(zx_gs_cache_backend_under_test PUBLIC -fsanitize=address,undefined)
 endif()
 
 function(add_gs_cache_suite target source prefix)
     add_executable(${target} "${source}")
-    target_link_libraries(${target} PRIVATE ps2_gs_cache_backend_under_test)
+    target_link_libraries(${target} PRIVATE zx_gs_cache_backend_under_test)
     set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)
     foreach(test_name IN LISTS ARGN)
         add_test(NAME "gs_cache.${prefix}.${test_name}" COMMAND ${target} "${test_name}")

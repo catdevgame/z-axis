@@ -1,16 +1,16 @@
 #pragma once
 
-// The functions the recorder keeps to a stop (fncheck.h, PS2X_FNREC_STOPS=1):
+// The functions the recorder keeps to a stop (fncheck.h, ZX_FNREC_STOPS=1):
 // they never return, so a call of one is kept from its entry to the callee
 // that never comes back to it (fncheck::kStopsAtCall). The table is part of
-// the tree, so a stop recording is made again from it alone; PS2X_FNREC_STOP
+// the tree, so a stop recording is made again from it alone; ZX_FNREC_STOP
 // adds names for experiments.
 //
 // The stops:
 //   ThreadEnd  the callee ended the thread (ExitDeleteThread, ExitThread):
 //              the record stops at that call.
 //   Frames     the same, and also at the first wait (a switch to another
-//              thread) once PS2X_FNREC_STOP_FRAMES vsyncs (default 1) have
+//              thread) once ZX_FNREC_STOP_FRAMES vsyncs (default 1) have
 //              passed since the entry: a thread's endless loop.
 // Every other function is recorded as before, stops on or off.
 

@@ -22,12 +22,12 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::movie
+namespace zx::movie
 {
     class PssAudio;
 }
 
-namespace ps2x::collection
+namespace zx::collection
 {
     class MenuAudio
     {
@@ -57,7 +57,7 @@ namespace ps2x::collection
         // A movie's sound (the intro's, 48 kHz stereo) over the menu's from
         // now, for `frames` frames (0: to its end), its last tenth of a
         // second faded out; null stops the one playing.
-        void playMovie(std::shared_ptr<ps2x::movie::PssAudio> sound, size_t frames = 0);
+        void playMovie(std::shared_ptr<zx::movie::PssAudio> sound, size_t frames = 0);
         bool moviePlaying() const;
 
         // Levels 0..127 (the games' own volume scale), applied as the games
@@ -81,7 +81,7 @@ namespace ps2x::collection
         };
         struct MusicSlot
         {
-            ps2x::spu::Voice voice;
+            zx::spu::Voice voice;
             std::string game;
             int32_t gain = 0;      // 0..kFadeFrames
             int32_t direction = 0; // +1 fading in, -1 fading out, 0 steady
@@ -91,13 +91,13 @@ namespace ps2x::collection
         void applyLevels();
 
         mutable std::mutex m_mutex;
-        std::shared_ptr<ps2x::movie::PssAudio> m_movie;
+        std::shared_ptr<zx::movie::PssAudio> m_movie;
         size_t m_movieLeft = 0; // frames of it still to play (SIZE_MAX: to its end)
         std::vector<int16_t> m_movieBuffer;
         std::map<std::string, GameSound, std::less<>> m_games;
         MusicSlot m_music[2];
         size_t m_current = 0; // the slot of the music fading in or playing
-        ps2x::spu::Voice m_sounds[kSoundVoices];
+        zx::spu::Voice m_sounds[kSoundVoices];
         size_t m_nextSound = 0;
         uint32_t m_musicLevel = 127, m_effectsLevel = 127;
     };

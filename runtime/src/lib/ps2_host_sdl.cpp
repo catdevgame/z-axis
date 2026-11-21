@@ -19,7 +19,7 @@
 #include <vector>
 
 namespace hi = ps2_host_input;
-namespace texcheck = ps2x::gpu_texture_check;
+namespace texcheck = zx::gpu_texture_check;
 
 namespace
 {
@@ -147,10 +147,10 @@ namespace
         // requestExitToMenu, and whether the app has a menu for it.
         std::atomic<bool> exitToMenu{false};
         std::atomic<bool> menuAvailable{false};
-        bool vsync = !std::getenv("ZAXIS_PRESENT_HZ"); // (a timed present rate instead: present())
+        bool vsync = !std::getenv("ZX_PRESENT_HZ"); // (a timed present rate instead: present())
         bool variableRefresh = false; // the app's setting
-        bool variableRefreshAsked = [] { // ZAXIS_VRR=1
-            const char *v = std::getenv("ZAXIS_VRR");
+        bool variableRefreshAsked = [] { // ZX_VRR=1
+            const char *v = std::getenv("ZX_VRR");
             return v && v[0] == '1';
         }();
 
@@ -391,7 +391,7 @@ namespace
     {
         static const bool value = []()
         {
-            const char *env = std::getenv("PS2X_RUMBLE");
+            const char *env = std::getenv("ZX_RUMBLE");
             return !(env && env[0] == '0');
         }();
         return value;
@@ -529,7 +529,7 @@ namespace
         return state;
     }
 
-    // ---- PS2X_VIRTUAL_PADS: virtual gamepads (developer test only) ---------
+    // ---- ZX_VIRTUAL_PADS: virtual gamepads (developer test only) ---------
     //
     // Off unless the variable is set. SDL virtual joysticks that look like
     // gamepads, for testing hot-plug, several pads, player order, prompts
@@ -547,7 +547,7 @@ namespace
     //                            down, left, right; lx, ly, rx, ry (v in
     //                            -1..1), l2, r2 (v in 0..1); v defaults to 1
     // Times are seconds from the window's creation.
-    // PS2X_VIRTUAL_PADS_FILE=<path>: lines appended to that file later run
+    // ZX_VIRTUAL_PADS_FILE=<path>: lines appended to that file later run
     // the same entries, timed from when they are read (0 = at once), so a
     // test can act when the game is ready ("0:2:ly=-1:3").
     struct VirtualPad
@@ -591,7 +591,7 @@ namespace
         bool active = false;
         Uint64 startMs = 0;
         std::vector<VirtualEvent> events; // not run yet, by time
-        std::string file; // PS2X_VIRTUAL_PADS_FILE
+        std::string file; // ZX_VIRTUAL_PADS_FILE
         std::streamoff fileRead = 0;
         double fileCheckedAt = -1.0;
         std::vector<VirtualRelease> releases;
@@ -781,7 +781,7 @@ namespace
                 }
             }
             if (!ok)
-                std::fprintf(stderr, "[vpad] PS2X_VIRTUAL_PADS: ignoring '%s'\n", entry.c_str());
+                std::fprintf(stderr, "[vpad] ZX_VIRTUAL_PADS: ignoring '%s'\n", entry.c_str());
             else if (f.size() > 1)
                 v.events.push_back(e);
         }
@@ -871,8 +871,8 @@ namespace
 
     void startVirtualPads()
     {
-        const char *spec = std::getenv("PS2X_VIRTUAL_PADS");
-        const char *file = std::getenv("PS2X_VIRTUAL_PADS_FILE");
+        const char *spec = std::getenv("ZX_VIRTUAL_PADS");
+        const char *file = std::getenv("ZX_VIRTUAL_PADS_FILE");
         if ((!spec || !spec[0]) && (!file || !file[0]))
             return;
         VirtualPads &v = virtualPads();
@@ -887,7 +887,7 @@ namespace
         }
         if (spec)
             parseVirtualPads(v, spec);
-        std::fprintf(stderr, "[vpad] PS2X_VIRTUAL_PADS: %zu events (developer test pads)\n", v.events.size());
+        std::fprintf(stderr, "[vpad] ZX_VIRTUAL_PADS: %zu events (developer test pads)\n", v.events.size());
         updateVirtualPads();
     }
 
@@ -979,20 +979,20 @@ namespace
         return true;
     }
 
-    // ZAXIS_AUDIO=off: the audio device is SDL's dummy driver, which takes the sound at a device's pace and plays it
+    // ZX_AUDIO=off: the audio device is SDL's dummy driver, which takes the sound at a device's pace and plays it
     // nowhere, so test runs never reach the speakers. Everything before the device is as with sound: the SPU2 mix,
-    // the host streams and their rate (the game's logic never reads the device). An unpaced run (PS2X_UNPACED=1)
-    // cannot play sound in time and gets it too; ZAXIS_AUDIO=on plays sound whatever the pacing.
+    // the host streams and their rate (the game's logic never reads the device). An unpaced run (ZX_UNPACED=1)
+    // cannot play sound in time and gets it too; ZX_AUDIO=on plays sound whatever the pacing.
     const char *audioOffReason()
     {
-        const char *audio = std::getenv("ZAXIS_AUDIO");
+        const char *audio = std::getenv("ZX_AUDIO");
         if (audio && std::strcmp(audio, "off") == 0)
-            return "ZAXIS_AUDIO=off";
+            return "ZX_AUDIO=off";
         if (audio && std::strcmp(audio, "on") == 0)
             return nullptr;
-        const char *unpaced = std::getenv("PS2X_UNPACED");
+        const char *unpaced = std::getenv("ZX_UNPACED");
         if (unpaced && unpaced[0] == '1')
-            return "PS2X_UNPACED=1";
+            return "ZX_UNPACED=1";
         return nullptr;
     }
 }
@@ -1272,7 +1272,7 @@ namespace ps2_host
         Host &h = host();
         if (!rumbleEnabled())
         {
-            std::fprintf(stderr, "[pad] rumble test: vibration is off (PS2X_RUMBLE=0)\n");
+            std::fprintf(stderr, "[pad] rumble test: vibration is off (ZX_RUMBLE=0)\n");
             return;
         }
         if (!h.padsEnabled.load())
@@ -1508,14 +1508,14 @@ namespace ps2_host
             SDL_SetWindowRelativeMouseMode(window, captured);
     }
 
-    // ZAXIS_PRESENT_HZ=<n> with ZAXIS_PRESENT_OFFSCREEN=1: the window loop timed at n a second and nothing shown
+    // ZX_PRESENT_HZ=<n> with ZX_PRESENT_OFFSCREEN=1: the window loop timed at n a second and nothing shown
     // (a display of that rate the panel cannot be, for timing runs: frame interpolation's 144 Hz).
     static bool timedOffscreen()
     {
         static const bool on = []
         {
-            const char *hz = std::getenv("ZAXIS_PRESENT_HZ");
-            const char *off = std::getenv("ZAXIS_PRESENT_OFFSCREEN");
+            const char *hz = std::getenv("ZX_PRESENT_HZ");
+            const char *off = std::getenv("ZX_PRESENT_OFFSCREEN");
             return hz && hz[0] && off && off[0] == '1';
         }();
         return on;
@@ -1533,7 +1533,7 @@ namespace ps2_host
         uint32_t swapWidth = 0, swapHeight = 0;
         bool acquired;
         {
-            ps2x::ftrace::Scope traceAcquire(ps2x::ftrace::kUser1, ps2x::ftrace::kUser1 + 100);
+            zx::ftrace::Scope traceAcquire(zx::ftrace::kUser1, zx::ftrace::kUser1 + 100);
             acquired = SDL_WaitAndAcquireGPUSwapchainTexture(commands, h.window, &swapchain, &swapWidth, &swapHeight);
         }
         h.nextCommands = commands;
@@ -1558,7 +1558,7 @@ namespace ps2_host
         {
             // Nothing shown: only the window loop's rate (below), as a display of that rate would set it.
             using Clock = std::chrono::steady_clock;
-            static const std::chrono::microseconds period(1000000 / std::max(30L, std::strtol(std::getenv("ZAXIS_PRESENT_HZ"), nullptr, 10)));
+            static const std::chrono::microseconds period(1000000 / std::max(30L, std::strtol(std::getenv("ZX_PRESENT_HZ"), nullptr, 10)));
             static Clock::time_point next = Clock::now();
             const Clock::time_point now = Clock::now();
             next = std::max(next + period, now - std::chrono::milliseconds(50));
@@ -1611,7 +1611,7 @@ namespace ps2_host
         bool acquired = h.nextAcquired;
         if (!early)
         {
-            ps2x::ftrace::Scope traceAcquire(ps2x::ftrace::kUser1, ps2x::ftrace::kUser1 + 100);
+            zx::ftrace::Scope traceAcquire(zx::ftrace::kUser1, zx::ftrace::kUser1 + 100);
             acquired = SDL_WaitAndAcquireGPUSwapchainTexture(commands, h.window, &swapchain, &swapWidth, &swapHeight);
         }
         h.nextSwapchain = nullptr;
@@ -1688,19 +1688,19 @@ namespace ps2_host
                 SDL_EndGPURenderPass(pass);
         }
         {
-            ps2x::ftrace::Scope traceSubmit(ps2x::ftrace::kGpuSubmitBegin, ps2x::ftrace::kGpuSubmitEnd);
+            zx::ftrace::Scope traceSubmit(zx::ftrace::kGpuSubmitBegin, zx::ftrace::kGpuSubmitEnd);
             SDL_SubmitGPUCommandBuffer(commands);
         }
 
         // Without vsync nothing else paces the window loop: at most 240
-        // frames a second (ZAXIS_PRESENT_HZ=<n>: n, a display of that rate
+        // frames a second (ZX_PRESENT_HZ=<n>: n, a display of that rate
         // for timing runs, frame interpolation's 144 Hz on a 120 Hz Mac).
         if (!h.vsync)
         {
             using Clock = std::chrono::steady_clock;
             static const std::chrono::microseconds period = []
             {
-                const char *v = std::getenv("ZAXIS_PRESENT_HZ");
+                const char *v = std::getenv("ZX_PRESENT_HZ");
                 const long hz = v ? std::strtol(v, nullptr, 10) : 0;
                 return std::chrono::microseconds(hz >= 30 && hz <= 1000 ? 1000000 / hz : 4166);
             }();

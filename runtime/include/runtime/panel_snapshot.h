@@ -11,7 +11,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace panel
 {
@@ -105,7 +107,7 @@ namespace panel
 
         int32_t score = 0;
         float pendingScore = 0.0f;  // the line's trick score, banked on landing
-        int32_t multiplier = 0;
+        int32_t multiplier = 0;     // the line's multiplier; 0: the game keeps none (DM2)
         int32_t points = 0;         // a challenge's points counter
         float timerSeconds = -1.0f; // the HUD's countdown; -1 while it shows none
         int32_t spinsCounterClockwise = 0, spinsClockwise = 0; // half turns this jump
@@ -171,7 +173,18 @@ namespace panel
     // `panel`: Resources/games/<id>/panel in the collection), set by the app
     // as it boots a game, with setGameCapture(nullptr) before the game's
     // override installs its own capture. Read by the painter's thread to
-    // follow the game that runs; "" until a game boots. Thread-safe.
-    void setGameFiles(const std::string &folder);
+    // follow the game that runs; "" until a game boots. `fallback`: the
+    // folder a file is read from when `folder` has none of it, or has it in
+    // another version (the bundled files under the setup's). Thread-safe.
+    void setGameFiles(const std::string &folder, const std::string &fallback = {});
     std::string gameFiles();
+    std::string gameFilesFallback();
+    // A level file the running boot serves in place of the folder's
+    // <name>.pmap: Custom Freeplay's map, made at its boot from the files
+    // the boot reads (collection/maps.h), under the slot's panel name. Set
+    // by the app before the boot, cleared (name "") after it; the painter's
+    // thread asks for it as it loads a level. Thread-safe.
+    void setServedLevelFile(const std::string &name, std::shared_ptr<const std::vector<uint8_t>> bytes);
+    // The bytes served under `name`, null for none.
+    std::shared_ptr<const std::vector<uint8_t>> servedLevelFile(const std::string &name);
 }

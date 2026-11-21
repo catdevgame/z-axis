@@ -4,12 +4,12 @@
 # c5838119, 11-07) moves these and nothing else, and nothing reads them but the code that keeps them.
 0x002606C8+0x10 CycleTimers cycles and lastCount (AI's 0x2826C8, the bind table's pair): COP0 COUNT as last read
 owner=Dm2ProfileBar.clock the profiler's bars (pool of g_profilerReady at 0x2A1CD0; SCENE, Dynamics Time, WaterDraw, WaterProcess in the gate's inputs): cycles and startCount, COP0 COUNT as read
-0x01FF0000+0x10000 stack the interrupt handlers' stack (from 0x01FFFFF0, the runtime's, as AI's and BMX XXX's lines): DM2's interrupt dispatch (0x106A94..0x106CB8) and its handlers (vif1Interrupt 0x107668) run at sp 0x1FFFE70 there (PS2X_WATCH32 on 0x1FFFE80 over the front end: every write comes from that code at that sp), no thread's stack is in it (main 0x1E00000+0x100000, thread 2 0x1FCF60+0x1000, the dumps' .sp): nothing on it between vsyncs
+0x01FF0000+0x10000 stack the interrupt handlers' stack (from 0x01FFFFF0, the runtime's, as AI's and BMX XXX's lines): DM2's interrupt dispatch (0x106A94..0x106CB8) and its handlers (vif1Interrupt 0x107668) run at sp 0x1FFFE70 there (ZX_WATCH32 on 0x1FFFE80 over the front end: every write comes from that code at that sp), no thread's stack is in it (main 0x1E00000+0x100000, thread 2 0x1FCF60+0x1000, the dumps' .sp): nothing on it between vsyncs
 0x0028F308 within=2 ChunkParser.lastProgress (g_chunkParser +0x20): collisionClock when parseChunks last called its progress hook; a clock word: `off` at 16384 against `off` at 4096 moves it by 2 (0xEA90/0xEA92 on fr-trainyards, 21 dumps of six inputs) and nothing else of the level inputs; tested at 4096 differs from `off` by the same 2
 # The traffic cars' random numbers, clock words (verify3): the first car's seed is timeMilliseconds' (0x113D68; the
 # collision clock), newTrafficCar draws each car's from the one before (L'Ecuyer's LCG) and keeps the last in g_carSeed.
 # `off` at 16384 against `off` at 4096 moves exactly these on se-woodward and play-p1-se0 (the inputs whose level has
-# cars), and PS2X_READABLE=tested at 4096 (the gated set, e029884f7) holds off@16384's values in all of them, the save's
+# cars), and ZX_READABLE=tested at 4096 (the gated set, e029884f7) holds off@16384's values in all of them, the save's
 # copies and the live components alike; set when the cars are made, unchanged at every later dump, nothing else differs.
 # A junction draws from a car's number (chooseJunctionExit); no car of the gate's inputs reaches a draw (the words never
 # change), so a later draw is where time would show as another exit.
@@ -61,15 +61,15 @@ owner=Dm2TrafficCar.random each traffic car's random number (its component's wor
 # $gp's) and the readable readers (zge/sound/effects.cpp: i < count, or a switch on it). count is 1 at every dump.
 0x002AA4D8+0x0C g_listeners.object[1..3] with count below their index
 # (tools34) The particle batches' vertex w in the frame's packets (the heap's packet buffers, called from the frame's
-# vif1 chain: 0x330xxx, 0x338xxx on the free rides): the stream's own PS2X_PACKET_DEAD_W rule (ps2_state_probe.cpp
-# deadParticleLanes, ps2xVu1Check --poke over the 756 images holding one such value: nothing changes) at the words'
+# vif1 chain: 0x330xxx, 0x338xxx on the free rides): the stream's own ZX_PACKET_DEAD_W rule (ps2_state_probe.cpp
+# deadParticleLanes, zx-vu1check --poke over the 756 images holding one such value: nothing changes) at the words'
 # place in RAM before the DMA sends them. The w is what the stack or a held register left (5, 6, 0xA: the cell loop's
 # x, y, z that forEachCellOnSegment and forEachCellInSphere hold across their visit call; pointers, 0x7FFFFFFF, 1.0),
 # and every such word differs in the raw stream only (the live hash, which leaves these lanes out, is equal there).
 owner=Dm2Packet.particleW a particle vertex's w in a packet: the stream's dead lane
 # (tested2) The "particle batches" above are the shadow volumes' point blocks: buildShadowVolumePacket's STCYCL 4, 4 and
 # V4-32 UNPACKs to VU1 0x20 + 0x80k after the 14-qword block to 1 (6C0E0001), then MSCAL 0x18 (the volume program,
-# B 0x2708). ps2xVu1Check --chain --poke-range 0x20 0x3FF 3 {3F800000, 7F7FFFFF, FF7FFFFF, 0, 4B000000} --poke-pc 0xC0
+# B 0x2708). zx-vu1check --chain --poke-range 0x20 0x3FF 3 {3F800000, 7F7FFFFF, FF7FFFFF, 0, 4B000000} --poke-pc 0xC0
 # over three DM2 VU1 corpora (fr-trainyards 3660+16, fr-woodward 5000+60, se-woodward 9000+60 vsyncs; 71,204 lanes in
 # 25,000 runs, every run of each corpus matching its recording without pokes): no run's PATH1 output, as the GS takes
 # it, or cycles change, in that run or after. The volume program loads the points LQI.xyzw: their w reach vf13/15/16.w
@@ -89,8 +89,8 @@ owner=Dm2Rider.posedW a rider model's posed position w: junk the shadow volume n
 # (tested2) The GS's unread bits of a GIF packet a passthrough microprogram sends: DM2's program 0x1C (its image at 0xE0:
 # XTOP vi1, XGKICK vi1, end) kicks its TOPS buffer as the UNPACKs built it, so a PACKED qword's bits its register does
 # not read (the GS manual's PACKED formats: ST's fourth word, RGBAQ's upper 24 bits a word, UV's above 14, XYZ2's unused,
-# A+D's above the address byte) are no output: the stream's rule (ps2_state_probe.cpp Passthrough, PS2X_PACKET_PASSTHROUGH,
-# career_ab.py sets it for DM2) at the words' place in RAM. ps2xVu1Check --chain --poke-range 0x11 0x11 3 --poke-top
+# A+D's above the address byte) are no output: the stream's rule (ps2_state_probe.cpp Passthrough, ZX_PACKET_PASSTHROUGH,
+# career_ab.py sets it for DM2) at the words' place in RAM. zx-vu1check --chain --poke-range 0x11 0x11 3 --poke-top
 # --poke-pc 0xE0 (the sprite packets' ST fourth word, what the stack left there: 6 off, 0 with forEachCellOnSegment on at fr-trainyards 3668) over the
 # three corpora: their bytes in PATH1 change, the GS's registers never.
 owner=Dm2Packet.passthroughUnread a passthrough GIF packet's bits the GS does not read

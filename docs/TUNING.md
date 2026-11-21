@@ -1,7 +1,8 @@
 # Aggressive Inline's tuning table: every entry
 
-Aggressive Inline's tuning table (DM2 and BMX XXX have none) as the debug menu's editor and `tuning.ini` see it (how to use both:
-DEVTOOLS.md "How to use"). [V] = verified in the running game or the code, [I] = inferred from a name.
+Aggressive Inline's tuning table as the debug menu's editor and `tuning.ini` see it (how to use both: DEVTOOLS.md "How to
+use"). DM2 has none; BMX XXX's PS2 release has none either, and its `tuning.ini` takes its GameCube release's TUNING
+rows (MODS.md "tuning.ini"). [V] = verified in the running game or the code, [I] = inferred from a name.
 
 ## Layout and how the game reads it [V]
 
@@ -52,7 +53,7 @@ name suggests [I].
 | `Render Speed %` | 100 | 0 to 1000 (1) | never read | no code reads it (slow motion compiled out?) |
 | `Show Skater Position` | 1 | 0 to 1 (1) | never read | no code reads it |
 | `Rigid Body Stop Speed` | 15 | 0.15 to 40 (0.05) | not reached in the test |  |
-| `Death by Juice` | 1 | 0 to 1 (1) | every frame | an empty juice meter ends the run [I]; Settings > Assists > Out of Juice |
+| `Death by Juice` | 1 | 0 to 1 (1) | every frame | an empty juice meter ends the run [I]; Gameplay > Out of Juice |
 | `Points/Continue` | 100000 | 100 to 2e+09 (100) | not reached in the test | points that buy a continue [I] |
 
 #### FX (0x246318, 12)
@@ -77,20 +78,20 @@ name suggests [I].
 | Entry | Default | Range (step) | Read | Notes |
 |---|---|---|---|---|
 | `Distance` | 4 | 0.5 to 50 (0.5) | every frame | **tried**: 7 (tuning.ini) puts the camera clearly further back; Gameplay > Camera Distance scales it |
-| `Distance HPole` | 6 | 0.5 to 50 (0.5) | every frame |  |
+| `Distance HPole` | 6 | 0.5 to 50 (0.5) | every frame | Gameplay > Camera Distance scales it |
 | `Height` | 0.45 | 0.05 to 50 (0.05) | every frame | **tried**: 1.2 raises the camera; Gameplay > Camera Height scales it |
 | `Char Offset` | 1.4 | 0.5 to 50 (0.05) | every frame | height of the look-at point above the skater [I]; candidate with Height |
 | `Char Offset Skcth` | 0.25 | 0.5 to 50 (0.05) | every frame |  |
 | `Falling Base` | 2.75 | 0 to 5 (0.01) | every frame |  |
 | `Falling Speed` | 0.12 | 0 to 5 (0.01) | every frame |  |
-| `FOV` | 75 | 1 to 80 (0.5) | camera mode set | **tried**: 50 in the debug menu narrows the view; copied into the camera when its mode is set (level fly-in, leaving the debug menu, R1 camera), so a setting must also re-set the camera; Gameplay > Field of View does |
+| `FOV` | 75 | 1 to 80 (0.5) | camera mode set | **tried**: 50 in the debug menu narrows the view; copied into the camera when its mode is set (level fly-in, leaving the debug menu, R1 camera), so a setting must also re-set the camera; Gameplay > Field of View leaves it alone and draws the game's view with its own field of view |
 | `Type` | 0 | 0 to 4 (1) | camera mode set | camera mode the debug menu applies every frame (0x18FD68) |
-| `Far Clip` | 1000 | 5 to 9999 (10) | every frame | the game writes it at level start (from the level, or the MP entries); **tried**: 400 in tuning.ini (held by the vsync re-write); done as Draw Distance (imgq) |
+| `Far Clip` | 1000 | 5 to 9999 (10) | every frame | the game writes it at level start (from the level, or the MP entries); **tried**: 400 in tuning.ini (held by the vsync re-write); the Draw Distance setting scales the far clip where the game sets it, not this entry |
 | `MP Boardwalk FOV` | 52 | 1 to 80 (0.5) | camera mode set | split screen FOV; candidate |
 | `MP Civic FOV` | 60 | 1 to 80 (0.5) | camera mode set | split screen FOV |
 | `MP Movie FOV` | 60 | 1 to 80 (0.5) | camera mode set | split screen FOV |
 | `MP Museum FOV` | 54 | 1 to 80 (0.5) | camera mode set | split screen FOV |
-| `MP Brdwalk Far Clip` | 100 | 5 to 9999 (10) | level start | split screen draw distance (imgq scales it) |
+| `MP Brdwalk Far Clip` | 100 | 5 to 9999 (10) | level start | split screen draw distance (the Draw Distance setting scales the far clip made from it) |
 | `MP Civic Far Clip` | 100 | 5 to 9999 (10) | level start |  |
 | `MP Movie Far Clip` | 100 | 5 to 9999 (10) | level start |  |
 | `MP Museum Far Clip` | 150 | 5 to 9999 (10) | level start |  |
@@ -113,12 +114,12 @@ name suggests [I].
 | `VPole Rotate` | 3100 | 0 to 10000 (10) | every frame |  |
 | `VPole Rotate Time` | 0.8 | 0 to 5 (0.05) | every frame |  |
 | `HPole Char Offset` | 0.25 | 0.5 to 50 (0.05) | every frame |  |
-| `Grind Height` | 1.8 | 0.05 to 50 (0.05) | every frame |  |
-| `Grind Distance` | 3.5 | 0.5 to 50 (0.5) | every frame |  |
+| `Grind Height` | 1.8 | 0.05 to 50 (0.05) | every frame | Gameplay > Camera Height scales it |
+| `Grind Distance` | 3.5 | 0.5 to 50 (0.5) | every frame | Gameplay > Camera Distance scales it |
 | `Grind COffset` | 1.1 | 0.5 to 50 (0.05) | every frame |  |
 | `Horiz Offset` | 1 | 0 to 10 (0.1) | every frame |  |
 | `Horiz Offset Dampen` | 0.1 | 0 to 1 (0.01) | every frame |  |
-| `Normal Blur` | 65 | 0 to 255 (1) | level start | motion blur alpha, copied at level start; done as Motion Blur (imgq) |
+| `Normal Blur` | 65 | 0 to 255 (1) | level start | motion blur alpha, copied at level start; the Motion Blur setting changes the blend where it is drawn, not this entry |
 
 #### Physics (0x246D68, 44)
 

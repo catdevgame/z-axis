@@ -12,7 +12,7 @@ run, dumping only the checkpoint) and scores the player position and yaw
 against the reference RAM image. A shift that scores 0.0 is the candidate;
 confirm it with tools/pcsx2replay.py (--input) before adopting it.
 
-  RUNNER=<ps2EntryRunner> [SEARCH_BASE=<input log>] [SEARCH_SHIFTS=-1,1] \
+  RUNNER=<zx-runner> [SEARCH_BASE=<input log>] [SEARCH_SHIFTS=-1,1] \
     python3 tools/inputsearch.py FROM_VSYNC TO_VSYNC CHECKPOINT PARALLEL SECS
 
 Candidate logs go to recomp/logs/inputsearch/; their dumps and run logs are
@@ -79,8 +79,8 @@ if __name__ == "__main__":
     cands = candidates(lo, hi)
     print("%d candidates" % len(cands), flush=True)
     env = dict(os.environ)
-    env.update(PS2X_GS_NULL="1", PS2X_GS_BACKEND="cpu", PS2X_VU1_SKIP="1", LOGICCHECK_DUMPS=ck, PS2X_STATE_LOG="0x231CAC")
-    env.pop("PS2X_PAD_LOG", None)
+    env.update(ZX_GS_NULL="1", ZX_GS_BACKEND="cpu", ZX_VU1_SKIP="1", LOGICCHECK_DUMPS=ck, ZX_STATE_LOG="0x231CAC")
+    env.pop("ZX_PAD_LOG", None)
     queue = list(cands)
     running = []
     results = []

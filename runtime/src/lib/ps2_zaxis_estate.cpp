@@ -11,11 +11,11 @@
 #include <set>
 #include <sstream>
 
-namespace ps2x::zaxis::estate
+namespace zx::zaxis::estate
 {
     namespace
     {
-        namespace xb = ps2x::zaxis::xbox;
+        namespace xb = zx::zaxis::xbox;
 
         uint32_t u32(const uint8_t *p)
         {
@@ -273,7 +273,7 @@ namespace ps2x::zaxis::estate
                 std::vector<uint8_t> indices;
                 if (readBmpHeader(c.payload, c.size, bmp) && readIndices(c.payload, c.size, bmp, indices))
                     keys.push_back({static_cast<uint32_t>(bmp.width), static_cast<uint32_t>(bmp.height),
-                                    ps2x::texture_replace::indexHash(indices.data(), indices.size()), name});
+                                    zx::texture_replace::indexHash(indices.data(), indices.size()), name});
                 break; // level 0 only (the key of the texture object)
             }
         }

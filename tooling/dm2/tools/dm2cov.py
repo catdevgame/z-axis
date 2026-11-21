@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Coverage of a game's functions by the routes (PS2X_FNPROF profiles, or recording folders); --game dm2|bmx.
+"""Coverage of a game's functions by the routes (ZX_FNPROF profiles, or recording folders); --game dm2|bmx.
 
     dm2cov.py subsystems OUT.tsv               a subsystem per DM2 function, from the work database
     dm2cov.py report --subsystems TSV [--top N] DIR_OR_CSV ...

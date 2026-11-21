@@ -11,7 +11,7 @@ values are kept in tools/scripts/dm2-ref-run1-values.txt (no RAM dumps are
 committed).
 
 The native script is the seen log in vsync units from the first pad read
-(the native PS2X_PAD_SCRIPT origin), plus two SYNC anchors so loading
+(the native ZX_PAD_SCRIPT origin), plus two SYNC anchors so loading
 time does not matter:
   - main menu: sound mode 0x259770 becomes 1 (front-end music starts);
   - level: the rider task frame counter 0x25BCC4 reaches its value at the
@@ -49,12 +49,12 @@ flags, challenge, goals done), the character's respect, the game screen up
 (g_gameScreen) and, with a screen up, the selected index of every UIBuilder
 menu widget (the pause menu's cursor).
 
-  python3 -I tools/dm2logic.py [--run 2] script            # the native PS2X_PAD_SCRIPT
+  python3 -I tools/dm2logic.py [--run 2] script            # the native ZX_PAD_SCRIPT
   python3 -I tools/dm2logic.py [--run 2] refvalues         # (re)write the values file from recomp/dumps/ref[2]/*.ram
   python3 -I tools/dm2logic.py [--run 2] run NAME [SECS]   # run natively, dumps in recomp/dumps/logic/NAME-*.ram
   python3 -I tools/dm2logic.py [--run 2] compare NAME [--off OFFNAME]
                                                  # reference values vs native dumps (--off: the same input with
-                                                 # PS2X_READABLE=off at the same clock: a checkpoint that differs
+                                                 # ZX_READABLE=off at the same clock: a checkpoint that differs
                                                  # from the reference only as OFFNAME's does is a MATCH and says so)
   python3 -I tools/dm2logic.py show RAMFILE      # the compared values of any EE RAM image
 
@@ -62,10 +62,10 @@ menu widget (the pause menu's cursor).
 (DIR/seen.txt, commands.txt, values.txt, ram/), checked as run 1 is, or with
 `--by-frame` as run 2 is (a seen log with the level frame column).
 
-Environment: RUNNER (ps2EntryRunner), ELF (default recomp/disc-root/SLUS_201.59),
+Environment: RUNNER (zx-runner), ELF (default recomp/disc-root/SLUS_201.59),
 DM2_SCRATCH (default $ZAXIS_SCRATCH/dm2logic: HOME, app support, memory
-cards, the run 2 script), PS2X_GS_NULL (default 1) / PS2X_VU1_SKIP and other
-PS2X_* pass through. DM2LOGIC_INPUT_DELAY / DM2LOGIC_DUMP_OFFSET shift presses /
+cards, the run 2 script), ZX_GS_NULL (default 1) / ZX_VU1_SKIP and other
+ZX_* pass through. DM2LOGIC_INPUT_DELAY / DM2LOGIC_DUMP_OFFSET shift presses /
 dumps (vsyncs; run 2's level inputs: level frames, a negative test).
 DM2LOGIC_KEEP=1 keeps the native dumps of a run that matches (else `compare`
 deletes them; an --off run's are kept until it is compared itself).
@@ -81,7 +81,7 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(ROOT))
-import zpaths  # noqa: E402,F401  (the shared environment: no sound, ZAXIS_AUDIO)
+import zpaths  # noqa: E402,F401  (the shared environment: no sound, ZX_AUDIO)
 SCRIPTS = os.path.join(ROOT, "tools", "scripts")
 # The reference runs: run 1 (the free ride: presses by vsync, level dumps by script time) and run 2 (the ProQuest
 # ride: level input and dumps by level frame). select_run() points these at one.
@@ -95,7 +95,7 @@ RUN = 1
 SEEN, COMMANDS, VALUES, REF_RAM, BY_FRAME = (RUNS[1][k] for k in ("seen", "commands", "values", "ram", "by_frame"))
 NATIVE_RAM = os.path.join(ROOT, "recomp", "dumps", "logic")
 LOGS = os.path.join(ROOT, "recomp", "logs")
-RUNNER = os.environ.get("RUNNER", os.path.join(zpaths.ZAXIS_WORKTREES, "dm2", "out", "build-dm2", "ps2xRuntime", "ps2EntryRunner"))
+RUNNER = os.environ.get("RUNNER", os.path.join(zpaths.ZAXIS_WORKTREES, "dm2", "out", "build-dm2", "runtime", "zx-runner"))
 ELF = os.environ.get("ELF", os.path.join(ROOT, "recomp", "disc-root", "SLUS_201.59"))
 SCRATCH = os.environ.get("DM2_SCRATCH", os.path.join(zpaths.ZAXIS_SCRATCH, "dm2logic"))
 
@@ -419,21 +419,21 @@ def run(name, secs):
             os.remove(p)
     env = dict(os.environ)
     env["HOME"] = os.path.join(SCRATCH, "home")
-    env["PS2X_APP_SUPPORT_DIR"] = os.path.join(SCRATCH, "home", "support")
-    env["PS2X_APP_LOG_DIR"] = os.path.join(SCRATCH, "home", "logs")
-    env.setdefault("PS2X_MC_ROOT", os.path.join(SCRATCH, "mc0"))
-    env.setdefault("PS2X_DEBUG_UI", "0")
-    env.setdefault("PS2X_GS_BACKEND", "cpu")
-    env.setdefault("PS2X_GS_NULL", "1")
-    env["PS2X_PAD_SCRIPT_CLOCK"] = "vsync"
+    env["ZX_APP_SUPPORT_DIR"] = os.path.join(SCRATCH, "home", "support")
+    env["ZX_APP_LOG_DIR"] = os.path.join(SCRATCH, "home", "logs")
+    env.setdefault("ZX_MC_ROOT", os.path.join(SCRATCH, "mc0"))
+    env.setdefault("ZX_DEBUG_UI", "0")
+    env.setdefault("ZX_GS_BACKEND", "cpu")
+    env.setdefault("ZX_GS_NULL", "1")
+    env["ZX_PAD_SCRIPT_CLOCK"] = "vsync"
     script_path = os.path.join(SCRATCH, "run", "script-%s.txt" % name)
     open(script_path, "w").write(native_script())
-    env["PS2X_PAD_SCRIPT"] = "@" + script_path
-    env["PS2X_DUMP_WHEN"] = dump_spec()
-    env["PS2X_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
-    env.setdefault("PS2X_STATE_LOG", ",".join("0x%X" % a for a in (MODE, LEVEL_CURSOR, SESSION, LEVEL_FRAME, RIDER_TABLE)))
+    env["ZX_PAD_SCRIPT"] = "@" + script_path
+    env["ZX_DUMP_WHEN"] = dump_spec()
+    env["ZX_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
+    env.setdefault("ZX_STATE_LOG", ",".join("0x%X" % a for a in (MODE, LEVEL_CURSOR, SESSION, LEVEL_FRAME, RIDER_TABLE)))
     log = os.path.join(LOGS, "logic-%s.log" % name)
-    print("runner %s\nlog %s\nscript %s\ndumps %s" % (RUNNER, log, script_path, env["PS2X_DUMP_WHEN"]))
+    print("runner %s\nlog %s\nscript %s\ndumps %s" % (RUNNER, log, script_path, env["ZX_DUMP_WHEN"]))
     with open(log, "w") as f:
         proc = subprocess.Popen([RUNNER, ELF], stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                 cwd=os.path.join(SCRATCH, "run"), env=env, start_new_session=True)
@@ -513,7 +513,7 @@ def diffs_of(r, n):
 
 
 def compare(name, off=None):
-    """The reference values against NAME's dumps. With OFF (the same input with PS2X_READABLE=off at the same
+    """The reference values against NAME's dumps. With OFF (the same input with ZX_READABLE=off at the same
     clock, its dumps kept), a checkpoint that differs from the reference only as OFF's does, in the same fields
     and values, and whose compared state equals OFF's exactly, is a MATCH and says so (logiccheck's rule)."""
     first_diff = first_inexact = None

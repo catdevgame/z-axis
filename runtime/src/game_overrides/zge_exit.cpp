@@ -38,7 +38,7 @@ namespace zge_host
             uint32_t entry; // its address
         };
 
-        // One boot's hook (ps2x::session: made at the first function added,
+        // One boot's hook (zx::session: made at the first function added,
         // gone with the boot).
         struct State
         {
@@ -48,7 +48,7 @@ namespace zge_host
             uint32_t nextSlot = 0;
             std::vector<HostFunction> added;
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         std::string guestString(uint8_t *rdram, uint32_t address, size_t limit)
         {

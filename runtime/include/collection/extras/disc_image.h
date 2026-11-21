@@ -20,7 +20,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     using Bytes = std::vector<uint8_t>;
 

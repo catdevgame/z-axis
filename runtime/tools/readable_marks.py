@@ -18,12 +18,12 @@ one's code belongs to that function's call): --all lists those as well, apart. F
 themselves the marker's kind is checked: a loop head needs ee::loopBack (ee::chargeLoop leaves
 safe-point differences), a call's return ee::afterCall or ee::block(L, true).
 
-This is the static side of ps2xFnCheck --markers (fncheck_corpus.py markers): it sees the paths no
+This is the static side of zx-fncheck --markers (fncheck_corpus.py markers): it sees the paths no
 recording ran, by the addresses the definition and its helpers (same file, headers) name; the replay proves
 the order of the ones that ran. --corpus DIR adds the entry blocks that run's markers lines say
 were reached unmarked and that are owed (a mark named here but never passed shows there).
 
-Exit status 1 if anything owed is listed (--warn, the build's step after linking ps2xFnCheck: 0,
+Exit status 1 if anything owed is listed (--warn, the build's step after linking zx-fncheck: 0,
 and only a line). --status limits the list (default: all statuses).
 
     readable_marks.py --check out/<build> --out $ZAXIS_SCRATCH/<task>/marks.txt
@@ -57,7 +57,7 @@ NEVER_RUN = {
 
 def marks_table(build):
     """{(game, function): {address: flags}}"""
-    text = open(os.path.join(build, 'ps2xRuntime', 'fncheck_build', 'fncheck_stack_args.cpp')).read()
+    text = open(os.path.join(build, 'runtime', 'fncheck_build', 'fncheck_stack_args.cpp')).read()
     sec = text[text.index('g_safePointMarks[]'):text.index('g_safePointMarkCount')]
     out = {}
     for g, f, a, k in re.findall(r'\{(\d+)u, 0x([0-9a-f]+)u, 0x([0-9a-f]+)u, (\d+)u\}', sec):
@@ -69,7 +69,7 @@ def marks_table(build):
 def generated_files(build):
     """{(game, function): the generated original}."""
     files = {}
-    for line in open(os.path.join(build, 'ps2xRuntime', 'fncheck_build', 'traced_blocks.list'), encoding='utf-8'):
+    for line in open(os.path.join(build, 'runtime', 'fncheck_build', 'traced_blocks.list'), encoding='utf-8'):
         p = line.rstrip('\n').split('\t')
         if len(p) >= 3 and not p[0].startswith('#'):
             files[(GAME_IDS.get(int(p[0]), p[0]), int(p[1], 16))] = p[2]
@@ -152,7 +152,7 @@ def missing(tree, build, marks, statuses):
     report = []
     files = generated_files(build)
     roots = [os.path.join(tree, 'runtime', 'src', 'game')]
-    sweep = os.path.join(build, 'ps2xRuntime', 'readable_sweep')
+    sweep = os.path.join(build, 'runtime', 'readable_sweep')
     if os.path.isdir(sweep):
         roots.append(sweep)
     shared = {}  # helpers defined in headers (the action tricks' shared bodies)

@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::settings
+namespace zx::settings
 {
     enum class Kind
     {

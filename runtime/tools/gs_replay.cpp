@@ -1,10 +1,10 @@
-// ps2xGsReplay: replays a GS input trace recorded with PS2X_GS_DUMP and writes
+// zx-gsreplay: replays a GS input trace recorded with ZX_GS_DUMP and writes
 // the presented picture at every frame marker as PNG.
 //
-//   ps2xGsReplay <trace.gsr> <out-prefix> [first-frame] [options]
+//   zx-gsreplay <trace.gsr> <out-prefix> [first-frame] [options]
 //
 // Writes <out-prefix>-<n>.png for each frame marker n >= first-frame.
-// PS2X_GS_LOG_LIMIT and the other GS debug logs work as in the runner.
+// ZX_GS_LOG_LIMIT and the other GS debug logs work as in the runner.
 //
 // Options (used by gs_replay_check.sh to compare renderer changes):
 //   --no-png      do not write PNGs
@@ -19,11 +19,11 @@
 //   --time        print the time spent replaying each frame's events
 //   --repeat <n>  replay the whole trace n times (timing); output per pass
 //
-// GPU renderer (builds with PS2X_HAS_GS_GPU, see src/lib/gs/GPU_BACKEND.md):
+// GPU renderer (builds with ZX_HAS_GS_GPU, see src/lib/gs/GPU_BACKEND.md):
 //   --gpu         draw with the SDL_GPU backend (headless) instead of the CPU
 //                 one; the PNGs are at the internal resolution
 //   --scale <n>   internal resolution multiplier for --gpu (default 1;
-//                 PS2X_GS_FULL_HEIGHT=1 doubles it vertically, as in the runner)
+//                 ZX_GS_FULL_HEIGHT=1 doubles it vertically, as in the runner)
 //   --compare     also replay on the CPU renderer and print, per frame, the
 //                 mean and maximum per-channel difference of the GPU picture
 //                 (at native resolution) to the CPU one and the share of
@@ -36,12 +36,14 @@
 //                 picture must be the frame's own (its replay in the
 //                 renderer's own targets): "frame <n> between 1 match" or
 //                 MISMATCH with both hashes; the others are written as
-//                 <out-prefix>-<n>-b<a x 100>.png. A summary line counts
+//                 <out-prefix>-<n>-b<a x 100>.png. Every picture's size as
+//                 given to the window must be its texture's ("SIZE
+//                 MISMATCH", counted as a mismatch). A summary line counts
 //                 them and the renderer's reasons for not making one.
-//                 PS2X_INTERP_FORCE=1: made even where the window would
+//                 ZX_INTERP_FORCE=1: made even where the window would
 //                 show the frame as it is (no cut or stillness test).
 #include "runtime/gs/gs_frontend.h"
-#if PS2X_HAS_GS_GPU
+#if ZX_HAS_GS_GPU
 #include "runtime/gs/gs_gpu_backend.h"
 #endif
 #include "runtime/gs/gs_interpolate.h"
@@ -195,8 +197,8 @@ namespace
             gs.init(vram.data(), static_cast<uint32_t>(vram.size()), &priv);
             if (backend)
                 gs.setRasterBackend(std::move(backend));
-            // As in the runner (PS2X_GS_DEFER=0 disables it there and here).
-            const char *defer = std::getenv("PS2X_GS_DEFER");
+            // As in the runner (ZX_GS_DEFER=0 disables it there and here).
+            const char *defer = std::getenv("ZX_GS_DEFER");
             gs.setDeferredRasterization(!(defer && defer[0] == '0'));
             if (!reader.open(path, gs, vram.data(), static_cast<uint32_t>(vram.size()), priv))
                 return false;
@@ -248,13 +250,13 @@ namespace
         }
     };
 
-#if PS2X_HAS_GS_GPU
+#if ZX_HAS_GS_GPU
     int replayGpu(const Options &options)
     {
         GSGpuBackendOptions gpuOptions;
         gpuOptions.scale = options.scale;
         // As the runner: twice the scale vertically (GPU_BACKEND.md, Full height).
-        if (const char *v = std::getenv("PS2X_GS_FULL_HEIGHT"); v && v[0] == '1')
+        if (const char *v = std::getenv("ZX_GS_FULL_HEIGHT"); v && v[0] == '1')
             gpuOptions.fullHeight = true;
         auto backend = std::make_unique<GSGpuBackend>(gpuOptions);
         if (!backend->valid())
@@ -283,7 +285,7 @@ namespace
         const bool between = !options.between.empty();
         if (between)
         {
-            ps2x::gs_interpolate::setEnabled(true);
+            zx::gs_interpolate::setEnabled(true);
             main.gs.setFrameQueue(true);
         }
         uint64_t previousMade = 0;
@@ -295,14 +297,29 @@ namespace
                 break;
             if (ref)
                 ref->advance(refEvent);
-            if (frame >= options.firstFrame)
+            // Every frame's picture is made, as the runner makes one at each game frame (the frame queue): the
+            // renderer's work of a frame (its submit and the releases after it, the texture pool's trim, the mip
+            // copies' and native meshes' ageing) is done at its Present, so frames replayed without one held all
+            // of theirs (AI's ai2.gsr from frame 100: a 6.5 GB footprint). Those before first-frame are not shown.
+            using Clock = std::chrono::steady_clock;
+            const auto start = Clock::now();
+            std::vector<uint8_t> native;
+            uint32_t width = 0, height = 0;
+            const bool has = between ? main.queuedPicture(native, width, height) : main.picture(native, width, height);
+            ms += std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+            if (frame < options.firstFrame)
             {
-                using Clock = std::chrono::steady_clock;
-                const auto start = Clock::now();
-                std::vector<uint8_t> native;
-                uint32_t width = 0, height = 0;
-                const bool has = between ? main.queuedPicture(native, width, height) : main.picture(native, width, height);
-                ms += std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+                if (between && has)
+                    previousMade = main.gs.shownPresentationFrame().frame;
+                if (ref)
+                {
+                    std::vector<uint8_t> cpuPic;
+                    uint32_t cw = 0, ch = 0;
+                    ref->picture(cpuPic, cw, ch);
+                }
+            }
+            else
+            {
                 std::vector<uint8_t> scaled;
                 uint32_t sw = 0, sh = 0;
                 const bool hasScaled = has && gpu->LastPresentedScaled(scaled, sw, sh);
@@ -356,17 +373,24 @@ namespace
                         if (previousMade == 0u)
                             break;
                         GSGpuPicture pic;
-                        const ps2x::gs_interpolate::Skip why = gpu->PresentBetween(previousMade, made, a, pic);
+                        const zx::gs_interpolate::Skip why = gpu->PresentBetween(previousMade, made, a, pic);
                         std::vector<uint8_t> b;
                         uint32_t bw = 0, bh = 0;
-                        if (why != ps2x::gs_interpolate::Skip::kCount || !gpu->ReadBetweenPicture(b, bw, bh))
+                        if (why != zx::gs_interpolate::Skip::kCount || !gpu->ReadBetweenPicture(b, bw, bh))
                         {
                             ++notMade;
                             std::cout << "frame " << frame << " between " << a << ": "
-                                      << (why != ps2x::gs_interpolate::Skip::kCount ? ps2x::gs_interpolate::skipName(why)
+                                      << (why != zx::gs_interpolate::Skip::kCount ? zx::gs_interpolate::skipName(why)
                                                                                     : "no picture")
                                       << std::endl;
                             continue;
+                        }
+                        // The size the window is given is the picture's: it shows that much of the texture.
+                        if (pic.width != bw || pic.height != bh)
+                        {
+                            ++mismatched;
+                            std::cout << "frame " << frame << " between " << a << " SIZE MISMATCH: given " << pic.width
+                                      << "x" << pic.height << ", picture " << bw << "x" << bh << std::endl;
                         }
                         if (a >= 1.0f)
                         {
@@ -390,7 +414,7 @@ namespace
                     }
                     previousMade = made;
                 }
-                if (std::getenv("PS2X_GS_STATS"))
+                if (std::getenv("ZX_GS_STATS"))
                 {
                     const GSGpuBackend::Stats s = gpu->TakeStats();
                     std::cout << "frame " << frame << " prims=" << s.primitives << " draws=" << s.drawCalls
@@ -418,8 +442,8 @@ namespace
         GSRegisters priv{};
         GS gs;
         gs.init(vram.data(), static_cast<uint32_t>(vram.size()), &priv);
-        // As in the runner (PS2X_GS_DEFER=0 disables it there and here).
-        const char *defer = std::getenv("PS2X_GS_DEFER");
+        // As in the runner (ZX_GS_DEFER=0 disables it there and here).
+        const char *defer = std::getenv("ZX_GS_DEFER");
         gs.setDeferredRasterization(!(defer && defer[0] == '0'));
 
         GSRecord::Reader reader;
@@ -505,6 +529,8 @@ namespace
                     std::cout << "frame " << frame << ": no picture" << std::endl;
                 }
             }
+            else
+                gs.latchHostPresentationFrame(); // (every frame's picture is made, as in replayGpu; not shown)
             frameTime = {};
             ++frame;
         }
@@ -518,8 +544,8 @@ namespace
 
 int main(int argc, char **argv)
 {
-    // Picture quality options from the environment (PS2X_GS_AA, ...).
-    ps2x::gs_quality::applyEnvironment();
+    // Picture quality options from the environment (ZX_GS_AA, ...).
+    zx::gs_quality::applyEnvironment();
     Options options;
     std::vector<std::string> positional;
     for (int i = 1; i < argc; ++i)
@@ -579,13 +605,13 @@ int main(int argc, char **argv)
 
     if (options.gpu)
     {
-#if PS2X_HAS_GS_GPU
+#if ZX_HAS_GS_GPU
         for (long pass = 0; pass < options.repeat; ++pass)
             if (const int result = replayGpu(options))
                 return result;
         return 0;
 #else
-        std::cerr << "built without the GPU backend (PS2X_GS_GPU)" << std::endl;
+        std::cerr << "built without the GPU backend (ZX_GS_GPU)" << std::endl;
         return 2;
 #endif
     }

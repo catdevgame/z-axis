@@ -8,13 +8,14 @@
 #include "collection/levels/text.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <numeric>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     const uint32_t kTerrainClass = nameHash("Terrain");
 
@@ -278,6 +279,23 @@ namespace ps2x::app::levels
 
     // ---- the converter --------------------------------------------------------------------------------
 
+    uint32_t tagWordOf(const TagMap &tags)
+    {
+        const auto it = tags.find("tag");
+        if (it == tags.end() || !it->second.hasText || it->second.text.empty())
+            return 0;
+        const std::string &text = it->second.text;
+        if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X') &&
+            std::all_of(text.begin() + 2, text.end(), [](char c) { return std::isxdigit(static_cast<unsigned char>(c)) != 0; }))
+        {
+            uint64_t word = 0;
+            for (size_t i = 2; i < text.size(); ++i)
+                word = ((word << 4) | static_cast<uint64_t>(std::stoi(std::string(1, text[i]), nullptr, 16))) & 0xFFFFFFFFull;
+            return static_cast<uint32_t>(word);
+        }
+        return nameHash(text);
+    }
+
     LevelConverter::LevelConverter(const Model &model, std::string slot, Engine engine)
         : m_engine(engine), m_sky(&kAiSky), m_dynamics(&kAiDynamics), m_model(model), m_slot(upperKey(slot))
     {
@@ -333,6 +351,7 @@ namespace ps2x::app::levels
         s.facesTwoSided = twoSided != tags.end();
         s.baseColour = base;
         s.layer = layerOf(tags);
+        s.word = tagWordOf(tags);
         for (const auto &[word, kind] : {std::pair<const char *, int>{"qp", 1}, {"spine", 2}, {"slope", 3}, {"wall", 8}})
         {
             auto it = tags.find(word);
@@ -374,6 +393,17 @@ namespace ps2x::app::levels
             {
                 std::string spawnName = spawn->second.hasText ? spawn->second.text : name;
                 const std::string key = lowerKey(spawnName);
+                // a named point only another game's scripts or modes read
+                bool foreign = false;
+                for (const ScriptSpawns &game : scriptSpawns())
+                    if (game.engine != m_engine)
+                        for (const std::string &named : game.names)
+                            foreign = foreign || lowerKey(named) == key;
+                if (foreign)
+                {
+                    report.did("spawn " + spawnName + " has no meaning in this game: left out");
+                    continue;
+                }
                 if (key == "playerone")
                     spawnName = "PlayerOne";
                 else if (key == "playertwo" && !m_hasPlayerTwo)
@@ -441,7 +471,7 @@ namespace ps2x::app::levels
                 world.push_back(plus(toGame(quatRotate(node.rotation, {p[0] * node.scale[0], p[1] * node.scale[1], p[2] * node.scale[2]})),
                                      toGame(node.translation)));
             for (const auto &[i, k] : prim.lines)
-                m_edgeMarks.push_back({world.at(static_cast<size_t>(i)), world.at(static_cast<size_t>(k)), kind, flags, sound});
+                m_edgeMarks.push_back({world.at(static_cast<size_t>(i)), world.at(static_cast<size_t>(k)), kind, flags, sound, tagWordOf(tags)});
         }
     }
 
@@ -851,38 +881,43 @@ namespace ps2x::app::levels
         part.stream(StreamKind::FaceNormals) = Stream::ofIndexed(IndexedStream::make(faceNormals));
         part.flags = piece.sky ? m_sky->partFlags : kPartFlags;
         part.materialCount = static_cast<uint8_t>(surfaces.size());
-        std::vector<int> kinds;
+        // a record for each (kind, tag word) the faces have: the surface kind
+        // and the word their events carry
+        using KindWord = std::pair<int, uint32_t>;
+        std::vector<KindWord> kinds;
         for (const auto &f : piece.faces)
-            kinds.push_back(m_surfaces[static_cast<size_t>(f[0])].kind);
-        std::set<int> kindSet;
-        for (int k : kinds)
-            if (k)
+            kinds.push_back({m_surfaces[static_cast<size_t>(f[0])].kind, m_surfaces[static_cast<size_t>(f[0])].word});
+        const auto tagged = [](const KindWord &k) { return k.first != 0 || k.second != 0; };
+        std::set<KindWord> kindSet;
+        for (const KindWord &k : kinds)
+            if (tagged(k))
                 kindSet.insert(k);
         if (!kindSet.empty() && piece.collides)
         {
-            const std::vector<int> sorted(kindSet.begin(), kindSet.end());
+            const std::vector<KindWord> sorted(kindSet.begin(), kindSet.end());
             TagBuffer buffer;
-            for (int k : sorted)
+            for (const KindWord &k : sorted)
             {
                 double gravity = 0.0;
                 bool any = false;
                 for (const auto &f : piece.faces)
                 {
                     const Surface &s = m_surfaces[static_cast<size_t>(f[0])];
-                    if (s.kind == k)
+                    if (s.kind == k.first && s.word == k.second)
                     {
                         gravity = any ? std::max(gravity, s.gravity) : s.gravity;
                         any = true;
                     }
                 }
                 FaceTag t;
-                t.kind = static_cast<uint8_t>(k);
-                t.gravity = k == 3 ? gravity : 0.0;
-                t.launchPush = k == 1 ? kQuarterPipeLaunchPush : 0.0;
+                t.eventKind = k.second;
+                t.kind = static_cast<uint8_t>(k.first);
+                t.gravity = k.first == 3 ? gravity : 0.0;
+                t.launchPush = k.first == 1 ? kQuarterPipeLaunchPush : 0.0;
                 buffer.records.push_back(t.write());
             }
-            for (int k : kinds)
-                buffer.indices.push_back(k ? static_cast<int>(std::find(sorted.begin(), sorted.end(), k) - sorted.begin()) : -1);
+            for (const KindWord &k : kinds)
+                buffer.indices.push_back(tagged(k) ? static_cast<int>(std::find(sorted.begin(), sorted.end(), k) - sorted.begin()) : -1);
             part.faceTags = std::move(buffer);
         }
         std::vector<Chunk> materials;
@@ -940,6 +975,7 @@ namespace ps2x::app::levels
                         continue;
                     buffer.indices[3 * f + k] = static_cast<int>(buffer.records.size());
                     EdgeTag t;
+                    t.eventId = mark->word;
                     t.kind = static_cast<uint8_t>(mark->kind);
                     t.flags = static_cast<uint8_t>(mark->flags);
                     t.material = static_cast<uint8_t>(mark->sound);
@@ -1225,36 +1261,37 @@ namespace ps2x::app::levels
 
     namespace
     {
-        Converted convertForAi(const Model &model)
+        Converted convertForAi(const Model &model, const std::string &slot)
         {
-            LevelConverter conv(model, "TUT", Engine::Zge3);
+            LevelConverter conv(model, slot, Engine::Zge3);
             std::map<std::string, Bytes> files = conv.build();
             conv.checkLevelBytes(files);
             if (!conv.report.errors.empty())
                 throw LevelError(conv.report.errors.front());
             Converted out;
-            const std::string folder = "ASSETS/LEVELS/TUT/";
+            const std::string folder = "ASSETS/LEVELS/" + slot + "/";
             for (auto &[ext, data] : files)
-                out.files[folder + "TUT." + ext] = std::move(data);
-            out.files[folder + "TUT.BIN"] = emptyLevelScript();
-            out.files[folder + "TUTT.BIN"] = emptyLevelScript();
+                out.files[folder + slot + "." + ext] = std::move(data);
+            out.files[folder + slot + ".BIN"] = emptyLevelScript();
+            out.files[folder + slot + "T.BIN"] = emptyLevelScript();
             out.files[folder + "MOTIONS.ZAL"] = emptyAssetLibrary();
             out.report = conv.report.text();
             return out;
         }
     }
 
-    Converted convertModel(const Model &model, Engine target)
+    Converted convertModel(const Model &model, Engine target, std::string_view slot)
     {
+        std::string folder = upperKey(std::string(slot));
         switch (target)
         {
         case Engine::Zge2:
-            return convertForDm2(model);
+            return convertForDm2(model, folder.empty() ? "WOODWARD" : folder);
         case Engine::Zge4:
-            return convertForBmx(model);
+            return convertForBmx(model, folder.empty() ? "CHL_MULY" : folder);
         case Engine::Zge3:
         default:
-            return convertForAi(model);
+            return convertForAi(model, folder.empty() ? "TUT" : folder);
         }
     }
 }

@@ -1,10 +1,10 @@
 #pragma once
 
-// Files made at build time from the user's Xbox files (ps2xXboxConvert,
+// Files made at build time from the user's Xbox files (zx-xbox-convert,
 // runtime/ps2_zaxis_zoo.h and ps2_zaxis_ape.h): the Zoo and the Ape in the
 // PS2's formats. The app bundles them as Resources/xbox-converted (Windows:
-// xbox-converted\ next to disc\) and sets PS2X_XBOX_CONVERTED to that
-// folder; developer runs point it at ps2xXboxConvert's output. The game
+// xbox-converted\ next to disc\) and sets ZX_XBOX_CONVERTED to that
+// folder; developer runs point it at zx-xbox-convert's output. The game
 // overrides only read them: nothing is converted at run time.
 //
 // Layout: <folder>/<normalized game path> ("ASSETS/LEVELS/ZOO/ZOO.TXR"),
@@ -19,7 +19,7 @@
 
 namespace aggressive_inline::converted
 {
-    // PS2X_XBOX_CONVERTED is a folder.
+    // ZX_XBOX_CONVERTED is a folder.
     bool available();
     // For logs: the folder, or why there is none.
     std::string description();

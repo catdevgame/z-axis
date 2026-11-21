@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     // The stream `in` unpacked into `out` (resized to what it holds). False
     // when the stream is cut short, reaches before its output's start or

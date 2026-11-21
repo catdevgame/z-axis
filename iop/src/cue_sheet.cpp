@@ -1,10 +1,10 @@
-// A CUE sheet's data track (ps2x/iop/cue_sheet.h).
-#include "ps2x/iop/cue_sheet.h"
+// A CUE sheet's data track (zx/disc/cue_sheet.h).
+#include "zx/disc/cue_sheet.h"
 
 #include <algorithm>
 #include <cctype>
 
-namespace ps2x::iop
+namespace zx::disc
 {
     namespace
     {

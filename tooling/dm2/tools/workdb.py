@@ -39,7 +39,15 @@ the z-axis checkout's runtime/src/game; point it at a worktree to index that one
 WORKDB_SOURCES (a JSON file of {source name: path} replacing any default path; `tables`
 lists the names). A missing source is recorded in `sources` and its layer left empty.
 
-Everything in the database is derived from the games' discs: it stays in scratch, never in git.
+Everything in the database is derived from the games' discs: it stays in scratch, never in git. Its notes, text
+only, are exported to workdb_notes.jsonl beside this script (`export-notes`, the workshop's step), and `card` and
+`notes` read that export when there is no database or no duckdb module (a public clone), or with WORKDB_PUBLIC=1:
+tools/workdb_notes.py.
+
+    python -I tools/workdb.py export-notes [--out FILE] [--rules FILE ...] [--check]
+                                                            write the public notes export (--rules: public_scan's
+                                                            private rules, default the workshop's; --check: exit 1
+                                                            when FILE is not what the database makes)
 """
 import collections, csv, datetime, fcntl, glob, json, os, re, struct, subprocess, sys, tempfile
 
@@ -52,7 +60,7 @@ except ImportError:
     if os.path.exists(VENV_PY) and os.path.realpath(sys.prefix) != \
             os.path.realpath(os.path.dirname(os.path.dirname(VENV_PY))):
         os.execv(VENV_PY, [VENV_PY, '-I', os.path.abspath(__file__)] + sys.argv[1:])
-    sys.exit('workdb: needs the duckdb module (%s)' % VENV_PY)
+    duckdb = None   # (card and notes read the public notes export, workdb_notes.py; the rest needs the module)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -109,12 +117,12 @@ SOURCES = {
     'modmap': M3 + '/modmap.json',
     # the readable sources and the recording corpus
     'game_src': GAME_SRC,
-    # the readable functions' source digests (PS2Recomp tools/readable_digest.py, run on game_src)
+    # the readable functions' source digests (runtime/tools/readable_digest.py, run on game_src)
     'readable_digest': os.environ.get('WORKDB_READABLE_DIGEST',
                                       os.path.join(os.path.dirname(os.path.dirname(GAME_SRC)), 'tools',
                                                    'readable_digest.py')),
     'corpus': SCRATCH + '/reccorpus',
-    # a PS2X_FNPROF profile (calls and EE self time per function; the tracking page sizes by it)
+    # a ZX_FNPROF profile (calls and EE self time per function; the tracking page sizes by it)
     'profile': AI_REPO + '/recomp/traces/live-fnprof.csv',
     # string tables (key = name hash) and where KSTR names are spelled out
     'strings.ai_ps2': AI_REPO + '/recomp/disc-root/ASSETS/STRING.EUS',
@@ -222,7 +230,7 @@ SCHEMA = collections.OrderedDict([
                   ('vu0', 'BOOLEAN'), ('doc', 'VARCHAR')]),
     ('readable_files', [('file', 'VARCHAR'), ('lines', 'INTEGER')]),
     # each registration's current source digest (readable_digest.py: its definition and the same
-    # file's functions it calls), which a ps2xFnCheck pass names as impl
+    # file's functions it calls), which a zx-fncheck pass names as impl
     ('readable_digests', [('game', 'VARCHAR'), ('addr', A), ('name', 'VARCHAR'), ('status', 'VARCHAR'),
                           ('file', 'VARCHAR'), ('digest', 'VARCHAR')]),
     ('progress', [('merged', 'VARCHAR'), ('commit', 'VARCHAR'), ('verified', 'INTEGER')]),
@@ -260,13 +268,13 @@ SCHEMA = collections.OrderedDict([
                      ('agent', 'VARCHAR'), ('route', 'VARCHAR'), ('result', 'VARCHAR'),
                      ('calls', 'INTEGER'), ('failed', 'INTEGER'), ('first_failure', 'VARCHAR'),
                      ('cycles_equal', 'BOOLEAN'), ('game', 'VARCHAR'),
-                     # what the check was made against (ps2xFnCheck's result line): the readable
+                     # what the check was made against (zx-fncheck's result line): the readable
                      # function's source digest, the generated original's, the recording's recorder
                      # version and corpus folder, the checker executable's
                      ('impl', 'VARCHAR'), ('orig', 'VARCHAR'), ('rec', 'VARCHAR'), ('checker', 'VARCHAR'),
                      ('source_file', 'VARCHAR'), ('line', 'INTEGER'), ('extra', 'VARCHAR')]),
     # path coverage of the recordings: the original's basic blocks the replayed calls ran, summed
-    # over a corpus (PS2Recomp tools/fncheck_corpus.py emit)
+    # over a corpus (tooling/checks/fncheck_corpus.py emit)
     ('sweep_coverage', [('run', 'VARCHAR'), ('addr', A), ('generator', 'VARCHAR'), ('ts', 'TIMESTAMP'),
                         ('agent', 'VARCHAR'), ('game', 'VARCHAR'), ('blocks', 'INTEGER'), ('hit', 'INTEGER'),
                         ('calls', 'INTEGER'), ('files', 'INTEGER'), ('uncovered', 'VARCHAR'),
@@ -593,7 +601,7 @@ def load_readable(W, ctx):
     if not root:
         ctx['missing']['readable'] = 'no readable sources at %s' % GAME_SRC
         return
-    # Sources name their addresses (PS2Recomp tools/readable_symbols.py): read them with the literals written back.
+    # Sources name their addresses (runtime/tools/readable_symbols.py): read them with the literals written back.
     sys.path.insert(0, os.path.normpath(os.path.join(root, '..', '..', 'tools')))
     import readable_symbols
     readable_symbols.TABLE = os.path.normpath(os.path.join(root, '..', '..', 'tools', 'readable_symbols.tsv'))
@@ -644,7 +652,7 @@ def load_readable(W, ctx):
                     for m in CONST_RE.finditer(s):
                         W.add('readable_symbols', [int(m.group(2), 16), m.group(1), 'constant',
                                                    m.group(3), rel, i])
-    # The sweep's generated drafts (PS2Recomp src/game/<layer>/sweep/manifest.txt, the batch files are made
+    # The sweep's generated drafts (runtime/src/game/<layer>/sweep/manifest.txt, the batch files are made
     # at build time): a manifest row is the registration (address, status, file, namespace, macro, flags,
     # name, ...); a hand-written registration of the same address wins.
     for layer in sorted(os.listdir(root)):
@@ -831,7 +839,7 @@ def load_names(W, ctx):
     regs = ctx.get('readable', {})
     for a, r in regs.items():
         cand('ai_ps2', a, r[1], 'readable', 'function', 'high', '%s, %s:%d' % (r[3], r[4], r[5]))
-    # readable_names.tsv (PS2Recomp tools): where a function, a global or a resume point got its name.
+    # readable_names.tsv (runtime/tools): where a function, a global or a resume point got its name.
     table = os.path.normpath(os.path.join(GAME_SRC, '..', '..', 'tools', 'readable_names.tsv'))
     if os.path.exists(table):
         for line in open(table, encoding='utf-8'):
@@ -840,7 +848,7 @@ def load_names(W, ctx):
                 cand('ai_ps2', int(c[1], 16), c[2], 'readable_names', c[0], c[3], c[4] if len(c) > 4 else None)
     for (game, a), r in ctx.get('readable_in', {}).items():
         cand(game + '_ps2', a, r[1], 'readable', 'function', 'high', '%s, %s:%d' % (r[3], r[4], r[5]))
-    # The other games' own rows of readable_symbols.tsv (PS2Recomp tools: kind, name, address, function, game):
+    # The other games' own rows of readable_symbols.tsv (runtime/tools: kind, name, address, function, game):
     # the names their sources call their own functions, data and resume points by, BMX XXX's editor functions
     # with no AI counterpart among them. (AI's rows are made from this database's own names: not read back.)
     table = os.path.normpath(os.path.join(GAME_SRC, '..', '..', 'tools', 'readable_symbols.tsv'))
@@ -1446,6 +1454,8 @@ def _build(argv, mine):
 # ------------------------------------------------------------------ readers
 
 def connect():
+    if duckdb is None:
+        sys.exit('workdb: needs the duckdb module (%s); card and notes read the public notes export without it' % VENV_PY)
     if not os.path.exists(DB):
         sys.exit('workdb: no database at %s (run: workdb.py build)' % DB)
     return duckdb.connect(DB, read_only=True)
@@ -2059,10 +2069,97 @@ def cmd_check_results(argv):
     sys.exit(1 if bad else 0)
 
 
+def public_mode():
+    """card and notes from the public notes export: no duckdb module, no database, or WORKDB_PUBLIC=1."""
+    return os.environ.get('WORKDB_PUBLIC') == '1' or duckdb is None or not os.path.exists(DB)
+
+
+def cmd_export_notes(argv):
+    """export-notes [--out FILE] [--rules FILE ...] [--check]: the notes, text only, as workdb_notes.jsonl."""
+    import workdb_notes as wn
+    out, rules, check = wn.EXPORT, [], '--check' in argv
+    if check:
+        argv.remove('--check')
+    while argv:
+        if argv[0] == '--out' and len(argv) > 1:
+            out = os.path.abspath(argv[1])
+        elif argv[0] == '--rules' and len(argv) > 1:
+            rules.append(argv[1])
+        else:
+            sys.exit('usage: workdb.py export-notes [--out FILE] [--rules FILE ...] [--check]')
+        del argv[:2]
+    if not rules:
+        # the workshop's own names (public_scan.py --rules): a public checkout has none, and exports nothing
+        p = os.path.join(zpaths.ZAXIS_WORKSHOP or '', 'merge', 'public_scan_private.tsv')
+        if not zpaths.ZAXIS_WORKSHOP or not os.path.exists(p):
+            sys.exit('workdb: export-notes needs public_scan\'s private rules (--rules FILE): the workshop\'s')
+        rules = [p]
+    sys.path.insert(0, os.path.join(wn.TOOLING, 'checks'))
+    import public_scan as ps
+    con = connect()
+    if not con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = 'func_notes'"
+                       ).fetchone()[0]:
+        sys.exit('workdb: the database has no func_notes (built before schema 4; run: workdb.py build)')
+    # one note per (build, addr, topic, text), its oldest, as fetch_notes; the name the card shows; AI's counterpart
+    cur = con.execute("""
+        WITH n0 AS (SELECT DISTINCT ON (build, addr, topic, text) build, addr, topic, text, ts FROM func_notes
+                    WHERE build IN ('ai_ps2', 'dm2_ps2', 'bmx_ps2') ORDER BY build, addr, topic, text, ts),
+        -- the function the database puts each note in, as card_key: the one starting there, else the one it is inside
+        n AS (SELECT n0.*, coalesce((SELECT f.addr FROM functions f WHERE f.build = n0.build AND f.addr = n0.addr),
+                                    (SELECT max(f.addr) FROM functions f WHERE f.build = n0.build
+                                     AND f.addr <= n0.addr AND f.end_addr > n0.addr)) AS func_addr FROM n0)
+        SELECT n.build, n.addr, n.func_addr, n.topic, n.text,
+               coalesce(CASE WHEN n.build = 'ai_ps2' THEN (SELECT r.name FROM readable r WHERE r.addr = n.func_addr
+                                                           LIMIT 1) END,
+                        (SELECT x.name FROM names x WHERE x.build = n.build AND x.addr = n.func_addr
+                         AND x.source = 'readable' AND x.kind = 'function' LIMIT 1), bn.name, f.name) AS name
+        FROM n LEFT JOIN best_names bn ON bn.build = n.build AND bn.addr = n.func_addr
+        LEFT JOIN functions f ON f.build = n.build AND f.addr = n.func_addr
+        ORDER BY list_position(['ai_ps2', 'dm2_ps2', 'bmx_ps2'], n.build), n.addr,
+                 list_position(?, n.topic), n.ts, n.text""", [list(NOTE_TOPICS)])
+    cols = [x[0] for x in cur.description]
+    rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    # a DM2 or BMX XXX function's AI counterparts: the one card_key turns its card into first (its query), then
+    # every other AI function whose card shows its notes (fetch_notes: each counterpart's)
+    ais = {}
+    for b, a in sorted({(r['build'], r['func_addr']) for r in rows
+                        if r['build'] != 'ai_ps2' and r['func_addr'] is not None}):
+        first = con.execute("SELECT ai_addr FROM counterparts WHERE build = ? AND addr = ? AND NOT inlined LIMIT 1",
+                            [b, a]).fetchone()
+        if first:
+            rest = [x[0] for x in con.execute("SELECT DISTINCT ai_addr FROM counterparts WHERE build = ? AND addr = ? "
+                                              "AND NOT inlined ORDER BY 1", [b, a]).fetchall()]
+            ais[(b, a)] = [first[0]] + [x for x in rest if x != first[0]]
+    for r in rows:
+        r['ai_addrs'] = ais.get((r['build'], r['func_addr']), [])
+    built = con.execute("SELECT value FROM meta WHERE key = 'built'").fetchone()[0]
+    meta = dict(exported=datetime.date.today().isoformat(), database_built=built)
+    target = out
+    if check:
+        out = out + '.check'
+    stats = wn.write_export(rows, meta, ps.load_rules(rules),
+                            ps.load_allow(os.path.join(wn.TOOLING, 'checks', 'public_scan_allow.tsv')), out,
+                            rel=os.path.relpath(target, wn.ROOT))
+    if check:
+        def body(p):
+            return open(p, encoding='utf-8').read().split('\n', 1)[-1] if os.path.exists(p) else None
+        same = body(out) == body(target)
+        os.remove(out)
+        print('workdb: export-notes --check: %s' % ('up to date' if same else '%s is not what the database makes'
+                                                    % target))
+        sys.exit(0 if same else 1)
+    print('workdb: export-notes: %s: %s' % (out, ', '.join('%s %d' % kv for kv in sorted(stats.items()))))
+
+
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help', 'help'):
         sys.exit(__doc__)
     cmd, argv = sys.argv[1], sys.argv[2:]
+    if cmd in ('card', 'notes') and public_mode():
+        import workdb_notes
+        return {'card': workdb_notes.cmd_card, 'notes': workdb_notes.cmd_notes}[cmd](argv)
+    if cmd == 'export-notes':
+        return cmd_export_notes(argv)
     f = {'build': build, 'query': cmd_query, 'card': cmd_card, 'tables': cmd_tables,
          'schema': cmd_schema, 'emit': cmd_emit, 'notes': cmd_notes, 'check-results': cmd_check_results}.get(cmd)
     if not f:

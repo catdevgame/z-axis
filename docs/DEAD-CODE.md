@@ -81,7 +81,7 @@ Reached only by test routes (guest calls: docs/DEVTOOLS.md; nothing in the game 
 in `cov-*` folders of the corpus, each replay identical but matrixTransformPoints' cycles for a count of 0):
 - The mc00 device (the card as a zfile device): its 19 methods, the Ps2MemCard completions and the poll task, driven
   through the device wrappers and openFile/fileRead/fileWrite, and directly with a completion block (`cov-mc00`); needs
-  `PS2X_MC_FD_BASE0=1` (this runtime numbers libmc's descriptors from 1, FUN_00121138 takes only an open that returns 0).
+  `ZX_MC_FD_BASE0=1` (this runtime numbers libmc's descriptors from 1, FUN_00121138 takes only an open that returns 0).
   Left of the card code: formatMemoryCard, findMemoryCard, endSaveJob, memoryCardTestWrite, appendRequiredSpaceText,
   appendClientRequiredSpace, memoryCardFormatted (the NEEDFORMAT dialog).
 - zgui's type setters (uint8SetFloat .. vectorSetColor, zfloatSetInt): in the type tables' setFloat/setInt/setVector slots,
@@ -200,7 +200,7 @@ reference was found: a computed call is not seen.
 
 - Libraries: listed, never rewritten. Kernel call wrappers 95, libkernl 65,
   libcdvd 42, libdev 41, libvu0 34, libc 23, libmpeg 18, libgcc 12, libpad 11, libmc 9, libdma 8,
-  libsdr 5; 302 are AI's code (identical), whose treatment applies (sce/sweep, not_ported.tsv). The
+  libsdr 5; 302 are AI's code (identical), whose treatment applies (the ports in game/sce, or not_ported.tsv). The
   versions are in game/dm2/libraries.tsv.
 - Engine: to be written as AI's were. 321 have an AI readable body (by AI's file: sound 70, render 48,
   scene 39, assets 37, debug 24, collision 24, text 19, math 14, platform 13); 78 of those are live in

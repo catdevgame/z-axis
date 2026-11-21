@@ -15,7 +15,7 @@
 // (the libraries' own) stays; the readable name becomes a secondary label there. Run it on a copy
 // of an analysed project (tooling/dm2/tools/ghidra/readable_pass.sh): a program that already
 // holds a different input's hash is refused.
-// @category PS2Recomp
+// @category Z-Axis
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

@@ -470,7 +470,7 @@ namespace
 }
 
 // Display buffer changes seen by UploadFrame: the game's own frame rate for
-// double-buffered games (PS2X_PERF_LOG).
+// double-buffered games (ZX_PERF_LOG).
 static std::atomic<uint64_t> s_displayFlips{0};
 
 uint64_t PS2Runtime::displayFlips()
@@ -479,7 +479,7 @@ uint64_t PS2Runtime::displayFlips()
 }
 // The GS renderer was switched: the next host frame latches a new picture.
 static bool s_forceLatch = false;
-// Roughly process start (static initialization), for PS2X_PERF_LOG's startup time.
+// Roughly process start (static initialization), for ZX_PERF_LOG's startup time.
 static const std::chrono::steady_clock::time_point s_processStart = std::chrono::steady_clock::now();
 
 // The presented picture: the latched display buffer copied into a
@@ -550,8 +550,8 @@ static const uint8_t *UploadFrame(PS2Runtime *rt, uint32_t &outWidth, uint32_t &
                                  return false;
                              const GS::TakenFrame shown = rt->gs().shownPresentationFrame();
                              return shown.frame == 0u || next.vsync <= shown.vsync ||
-                                    ps2x::gs_interpolate::alphaBetween(shown.vsync, next.vsync, dueTick) >=
-                                        1.0f - ps2x::gs_interpolate::kSnap;
+                                    zx::gs_interpolate::alphaBetween(shown.vsync, next.vsync, dueTick) >=
+                                        1.0f - zx::gs_interpolate::kSnap;
                          }()) &&
                         rt->gs().takePresentationFrame(taken);
     const bool needsLatch =
@@ -633,7 +633,7 @@ static const uint8_t *UploadFrame(PS2Runtime *rt, uint32_t &outWidth, uint32_t &
     if (displayFbp != s_lastDisplayFbp || sourceFbp != s_lastSourceFbp || bufferChanged)
     {
         s_displayFlips.fetch_add(1u, std::memory_order_relaxed);
-        ps2x::ftrace::mark(ps2x::ftrace::kFlipSeen, static_cast<uint16_t>(displayFbp & 0xFFFFu));
+        zx::ftrace::mark(zx::ftrace::kFlipSeen, static_cast<uint16_t>(displayFbp & 0xFFFFu));
     }
     s_lastDisplayFbp = displayFbp;
     s_lastSourceFbp = sourceFbp;
@@ -669,11 +669,11 @@ static const uint8_t *UploadFrame(PS2Runtime *rt, uint32_t &outWidth, uint32_t &
     return s_uploadBuffer.data();
 }
 
-PS2Runtime::PS2Runtime() : PS2Runtime(ps2x::BootConfig{})
+PS2Runtime::PS2Runtime() : PS2Runtime(zx::BootConfig{})
 {
 }
 
-PS2Runtime::PS2Runtime(ps2x::BootConfig config) : m_boot(std::make_unique<ps2x::boot::Scope>(std::move(config)))
+PS2Runtime::PS2Runtime(zx::BootConfig config) : m_boot(std::make_unique<zx::boot::Scope>(std::move(config)))
 {
     m_iopHost = std::make_unique<PS2IopHostAdapter>(*this);
     m_iopSubsystem = std::make_unique<ps2x::iop::IopSubsystem>(*m_iopHost);
@@ -744,6 +744,11 @@ PS2Runtime::~PS2Runtime()
             ps2_host::shutdown();
 
         m_loadedModules.clear();
+        // What this boot installed in the function tables (readable
+        // functions, override hooks, resume slots) goes with it: the next
+        // boot's hooks wrap the generated functions (function_table.h).
+        if (const size_t restored = zx::function_table::restoreGenerated())
+            std::cout << "[function-table] " << restored << " slots put back as generated at the boot's end" << std::endl;
     }
     catch (const std::exception &e)
     {
@@ -829,7 +834,7 @@ bool PS2Runtime::isSkippedIopModule(std::string_view path) const
 {
     static const bool loadAll = []()
     {
-        const char *env = std::getenv("PS2X_LOAD_ALL_IOP_MODULES");
+        const char *env = std::getenv("ZX_LOAD_ALL_IOP_MODULES");
         return env && env[0] == '1';
     }();
     if (loadAll || m_skippedIopModules.empty())
@@ -861,12 +866,12 @@ void PS2Runtime::setNativeAudio(bool active) noexcept
 
 void PS2Runtime::submitNativeAudio(const int16_t *interleavedStereo, size_t frames)
 {
-    // PS2X_SOUND_PCM=<file>: every frame the native sound driver makes, as
+    // ZX_SOUND_PCM=<file>: every frame the native sound driver makes, as
     // it makes them (16-bit stereo, 48 kHz, raw): in guest time, so an
     // unpaced run on a fixed input writes the same bytes each time.
     static std::FILE *pcm = []() -> std::FILE *
     {
-        const char *path = std::getenv("PS2X_SOUND_PCM");
+        const char *path = std::getenv("ZX_SOUND_PCM");
         return path && path[0] ? std::fopen(path, "wb") : nullptr;
     }();
     if (pcm && interleavedStereo && frames)
@@ -992,14 +997,14 @@ bool PS2Runtime::syncCoreSubsystems()
                                     return (cpuContext->vu0_fbrst & 0x0C00u) == 0u &&
                                            (cpuContext->vu0_vpu_stat & 0x0600u) == 0u; });
     m_memory.setGifArbiter(&m_gifArbiter);
-    // PS2X_TRACE_VU1=<n> logs the first n VU1 microprogram runs (start pc,
+    // ZX_TRACE_VU1=<n> logs the first n VU1 microprogram runs (start pc,
     // cycles, end pc/E-bit and XGKICK packets submitted).
     auto traceVu1Run = [this](const char *kind, uint32_t startPC, uint32_t top, uint32_t itop,
                               uint64_t cyclesBefore, uint64_t kicksBefore)
     {
         static const long limit = []()
         {
-            const char *value = std::getenv("PS2X_TRACE_VU1");
+            const char *value = std::getenv("ZX_TRACE_VU1");
             return value ? std::strtol(value, nullptr, 0) : 0L;
         }();
         static long logged = 0;
@@ -1011,23 +1016,23 @@ bool PS2Runtime::syncCoreSubsystems()
                      kind, startPC, top, itop, static_cast<unsigned long long>(st.cycles - cyclesBefore), st.pc,
                      st.ebit ? 1 : 0, static_cast<unsigned long long>(st.xgkickPackets - kicksBefore));
     };
-    // PS2X_VU1_SKIP=1 (for PS2X_GS_NULL runs that only look at game state):
+    // ZX_VU1_SKIP=1 (for ZX_GS_NULL runs that only look at game state):
     // MSCAL/MSCNT return at once without running the microprogram, as if
     // it ended immediately. Its only output, the XGKICK packets for the GS,
     // is dropped by the null backend anyway. Not valid if the game reads
     // VU1 memory back.
     static const bool skipVu1 = []()
     {
-        const char *value = std::getenv("PS2X_VU1_SKIP");
+        const char *value = std::getenv("ZX_VU1_SKIP");
         const bool enabled = value && value[0] != '\0' && std::strcmp(value, "0") != 0;
         if (enabled)
-            std::fprintf(stderr, "[vu1] PS2X_VU1_SKIP: microprograms are not run\n");
+            std::fprintf(stderr, "[vu1] ZX_VU1_SKIP: microprograms are not run\n");
         return enabled;
     }();
-    // PS2X_VU1_RECORD=<file>: write every VU1 run (inputs, outputs, PATH1
-    // packets) to a corpus for ps2xVu1Check. PS2X_VU1_RECORD_FROM=<vsync>
-    // starts recording at that guest vsync, PS2X_VU1_RECORD_VSYNCS=<n> stops
-    // after n vsyncs (default 120), PS2X_VU1_RECORD_RUNS=<n> after n runs.
+    // ZX_VU1_RECORD=<file>: write every VU1 run (inputs, outputs, PATH1
+    // packets) to a corpus for zx-vu1check. ZX_VU1_RECORD_FROM=<vsync>
+    // starts recording at that guest vsync, ZX_VU1_RECORD_VSYNCS=<n> stops
+    // after n vsyncs (default 120), ZX_VU1_RECORD_RUNS=<n> after n runs.
     // A run that used its whole budget without reaching an E bit (or a D/T
     // stop) was cut short; say so once (VU1Interpreter::kProgramCycleLimit).
     auto warnVu1CycleLimit = [this](const char *what, uint32_t pc, uint64_t cyclesBefore)
@@ -1043,11 +1048,11 @@ bool PS2Runtime::syncCoreSubsystems()
     auto recordVu1Run = [this](uint32_t kind, uint32_t startPC, uint32_t top, uint32_t itop,
                                uint32_t maxCycles, const std::function<void()> &untimedRun)
     {
-        // PS2X_VU1_STATS=1: every 2 s of wall time, log the VU1 runs, pairs,
+        // ZX_VU1_STATS=1: every 2 s of wall time, log the VU1 runs, pairs,
         // VU cycles and the wall and thread CPU time spent in them.
         static const bool stats = []()
         {
-            const char *value = std::getenv("PS2X_VU1_STATS");
+            const char *value = std::getenv("ZX_VU1_STATS");
             return value && value[0] == '1';
         }();
         auto run = [&]()
@@ -1061,7 +1066,7 @@ bool PS2Runtime::syncCoreSubsystems()
             static double wallSeconds = 0.0, cpuSeconds = 0.0;
             static auto lastReport = std::chrono::steady_clock::now();
             auto threadCpu = []()
-            { return ps2x::currentThreadCpuSeconds(); };
+            { return zx::currentThreadCpuSeconds(); };
             const uint64_t pairs0 = m_vu1.pairsExecuted();
             const uint64_t cycles0 = m_vu1.state().cycles;
             const auto wall0 = std::chrono::steady_clock::now();
@@ -1085,20 +1090,20 @@ bool PS2Runtime::syncCoreSubsystems()
             }
         };
         static ps2vu1rec::Recorder recorder;
-        static const char *path = std::getenv("PS2X_VU1_RECORD");
+        static const char *path = std::getenv("ZX_VU1_RECORD");
         static const uint64_t from = []()
         {
-            const char *value = std::getenv("PS2X_VU1_RECORD_FROM");
+            const char *value = std::getenv("ZX_VU1_RECORD_FROM");
             return value ? std::strtoull(value, nullptr, 0) : 0ull;
         }();
         static const uint64_t vsyncs = []()
         {
-            const char *value = std::getenv("PS2X_VU1_RECORD_VSYNCS");
+            const char *value = std::getenv("ZX_VU1_RECORD_VSYNCS");
             return value ? std::strtoull(value, nullptr, 0) : 120ull;
         }();
         static const uint64_t maxRuns = []()
         {
-            const char *value = std::getenv("PS2X_VU1_RECORD_RUNS");
+            const char *value = std::getenv("ZX_VU1_RECORD_RUNS");
             return value ? std::strtoull(value, nullptr, 0) : ~0ull;
         }();
         static bool finished = false;
@@ -1162,27 +1167,27 @@ bool PS2Runtime::syncCoreSubsystems()
                                          (cpuContext->vu0_fbrst & (1u << 11)) != 0u;
                                      const uint64_t cyclesBefore = m_vu1.state().cycles;
                                      const uint64_t kicksBefore = m_vu1.state().xgkickPackets;
-                                     // PS2X_VU1_DUMP=<prefix> PS2X_VU1_DUMP_AT=<n>: for the n-th MSCAL (0-based),
+                                     // ZX_VU1_DUMP=<prefix> ZX_VU1_DUMP_AT=<n>: for the n-th MSCAL (0-based),
                                      // write <prefix>.code, .data-in, .data-out and .regs (vf[32][4], vi[16], start/top/itop).
-                                     static const char *vu1DumpPrefix = std::getenv("PS2X_VU1_DUMP");
+                                     static const char *vu1DumpPrefix = std::getenv("ZX_VU1_DUMP");
                                      static const long vu1DumpAt = []()
                                      {
-                                         const char *value = std::getenv("PS2X_VU1_DUMP_AT");
+                                         const char *value = std::getenv("ZX_VU1_DUMP_AT");
                                          return value ? std::strtol(value, nullptr, 0) : -1L;
                                      }();
                                      static long mscalIndex = -1;
                                      ++mscalIndex;
-                                     // PS2X_VU1_DUMP_MATCH=<x>,<y> (GS 12.4 integers): instead dump the first MSCAL at or
-                                     // after index PS2X_VU1_DUMP_AT whose run writes a qword with those x/y into data memory.
-                                     static const bool vu1DumpMatch = std::getenv("PS2X_VU1_DUMP_MATCH") != nullptr;
+                                     // ZX_VU1_DUMP_MATCH=<x>,<y> (GS 12.4 integers): instead dump the first MSCAL at or
+                                     // after index ZX_VU1_DUMP_AT whose run writes a qword with those x/y into data memory.
+                                     static const bool vu1DumpMatch = std::getenv("ZX_VU1_DUMP_MATCH") != nullptr;
                                      static const uint32_t vu1MatchX = []()
                                      {
-                                         const char *value = std::getenv("PS2X_VU1_DUMP_MATCH");
+                                         const char *value = std::getenv("ZX_VU1_DUMP_MATCH");
                                          return value ? static_cast<uint32_t>(std::strtoul(value, nullptr, 0)) : 0u;
                                      }();
                                      static const uint32_t vu1MatchY = []()
                                      {
-                                         const char *value = std::getenv("PS2X_VU1_DUMP_MATCH");
+                                         const char *value = std::getenv("ZX_VU1_DUMP_MATCH");
                                          const char *comma = value ? std::strchr(value, ',') : nullptr;
                                          return comma ? static_cast<uint32_t>(std::strtoul(comma + 1, nullptr, 0)) : 0u;
                                      }();
@@ -1323,22 +1328,22 @@ float PS2Runtime::wideAspect() const
 
 bool PS2Runtime::initialize(const char *title)
 {
-    if (const char *wide = std::getenv("PS2X_WIDESCREEN"); wide && wide[0])
+    if (const char *wide = std::getenv("ZX_WIDESCREEN"); wide && wide[0])
         setWidescreen(wide[0] == '1');
-    if (const char *aspect = std::getenv("PS2X_ASPECT"); aspect && aspect[0])
+    if (const char *aspect = std::getenv("ZX_ASPECT"); aspect && aspect[0])
     {
         bool ok = false;
         const float value = parseAspect(aspect, ok);
         if (ok)
             setWideAspect(value);
     }
-    if (const char *blur = std::getenv("PS2X_MOTION_BLUR"); blur && blur[0])
+    if (const char *blur = std::getenv("ZX_MOTION_BLUR"); blur && blur[0])
         setMotionBlur(std::clamp(std::atoi(blur), 0, 2));
     // The draw distance from the boot on (the app's BootConfig, or the environment).
-    if (const char *distance = ps2x::boot::text("PS2X_DRAW_DISTANCE"); distance && distance[0])
+    if (const char *distance = zx::boot::text("ZX_DRAW_DISTANCE"); distance && distance[0])
         setDrawDistance(std::clamp(std::atoi(distance), 0, 2));
-    // The guest heap's peaks per level, logged (PS2X_TRACE_HEAP; off: nothing installed).
-    ps2x::heap_trace::install(*this);
+    // The guest heap's peaks per level, logged (ZX_TRACE_HEAP; off: nothing installed).
+    zx::heap_trace::install(*this);
     try
     {
         if (!m_memory.initialize())
@@ -1351,8 +1356,8 @@ bool PS2Runtime::initialize(const char *title)
         window.width = m_hostOptions.windowWidth > 0 ? m_hostOptions.windowWidth : HOST_WINDOW_WIDTH;
         window.height = m_hostOptions.windowHeight > 0 ? m_hostOptions.windowHeight : HOST_WINDOW_HEIGHT;
         window.highDpi = m_hostOptions.highDpi;
-        // PS2X_HEADLESS=1 or 0 says so; otherwise a null-GS run is headless.
-        const char *headless = std::getenv("PS2X_HEADLESS");
+        // ZX_HEADLESS=1 or 0 says so; otherwise a null-GS run is headless.
+        const char *headless = std::getenv("ZX_HEADLESS");
         window.headless = headless && headless[0] ? std::strcmp(headless, "0") != 0 : gsNullRequested();
         if (!ps2_host::initialize(title, window))
         {
@@ -1360,7 +1365,7 @@ bool PS2Runtime::initialize(const char *title)
             return false;
         }
         // A front end's own (runtime/ps2_front_end.h: Android's background pause).
-        if (const ps2x::front_end::WindowMade windowMade = ps2x::front_end::windowMade())
+        if (const zx::front_end::WindowMade windowMade = zx::front_end::windowMade())
             windowMade(*this);
         // After the window: the GPU GS renderer draws on its GPU device.
         if (!syncCoreSubsystems())
@@ -1724,14 +1729,14 @@ void PS2Runtime::configureIoPathsFromElf(const std::string &elfPath, bool derive
     setIoPaths(paths);
 }
 
-std::shared_ptr<const ps2x::iop::Iso9660Image> PS2Runtime::cdImageFileSystem()
+std::shared_ptr<const zx::disc::Iso9660Image> PS2Runtime::cdImageFileSystem()
 {
     const IoPaths &paths = runtimeIoPaths();
     if (!paths.cdFromImage || paths.cdImage.empty())
     {
         return nullptr;
     }
-    return ps2x::iop::Iso9660Image::shared(paths.cdImage);
+    return zx::disc::Iso9660Image::shared(paths.cdImage);
 }
 
 namespace
@@ -1778,7 +1783,7 @@ namespace
     }
 
     // The table as generated, kept for PS2Runtime::replacedFunctions when
-    // PS2X_TAILCALL_STATS is set (copied when the table is chosen, before
+    // ZX_TAILCALL_STATS is set (copied when the table is chosen, before
     // any override).
     std::vector<PS2Runtime::RecompiledFunction> g_generatedTable;
     uint32_t g_generatedTableBase = 0;
@@ -1789,7 +1794,7 @@ namespace
         PS2Runtime::s_tailCallTable.base = g_activeTable.base;
         PS2Runtime::s_tailCallTable.slotCount = g_activeTable.slotCount;
         PS2Runtime::s_tailCallTable.table = g_activeTable.table;
-        if (const char *stats = std::getenv("PS2X_TAILCALL_STATS"); stats && *stats && g_activeTable.table)
+        if (const char *stats = std::getenv("ZX_TAILCALL_STATS"); stats && *stats && g_activeTable.table)
         {
             g_generatedTable.assign(g_activeTable.table, g_activeTable.table + g_activeTable.slotCount);
             g_generatedTableBase = g_activeTable.base;
@@ -1813,7 +1818,7 @@ namespace
     {
         if (!g_activeTable.chosen)
         {
-            ps2x::game_module::ensureLoaded();
+            zx::game_module::ensureLoaded();
             g_activeTable = defaultTable();
             syncTailCallTable();
         }
@@ -1866,7 +1871,7 @@ namespace ps2_generated
 
     const std::vector<Code> &all()
     {
-        ps2x::game_module::ensureLoaded();
+        zx::game_module::ensureLoaded();
         return generatedCodeSets();
     }
 
@@ -1891,7 +1896,7 @@ namespace ps2_generated
                 c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             return text;
         };
-        ps2x::game_module::ensureLoaded();
+        zx::game_module::ensureLoaded();
         const std::string want = lower(std::filesystem::path(elfName).filename().string());
         for (const Code &code : generatedCodeSets())
         {
@@ -1950,12 +1955,26 @@ std::vector<uint32_t> PS2Runtime::replacedFunctions()
     return replaced;
 }
 
-namespace ps2x::function_table
+namespace zx::function_table
 {
     View active()
     {
         const ActiveFunctionTable &t = activeTable();
         return View{t.base, t.end, t.slotCount, t.table};
+    }
+
+    size_t restoreGenerated()
+    {
+        std::vector<PS2Runtime::RecompiledFunction *> tables;
+        {
+            std::lock_guard<std::mutex> lock(g_generatedSlotsMutex);
+            for (const auto &[table, slots] : g_generatedSlots)
+                tables.push_back(table);
+        }
+        size_t restored = 0;
+        for (PS2Runtime::RecompiledFunction *table : tables)
+            restored += restoreGeneratedSlots(table);
+        return restored;
     }
 }
 
@@ -2011,7 +2030,7 @@ bool PS2Runtime::callGuestFunction(uint8_t *rdram, R5900Context *ctx, Recompiled
     {
         // The depth comes back down however the call ends: a wait in it
         // (sceMcSync, a semaphore) throws to the scheduler through here
-        // (ps2xFnCheck's atomic recorder, drafter23); the context is then
+        // (zx-fncheck's atomic recorder, drafter23); the context is then
         // the waiting thread's, kept for its resume, not put back.
         struct Depth
         {
@@ -2280,7 +2299,7 @@ void PS2Runtime::reportMissingFunction(uint8_t *rdram,
 
 namespace
 {
-    // PS2X_TRACE_CALLS=0xADDR[,0xADDR...] logs every dispatched call to those
+    // ZX_TRACE_CALLS=0xADDR[,0xADDR...] logs every dispatched call to those
     // guest addresses with a0-a3/ra, and the v0 it returns with. An entry of
     // the form @0xADDR matches the call site instead (useful for jalr).
     // Calls that block (thread switch) unwind the host stack, so their return
@@ -2297,7 +2316,7 @@ namespace
         static const CallTraceConfig config = []()
         {
             CallTraceConfig parsed;
-            const char *value = std::getenv("PS2X_TRACE_CALLS");
+            const char *value = std::getenv("ZX_TRACE_CALLS");
             if (!value || value[0] == '\0')
             {
                 return parsed;
@@ -2329,7 +2348,7 @@ namespace
     }
 }
 
-// PS2X_WATCH32=<addr>: log when the 32-bit word at addr changes, with the
+// ZX_WATCH32=<addr>: log when the 32-bit word at addr changes, with the
 // guest branch that first observed it (the write happened in the code run
 // since the previous check). Checked at every inter-function branch and, with
 // `where` set, at EE scheduler boundaries (a thread or invocation resumed),
@@ -2338,7 +2357,7 @@ void PS2Runtime::checkWatch32(uint8_t *rdram, R5900Context *ctx, uint32_t source
 {
     static const uint32_t watchAddr = []()
     {
-        const char *value = std::getenv("PS2X_WATCH32");
+        const char *value = std::getenv("ZX_WATCH32");
         return value ? static_cast<uint32_t>(std::strtoul(value, nullptr, 0)) & 0x1FFFFFFCu : 0u;
     }();
     if (watchAddr == 0u || !rdram)
@@ -2470,15 +2489,15 @@ bool PS2Runtime::dispatchGuestBranch(uint8_t *rdram,
                      targetPc, sourcePc, getRegU32(ctx, 4), getRegU32(ctx, 5), getRegU32(ctx, 6), getRegU32(ctx, 7),
                      getRegU32(ctx, 29), strings.c_str());
     }
-    if (ps2x::lanes::g_pokesOn)
-        ps2x::lanes::poke(ctx, rdram, sourcePc, targetPc, ps2x::lanes::Point::BeforeCall);
-    if (ps2x::lanes::g_callersOn)
-        ps2x::lanes::caller(targetPc, sourcePc);
+    if (zx::lanes::g_pokesOn)
+        zx::lanes::poke(ctx, rdram, sourcePc, targetPc, zx::lanes::Point::BeforeCall);
+    if (zx::lanes::g_callersOn)
+        zx::lanes::caller(targetPc, sourcePc);
     targetFn(rdram, ctx, this);
     // (ret= and exit= pokes at a real return only: a callee the scheduler unwound comes back here with its own pc and
     // sp, and returns to its caller through the scheduler's resume, not this call)
-    if (ps2x::lanes::g_pokesOn && (ctx->pc == fallthroughPc || (ctx->pc == entryPc && m_guestUnwinds == unwindsBefore)))
-        ps2x::lanes::poke(ctx, rdram, sourcePc, targetPc, ps2x::lanes::Point::AfterCall);
+    if (zx::lanes::g_pokesOn && (ctx->pc == fallthroughPc || (ctx->pc == entryPc && m_guestUnwinds == unwindsBefore)))
+        zx::lanes::poke(ctx, rdram, sourcePc, targetPc, zx::lanes::Point::AfterCall);
     if (traced)
     {
         std::fprintf(stderr, "[call-trace] <- 0x%x v0=0x%x pc=0x%x sp=0x%x\n", targetPc, getRegU32(ctx, 2), ctx->pc, getRegU32(ctx, 29));
@@ -3452,11 +3471,11 @@ void PS2Runtime::HandleIntegerOverflow(R5900Context *ctx)
 namespace
 {
     // A thread's CPU time in milliseconds, by the handle the perf log keeps
-    // (a Mach port on macOS, ps2x::currentThreadCpuHandle elsewhere).
+    // (a Mach port on macOS, zx::currentThreadCpuHandle elsewhere).
     double threadCpuMs(uint64_t port)
     {
 #if defined(_WIN32) || defined(__linux__)
-        return ps2x::threadCpuMilliseconds(port);
+        return zx::threadCpuMilliseconds(port);
 #elif defined(__APPLE__)
         if (port == 0u)
             return 0.0;
@@ -3478,7 +3497,7 @@ namespace
 #if defined(__APPLE__)
         return pthread_mach_thread_np(pthread_self());
 #else
-        return ps2x::currentThreadCpuHandle();
+        return zx::currentThreadCpuHandle();
 #endif
     }
 
@@ -3528,8 +3547,8 @@ void PS2Runtime::run()
     {
         // While the game runs, GS local memory is only read through m_gs
         // (the VRAM dump syncs first), so draws may be queued and drawn in
-        // parallel. PS2X_GS_DEFER=0 draws every primitive immediately.
-        const char *defer = std::getenv("PS2X_GS_DEFER");
+        // parallel. ZX_GS_DEFER=0 draws every primitive immediately.
+        const char *defer = std::getenv("ZX_GS_DEFER");
         m_gs.setDeferredRasterization(!(defer && defer[0] == '0'));
     }
     ps2_stubs::resetSifState();
@@ -3552,8 +3571,8 @@ void PS2Runtime::run()
     // from power-on.
     {
         play_recording::BootInfo boot;
-        boot.game = ps2x::boot::game();
-        boot.fromApp = !boot.game.empty(); // the app's BootConfig names the game (ps2x::app::gameBootConfig)
+        boot.game = zx::boot::game();
+        boot.fromApp = !boot.game.empty(); // the app's BootConfig names the game (zx::app::gameBootConfig)
         const IoPaths &paths = getIoPaths();
         boot.elfPath = paths.elfPath.string();
         if (boot.game.empty())
@@ -3561,7 +3580,7 @@ void PS2Runtime::run()
             // A runner given an ELF: the game by its ELF's name.
             std::string elf = paths.elfPath.filename().string();
             std::transform(elf.begin(), elf.end(), elf.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-            const ps2x::games::Game &game = ps2x::games::game(elf);
+            const zx::games::Game &game = zx::games::game(elf);
             if (elf == game.elf)
                 boot.game = game.id;
         }
@@ -3585,33 +3604,33 @@ void PS2Runtime::run()
 
     std::atomic<bool> gameThreadFinished{false};
 
-    // PS2X_VU1_ASYNC=0: VIF1/VU1 and GS packet processing on the game thread
+    // ZX_VU1_ASYNC=0: VIF1/VU1 and GS packet processing on the game thread
     // (default: on their own worker threads).
     {
-        const char *value = std::getenv("PS2X_VU1_ASYNC");
+        const char *value = std::getenv("ZX_VU1_ASYNC");
         const bool async = !(value && value[0] == '0');
         m_memory.setAsyncGraphics(async);
         if (!async)
-            std::fprintf(stderr, "[vu1] PS2X_VU1_ASYNC=0: VIF1/VU1 run on the game thread\n");
+            std::fprintf(stderr, "[vu1] ZX_VU1_ASYNC=0: VIF1/VU1 run on the game thread\n");
     }
-    // PS2X_VIF1_PREFETCH=1 (debug): VIF1 DMA read whole at the kick instead
+    // ZX_VIF1_PREFETCH=1 (debug): VIF1 DMA read whole at the kick instead
     // of as VIF1 consumes it (the part behind an interrupt stall then misses
     // what the handler wrote).
     {
-        const char *value = std::getenv("PS2X_VIF1_PREFETCH");
+        const char *value = std::getenv("ZX_VIF1_PREFETCH");
         PS2Memory::s_vif1PrefetchChain = value && value[0] == '1';
         if (PS2Memory::s_vif1PrefetchChain)
-            std::fprintf(stderr, "[vif1] PS2X_VIF1_PREFETCH=1: VIF1 DMA read whole at the kick\n");
+            std::fprintf(stderr, "[vif1] ZX_VIF1_PREFETCH=1: VIF1 DMA read whole at the kick\n");
     }
 
     std::atomic<uint64_t> gameThreadPort{0}; // Mach port (macOS), thread handle (Windows, Linux)
     // This loop runs the settings' changes once per host frame (runPending
     // below): the game's Settings page waits on it (ps2_settings.h).
-    ps2x::settings::setFrameLoop(true);
+    zx::settings::setFrameLoop(true);
     GameHostThread gameThread([&]()
                            {
         ThreadNaming::SetCurrentThreadName("GameThread");
-        ps2x::placement::placeCurrentThread(ps2x::placement::Role::Game);
+        zx::placement::placeCurrentThread(zx::placement::Role::Game);
         play_recording::setGameThread();
 #if defined(__APPLE__)
         gameThreadPort.store(pthread_mach_thread_np(pthread_self()), std::memory_order_release);
@@ -3619,7 +3638,7 @@ void PS2Runtime::run()
         // it on performance cores when the machine is busy.
         pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
 #else
-        gameThreadPort.store(ps2x::currentThreadCpuHandle(), std::memory_order_release);
+        gameThreadPort.store(zx::currentThreadCpuHandle(), std::memory_order_release);
 #endif
         try
         {
@@ -3642,20 +3661,20 @@ void PS2Runtime::run()
         gameThreadFinished.store(true, std::memory_order_release); });
 
     // The host loop, from here to the run's end: a lambda so a child forked at
-    // a spot (PS2X_SPOT_FORK, runtime/ps2_spot_fork.h) runs it again on a
+    // a spot (ZX_SPOT_FORK, runtime/ps2_spot_fork.h) runs it again on a
     // thread of its own; this thread runs it once, as before.
     auto hostLoop = [&]()
     {
     uint64_t tick = 0;
-    // PS2X_DUMP_AT_FRAME=<n>[,<n>...] writes EE RAM and GS VRAM snapshots to
-    // <PS2X_DUMP_PREFIX or ps2x-dump>-<n>.ram/.vram when the host loop reaches
+    // ZX_DUMP_AT_FRAME=<n>[,<n>...] writes EE RAM and GS VRAM snapshots to
+    // <ZX_DUMP_PREFIX or zx-dump>-<n>.ram/.vram when the host loop reaches
     // frame n. Taken from the render thread while the guest runs, so they are
     // only approximately consistent; good enough for post-mortems. These
     // are read at every run: each boot its own.
     const std::vector<uint64_t> dumpFrames = []()
     {
         std::vector<uint64_t> frames;
-        if (const char *value = ps2x::boot::text("PS2X_DUMP_AT_FRAME"))
+        if (const char *value = zx::boot::text("ZX_DUMP_AT_FRAME"))
         {
             const char *cursor = value;
             while (*cursor)
@@ -3670,30 +3689,30 @@ void PS2Runtime::run()
         }
         return frames;
     }();
-    // PS2X_GS_DUMP=<file> PS2X_GS_DUMP_FRAME=<n> [PS2X_GS_DUMP_COUNT=<frames>]
+    // ZX_GS_DUMP=<file> ZX_GS_DUMP_FRAME=<n> [ZX_GS_DUMP_COUNT=<frames>]
     // records the GS input from host frame n for that many presented frames
-    // (default 2); replay with ps2xGsReplay.
-    const char *gsDumpPath = std::getenv("PS2X_GS_DUMP");
+    // (default 2); replay with zx-gsreplay.
+    const char *gsDumpPath = std::getenv("ZX_GS_DUMP");
     const uint64_t gsDumpFrame = []()
     {
-        const char *value = std::getenv("PS2X_GS_DUMP_FRAME");
+        const char *value = std::getenv("ZX_GS_DUMP_FRAME");
         return value ? std::strtoull(value, nullptr, 0) : 0ull;
     }();
     const uint32_t gsDumpCount = []()
     {
-        const char *value = std::getenv("PS2X_GS_DUMP_COUNT");
+        const char *value = std::getenv("ZX_GS_DUMP_COUNT");
         return value ? static_cast<uint32_t>(std::strtoul(value, nullptr, 0)) : 2u;
     }();
-    // PS2X_SHOT_AT="<t>:<file.png>,..." saves the presented game picture
+    // ZX_SHOT_AT="<t>:<file.png>,..." saves the presented game picture
     // once the pad script clock (StateProbe::scriptTime, vsyncs; also run by
-    // PS2X_HOST_INPUT_SCRIPT alone) reaches t (seconds, or vsyncs with a
+    // ZX_HOST_INPUT_SCRIPT alone) reaches t (seconds, or vsyncs with a
     // "v" suffix), for before/after comparisons of scripted input.
     struct ScriptShots
     {
         std::vector<std::pair<double, std::string>> pending;
         ScriptShots()
         {
-            const char *spec = ps2x::boot::text("PS2X_SHOT_AT");
+            const char *spec = zx::boot::text("ZX_SHOT_AT");
             std::string list = spec ? spec : "";
             size_t pos = 0;
             while (pos < list.size())
@@ -3742,20 +3761,20 @@ void PS2Runtime::run()
     uint64_t wideLastFlips = 0;
     uint64_t wideLastMarks = 0;
     uint64_t flipsSinceWideMark = std::numeric_limits<uint64_t>::max() / 2u;
-    // Every game frame shown (GS's frame queue); ZAXIS_FRAME_QUEUE=0: the
+    // Every game frame shown (GS's frame queue); ZX_FRAME_QUEUE=0: the
     // newest picture at each refresh, as before. Headless runs too: their
-    // pictures (PS2X_CONTROL shot, PS2X_SHOTS) come from the same pictures
+    // pictures (ZX_CONTROL shot, ZX_SHOTS) come from the same pictures
     // as the window's and the app's screenshots, made on the GS worker at
     // the buffer swap. Latched here instead, a picture could be a copy of a
     // buffer the GS worker cleared and was drawing again (two swaps during
     // the copy leave the display registers as they were: A, B, A).
     {
-        const char *queue = std::getenv("ZAXIS_FRAME_QUEUE");
+        const char *queue = std::getenv("ZX_FRAME_QUEUE");
         m_gs.setFrameQueue(!(queue && queue[0] == '0'));
     }
-    ps2x::host_pacing::ShownFrames shownFrames;
+    zx::host_pacing::ShownFrames shownFrames;
     std::vector<double> shownLatencies; // ms from a game frame's picture to its present
-    // PS2X_PRESENT_LOG=<file> (developers): a line for every new picture the
+    // ZX_PRESENT_LOG=<file> (developers): a line for every new picture the
     // window shows (the game frame it is, 0 for one the window latched, a
     // hash of its pixels; the CPU renderer's) and for every shot taken from
     // it, to compare two runs' presentation and to find a shot of a frame
@@ -3767,7 +3786,7 @@ void PS2Runtime::run()
         bool latched = false, disturbed = false;
         PresentLog()
         {
-            if (const char *path = std::getenv("PS2X_PRESENT_LOG"); path && path[0])
+            if (const char *path = std::getenv("ZX_PRESENT_LOG"); path && path[0])
                 file = std::fopen(path, "w");
         }
         ~PresentLog()
@@ -3784,10 +3803,10 @@ void PS2Runtime::run()
             return h;
         }
     } presentLog;
-    ps2x::FrameInterpolation interpolation; // (runtime/ps2_frame_interpolation.h)
+    zx::FrameInterpolation interpolation; // (runtime/ps2_frame_interpolation.h)
     while (!isStopRequested() && !gameThreadFinished.load(std::memory_order_acquire))
     {
-        ps2x::spot::hostLoopTop();
+        zx::spot::hostLoopTop();
         ++hostFrame;
         // Window, keyboard, mouse and gamepad events of this frame.
         ps2_host::pumpEvents();
@@ -3800,8 +3819,8 @@ void PS2Runtime::run()
         }
         if (!dumpFrames.empty() && std::find(dumpFrames.begin(), dumpFrames.end(), hostFrame) != dumpFrames.end())
         {
-            const char *prefixEnv = ps2x::boot::text("PS2X_DUMP_PREFIX");
-            const std::string prefix = (prefixEnv && prefixEnv[0]) ? prefixEnv : "ps2x-dump";
+            const char *prefixEnv = zx::boot::text("ZX_DUMP_PREFIX");
+            const std::string prefix = (prefixEnv && prefixEnv[0]) ? prefixEnv : "zx-dump";
             const std::string base = prefix + "-" + std::to_string(hostFrame);
             if (FILE *ram = std::fopen((base + ".ram").c_str(), "wb"))
             {
@@ -3848,10 +3867,10 @@ void PS2Runtime::run()
                                                << " vif=" << curVif
                                                << " vsync=" << gs.vsyncTick.load(std::memory_order_relaxed)
                                                << std::endl);
-                // PS2X_TRACE_THREADS=1 adds every EE thread's state to each tick line.
+                // ZX_TRACE_THREADS=1 adds every EE thread's state to each tick line.
                 static const bool traceThreads = []()
                 {
-                    const char *value = std::getenv("PS2X_TRACE_THREADS");
+                    const char *value = std::getenv("ZX_TRACE_THREADS");
                     return value && value[0] == '1';
                 }();
                 if (traceThreads)
@@ -3866,12 +3885,12 @@ void PS2Runtime::run()
 
             }
         });
-        // PS2X_CONTROL "renderer" (runtime/ps2_debug_control.h).
+        // ZX_CONTROL "renderer" (runtime/ps2_debug_control.h).
         if (const std::string renderer = ps2_debug_control::takePendingRenderer(); !renderer.empty())
         {
             const size_t space = renderer.find(' ');
-            ps2x::boot::change("PS2X_GS_BACKEND", renderer.substr(0, space));
-            ps2x::boot::change("PS2X_GS_SCALE", renderer.substr(space + 1));
+            zx::boot::change("ZX_GS_BACKEND", renderer.substr(0, space));
+            zx::boot::change("ZX_GS_SCALE", renderer.substr(space + 1));
             requestRasterBackendReload();
         }
         // Renderer settings changed (app menu): the new GS backend takes
@@ -3908,13 +3927,13 @@ void PS2Runtime::run()
         ps2_host::waitForRefresh();
         const auto latchTime = std::chrono::steady_clock::now();
         if (!variableRefresh)
-            ps2x::host_pacing::noteLatch(latchTime); // (the guest's vblanks keep in phase with it)
+            zx::host_pacing::noteLatch(latchTime); // (the guest's vblanks keep in phase with it)
         const double displayTick = interpolating ? interpolation.displayTick(latchTime) : -1.0;
         GS::TakenFrame taken;
         const uint8_t *framePixels = UploadFrame(this, presentWidth, presentHeight, frameChanged, taken, displayTick);
         // (interpolating, the next frame waits by design: a backlog is more than that one)
         if (!variableRefresh && m_gs.frameQueue())
-            ps2x::host_pacing::noteTaken(taken.frame != 0 ? (interpolating && taken.waiting ? taken.waiting - 1u : taken.waiting) : 0u);
+            zx::host_pacing::noteTaken(taken.frame != 0 ? (interpolating && taken.waiting ? taken.waiting - 1u : taken.waiting) : 0u);
         if (presentLog.file && frameChanged)
         {
             uint32_t gpuWidth = 0, gpuHeight = 0;
@@ -3965,7 +3984,7 @@ void PS2Runtime::run()
         {
             static const bool traceWide = []()
             {
-                const char *value = std::getenv("PS2X_TRACE_WIDESCREEN");
+                const char *value = std::getenv("ZX_TRACE_WIDESCREEN");
                 return value && value[0] == '1';
             }();
             static bool lastWide = false;
@@ -4055,7 +4074,7 @@ void PS2Runtime::run()
                 frame.changed = true;
                 frame.gpuTexture = nullptr;
             }
-            ps2x::ftrace::Scope traceHost(ps2x::ftrace::kHostFrameBegin, ps2x::ftrace::kHostFrameEnd);
+            zx::ftrace::Scope traceHost(zx::ftrace::kHostFrameBegin, zx::ftrace::kHostFrameEnd);
             ps2_host::present(frame);
         }
         interpolation.presented(std::chrono::steady_clock::now());
@@ -4116,7 +4135,7 @@ void PS2Runtime::run()
                 .detach();
         };
         shots.capture(writeShot);
-        // PS2X_CONTROL "shot" (runtime/ps2_debug_control.h).
+        // ZX_CONTROL "shot" (runtime/ps2_debug_control.h).
         if (const std::string controlShot = ps2_debug_control::takePendingShot(); !controlShot.empty())
             writeShot(controlShot, [controlShot](bool ok)
                       { ps2_debug_control::shotDone(controlShot, ok); });
@@ -4135,16 +4154,16 @@ void PS2Runtime::run()
                           });
         }
         // Settings changed from the game's menus or the app's (runtime/ps2_settings.h).
-        ps2x::settings::runPending();
+        zx::settings::runPending();
         if (m_hostFrameCallback)
         {
             m_hostFrameCallback(*this);
         }
-        // PS2X_PERF_LOG=<seconds> prints host frames, guest vsyncs and
+        // ZX_PERF_LOG=<seconds> prints host frames, guest vsyncs and
         // display buffer flips (the game's frame rate) per second.
         static const double perfInterval = []()
         {
-            const char *value = std::getenv("PS2X_PERF_LOG");
+            const char *value = std::getenv("ZX_PERF_LOG");
             return value ? std::atof(value) : 0.0;
         }();
         if (perfInterval > 0.0)
@@ -4166,7 +4185,7 @@ void PS2Runtime::run()
             const double now = secondsNow();
             // Game frames as shown: the time from one host frame that showed
             // a new game picture to the next (a multiple of the display's
-            // refresh), for the frame pacing (PS2X_PERF_FRAMES=1 prints each).
+            // refresh), for the frame pacing (ZX_PERF_FRAMES=1 prints each).
             static uint64_t seenFlips = perfFlips;
             static double newFrameAt = now;
             static std::vector<double> frameGaps;
@@ -4184,7 +4203,7 @@ void PS2Runtime::run()
                 std::fprintf(stderr, "[perf] t=%.1f host_fps=%.1f vsync_hz=%.1f game_fps=%.1f vsync=%llu\n", now,
                              static_cast<double>(perfFrames) / span, static_cast<double>(vsync - perfVsync) / span,
                              static_cast<double>(flips - perfFlips) / span, static_cast<unsigned long long>(vsync));
-                if (ps2x::gs_interpolate::enabled())
+                if (zx::gs_interpolate::enabled())
                     interpolation.report(*this, span);
                 if (!frameGaps.empty())
                 {
@@ -4201,7 +4220,7 @@ void PS2Runtime::run()
                                  sorted.back(), over20, over34);
                     static const bool eachFrame = []()
                     {
-                        const char *value = std::getenv("PS2X_PERF_FRAMES");
+                        const char *value = std::getenv("ZX_PERF_FRAMES");
                         return value && value[0] == '1';
                     }();
                     if (eachFrame)
@@ -4281,7 +4300,7 @@ void PS2Runtime::run()
                     auto processMs = []() -> double
                     {
 #if defined(_WIN32)
-                        return ps2x::processCpuMilliseconds();
+                        return zx::processCpuMilliseconds();
 #else
                         rusage usage{};
                         getrusage(RUSAGE_SELF, &usage);
@@ -4334,7 +4353,7 @@ void PS2Runtime::run()
             requestStop();
             break;
         }
-        // A replay reached its stop (ZAXIS_REPLAY_STOP, or the recording's end), or a recording run was told to end.
+        // A replay reached its stop (ZX_REPLAY_STOP, or the recording's end), or a recording run was told to end.
         if (play_recording::stopRequested())
         {
             RUNTIME_LOG((play_recording::mode() == play_recording::Mode::Replay
@@ -4354,7 +4373,7 @@ void PS2Runtime::run()
     }
 
     // (a game thread waiting on a change of its Settings page goes on)
-    ps2x::settings::setFrameLoop(false);
+    zx::settings::setFrameLoop(false);
     requestStop();
     const auto stopReason = [&]() -> const char *
     {
@@ -4410,7 +4429,7 @@ void PS2Runtime::run()
 
     RUNTIME_LOG("[run] exiting loop");
     };
-    ps2x::spot::setHostLoop(hostLoop);
+    zx::spot::setHostLoop(hostLoop);
     hostLoop();
 }
 

@@ -3,7 +3,7 @@
 // The font the app ships for its own text before any game's disc is set up
 // (the menu writes with Aggressive Inline's font, which is on AI's disc):
 // Michroma (runtime/resources/fonts: the unchanged TTF with its OFL 1.1
-// licence), drawn with stb_truetype (pinned in runtime/cmake/ps2x_stb.cmake)
+// licence), drawn with stb_truetype (pinned in runtime/cmake/zx_stb.cmake)
 // into the menu's BitmapFont at one pixel size, so Canvas::text writes with
 // it as with AI's font.
 //
@@ -18,7 +18,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     // The shipped font's file below the app's resources folder.
     constexpr const char *kShippedFontFile = "fonts/Michroma-Regular.ttf";

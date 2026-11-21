@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     namespace
     {

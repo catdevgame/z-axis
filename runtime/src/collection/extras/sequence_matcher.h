@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     struct DiffOpcode
     {

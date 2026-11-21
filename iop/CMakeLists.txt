@@ -3,36 +3,55 @@ cmake_minimum_required(VERSION 3.21)
 project(ps2xIOP LANGUAGES CXX)
 
 option(PS2X_IOP_BUILD_TESTS "Build ps2xIOP emulator smoke tests" OFF)
-# The disc reader and its tool alone (the recompiler's build, PS2X_BUILD_RUNTIME OFF: tooling/recompile.sh takes each
-# game's ELF from its disc image with ps2x_disc).
-option(PS2X_IOP_DISC_ONLY "Build only the disc image reader and ps2x_disc" OFF)
+# The disc reader and its tools alone (the recompiler's build, ZX_BUILD_RUNTIME OFF: tooling/recompile.sh takes each
+# game's ELF from its disc image with zx-disc).
+option(ZX_IOP_DISC_ONLY "Build only the disc image reader, zx-disc and zal" OFF)
 
-# The disc image reader: ISO9660 over the image a file holds (ISO, BIN, CHD, CSO, ZSO: ps2x/iop/disc_image_file.h).
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ps2x_chdr.cmake")
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/ps2x_lz4.cmake")
-add_library(ps2_disc STATIC
+# The disc image reader: ISO9660 over the image a file holds (ISO, BIN, CHD, CSO, ZSO: zx/disc/disc_image_file.h).
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/zx_chdr.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/zx_lz4.cmake")
+add_library(zx_disc STATIC
     src/iso9660.cpp
     src/cue_sheet.cpp
     src/disc_image_file.cpp
     src/disc_image_chd.cpp
     src/disc_image_cso.cpp
 )
-target_compile_features(ps2_disc PUBLIC cxx_std_20)
-target_include_directories(ps2_disc PUBLIC
+target_compile_features(zx_disc PUBLIC cxx_std_20)
+target_include_directories(zx_disc PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(ps2_disc PRIVATE ps2x::chdr ps2x::lz4)
+target_link_libraries(zx_disc PRIVATE zx::chdr zx::lz4)
 # (disc_image_cso.cpp inflates with libchdr's miniz, under its names)
-ps2x_chdr_miniz_names(ps2_disc)
-set_target_properties(ps2_disc PROPERTIES POSITION_INDEPENDENT_CODE ON)
-add_library(ps2x::disc ALIAS ps2_disc)
+zx_chdr_miniz_names(zx_disc)
+set_target_properties(zx_disc PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_library(zx::disc ALIAS zx_disc)
 
-# ps2x_disc list | extract | to-iso: a disc image's files, whatever its format (tools/ps2x_disc.cpp).
-add_executable(ps2x_disc tools/ps2x_disc.cpp)
-target_link_libraries(ps2x_disc PRIVATE ps2_disc)
+# zx-disc list | extract | to-iso: a disc image's files, whatever its format (tools/disc_tool.cpp).
+add_executable(zx-disc tools/disc_tool.cpp)
+target_link_libraries(zx-disc PRIVATE zx_disc)
 
-if(PS2X_IOP_DISC_ONLY)
+# The games' .ZAL archives (ZDIR archives and zfile libraries: include/zx/zal_archive.h), read and written
+# byte for byte as the discs have them: the game file system merges mods' single entries into them with it.
+add_library(zx_zal STATIC
+    src/zal_archive.cpp
+    src/zal_folder.cpp
+)
+target_compile_features(zx_zal PUBLIC cxx_std_20)
+target_include_directories(zx_zal PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+set_target_properties(zx_zal PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_library(zx::zal ALIAS zx_zal)
+
+# zal list | unpack | repack | verify: an archive as a folder of its entries and back, for modders
+# (tools/zal_tool.cpp, docs/MODS.md "Archives").
+add_executable(zal tools/zal_tool.cpp)
+target_link_libraries(zal PRIVATE zx_zal)
+
+if(ZX_IOP_DISC_ONLY)
     return()
 endif()
 
@@ -78,7 +97,7 @@ target_include_directories(ps2_iop
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(ps2_iop PUBLIC ps2_disc)
+target_link_libraries(ps2_iop PUBLIC zx_disc)
 
 add_library(ps2x::iop ALIAS ps2_iop)
 

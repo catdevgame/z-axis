@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace ps2x::spu
+namespace zx::spu
 {
     namespace
     {

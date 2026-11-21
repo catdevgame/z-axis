@@ -2,7 +2,7 @@
 """Games booted one after another in one process, each against a process of its own (collmenu1 lane 3).
 
 The collection's menu boots a game, the game exits to the menu, the menu boots the next. This check runs
-that with no menu drawn: `ps2EntryRunner --sequence ai:STEP,dm2:STEP` (runtime/ps2_boot_sequence.h) boots
+that with no menu drawn: `zx-runner --sequence ai:STEP,dm2:STEP` (runtime/ps2_boot_sequence.h) boots
 each game with its check's input, dumps and state log, stops it once its last checkpoint is dumped, tears
 it down as an exit to the menu does and boots the next. Each game is then run by the same runner in a
 fresh process (a one-step sequence: the same code path with no game before it), and the two compared:
@@ -28,9 +28,9 @@ differing words. Exit 0 only when every step of every sequence matches. Everythi
 (every listed word). Dumps are deleted once compared (--keep keeps them).
 
 Environment: RUNNER (the runner, else --runner). Every runner gets a scratch HOME, null GS, the CPU GS
-backend, SDL's dummy drivers, unpaced; no PS2X_* of the caller's environment reaches it (it would win
-over every step's own values) except what --env gives (process-wide switches: PS2X_READABLE,
-PS2X_EE_SCALE, ...).
+backend, SDL's dummy drivers, unpaced; no ZX_* of the caller's environment reaches it (it would win
+over every step's own values) except what --env gives (process-wide switches: ZX_READABLE,
+ZX_EE_SCALE, ...).
 """
 import array
 import bisect
@@ -103,9 +103,9 @@ class Game:
             self.dumps = m.dump_spec()
             self.last_script = max(int(x.split('>=')[1]) for x in self.dumps.split(','))
             self.secs = 900
-            # logiccheck.run's switches (run.sh: PS2X_DEBUG_UI=0, the CPU renderer; lc-when-free: unpaced).
-            self.config = {'PS2X_SAVES': 'card',
-                           'PS2X_STATE_LOG': ','.join('0x%X' % a for a in (m.MODE, m.PANEL, m.SECTION, m.GAUGE, m.FRAME,
+            # logiccheck.run's switches (run.sh: ZX_DEBUG_UI=0, the CPU renderer; lc-when-free: unpaced).
+            self.config = {'ZX_SAVES': 'card',
+                           'ZX_STATE_LOG': ','.join('0x%X' % a for a in (m.MODE, m.PANEL, m.SECTION, m.GAUGE, m.FRAME,
                                                                            m.POS, m.POS + 4, m.POS + 8))}
         elif gid == 'dm2':
             self.mod = load_module('dm2logic', os.path.join(dm2, 'tools', 'dm2logic.py'))
@@ -118,7 +118,7 @@ class Game:
             self.dumps = m.dump_spec()
             self.last_script = max(t for _, _, t, _ in m.ref_values())
             self.secs = 600
-            self.config = {'PS2X_STATE_LOG': ','.join('0x%X' % a for a in (m.MODE, m.LEVEL_CURSOR, m.SESSION,
+            self.config = {'ZX_STATE_LOG': ','.join('0x%X' % a for a in (m.MODE, m.LEVEL_CURSOR, m.SESSION,
                                                                            m.LEVEL_FRAME, m.RIDER_TABLE))}
         elif gid == 'bmx':
             self.mod = load_module('bmxlogic', os.path.join(dm2, 'tools', 'bmxlogic.py'))
@@ -131,8 +131,8 @@ class Game:
             self.dumps = m.dump_spec()
             self.last_script = max(t for _, _, t, _, _ in m.ref_values())
             self.secs = 900
-            self.config = {'PS2X_MC_FD_BASE0': '1', 'PS2X_HOST_INPUT': '0', 'PS2X_PAD_STICK_CENTER': '0x7f',
-                           'PS2X_STATE_LOG': ','.join('0x%X' % a for a in (m.MODE, m.LEVEL_FRAME, m.RIDER_TABLE))}
+            self.config = {'ZX_MC_FD_BASE0': '1', 'ZX_HOST_INPUT': '0', 'ZX_PAD_STICK_CENTER': '0x7f',
+                           'ZX_STATE_LOG': ','.join('0x%X' % a for a in (m.MODE, m.LEVEL_FRAME, m.RIDER_TABLE))}
         else:
             raise SystemExit('unknown game %r (ai, dm2, bmx)' % gid)
         # The tick limit: the last checkpoint's script time, with room for loading and standing anchors.
@@ -183,11 +183,11 @@ class Game:
                  'stop_after=%s-%s.sp' % (prefix, self.labels[-1]),
                  'mc_root=%s' % card,
                  'cwd=%s' % (self.cwd or work),
-                 'PS2X_PAD_SCRIPT_CLOCK=vsync',
-                 'PS2X_PAD_SCRIPT=@%s' % script_path,
-                 'PS2X_DUMP_WHEN=%s' % self.dumps,
-                 'PS2X_DUMP_PREFIX=%s' % prefix,
-                 'PS2X_STATE_LOG_FILE=%s-state.log' % prefix]
+                 'ZX_PAD_SCRIPT_CLOCK=vsync',
+                 'ZX_PAD_SCRIPT=@%s' % script_path,
+                 'ZX_DUMP_WHEN=%s' % self.dumps,
+                 'ZX_DUMP_PREFIX=%s' % prefix,
+                 'ZX_STATE_LOG_FILE=%s-state.log' % prefix]
         lines += ['%s=%s' % kv for kv in sorted(self.config.items())]
         path = prefix + '.step'
         with open(path, 'w') as f:
@@ -305,10 +305,10 @@ def dead_stack(address, sides):
 # ---- running ------------------------------------------------------------------------------------------------
 
 def runner_env(args, home):
-    env = {k: v for k, v in os.environ.items() if not k.startswith('PS2X_')}
-    env.update({'HOME': home, 'PS2X_APP_SUPPORT_DIR': os.path.join(home, 'support'),
-                'PS2X_APP_LOG_DIR': os.path.join(home, 'logs'), 'PS2X_GS_NULL': '1', 'PS2X_GS_BACKEND': 'cpu',
-                'PS2X_UNPACED': '1', 'PS2X_DEBUG_UI': '0', 'PS2X_HEADLESS': '1',
+    env = {k: v for k, v in os.environ.items() if not k.startswith('ZX_')}
+    env.update({'HOME': home, 'ZX_APP_SUPPORT_DIR': os.path.join(home, 'support'),
+                'ZX_APP_LOG_DIR': os.path.join(home, 'logs'), 'ZX_GS_NULL': '1', 'ZX_GS_BACKEND': 'cpu',
+                'ZX_UNPACED': '1', 'ZX_DEBUG_UI': '0', 'ZX_HEADLESS': '1',
                 'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy'})
     for item in args.env:
         k, _, v = item.partition('=')

@@ -1,6 +1,6 @@
 // VU0's and VU1's decoder (runtime/ps2_vu1.h): an instruction pair's usage of registers and pipelines, its hazard
 // and write-back data and its specialized handlers, and the static chain analysis of a micro memory image. No state
-// of an interpreter's: the interpreter's cache and ps2xVu1Aot (the generator, which runs on the build machine, also
+// of an interpreter's: the interpreter's cache and zx-vu1aot (the generator, which runs on the build machine, also
 // for a cross build: runtime/tools/vu1_aot_host) take it as it is.
 #include "runtime/ps2_vu1.h"
 #include "ps2_vu1_detail.h"

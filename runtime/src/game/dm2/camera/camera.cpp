@@ -67,7 +67,7 @@ namespace game::dm2
 
         bool levelCameraPointsOn()
         {
-            const char *on = ps2x::boot::text("PS2X_DM2_LEVEL_CAMERA_POINTS");
+            const char *on = zx::boot::text("ZX_DM2_LEVEL_CAMERA_POINTS");
             return on && on[0] == '1';
         }
 

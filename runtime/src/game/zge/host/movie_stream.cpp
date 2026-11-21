@@ -4,7 +4,7 @@
 // MPEG stream sample's demuxer and decoder threads and the sound's way
 // through the IOP into the SPU2 (zge/movie/ps2/, the PS2 form). The native
 // movies, the default, install these over the PS2 forms (ee/host_form.h);
-// PS2X_MOVIES=hle runs the PS2 forms over the emulated MPEG decoder and the
+// ZX_MOVIES=hle runs the PS2 forms over the emulated MPEG decoder and the
 // IOP's sound driver, as on the console.
 //
 // The rest of the player stays the game's: open, play, stop and close, the

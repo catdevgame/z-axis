@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace ps2x::photo
+namespace zx::photo
 {
     namespace
     {

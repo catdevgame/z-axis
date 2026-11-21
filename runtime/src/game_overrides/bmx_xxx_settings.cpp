@@ -23,7 +23,7 @@
 // RESTART and PHOTO MODE lines): chosen, its lines fade out and the same
 // page, UI_overlay.PcSettingsPause, comes in; Back brings the lines back.
 //
-// With the app's settings (PS2X_GAME_SETTINGS_MENUS=1): the page's widgets
+// With the app's settings (ZX_GAME_SETTINGS_MENUS=1): the page's widgets
 // and script functions move the game's heap, and the developer runner's
 // checks run without them.
 
@@ -47,7 +47,6 @@ namespace bmx_xxx::settings_menu
 {
     namespace
     {
-        namespace zx = ps2x::zaxis;
         using zge_host::settings::Layout;
 
         constexpr int kRegRa = 31;
@@ -533,9 +532,9 @@ namespace bmx_xxx::settings_menu
         bool patchMenus(std::string &text)
         {
             std::string edited = text;
-            zx::Span options = zx::findObject(edited, "UI_menu/CommonBackground/FrameOptions");
-            zx::Span option = zx::findObject(edited, "OPTION", options);
-            zx::Span show = zx::findObject(edited, "Show", options);
+            zx::zaxis::Span options = zx::zaxis::findObject(edited, "UI_menu/CommonBackground/FrameOptions");
+            zx::zaxis::Span option = zx::zaxis::findObject(edited, "OPTION", options);
+            zx::zaxis::Span show = zx::zaxis::findObject(edited, "Show", options);
             if (!options.found() || !option.found() || !show.found())
                 return false;
             // The menu's block closes one tab deeper than it opens (as the
@@ -544,24 +543,24 @@ namespace bmx_xxx::settings_menu
             const size_t menuAt = edited.find("OBJECT \"guiMenu\" \"Menu\"", option.begin);
             if (menuAt == std::string::npos || menuAt >= option.end)
                 return false;
-            zx::Span menu{menuAt, option.end};
+            zx::zaxis::Span menu{menuAt, option.end};
             // Later positions first: the page after FrameOptions, then the
             // menu's lines (inside OPTION), then the way to the page after
             // Show (before both).
             edited.insert(options.end,
-                          zx::indentBlock(page("PcSettings", kFrontEndBack, false), zx::indentAt(edited, options.begin)));
-            const std::string tabs(static_cast<size_t>(zx::indentAt(edited, menu.begin) + 2), '\t');
-            bool ok = zx::replaceIn(edited, menu, "CALL bmxmenuscriptGetOptionsMenuItems Items\r\n",
+                          zx::zaxis::indentBlock(page("PcSettings", kFrontEndBack, false), zx::zaxis::indentAt(edited, options.begin)));
+            const std::string tabs(static_cast<size_t>(zx::zaxis::indentAt(edited, menu.begin) + 2), '\t');
+            bool ok = zx::zaxis::replaceIn(edited, menu, "CALL bmxmenuscriptGetOptionsMenuItems Items\r\n",
                                     "CALL bmxmenuscriptGetOptionsMenuItems Items\r\n" + tabs + "\tCALL pcSettingsOptionsLine Items\r\n");
-            ok = ok && zx::replaceIn(edited, menu, "\tOnItemSelect\t{\r\n",
+            ok = ok && zx::zaxis::replaceIn(edited, menu, "\tOnItemSelect\t{\r\n",
                                      "\tOnItemSelect\t{\r\n" + tabs + "IF SelectedText == {\"SETTINGS\"} PLAY ..GoToPcSettings\r\n" + tabs +
                                          "IF SelectedText == {\"SETTINGS\"} EXIT\r\n");
             if (!ok)
                 return false;
-            show = zx::findObject(edited, "UI_menu/CommonBackground/FrameOptions/Show");
+            show = zx::zaxis::findObject(edited, "UI_menu/CommonBackground/FrameOptions/Show");
             if (!show.found())
                 return false;
-            edited.insert(show.end, zx::indentBlock(kGoTo, zx::indentAt(edited, show.begin)));
+            edited.insert(show.end, zx::zaxis::indentBlock(kGoTo, zx::zaxis::indentAt(edited, show.begin)));
             text = std::move(edited);
             return true;
         }
@@ -569,22 +568,22 @@ namespace bmx_xxx::settings_menu
         // The UI_overlay script: the pause menu's page after FramePause.
         bool patchOverlay(std::string &text)
         {
-            zx::Span pause = zx::findObject(text, "UI_overlay/FramePause");
+            zx::zaxis::Span pause = zx::zaxis::findObject(text, "UI_overlay/FramePause");
             if (!pause.found())
                 return false;
-            text.insert(pause.end, zx::indentBlock(page("PcSettingsPause", kPauseBack, true), zx::indentAt(text, pause.begin)));
+            text.insert(pause.end, zx::zaxis::indentBlock(page("PcSettingsPause", kPauseBack, true), zx::zaxis::indentAt(text, pause.begin)));
             return true;
         }
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
-            if (!zx::readArchive(bytes, entries))
+            std::vector<zx::zaxis::ArchiveEntry> entries;
+            if (!zx::zaxis::readArchive(bytes, entries))
                 return false;
             bool changed = false;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) == "UI_overlay")
+                if (zx::zaxis::scriptName(entry) == "UI_overlay")
                 {
                     std::string text(entry.data.begin(), entry.data.end());
                     if (patchOverlay(text))
@@ -600,7 +599,7 @@ namespace bmx_xxx::settings_menu
                     }
                     continue;
                 }
-                if (zx::scriptName(entry) != "UI_menu")
+                if (zx::zaxis::scriptName(entry) != "UI_menu")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 if (patchMenus(text))
@@ -615,7 +614,7 @@ namespace bmx_xxx::settings_menu
                 }
             }
             if (changed)
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
             return changed;
         }
     }
@@ -637,7 +636,7 @@ namespace bmx_xxx
 {
     void installSettingsMenus(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         using namespace settings_menu;
         zge_host::settings::setStyle(kStyle);
@@ -651,7 +650,7 @@ namespace bmx_xxx
                 return;
         if (!zge_host::addScriptFunction(runtime, scriptFunctions(), "pcSettingsOptionsLine", &optionsLineFunction))
             return;
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
         exit_menu::addSettingsLine(runtime);
     }
 }

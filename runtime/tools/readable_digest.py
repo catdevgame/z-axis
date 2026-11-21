@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Digests of the readable functions' source (docs/READABLE.md, "How a
-function is proven"): a ps2xFnCheck pass names the digest of the readable function
+function is proven"): a zx-fncheck pass names the digest of the readable function
 it was made against (impl=), and the work database's stale_verified view lists
 Verified functions whose current digest has no passing check.
 
@@ -13,12 +13,12 @@ change that matters shows in the recordings of the functions using it).
 
     readable_digest.py [--cpp OUT.cpp] [--json] [--bind-dir DIR] FILE_OR_DIR ...
 
---cpp writes the table ps2xFnCheck is built with (written only when its text
+--cpp writes the table zx-fncheck is built with (written only when its text
 changes); --json prints [{game, addr, name, file, status, status_in, digest}]
 (status_in: `source`, the registration's own word, or `table`, an _ONLY
 registration's, whose status is its game's game/<game>/symbols_status.tsv
 row); with neither, one line a registration. --bind-dir: the bind tables a game folder's registration of an AI name
-is read through (readable_symbols.literal_view; the build's PS2X_BIND_DIR, empty: none), else the tree's own
+is read through (readable_symbols.literal_view; the build's ZX_BIND_DIR, empty: none), else the tree's own
 (tools/bind).
 """
 import argparse

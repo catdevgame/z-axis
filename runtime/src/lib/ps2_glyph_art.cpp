@@ -5,7 +5,7 @@
 #include <cmath>
 #include <functional>
 
-namespace ps2x::glyphs
+namespace zx::glyphs
 {
     namespace
     {

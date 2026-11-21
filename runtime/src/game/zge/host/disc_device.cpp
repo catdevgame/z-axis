@@ -5,7 +5,7 @@
 // the PS2 form). The engine keeps a platform's code in its own folder (ZGE's
 // ps2/ beside XBox/, where the Xbox build's file device is); this is the
 // host's. [host] disc = native, the default, installs these over the PS2
-// forms (ee/host_form.h); = ps2 (ZAXIS_DISC=ps2, PS2X_DISC=cdvd) runs
+// forms (ee/host_form.h); = ps2 (ZX_DISC=ps2) runs
 // the PS2 forms over the emulated IOP, and ZCDDVD.IRX with them.
 //
 // They keep the device's contract as its callers (zfile) see it:

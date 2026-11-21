@@ -83,7 +83,7 @@ namespace zge
         ee::FunctionPtr<void(ee::Ptr<ParticleType> type, ee::Ptr<ParticleEffect> effect)> endEffect; // +0x0C as the object goes
         // +0x10 the type's settings for an emitter, from its ZPED record (readZpedChunk)
         ee::FunctionPtr<ee::Ptr<ParticleSettings>(ee::Ptr<ParticleType> type, ee::Ptr<ZpedRecord> record)> readSettings;
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // +0x14 (type, settings) -> a copy of the settings and of their look, the look's material copied too
         ee::FunctionPtr<ee::Ptr<ParticleSettings>(ee::Ptr<ParticleType> type, ee::Ptr<ParticleSettings> settings)> copySettings;
 #endif
@@ -230,7 +230,7 @@ namespace zge
         ee::Float life;        // +0x34
         ParticleColour colour; // +0x38
         uint32_t material;     // +0x3C the type's setMaterialTextures, released with the look
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // BMX +0x40 ZGE4's billboard look is 0x50 bytes: bit 0 set when the look changed (readBillboardSettings,
         // setBillboardMaterial) and cleared by the billboard type's update as it hands the look to the effect
         uint64_t changed;
@@ -341,7 +341,7 @@ namespace zge
     // comments (readZpedChunk's copies and readBillboardSettings' reads).
     struct ZpedRecord
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // BMX +0x00 the record's own byte count: what the chunk holds past it is the trailing data readZpedChunk
         // reads after the record (chunkDataSize less this)
         uint32_t recordBytes;
@@ -354,7 +354,7 @@ namespace zge
         uint32_t spawnShape;      // +0x28 ParticleSpawnShape
         Vec3 spawnSize;           // +0x2C
         ParticleParams params;    // +0x38 (BMX +0x3C)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         BillboardViewWords billboardWords; // BMX +0x6C (readZpedChunk copies them to the data's)
 #endif
         uint32_t typeHash;        // +0x68 (BMX +0x80) its particle type's name hash ("spark", "regular billboard", "poly")
@@ -377,7 +377,7 @@ namespace zge
         uint32_t definitions[16];   // +0xAC the emitter definitions' name hashes
         // +0xEC (BMX +0x104) the particles' colour (the types set the alpha themselves)
         ParticleColour colour;
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _108;
         // BMX +0x10C the seconds a start message's burst runs (readZpedChunk copies it to the data's burstSeconds)
         ee::Float burstSeconds;
@@ -407,7 +407,7 @@ namespace zge
         ee::Ptr<PointerArray> effects;        // +0x00 ParticleEffect: one a type, made on its first spawn
         ee::Ptr<PointerArray> bindings;       // +0x04 EmitterBinding
         ee::Ptr<Task> updateTask;             // +0x08 the task running updateEmitterEffects
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // BMX +0x0C the object the data belongs to (newParticleEmitterSceneObject sets it; the billboard type's
         // update hands it to the billboards' spawner as its context)
         ee::Ptr<SceneObject> object;
@@ -415,7 +415,7 @@ namespace zge
         ee::Ptr<SceneObject> parent;          // +0x0C (BMX +0x10) what it hangs from, found by parentHash on its first update
         ee::Ptr<SceneBone> bone;              // +0x10 (BMX +0x14) the parent's bone, by boneHash
         ee::Ptr<ParticleSettings> settings;   // +0x14 (BMX +0x18) its particle type's settings (0: the chunk named no known type)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _1c;
 #else
         uint8_t _18[0x08];
@@ -423,7 +423,7 @@ namespace zge
         uint32_t nameHash;                    // +0x20 its id (particleEmitterObjectId)
         uint32_t parentHash;                  // +0x24 0: it hangs from nothing
         uint32_t boneHash;                    // +0x28
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _2c;
         // BMX +0x30 the emitter's matrix (ZGE4's emitterMatrixOf; setEmitterOrientation writes it from a
         // quaternion, setEmitterPosition its fourth row; updateParticleEmitterObject multiplies by it)
@@ -435,7 +435,7 @@ namespace zge
         uint8_t _54[0x0C];
         Vec4 spawnSize;                       // +0x60 (BMX +0x80) (a box's: w 1)
         ParticleParams params;                // +0x70 (BMX +0x90)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         BillboardViewWords billboardWords;    // BMX +0xC0 the chunk's five words after the params (ZpedRecord +0x6C)
         uint32_t _d4;
 #else
@@ -455,7 +455,7 @@ namespace zge
         uint16_t _ba;
         ee::Float startAngleSpread;           // +0xBC
         uint32_t spinAxisKind;                // +0xC0 (BMX +0xF4) ParticleSpinAxisKind
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint8_t _f8[0x08];
 #else
         uint8_t _c4[0x0C];
@@ -464,7 +464,7 @@ namespace zge
         Angle spinAxisSpread;                 // +0xE0 (BMX +0x110) each of three turns of a given axis, up to this either way
         uint16_t _e2;
         Vec3 unreadVector;                    // +0xE4 (BMX +0x114) (ZpedRecord::unreadVector)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint8_t _120[0x08];
         // BMX +0x128 the seconds a start message's burst runs (ZpedRecord::burstSeconds; emitterStartMessage
         // starts burstLeft from it)
@@ -475,7 +475,7 @@ namespace zge
 #endif
         int32_t emitting;                     // +0x100 (BMX +0x130) 0 while the rate is 0 (kEmitterRateMessage)
         ee::Float owed;                       // +0x104 (BMX +0x134) the part of a particle the rate has built up
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         EmitterBurst burst;                   // BMX +0x138 the live rate and a start message's burst
         EmitterTrailingChunk trailingChunk;   // BMX +0x144 what the chunk held past the record
 #else
@@ -496,7 +496,7 @@ namespace zge
     static_assert(offsetof(ParticleEmitterData, unreadVector) == game::readable::perGame(0xE4u, 0xE4u, 0x114u) &&
                   offsetof(ParticleEmitterData, emitting) == game::readable::perGame(0x100u, 0x100u, 0x130u));
     static_assert(sizeof(ParticleEmitterData) == game::readable::perGame(0x110u, 0x110u, 0x150u));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(ParticleEmitterData, matrix) == 0x30 && offsetof(ParticleEmitterData, burstSeconds) == 0x128 &&
                   offsetof(ParticleEmitterData, burst) == 0x138 && offsetof(ParticleEmitterData, trailingChunk) == 0x144 &&
                   offsetof(ParticleEmitterData, billboardWords) == 0xC0 && offsetof(ParticleEmitterData, object) == 0x0C &&
@@ -513,7 +513,7 @@ namespace zge
     // shared bodies read them through these, so a body compiles in every game
     // and reaches them only where kIsBmx (ZGE2's and ZGE3's answer nothing, and
     // are never reached).
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline ee::Ptr<SceneObject> &emitterObject(ParticleEmitterData &data) { return data.object; }
     inline Matrix &emitterMatrixIn(ParticleEmitterData &data) { return data.matrix; }
     inline BillboardViewWords &billboardWords(ParticleEmitterData &data) { return data.billboardWords; }

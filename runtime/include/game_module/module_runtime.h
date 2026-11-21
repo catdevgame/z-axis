@@ -1,14 +1,14 @@
 #ifndef ZX_GAME_MODULE_RUNTIME_H
 #define ZX_GAME_MODULE_RUNTIME_H
 
-// The runtime as a game module's code sees it (PS2X_GAME_MODULE). Generated code calls the runtime as
+// The runtime as a game module's code sees it (ZX_GAME_MODULE). Generated code calls the runtime as
 // `runtime->dispatchGuestBranch(...)`, `ps2_stubs::sceGsSyncV(...)` and so on; here those calls go through the
 // runtime's table (game_module/abi.h), so the module needs nothing of the runtime but this header. PS2Runtime names
 // ZxRuntime here: the handle the runtime passes to every generated function, with the members generated code uses.
 // Nothing is ever a ZxRuntime object: it stands for the runtime's own.
 
-#if !defined(PS2X_GAME_MODULE)
-#error "game_module/module_runtime.h is a game module's (PS2X_GAME_MODULE)"
+#if !defined(ZX_GAME_MODULE)
+#error "game_module/module_runtime.h is a game module's (ZX_GAME_MODULE)"
 #endif
 #if defined(PS2_RUNTIME_H)
 #error "a game module is compiled without the runtime's headers (ps2_runtime.h)"
@@ -16,8 +16,8 @@
 #if defined(PS2_FUNCTION_LOG_TRACKER)
 #error "PS2_FUNCTION_LOG_TRACKER: the function log is not in a game module (build the runner's generated code with the runtime's headers)"
 #endif
-#if !defined(PS2X_GAME_MODULE_ID)
-#error "PS2X_GAME_MODULE_ID: the module's name (ai, dm2, bmx), set by the build"
+#if !defined(ZX_GAME_MODULE_ID)
+#error "ZX_GAME_MODULE_ID: the module's name (ai, dm2, bmx), set by the build"
 #endif
 
 #include "game_module/abi.h"
@@ -35,7 +35,7 @@
 // A name of this module's own: zx_game_module_<name>_<id> (several modules link into one runner when static).
 #define ZX_GAME_MODULE_CONCAT2(a, b) a##b
 #define ZX_GAME_MODULE_CONCAT(a, b) ZX_GAME_MODULE_CONCAT2(a, b)
-#define ZX_GAME_MODULE_NAME(name) ZX_GAME_MODULE_CONCAT(zx_game_module_##name##_, PS2X_GAME_MODULE_ID)
+#define ZX_GAME_MODULE_NAME(name) ZX_GAME_MODULE_CONCAT(zx_game_module_##name##_, ZX_GAME_MODULE_ID)
 
 // The runtime's table, given to the module's entry (game_module/module_entry.cpp).
 extern "C" ZX_GAME_MODULE_HIDDEN const ZxRuntimeApi *zx_game_module_api;
@@ -186,7 +186,7 @@ namespace ps2_stubs
 }
 
 // The generated registration (register_functions.cpp) names the module's function table. Internal linkage: its
-// constructor fills this module's descriptor, so the modules linked into one program (PS2X_GAME_MODULES=static)
+// constructor fills this module's descriptor, so the modules linked into one program (ZX_GAME_MODULES=static)
 // each keep their own copy; an inline one with external linkage would be merged into one, which would fill a
 // single module's descriptor for all of them.
 namespace ps2_generated

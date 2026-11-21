@@ -12,11 +12,11 @@ listed in `docs/README.md`.
   the generated code: `tooling/recompiler`, built by the same CMake).
   The paths below without a root are AI's workspace, `tooling/ai`.
 - `recomp/generated` (and `generated-vu1`): the recompiler's output. Generated code is never committed;
-  `PS2X_RUNNER_GENERATED_DIR` (AI's) and `PS2X_RUNNER_EXTRA_GENERATED_DIRS` (DM2's, BMX XXX's) point a build at it.
+  `ZX_RUNNER_GENERATED_DIR` (AI's) and `ZX_RUNNER_EXTRA_GENERATED_DIRS` (DM2's, BMX XXX's) point a build at it.
   Each game's generated code is a game module (`runtime/game_module.h`, `game_module/abi.h`): compiled with no
   library header against the module's view of the runtime (`ps2_generated.h`, `include/game_module/`,
   `cmake/game_module_flags.txt`, the flags the app uses for the code it builds from the player's disc) and reaching
-  the runtime through one table each way. `PS2X_GAME_MODULES=static` (the default) links the modules into the runner;
+  the runtime through one table each way. `ZX_GAME_MODULES=static` (the default) links the modules into the runner;
   `shared` makes one shared library each in the build's `game-code/`, which the runner loads at boot. A recompiler
   from before game modules made folders these builds refuse: each set of generated code is a folder of its own,
   `<folder>-<set>` (`recomp/generated-<set>`, DM2's `recomp/generated-ns-<set>`, BMX XXX's in `BMX_DATA`), the set
@@ -24,12 +24,12 @@ listed in `docs/README.md`.
   `tooling/recompiler/make-generated.sh` and never written again; `GENERATED_SET` (the environment, else
   `paths.env`, where it is empty: the plain folders `tooling/recompile.sh` writes) names the set the tooling's
   builds use (`zgen`, `zpaths.generated()`).
-  `generated-vu1` (`PS2X_VU1_AOT_DIR`, `PS2X_VU1_AOT_EXTRA_DIRS`) holds the micro memory images
-  (`<hash>.vu1code`) and ps2xVu1Aot's code for them; the build uses the code made by its own tree's
-  generator: a folder whose `vu1_aot.key` is not the tree's key (a hash of ps2xVu1Aot's sources and the
+  `generated-vu1` (`ZX_VU1_AOT_DIR`, `ZX_VU1_AOT_EXTRA_DIRS`) holds the micro memory images
+  (`<hash>.vu1code`) and zx-vu1aot's code for them; the build uses the code made by its own tree's
+  generator: a folder whose `vu1_aot.key` is not the tree's key (a hash of zx-vu1aot's sources and the
   images) is left as it is, and the build makes and uses `vu1-aot/<key>` in its build dir (generated output
   never goes into a source checkout; a cross build builds the generator alone for the build machine,
-  `runtime/tools/vu1_aot_host`, or takes `PS2X_VU1_AOT_TOOL`, a host build's ps2xVu1Aot).
+  `runtime/tools/vu1_aot_host`, or takes `ZX_VU1_AOT_TOOL`, a host build's zx-vu1aot).
   The app's first run makes the same code itself: the recompiler writes the image (its staged config's `[vu1]`
   table, `runtime/tools/vu1_image.py`), the app's generator its code, and the game module carries it
   (`runtime/tools/VU1_AOT.md`).
@@ -49,20 +49,21 @@ listed in `docs/README.md`.
 
 Needs Xcode's command line tools (Apple clang), CMake and Ninja; the first configure fetches the dependencies
 (network once: ELFIO, toml11, fmt, rabbitizer, SDL3, imgui, sse2neon and the rest; FFmpeg statically from
-`tools/build-ffmpeg.sh` through `PS2X_FFMPEG_PREFIX`, otherwise a prebuilt shared FFmpeg is downloaded). On arm64
+`tools/build-ffmpeg.sh` through `ZX_FFMPEG_PREFIX`, otherwise the system's through pkg-config; on Windows a
+prebuilt shared FFmpeg is downloaded). On arm64
 the runtime's x86 SIMD goes through sse2neon. Windows: `tools/make-windows.ps1`. A Windows build by hand, from a VS 2022 x64 developer prompt (the C++ workload with its
 Clang/LLVM and CMake components):
 
 ```bat
 cmake -S . -B out/build-win -G Ninja -DCMAKE_BUILD_TYPE=Release ^
   -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_LINKER=lld-link ^
-  -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DPS2X_BUILD_STUDIO=OFF ^
-  -DPS2X_FFMPEG_PREFIX=<static FFmpeg from tools/build-ffmpeg.sh> ^
-  -DPS2X_RUNNER_GENERATED_DIR=<generated code> -DPS2X_VU1_AOT_DIR=<ps2xVu1Aot output>
-ninja -C out/build-win ps2EntryRunner ps2x_tests
+  -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
+  -DZX_FFMPEG_PREFIX=<static FFmpeg from tools/build-ffmpeg.sh> ^
+  -DZX_RUNNER_GENERATED_DIR=<generated code> -DZX_VU1_AOT_DIR=<zx-vu1aot output>
+ninja -C out/build-win zx-runner zx-tests
 ```
 
-x86-64 needs SSE4.1/SSSE3 (`PS2X_X64_LEVEL`, default `x86-64-v2`). The GPU renderer's Direct3D 12 shaders are
+x86-64 needs SSE4.2 (`ZX_X64_LEVEL`, default `x86-64-v2`; `x86-64-v3` for AVX2). The GPU renderer's Direct3D 12 shaders are
 compiled with the Windows SDK's `dxc` (`runtime/src/lib/gs/GPU_BACKEND.md`).
 
 Recompile only when the recompiler, the config or the ELF changed:
@@ -77,8 +78,8 @@ KEY=$(python3 ../../recompiler/generated_key.py config.game.toml <DM2's config.n
 
 `tooling/recompile.sh --ai IMAGE --dm2 IMAGE --bmx IMAGE` (Windows: `tooling\recompile.ps1`) does that whole step from
 your disc images, the ELF taken from the disc and checked first (README "Building"). Any image takes any format (ISO,
-BIN/CUE, CHD, CSO, ZSO), told by its bytes: the ELF comes out through `ps2x_disc` (`iop/tools/ps2x_disc.cpp`, the
-app's own reader, `iop/include/ps2x/iop/disc_image_file.h`), which the script builds with the recompiler. BMX XXX's
+BIN/CUE, CHD, CSO, ZSO), told by its bytes: the ELF comes out through `zx-disc` (`iop/tools/disc_tool.cpp`, the
+app's own reader, `iop/include/zx/disc/disc_image_file.h`), which the script builds with the recompiler. BMX XXX's
 is its workspace's one step, `tooling/bmx/recomp/recompile.py` from its Ghidra export
 (`tooling/bmx/recomp/config.toml`): the configs, the namespaced code, its VU0 upload and its VU1 micro memory image
 (`runtime/tools/vu0_upload.py`, `vu1_image.py`: both read from the ELF, no run), into paths.env's `BMX_RECOMP`.
@@ -94,10 +95,11 @@ Build the runner in your worktree (the first configure needs the fetched deps; l
 ```sh
 cd <z-axis worktree>
 cmake -S . -B out/<name> -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DPS2X_RUNNER_GENERATED_DIR=$(source tooling/paths.sh && zgen $AI_WORKSPACE/recomp/generated)
-ninja -C out/<name> ps2EntryRunner ps2xFnCheck ps2x_tests
-cd <worktree root> && out/<name>/ps2xTest/ps2x_tests        # unit tests run from the worktree root
-ctest --test-dir out/<name>/ps2xIOP                          # the IOP's tests (a ctest from the build dir's top finds none)
+  -DZX_RUNNER_GENERATED_DIR=$(source tooling/paths.sh && zgen $AI_WORKSPACE/recomp/generated)
+ninja -C out/<name> zx-runner zx-fncheck zx-tests
+cd <worktree root> && out/<name>/tests/zx-tests        # unit tests run from the worktree root
+ctest --test-dir out/<name>/iop                          # the IOP's tests: configure with -DPS2X_IOP_BUILD_TESTS=ON and
+                                                         # build their targets (CONTRIBUTING.md); a ctest from the build dir's top finds none
 ```
 
 App builds (`dist/`, the Windows dist, the collections): `tools/make-app.sh` and `tools/make-windows.ps1` read the
@@ -113,29 +115,29 @@ cd tooling/ai/recomp
                                                # STOP_TICK=<vsync> stops there, MAX_SECS is the hard limit
 ```
 
-- Game runs for checks (logiccheck, A/B, recordings, routes, probes) are unpaced: `PS2X_UNPACED=1` (guest time follows
-  EE cycles, same logic, several times faster). Paced (`PS2X_UNPACED=0`) only for host-time measurements: fps,
+- Game runs for checks (logiccheck, A/B, recordings, routes, probes) are unpaced: `ZX_UNPACED=1` (guest time follows
+  EE cycles, same logic, several times faster). Paced (`ZX_UNPACED=0`) only for host-time measurements: fps,
   pacing, audio, visuals.
-- Runs use a scratch HOME (`PS2X_APP_SUPPORT_DIR`, `PS2X_APP_LOG_DIR`, `PS2X_SCREENSHOT_DIR`); never the user's
-  `~/Library` or `~/Pictures`. Every run has a time limit; before reporting check `pgrep -x ps2EntryRunner` and `pgrep -x ps2xFnCheck` and kill yours by PID.
-- GS backend: the GPU renderer (`PS2X_GS_BACKEND=gpu`, SDL_GPU) is the default in the app, native meshes/skaters/Xbox
-  textures on top; `cpu` is the software reference. `PS2X_GS_NULL=1` draws nothing (logic at full speed),
-  `PS2X_VU1_SKIP=1` with it skips VU1 programs. A null-GS run is headless (`PS2X_HEADLESS=1` or `0` says so
+- Runs use a scratch HOME (`ZX_APP_SUPPORT_DIR`, `ZX_APP_LOG_DIR`, `ZX_SCREENSHOT_DIR`); never the user's
+  `~/Library` or `~/Pictures`. Every run has a time limit; before reporting check `pgrep -x zx-runner` and `pgrep -x zx-fncheck` and kill yours by PID.
+- GS backend: the GPU renderer (`ZX_GS_BACKEND=gpu`, SDL_GPU) is the default in the app, native meshes/skaters/Xbox
+  textures on top; `cpu` is the software reference. `ZX_GS_NULL=1` draws nothing (logic at full speed),
+  `ZX_VU1_SKIP=1` with it skips VU1 programs. A null-GS run is headless (`ZX_HEADLESS=1` or `0` says so
   for any run): no window and no GPU device, so it works over SSH on Windows, where no swapchain can exist.
 
-Common environment (the runtime reads many more: `grep -rn 'PS2X_' runtime`, and SETTINGS.md for settings):
+Common environment (the runtime reads many more: `grep -rn 'ZX_' runtime`, and SETTINGS.md for settings):
 
 | Variable | Effect |
 |---|---|
-| `PS2X_CD_IMAGE`, `PS2X_CD_ROOT`, `PS2X_HOST_ROOT`, `PS2X_MC_ROOT` | I/O roots (run.sh sets the CD root and memory card) |
-| `PS2X_SAVES=card` | memory-card saves (the app uses native save files) |
-| `PS2X_CONTROL=<dir>` | drive a running game from outside: `tools/nctl.py start NAME`, `nctl.py NAME "press CROSS; wait 60"`, `stop` |
-| `PS2X_PAD_SCRIPT`, `PS2X_PAD_SCRIPT_CLOCK=vsync`, `PS2X_PAD_PORT1=mirror`, `PS2X_VIRTUAL_PADS=2` | scripted and virtual pads; port 1 is empty without a second gamepad |
-| `PS2X_TRACE_RPC`, `_CALLS`, `_VU1`, `_DMA`, `_MC`, `_EE`, `_MOVIES` | traces (calls: `0xA,0xB,@0xSITE`) |
-| `PS2X_DUMP_WHEN="label:cond&cond"`, `PS2X_DUMP_AT_FRAME`, `PS2X_DUMP_RAM_ON_EXIT`, `PS2X_STATE_LOG=<addr>,...` | RAM dumps at conditions; one line per vsync a listed word changed |
-| `PS2X_READABLE`, `PS2X_FNREC*`, `PS2X_FNPROF`, `PS2X_FNCYCLES` | the readable code and its recording (READABLE.md) |
-| `PS2X_DEV_MENU`, `PS2X_DEV_UNLOCK_ALL`, `PS2X_DEV_START_LEVEL`, `PS2X_TUNING_INI`, `PS2X_LANGUAGE` | developer tools (DEVTOOLS.md) |
-| `PS2X_PERF_LOG=1`, `PS2X_GSMEM_AUDIT=1` | frames per second in the log; GS texture-memory audit |
+| `ZX_CD_IMAGE`, `ZX_CD_ROOT`, `ZX_HOST_ROOT`, `ZX_MC_ROOT` | I/O roots (run.sh sets the CD root and memory card) |
+| `ZX_SAVES=card` | memory-card saves (the app uses native save files) |
+| `ZX_CONTROL=<dir>` | drive a running game from outside: `tools/nctl.py start NAME`, `nctl.py NAME "press CROSS; wait 60"`, `stop` |
+| `ZX_PAD_SCRIPT`, `ZX_PAD_SCRIPT_CLOCK=vsync`, `ZX_PAD_PORT1=mirror`, `ZX_VIRTUAL_PADS=2` | scripted and virtual pads; port 1 is empty without a second gamepad |
+| `ZX_TRACE_RPC`, `_CALLS`, `_VU1`, `_DMA`, `_MC`, `_EE`, `_MOVIES` | traces (calls: `0xA,0xB,@0xSITE`) |
+| `ZX_DUMP_WHEN="label:cond&cond"`, `ZX_DUMP_AT_FRAME`, `ZX_DUMP_RAM_ON_EXIT`, `ZX_STATE_LOG=<addr>,...` | RAM dumps at conditions; one line per vsync a listed word changed |
+| `ZX_READABLE`, `ZX_FNREC*`, `ZX_FNPROF`, `ZX_FNCYCLES` | the readable code and its recording (READABLE.md) |
+| `ZX_DEV_MENU`, `ZX_DEV_UNLOCK_ALL`, `ZX_DEV_START_LEVEL`, `ZX_TUNING_INI`, `ZX_LANGUAGE` | developer tools (DEVTOOLS.md) |
+| `ZX_PERF_LOG=1`, `ZX_GSMEM_AUDIT=1` | frames per second in the log; GS texture-memory audit |
 
 ## Android (dual-screen handhelds)
 
@@ -144,13 +146,13 @@ putting the games on a device and how it runs there are `android/README.md`.
 
 ## Checks
 
-- Unit tests: `ps2x_tests` from the worktree root.
+- Unit tests: `zx-tests` from the worktree root.
 - Logiccheck: replays the PCSX2 reference run natively (`tools/REFERENCE-RUN.md`) and compares state at 21
   checkpoints. `tools/lc-when-free.sh NAME` queues `logiccheck.py run NAME` and `compare NAME` (up to 3 at once,
   RUNNER and a scratch HOME exported); `/tmp/lc-NAME-cmp.log` must say 21/21 MATCH. About 35 s unpaced. Defaults must
   not change game logic. DM2's and BMX XXX's counterparts are `tooling/dm2/tools/dm2logic.py` and `bmxlogic.py`.
 - Career A/B: `tooling/checks/career_ab.py gate` (its inputs, the career one from `tools/careercheck.py`), unpaced
-  with the null GS at `PS2X_EE_SCALE=4096`, defaults against `PS2X_READABLE=off` (READABLE.md "The gate").
+  with the null GS at `ZX_EE_SCALE=4096`, defaults against `ZX_READABLE=off` (READABLE.md "The gate").
 - Readable code: the semantic corpus replay, `readable_args.py --check` and the lint (READABLE.md "The gate").
 - Play: `tools/playbot/` (closed-loop players that report the game's own numbers: distance, tricks, score, goals).
 - Input and UI: `tools/inputcheck.py`; sound: `tools/audiocheck.py`; speed: `tools/speedsweep.py`, `loadtime.py`,

@@ -1,5 +1,5 @@
 // Aggressive Inline (SLUS-20327): the Xbox release's career scripts
-// (PS2X_CAREER_SCRIPTS=xbox; the app: Settings > Game > Career Scripts,
+// (ZX_CAREER_SCRIPTS=xbox; the app: Settings > Game > Career Scripts,
 // settings.ini [gameplay] career_scripts = xbox|ps2, default xbox).
 //
 // The career runs <LEVEL>.BIN (func_1A4D78). The Xbox release's are the PS2
@@ -54,7 +54,7 @@ namespace aggressive_inline::careerscripts
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
 
         struct Level
         {
@@ -82,7 +82,7 @@ namespace aggressive_inline::careerscripts
             std::map<std::string, std::shared_ptr<const std::vector<uint8_t>>> xbox; // path -> the Xbox file
             std::map<std::string, uint32_t> xboxData; // path -> the Xbox script's data block bytes
         };
-        Scripts &scripts() { return ps2x::session::state<Scripts>(); }
+        Scripts &scripts() { return zx::session::state<Scripts>(); }
 
         uint32_t rd32(uint32_t address)
         {
@@ -376,7 +376,7 @@ namespace aggressive_inline::careerscripts
 
     void install(PS2Runtime &runtime)
     {
-        const char *which = ps2x::boot::text("PS2X_CAREER_SCRIPTS");
+        const char *which = zx::boot::text("ZX_CAREER_SCRIPTS");
         if (!which || (std::string(which) != "xbox" && std::string(which) != "ps2"))
             return;
         if (!ps2_xbox_disc::init())
@@ -414,7 +414,7 @@ namespace aggressive_inline::careerscripts
             scripts().xboxData[path] = dataBytes(*bytes);
             scripts().xbox[path] = bytes;
             gf::registerProvider(std::string("ASSETS/LEVELS/") + level.folder + "/", &provide, "careerscripts");
-            ps2x::session::onEnd([]() { gf::removeProviders("careerscripts"); });
+            zx::session::onEnd([]() { gf::removeProviders("careerscripts"); });
             ++count;
             if (std::string(level.folder) == "CIVIC")
             {

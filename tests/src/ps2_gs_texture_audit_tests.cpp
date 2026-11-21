@@ -5,7 +5,7 @@
 
 namespace
 {
-    namespace ga = ps2x::gs_texture_audit;
+    namespace ga = zx::gs_texture_audit;
 }
 
 void register_ps2_gs_texture_audit_tests()

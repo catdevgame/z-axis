@@ -1,5 +1,5 @@
 // Tests for the game-logic comparison tooling: the null GS raster backend
-// (PS2X_GS_NULL) and the VBlank state probe (PS2X_DUMP_WHEN, PS2X_STATE_LOG).
+// (ZX_GS_NULL) and the VBlank state probe (ZX_DUMP_WHEN, ZX_STATE_LOG).
 #include "MiniTest.h"
 #include "runtime/gs/gs_cpu_backend.h"
 #include "runtime/gs/gs_frontend.h"

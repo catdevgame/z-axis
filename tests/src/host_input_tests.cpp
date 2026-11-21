@@ -469,7 +469,7 @@ void register_host_input_tests()
             report = mapper.map(RawHostInput{}, 1.0);
             t.Equals(report.buttons, static_cast<uint16_t>(0), "nothing held, nothing pressed");
             t.Equals(report.sticks[kLx], static_cast<uint8_t>(0x80), "centred");
-            t.Equals(stickByte(-1.0f), static_cast<uint8_t>(1), "stick byte as PS2X_PAD_SCRIPT (-1)");
+            t.Equals(stickByte(-1.0f), static_cast<uint8_t>(1), "stick byte as ZX_PAD_SCRIPT (-1)");
             t.Equals(stickByte(1.0f), static_cast<uint8_t>(255), "stick byte (+1)");
             t.Equals(stickByte(0.0f), static_cast<uint8_t>(0x80), "stick byte (0)");
         });
@@ -830,7 +830,7 @@ void register_host_input_tests()
             t.IsFalse(routePort(1, 2, false).connected, "gamepads off: port 1 is empty");
             t.IsFalse(routePort(2, 2, true).connected, "ports past 1 are empty (no multitap)");
 
-            // PS2X_PAD_PORT1=mirror: the old routing.
+            // ZX_PAD_PORT1=mirror: the old routing.
             p1 = routePort(1, 1, true, true);
             t.IsTrue(p1.connected && p1.mirrorPort0, "mirror: one pad, port 1 copies port 0");
             t.IsTrue(routePort(1, 0, false, true).mirrorPort0, "mirror: gamepads off, port 1 copies port 0");
@@ -878,13 +878,13 @@ void register_host_input_tests()
         tc.Run("pad backend writes the default controls.ini and reports an idle pad; port 1 is empty without a second gamepad", [](TestCase &t)
                {
             const std::filesystem::path path =
-                std::filesystem::temp_directory_path() / ("ps2x-host-input-test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())) / "controls.ini";
+                std::filesystem::temp_directory_path() / ("zx-host-input-test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())) / "controls.ini";
             std::error_code ec;
             std::filesystem::remove(path, ec);
 #if defined(_WIN32)
-            _putenv_s("PS2X_CONTROLS_INI", path.string().c_str());
+            _putenv_s("ZX_CONTROLS_INI", path.string().c_str());
 #else
-            setenv("PS2X_CONTROLS_INI", path.string().c_str(), 1);
+            setenv("ZX_CONTROLS_INI", path.string().c_str(), 1);
 #endif
             PSPadBackend backend;
             uint8_t data[32]{};
@@ -978,7 +978,7 @@ void register_host_input_tests()
                      "DM2: no right stick keys (the rider reads the left one), mouse-look");
             const HostInputConfig bmx = HostInputConfig::defaults(gameControls("bmx").defaultIni);
             t.IsTrue(bmx.mouseCamera == MouseCamera::Stick && bmx.mouseMotion == MouseMotion::None && bmx.recentreKeys.empty(),
-                     "BMX: no mouse camera, so the mouse moves nothing");
+                     "BMX: stick mode with no motion by default, so the mouse moves nothing");
             t.Equals(formatBindings(bmx.buttons[kR3]), std::string("MOUSE_MIDDLE, V"), "BMX: R3 is its camera button");
             t.IsTrue(gameControls("dm2").defaultIni.find("Aggressive") == std::string::npos &&
                          gameControls("bmx").defaultIni.find("skater") == std::string::npos,
@@ -988,12 +988,12 @@ void register_host_input_tests()
         tc.Run("pad backend: a game's controls.ini starts from that game's defaults", [](TestCase &t)
                {
             const std::filesystem::path dir =
-                std::filesystem::temp_directory_path() / ("ps2x-game-controls-test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+                std::filesystem::temp_directory_path() / ("zx-game-controls-test-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
             const std::filesystem::path path = dir / "controls.ini";
 #if defined(_WIN32)
-            _putenv_s("PS2X_CONTROLS_INI", path.string().c_str());
+            _putenv_s("ZX_CONTROLS_INI", path.string().c_str());
 #else
-            setenv("PS2X_CONTROLS_INI", path.string().c_str(), 1);
+            setenv("ZX_CONTROLS_INI", path.string().c_str(), 1);
 #endif
             PSPadBackend::setGame("dm2");
             PSPadBackend backend;

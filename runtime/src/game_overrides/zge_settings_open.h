@@ -1,12 +1,12 @@
 #pragma once
 
-// Settings... (the app menu, Cmd+,; `settings` on PS2X_CONTROL) by the
+// Settings... (the app menu, Cmd+,; `settings` on ZX_CONTROL) by the
 // engine's own path, shared by the games built on the Z-Axis engine
 // (zge_settings_open.cpp). No pad press is made up for the player and no
 // wall clock is waited on: the request is a flag, and the game pauses for
 // it where its own Start pauses.
 //
-// The registry's open handler (ps2x::settings::setOpenHandler, the window
+// The registry's open handler (zx::settings::setOpenHandler, the window
 // thread) only decides, from the game's state in RAM, what the request
 // means now:
 //   not in a level      the notice "Settings: in the game's Options" (or
@@ -25,7 +25,7 @@
 // calls pauseMenuShown, which opens the page in the menu's place
 // (Hooks::openFromPause, the SETTINGS line's own path). Each flag is
 // cleared where it is consumed, by the next pause menu, or with the session
-// (ps2x::session).
+// (zx::session).
 //
 // The gate's runs never ask: nothing here runs unless the host asked.
 

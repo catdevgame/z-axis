@@ -50,7 +50,7 @@ namespace zge
         // destroyed (createPool's third argument), 0: none.
         ee::FunctionPtr<void(uint32_t record)> destroyRecord;
         uint32_t recordBytes;     // +0x28
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4 counts the most records in use at once (createPool zeroes it, poolAlloc raises it to used.count); the
         // fields after it are a word on.
         uint32_t mostInUse;       // BMX +0x2C
@@ -70,7 +70,7 @@ namespace zge
     // poolAlloc raises it to the records in use. ZGE2 and ZGE3 keep no such count, so these do nothing there.
     inline void clearMostInUse(ee::Ptr<Pool> pool)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         pool->mostInUse = 0;
 #else
         (void)pool;
@@ -78,7 +78,7 @@ namespace zge
     }
     inline void noteRecordsInUse(ee::Ptr<Pool> pool)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         const uint32_t inUse = static_cast<uint32_t>(pool->used.count);
         pool->mostInUse = inUse < pool->mostInUse ? pool->mostInUse : inUse;
 #else

@@ -4,7 +4,7 @@
 // that replays here frame for frame.
 //
 // A recording is one boot of one game (the app's "Record Play"
-// setting, or ZAXIS_RECORD=<folder> for any run: <folder>/<game>-<date>.zrec).
+// setting, or ZX_RECORD=<folder> for any run: <folder>/<game>-<date>.zrec).
 // It holds what the game was given that a person or the host decided:
 //   - every value the game's thread read from the host's input (each pad
 //     port's state as the game saw it after the keyboard, mouse, touch and
@@ -21,16 +21,19 @@
 //     proves it is the same game state;
 //   - telemetry on the same vsync clock: each host frame's time, the game,
 //     VIF1, GS and host threads' CPU time, presents, the pacer's drops;
-//   - events: settings changed from the app's menus, the end of the run (a
+//   - events: settings changed from the app's menus, the level the game is
+//     in (the app's, for its list of recordings), the end of the run (a
 //     file without one ended in a crash or a kill).
 // Nothing is shown to the player and nothing is asked of them: moments are
 // found from the telemetry afterwards (tooling/ai/tools/replay.py events).
 //
-// ZAXIS_REPLAY=<file> replays one: the game's thread reads the recorded
+// ZX_REPLAY=<file> replays one: the game's thread reads the recorded
 // values instead of the host's, and the checksums are compared as the replay
 // reaches them ("[replay] state ..." lines, a summary at the end).
-// ZAXIS_REPLAY_STOP=<vsync> stops the run there (a chunk: boot to a moment).
-// Run it unpaced, with the host's input off; replay.py sets it all up.
+// ZX_REPLAY_STOP=<vsync> stops the run there (a chunk: boot to a moment).
+// Run it unpaced, with the host's input off; replay.py sets it all up. The
+// app's Settings > Recordings plays one back in the app the same way, paced,
+// the window's own input live (collection/recordings.h).
 //
 // Off (neither set), every call returns at once and changes nothing.
 //
@@ -44,8 +47,11 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace play_recording
 {
@@ -86,6 +92,10 @@ namespace play_recording
     Mode mode();
     inline bool active() { return mode() != Mode::Off; }
 
+    // This build's commit, as a recording's header has it ("commit="): a
+    // recording replays exactly on the build that made it.
+    const char *buildCommit();
+
     // What a boot is, for the recording's header and its copy of the saves.
     struct BootInfo
     {
@@ -104,7 +114,7 @@ namespace play_recording
     // (the app loads the disc's ELF from memory: no file at its path).
     void noteElfImage(const uint8_t *bytes, size_t size);
     // PS2Runtime::run, before the game's thread starts: opens the recording
-    // (ZAXIS_RECORD) or loads the replay (ZAXIS_REPLAY) of this boot.
+    // (ZX_RECORD) or loads the replay (ZX_REPLAY) of this boot.
     void beginBoot(const BootInfo &info);
     // PS2Runtime::run, when the game has stopped: the end record, the replay's summary.
     void endBoot(const char *why);
@@ -133,7 +143,7 @@ namespace play_recording
     // The EE thread at each vsync (before the guest sees it): checksums,
     // writing out, a replay's stop.
     void onVsync(const uint8_t *rdram, uint64_t tick);
-    // The replay reached ZAXIS_REPLAY_STOP or the recording's end, or a
+    // The replay reached ZX_REPLAY_STOP or the recording's end, or a
     // recording run was sent SIGTERM or SIGINT: the host loop stops the run
     // (PS2Runtime::run), and the file gets its end record.
     bool stopRequested();
@@ -169,12 +179,44 @@ namespace play_recording
         uint64_t inputsMisplaced = 0; // a read that changed the value came at another vsync than recorded
         uint64_t endVsync = 0;        // the recording's last vsync
         bool recordingEnded = false;  // false: the file was cut short (a crash or a kill)
+        uint64_t vsync = 0;           // the vsync the replay is at now
     };
     ReplayResults replayResults();
 
     // Something went wrong in the run (the game's thread stopped on an
     // error): an event at the vsync, for the moments a replay is asked for.
     void noteError(const std::string &text);
+
+    // Something the app knows of the run, for the list of the player's
+    // recordings: an event at the vsync, of `kind` ("level": the level the
+    // game is in now, by its panel file's name; "" none). Recording only.
+    void noteEvent(const std::string &kind, const std::string &text);
+
+    // A recording read without replaying it (the app's list of the player's
+    // recordings): its header's lines, how far it goes, whether it has its
+    // end record, its events and the names of the files it holds. False for
+    // a file that is not a recording.
+    struct Summary
+    {
+        std::vector<std::pair<std::string, std::string>> header; // "key=value" lines, in order
+        uint64_t endVsync = 0; // the end record's vsync, else the last vsync in the file
+        bool ended = false;    // false: cut short (a crash or a kill)
+        struct Event
+        {
+            uint64_t vsync = 0;
+            std::string kind, text;
+        };
+        std::vector<Event> events;
+        std::vector<std::string> files; // "card1/...", "saves/...", "gameplay.ini"
+
+        // The header's value for key ("" none): "game", "started", "commit", "boot.ZX_...".
+        std::string value(const std::string &key) const;
+    };
+    bool summarize(const std::filesystem::path &file, Summary &out);
+    // The files a recording holds (the saves as they were at its boot), by
+    // name, in order. False for a file that is not a recording.
+    bool readFiles(const std::filesystem::path &file,
+                   const std::function<void(const std::string &name, const std::string &bytes)> &each);
 
     // Where the app keeps a game's recordings, and how many are there (the
     // settings' Recordings line).

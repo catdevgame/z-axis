@@ -1091,7 +1091,7 @@ int main()
     const auto uniqueSuffix = std::chrono::steady_clock::now().time_since_epoch().count();
     const std::filesystem::path virtualCdRoot =
         std::filesystem::temp_directory_path() /
-        ("ps2x-iop-cdvd-" + std::to_string(uniqueSuffix));
+        ("zx-iop-cdvd-" + std::to_string(uniqueSuffix));
     std::error_code cdRootError;
     std::filesystem::create_directory(virtualCdRoot, cdRootError);
     if (!expect(!cdRootError, "Could not create the virtual-CD test directory")) return 1;
@@ -1166,6 +1166,6 @@ int main()
                     "Idle cycles given in one go must leave the IOP as the charges one by one")) return 1;
     }
 
-    std::cout << "ps2xIOP emulator smoke tests passed\n";
+    std::cout << "iop emulator smoke tests passed\n";
     return 0;
 }

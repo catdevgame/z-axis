@@ -12,19 +12,26 @@
 #include "collection/game_code.h"
 #include "collection/game_setup.h"
 #include "collection/disc_finder.h"
+#include "collection/extras/panel_maps.h"
 #include "collection/extras/setup.h"
+#include "collection/extras/source_files.h"
 #include "collection/save_transfer.h"
 #include "collection/card_import.h"
 #include "collection/maps.h"
 #include "collection/menu.h"
 #include "collection/mods.h"
 #include "collection/offered.h"
+#if defined(__ANDROID__)
+#include "android_assets.h"
+#endif
+#include "collection/playback.h"
+#include "collection/recordings.h"
 #include "game_overrides.h"
 #include "../game_overrides/dave_mirra.h"
 #include "collection/panel.h"
 #include "runtime/ps2_save_store.h"
 #include "ps2_runtime.h"
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
 #include "ps2_debug_panel.h"
 #endif
 
@@ -80,39 +87,39 @@
 #include <unistd.h>
 #endif
 
-#if defined(PS2X_PGO_GENERATE)
+#if defined(ZX_PGO_GENERATE)
 // Instrumented builds (clang -fprofile-instr-generate): write the profile
 // before std::_Exit, which skips the runtime's own atexit writer.
 extern "C" int __llvm_profile_write_file(void);
 #endif
 
-#ifndef PS2X_APP_NAME
-#error "app.cpp is built only with PS2X_APP_NAME"
+#ifndef ZX_APP_NAME
+#error "app.cpp is built only with ZX_APP_NAME"
 #endif
-#ifndef PS2X_APP_GAME_TITLE
-#define PS2X_APP_GAME_TITLE PS2X_APP_NAME
+#ifndef ZX_APP_GAME_TITLE
+#define ZX_APP_GAME_TITLE ZX_APP_NAME
 #endif
-#ifndef PS2X_APP_ELF_SHA256
-#define PS2X_APP_ELF_SHA256 ""
+#ifndef ZX_APP_ELF_SHA256
+#define ZX_APP_ELF_SHA256 ""
 #endif
-#ifndef PS2X_APP_SAVE_DIR
-#define PS2X_APP_SAVE_DIR ""
+#ifndef ZX_APP_SAVE_DIR
+#define ZX_APP_SAVE_DIR ""
 #endif
 #if defined(_WIN32)
-#define PS2X_APP_BUILD_TOOL "tools\\make-windows.ps1"
+#define ZX_APP_BUILD_TOOL "tools\\make-windows.ps1"
 #else
-#define PS2X_APP_BUILD_TOOL "tools/make-app.sh"
+#define ZX_APP_BUILD_TOOL "tools/make-app.sh"
 #endif
-#ifndef PS2X_APP_VERSION
-#define PS2X_APP_VERSION "dev"
+#ifndef ZX_APP_VERSION
+#define ZX_APP_VERSION "dev"
 #endif
 
-namespace ps2x_app
+namespace zx_app
 {
     // A game the app can run. The single-game build has one, from the
-    // PS2X_APP_* definitions. A build with several (CMake PS2X_APP_GAMES,
-    // ps2x_app_games.h) is a collection named PS2X_APP_NAME: the game comes
-    // from its menu (or --game <id>, PS2X_APP_GAME); each keeps its
+    // ZX_APP_* definitions. A build with several (CMake ZX_APP_GAMES,
+    // zx_app_games.h) is a collection named ZX_APP_NAME: the game comes
+    // from its menu (or --game <id>, ZX_APP_GAME); each keeps its
     // files in <collection support>/games/<id> and its disc in
     // Resources/games/<id>/disc.
     struct GameProfile
@@ -126,22 +133,22 @@ namespace ps2x_app
                                 // data file is not named like the folder (DM2's BASLUS-20159BMX2GAME/BMX2SAVE.DAT)
     };
 }
-#if defined(PS2X_APP_GAMES_HEADER)
-#include PS2X_APP_GAMES_HEADER
+#if defined(ZX_APP_GAMES_HEADER)
+#include ZX_APP_GAMES_HEADER
 #else
-namespace ps2x_app
+namespace zx_app
 {
     constexpr GameProfile kGames[] = {
-        {"", PS2X_APP_NAME, PS2X_APP_GAME_TITLE, PS2X_APP_ELF, PS2X_APP_ELF_SHA256, PS2X_APP_SAVE_DIR},
+        {"", ZX_APP_NAME, ZX_APP_GAME_TITLE, ZX_APP_ELF, ZX_APP_ELF_SHA256, ZX_APP_SAVE_DIR},
     };
 }
 #endif
 
-namespace ps2x_app
+namespace zx_app
 {
     namespace
     {
-        using namespace ps2x::app;
+        using namespace zx::app;
 
         constexpr size_t kGameCount = sizeof(kGames) / sizeof(kGames[0]);
         constexpr bool kCollection = kGameCount > 1 || kGames[0].id[0] != '\0';
@@ -149,7 +156,7 @@ namespace ps2x_app
         // (collection/menu.h) and comes back to it from a game; one of a
         // single game boots it and quits with it, as a single-game app does.
         constexpr bool kMenu = kCollection && kGameCount > 1;
-        // The build's games (kGames, in the order PS2X_APP_GAMES lists them)
+        // The build's games (kGames, in the order ZX_APP_GAMES lists them)
         // in the collection's order (collection/game_order.h: DM2, AI, BMX
         // XXX). The menu's cards and the shell's game numbers, the Games,
         // Mods and Custom Freeplay pages and the Thor's bottom screen all
@@ -159,7 +166,7 @@ namespace ps2x_app
             std::vector<std::string_view> ids;
             for (const GameProfile &game : kGames)
                 ids.push_back(game.id);
-            const std::vector<size_t> order = ps2x::collection::inGameOrder(ids);
+            const std::vector<size_t> order = zx::collection::inGameOrder(ids);
             std::array<GameProfile, kGameCount> out{};
             for (size_t i = 0; i < kGameCount; ++i)
                 out[i] = kGames[order[i]];
@@ -174,16 +181,16 @@ namespace ps2x_app
         const GameProfile *g_game = &kGamesInOrder[0];
 
         // Portable mode's support folder (applyPortableMode), "" when not
-        // portable: PS2X_APP_SUPPORT_DIR unless the environment sets it.
+        // portable: ZX_APP_SUPPORT_DIR unless the environment sets it.
         std::string g_portableSupportDir;
 
         // The app's own lookups: the environment, portable mode's support
-        // folder in place of an unset PS2X_APP_SUPPORT_DIR. What the game
+        // folder in place of an unset ZX_APP_SUPPORT_DIR. What the game
         // is given goes in its BootConfig, not the environment.
         const char *getEnv(const char *name)
         {
             const char *value = std::getenv(name);
-            if ((!value || !value[0]) && !g_portableSupportDir.empty() && std::string(name) == "PS2X_APP_SUPPORT_DIR")
+            if ((!value || !value[0]) && !g_portableSupportDir.empty() && std::string(name) == "ZX_APP_SUPPORT_DIR")
                 return g_portableSupportDir.c_str();
             return value;
         }
@@ -200,7 +207,7 @@ namespace ps2x_app
         void applyRendererSettings(const Settings &settings)
         {
             for (const auto &[name, value] : rendererValues(settings))
-                ps2x::boot::change(name, value);
+                zx::boot::change(name, value);
         }
 
         // Settings::wideAspect as width / height (0: the window's).
@@ -211,19 +218,19 @@ namespace ps2x_app
         }
 
         // The view settings the game override reads (PS2Runtime), unless the
-        // environment sets them (PS2X_ASPECT, PS2X_MOTION_BLUR: the runtime
+        // environment sets them (ZX_ASPECT, ZX_MOTION_BLUR: the runtime
         // read those already). The draw distance came with the boot
-        // (gameBootConfig's PS2X_DRAW_DISTANCE).
+        // (gameBootConfig's ZX_DRAW_DISTANCE).
         void applyViewSettings(const Settings &settings, PS2Runtime &runtime)
         {
-            if (!envSet("PS2X_ASPECT"))
+            if (!envSet("ZX_ASPECT"))
                 runtime.setWideAspect(wideAspectValue(settings.wideAspect));
-            if (!envSet("PS2X_MOTION_BLUR"))
+            if (!envSet("ZX_MOTION_BLUR"))
                 runtime.setMotionBlur(std::clamp(settings.motionBlur, 0, 2));
             // GPU renderer picture quality (runtime/gs/gs_quality.h).
-            for (const ps2x::gs_quality::OptionInfo &q : ps2x::gs_quality::options())
+            for (const zx::gs_quality::OptionInfo &q : zx::gs_quality::options())
                 if (!envSet(q.env))
-                    ps2x::gs_quality::set(q.option, settings.quality[static_cast<size_t>(q.option)]);
+                    zx::gs_quality::set(q.option, settings.quality[static_cast<size_t>(q.option)]);
         }
 
         std::string lowerAscii(std::string text)
@@ -236,7 +243,7 @@ namespace ps2x_app
         std::string logFileStem()
         {
             // The collection with its menu has one log for every game it boots.
-            std::string stem = lowerAscii(kCollection && !kMenu ? g_game->id : PS2X_APP_NAME);
+            std::string stem = lowerAscii(kCollection && !kMenu ? g_game->id : ZX_APP_NAME);
             std::replace(stem.begin(), stem.end(), ' ', '-');
             return stem;
         }
@@ -281,8 +288,63 @@ namespace ps2x_app
             bool vsyncApplied = true;
         };
 
+        // A recording playing back (Settings > Recordings,
+        // collection/recordings.h), for the boot's life: what the window's
+        // input does to it (collection/playback.h) and what it shows. Nothing
+        // of the player's is written while it plays (saveSettingsNow): the
+        // setting changes it replays are the recording's, not the player's.
+        struct Playback
+        {
+            bool active = false;
+            bool paused = false;
+            uint64_t endVsync = 0;
+            bool toldDiffers = false; // the player has been told it no longer plays as recorded
+            std::vector<uint16_t> padHeld; // per gamepad slot
+            zx::collection::HintDevice device = zx::collection::HintDevice::Keyboard;
+            std::chrono::steady_clock::time_point lineUntil{}; // the overlay's line shown until then (and while paused)
+            std::string stripShown; // what the second screen's strip was handed last
+            // ZX_APP_PLAYBACK_SCRIPT (developers, checks): the player's
+            // commands at vsyncs, "pause@600/2.5,leave@1800" (a pause of
+            // 2.5 s of host time), as the keys give them.
+            struct Step
+            {
+                uint64_t vsync = 0;
+                zx::collection::PlaybackCommand command = zx::collection::PlaybackCommand::None;
+                double seconds = 0.0;
+            };
+            std::vector<Step> script;
+            size_t nextStep = 0;
+            std::chrono::steady_clock::time_point resumeAt{};
+        };
+        Playback g_playback;
+
+        std::vector<Playback::Step> playbackScript(const char *spec)
+        {
+            std::vector<Playback::Step> steps;
+            std::stringstream items(spec ? spec : "");
+            for (std::string item; std::getline(items, item, ',');)
+            {
+                Playback::Step step;
+                const size_t at = item.find('@');
+                const std::string verb = item.substr(0, at);
+                step.command = verb == "pause"   ? zx::collection::PlaybackCommand::Pause
+                               : verb == "leave" ? zx::collection::PlaybackCommand::Leave
+                                                 : zx::collection::PlaybackCommand::None;
+                if (at == std::string::npos || step.command == zx::collection::PlaybackCommand::None)
+                {
+                    std::cerr << "[app] ZX_APP_PLAYBACK_SCRIPT: ignoring \"" << item << "\"" << std::endl;
+                    continue;
+                }
+                step.vsync = std::strtoull(item.c_str() + at + 1, nullptr, 10);
+                if (const size_t slash = item.find('/', at); slash != std::string::npos)
+                    step.seconds = std::atof(item.c_str() + slash + 1);
+                steps.push_back(step);
+            }
+            return steps;
+        }
+
         // The game's settings: its file's header, its options and rows
-        // (ps2x::app::GameSettingsProfile).
+        // (zx::app::GameSettingsProfile).
         const GameSettingsProfile *g_profile = nullptr; // set by runApp
 
         bool gameHas(GameOption option)
@@ -295,7 +357,7 @@ namespace ps2x_app
         // 2's created riders need (the game's own answer).
         Installed setupInstalled()
         {
-            Installed installed = findInstalled([](const char *name) { return ps2x::boot::text(name); });
+            Installed installed = findInstalled([](const char *name) { return zx::boot::text(name); });
             installed.set(Need::Dm2ReadableRider, dave_mirra::createPlayerCanRun());
             return installed;
         }
@@ -313,8 +375,23 @@ namespace ps2x_app
             return loadCollectionSettings(g_appSettingsFile, state.paths.settingsFile, settings, warnings);
         }
 
+        // A saves import replaced the settings files (save_transfer.h): the
+        // settings in use are read again from them, so a change made after
+        // it starts from what was imported, and the quit, which keeps the
+        // window's place and full screen, writes nothing over them.
+        bool g_settingsImported = false;
+        void useImportedSettings(AppState &state)
+        {
+            std::vector<std::string> warnings;
+            loadAppSettings(state, state.settings, &warnings);
+            g_settingsImported = true;
+            std::cout << "[app] settings: read again from the files imported" << std::endl;
+        }
+
         void saveSettingsNow(const AppState &state)
         {
+            if (g_playback.active)
+                return;
             if (g_appSettingsFile.empty())
             {
                 if (!writeTextFile(state.paths.settingsFile, formatSettings(state.settings, *g_profile, SettingsScope::All)))
@@ -365,11 +442,11 @@ namespace ps2x_app
 
         // The screenshot key ([hotkeys] screenshot, F12), every game's: the
         // presented picture at the renderer's resolution as a PNG in
-        // PS2X_SCREENSHOT_DIR (Pictures/<app>/<game>), named after the game.
+        // ZX_SCREENSHOT_DIR (Pictures/<app>/<game>), named after the game.
         std::filesystem::path screenshotFile()
         {
             std::filesystem::path dir = "Screenshots";
-            if (const char *env = ps2x::boot::text("PS2X_SCREENSHOT_DIR"); env && env[0])
+            if (const char *env = zx::boot::text("ZX_SCREENSHOT_DIR"); env && env[0])
                 dir = env;
             std::error_code ec;
             std::filesystem::create_directories(dir, ec);
@@ -390,7 +467,7 @@ namespace ps2x_app
                                       {
                                           std::cout << "[app] screenshot " << (ok ? "saved: " : "failed: ") << file.string()
                                                     << std::endl;
-                                          ps2x::settings::notify(ok ? "Screenshot saved" : "Screenshot failed");
+                                          zx::settings::notify(ok ? "Screenshot saved" : "Screenshot failed");
                                       });
         }
 
@@ -403,7 +480,7 @@ namespace ps2x_app
         // the window's pointer to the panel: a press, drag and release are a
         // touch, the wheel a pinch about the pointer. The window keeps its
         // place and size in the settings; its close button turns the setting
-        // off. PS2X_MAP_WINDOW_SHOT=<file.png> writes the picture painted ten
+        // off. ZX_MAP_WINDOW_SHOT=<file.png> writes the picture painted ten
         // seconds after a level is in it, in a headless run too (the painter
         // runs, no window opens).
         bool headlessHost();
@@ -417,12 +494,12 @@ namespace ps2x_app
             std::atomic<bool> capturing{false}; // the game thread takes snapshots
             std::atomic<double> capturedAt{0.0};
             std::unique_ptr<panel::Panel> panel;
-            std::string dataFolder;
+            std::string dataFolder, dataFallback;
             std::vector<uint32_t> pixels = std::vector<uint32_t>(static_cast<size_t>(kWidth) * kHeight, 0u);
             std::chrono::steady_clock::time_point nextPaint{};
             bool open = false;
             bool pointerDown = false;
-            std::string shotFile; // PS2X_MAP_WINDOW_SHOT
+            std::string shotFile; // ZX_MAP_WINDOW_SHOT
             bool shotRead = false;
             bool shotDone = false;
             int levelPaints = 0; // paints with a level in the snapshot
@@ -502,7 +579,7 @@ namespace ps2x_app
             if (!m.shotRead)
             {
                 m.shotRead = true;
-                if (const char *file = std::getenv("PS2X_MAP_WINDOW_SHOT"); file && file[0])
+                if (const char *file = std::getenv("ZX_MAP_WINDOW_SHOT"); file && file[0])
                     m.shotFile = file;
             }
             const bool wanted = state.settings.mapWindow && !headlessHost();
@@ -550,10 +627,12 @@ namespace ps2x_app
                 return;
             if (!m.panel)
                 m.panel = std::make_unique<panel::Panel>();
-            if (const std::string folder = panel::gameFiles(); folder != m.dataFolder)
+            if (const std::string folder = panel::gameFiles(), fallback = panel::gameFilesFallback();
+                folder != m.dataFolder || fallback != m.dataFallback)
             {
                 m.dataFolder = folder;
-                m.panel->setDataFolder(folder);
+                m.dataFallback = fallback;
+                m.panel->setDataFolder(folder, fallback);
             }
             if (m.open)
                 for (const ps2_host::MapPointerEvent &e : ps2_host::takeMapEvents())
@@ -588,13 +667,13 @@ namespace ps2x_app
             }
         }
 
-        // Frame Interpolation: the setting, or ZAXIS_INTERPOLATION=on|off over it.
+        // Frame Interpolation: the setting, or ZX_INTERPOLATION=on|off over it.
         void applyFrameInterpolation(const AppState &state)
         {
-            static const char *const env = std::getenv("ZAXIS_INTERPOLATION");
+            static const char *const env = std::getenv("ZX_INTERPOLATION");
             const bool on = env && env[0] ? (std::strcmp(env, "on") == 0 || std::strcmp(env, "1") == 0)
                                           : state.settings.frameInterpolation;
-            ps2x::gs_interpolate::setEnabled(on);
+            zx::gs_interpolate::setEnabled(on);
         }
 
         // The window's part of a host frame, in the menu and in a game:
@@ -659,6 +738,120 @@ namespace ps2x_app
         uint32_t g_switchGamePresses = 0;
         uint32_t g_screenshotPresses = 0;
 
+        // A playback's part of a host frame (window thread): Pause, Resume
+        // and Leave from the keys, the gamepads and the second screen's
+        // strip; the position on the overlay's line and the strip; the
+        // player told once when the game no longer plays as recorded.
+        void playbackFrame(PS2Runtime &runtime, AppState &state)
+        {
+            namespace col = zx::collection;
+            namespace hi = ps2_host_input;
+            Playback &p = g_playback;
+            const auto now = std::chrono::steady_clock::now();
+            const ps2_host::InputFrame &frame = ps2_host::input();
+            std::vector<int> keys;
+            for (int code = 0; code < hi::kKeyCodeCount; ++code)
+                if (frame.pressed.test(static_cast<size_t>(code)))
+                    keys.push_back(code);
+            uint16_t padPressed = 0;
+            const int pads = ps2_host::gamepadCount();
+            p.padHeld.resize(static_cast<size_t>(std::max(pads, 0)), 0);
+            for (int slot = 0; slot < pads; ++slot)
+            {
+                const hi::GamepadState pad = ps2_host::gamepadState(slot);
+                const uint16_t held = pad.present ? pad.buttons : 0;
+                const uint16_t down = static_cast<uint16_t>(held & ~p.padHeld[static_cast<size_t>(slot)]);
+                p.padHeld[static_cast<size_t>(slot)] = held;
+                if (down == 0)
+                    continue;
+                padPressed = static_cast<uint16_t>(padPressed | down);
+                switch (ps2_host::gamepadStyle(slot))
+                {
+                case ps2_host::GamepadStyle::PlayStation:
+                    p.device = col::HintDevice::PlayStation;
+                    break;
+                case ps2_host::GamepadStyle::Nintendo:
+                    p.device = col::HintDevice::Nintendo;
+                    break;
+                default:
+                    p.device = col::HintDevice::Xbox;
+                    break;
+                }
+            }
+            if (padPressed == 0 && !keys.empty())
+                p.device = col::HintDevice::Keyboard;
+            std::vector<col::PlaybackCommand> commands = {col::playbackCommand(keys, padPressed, p.paused)};
+            {
+                // (a developer's script: its steps as they come, a pause's end by host time)
+                const uint64_t vsync = play_recording::replayResults().vsync;
+                if (p.paused && p.resumeAt != std::chrono::steady_clock::time_point{} && now >= p.resumeAt)
+                {
+                    p.resumeAt = {};
+                    commands.push_back(col::PlaybackCommand::Resume);
+                }
+                while (!p.paused && p.nextStep < p.script.size() && vsync >= p.script[p.nextStep].vsync)
+                {
+                    const Playback::Step &step = p.script[p.nextStep++];
+                    std::cout << "[app] playback script: " << (step.command == col::PlaybackCommand::Pause ? "pause" : "leave")
+                              << " at vsync " << vsync << std::endl;
+                    commands.push_back(step.command);
+                    if (step.command == col::PlaybackCommand::Pause)
+                    {
+                        p.resumeAt = now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                               std::chrono::duration<double>(step.seconds));
+                        break;
+                    }
+                }
+            }
+            for (const col::PlaybackCommand tap : col::PlaybackStrip::shared().takeTaps())
+            {
+                p.device = col::HintDevice::Touch;
+                commands.push_back(tap);
+            }
+            const bool wasPaused = p.paused;
+            for (const col::PlaybackCommand command : commands)
+                switch (command)
+                {
+                case col::PlaybackCommand::Pause:
+                    p.paused = true;
+                    break;
+                case col::PlaybackCommand::Resume:
+                    p.paused = false;
+                    break;
+                case col::PlaybackCommand::Leave:
+                    if (!ps2_host::exitToMenuRequested())
+                        std::cout << "[app] playback: left" << std::endl;
+                    ps2_host::requestExitToMenu();
+                    break;
+                case col::PlaybackCommand::None:
+                    break;
+                }
+            const play_recording::ReplayResults results = play_recording::replayResults();
+            if (p.paused != wasPaused)
+            {
+                runtime.setHostPaused(p.paused || state.pausedForFocus);
+                std::cout << "[app] playback: " << (p.paused ? "paused" : "resumed") << " at vsync " << results.vsync << std::endl;
+                p.lineUntil = now + std::chrono::seconds(3);
+            }
+            if (results.checksumsDiffered > 0 && !p.toldDiffers)
+            {
+                // (a recording made by another version, or something this one does not yet replay)
+                p.toldDiffers = true;
+                std::cout << "[app] playback: the game's state differs from the recording's from vsync "
+                          << results.firstDifferingVsync << std::endl;
+                zx::settings::notify("From here it plays differently than it was recorded.", 6.0);
+                p.lineUntil = now;
+            }
+            else if (p.paused || now < p.lineUntil)
+                zx::settings::notify(col::playbackLine(results.vsync, p.endVsync, p.paused, p.device), 0.5);
+            const std::string position = col::playbackPosition(results.vsync, p.endVsync);
+            if (const std::string strip = position + (p.paused ? "|paused" : ""); strip != p.stripShown)
+            {
+                p.stripShown = strip;
+                col::PlaybackStrip::shared().show(col::StripView{position, p.paused});
+            }
+        }
+
         // Once per host frame on the window thread while a game runs.
         void gameFrame(PS2Runtime &runtime, AppState &state)
         {
@@ -688,10 +881,10 @@ namespace ps2x_app
 
             // The Native Meshes row is the game override's (it switches the
             // renderer's path while the game runs); its value is kept in
-            // settings.ini from here, as the next boot's PS2X_RENDER_PATH.
-            if (ps2x::settings::has("display.native_meshes"))
+            // settings.ini from here, as the next boot's ZX_RENDER_PATH.
+            if (zx::settings::has("display.native_meshes"))
             {
-                const bool nativeMeshes = ps2x::settings::value("display.native_meshes", 1) != 0;
+                const bool nativeMeshes = zx::settings::value("display.native_meshes", 1) != 0;
                 if (nativeMeshes != state.settings.nativeMeshes)
                 {
                     state.settings.nativeMeshes = nativeMeshes;
@@ -703,19 +896,22 @@ namespace ps2x_app
             if (wantPause != state.pausedForFocus)
             {
                 state.pausedForFocus = wantPause;
-                runtime.setHostPaused(wantPause);
+                // (a playback paused by the player stays paused)
+                runtime.setHostPaused(wantPause || g_playback.paused);
                 std::cout << (wantPause ? "[app] paused (window in the background)" : "[app] resumed") << std::endl;
             }
+            if (g_playback.active)
+                playbackFrame(runtime, state);
         }
 
         // The app's own rows (the window, sound), on state.settings: the
         // game's registry has them while a game runs (registerSettings) and
         // the collection's menu shows the same before any game has booted
         // (menuSettingsRows).
-        ps2x::settings::Setting toggleSetting(AppState &state, const char *key, const char *label, bool Settings::*field,
+        zx::settings::Setting toggleSetting(AppState &state, const char *key, const char *label, bool Settings::*field,
                                               const char *help)
         {
-            ps2x::settings::Setting setting;
+            zx::settings::Setting setting;
             setting.key = key;
             setting.label = label;
             setting.help = help;
@@ -730,9 +926,9 @@ namespace ps2x_app
 
         // Offered where the platform has a window to switch (not Android);
         // Borderless where it has one (macOS).
-        ps2x::settings::Setting windowModeSetting(AppState &state)
+        zx::settings::Setting windowModeSetting(AppState &state)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             st::Setting window;
             window.key = "display.window";
             window.label = "Display Mode";
@@ -760,9 +956,9 @@ namespace ps2x_app
             return window;
         }
 
-        ps2x::settings::Setting scalingSetting(AppState &state)
+        zx::settings::Setting scalingSetting(AppState &state)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             st::Setting scaling;
             scaling.key = "display.scaling";
             scaling.label = "Scaling";
@@ -778,29 +974,29 @@ namespace ps2x_app
             return scaling;
         }
 
-        ps2x::settings::Setting vsyncSetting(AppState &state)
+        zx::settings::Setting vsyncSetting(AppState &state)
         {
             return toggleSetting(state, "display.vsync", "VSync", &Settings::vsync, "Off lowers latency but may tear.");
         }
 
-        ps2x::settings::Setting variableRefreshSetting(AppState &state)
+        zx::settings::Setting variableRefreshSetting(AppState &state)
         {
             return toggleSetting(state, "display.variable_refresh", "Variable Refresh", &Settings::variableRefresh,
                                  "For G-Sync and FreeSync displays.");
         }
 
-        ps2x::settings::Setting frameInterpolationSetting(AppState &state)
+        zx::settings::Setting frameInterpolationSetting(AppState &state)
         {
             return toggleSetting(state, "display.frame_interpolation", "Frame Interpolation", &Settings::frameInterpolation,
                                  "Smoother motion on 120 Hz and faster displays.");
         }
 
-        ps2x::settings::Setting showFpsSetting(AppState &state)
+        zx::settings::Setting showFpsSetting(AppState &state)
         {
             return toggleSetting(state, "display.show_fps", "Show Frame Rate", &Settings::showFps, "Frames per second, top right.");
         }
 
-        ps2x::settings::Setting pauseInBackgroundSetting(AppState &state)
+        zx::settings::Setting pauseInBackgroundSetting(AppState &state)
         {
             return toggleSetting(state, "display.pause_in_background", "Pause in Background", &Settings::pauseOnFocusLoss,
                                  "Pauses when you switch away.");
@@ -808,17 +1004,17 @@ namespace ps2x_app
 
         // Play recordings (runtime/play_recording.h): off by default; the
         // Recordings line says where they are and how many.
-        ps2x::settings::Setting recordPlaySetting(AppState &state)
+        zx::settings::Setting recordPlaySetting(AppState &state)
         {
-            ps2x::settings::Setting record = toggleSetting(state, "game.record_play", "Record Play", &Settings::recordPlay,
+            zx::settings::Setting record = toggleSetting(state, "game.record_play", "Record Play", &Settings::recordPlay,
                                                            "Saves your inputs for a replay.");
             record.restart = true;
             return record;
         }
 
-        ps2x::settings::Setting recordingsSetting(AppState &state)
+        zx::settings::Setting recordingsSetting(AppState &state)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             const std::filesystem::path folder = play_recording::folderFor(state.paths.supportDir);
             struct Count
             {
@@ -844,13 +1040,13 @@ namespace ps2x_app
                 return std::to_string(count->files) + (count->files == 1 ? " file" : " files");
             };
             where.activate = [folder]()
-            { ps2x::settings::notify("Recordings: " + folder.string(), 6.0); };
+            { zx::settings::notify("Recordings: " + folder.string(), 6.0); };
             return where;
         }
 
-        ps2x::settings::Setting volumeSetting(AppState &state)
+        zx::settings::Setting volumeSetting(AppState &state)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             st::Setting volume;
             volume.key = "audio.volume";
             volume.label = "Master Volume";
@@ -869,13 +1065,13 @@ namespace ps2x_app
             return volume;
         }
 
-        ps2x::settings::Setting muteInBackgroundSetting(AppState &state)
+        zx::settings::Setting muteInBackgroundSetting(AppState &state)
         {
             return toggleSetting(state, "audio.mute_in_background", "Mute in Background", &Settings::muteOnFocusLoss,
                                  "Mutes when you switch away.");
         }
 
-        ps2x::settings::Setting mapWindowSetting(AppState &state)
+        zx::settings::Setting mapWindowSetting(AppState &state)
         {
             return toggleSetting(state, "display.map_window", "Map Window", &Settings::mapWindow,
                                  "The map, goals and tricks in a second window.");
@@ -883,7 +1079,7 @@ namespace ps2x_app
 
         // Custom Freeplay (collection/maps.h): the menu's fourth tile. Off by
         // default: the menu as it was, no boot given a map.
-        ps2x::settings::Setting customFreeplaySetting(AppState &state)
+        zx::settings::Setting customFreeplaySetting(AppState &state)
         {
             return toggleSetting(state, "game.custom_freeplay", "Custom Freeplay", &Settings::customFreeplay,
                                  "Adds a tile for custom maps.");
@@ -891,9 +1087,9 @@ namespace ps2x_app
 
         // The collection's menu ([menu], collection/menu_scene.h): what plays
         // at launch, and the shown game's music under the menu.
-        ps2x::settings::Setting introMovieSetting(AppState &state)
+        zx::settings::Setting introMovieSetting(AppState &state)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             st::Setting intro;
             intro.key = "menu.intro_movie";
             intro.label = "Intro Movie";
@@ -909,7 +1105,7 @@ namespace ps2x_app
             return intro;
         }
 
-        ps2x::settings::Setting menuMusicSetting(AppState &state)
+        zx::settings::Setting menuMusicSetting(AppState &state)
         {
             return toggleSetting(state, "menu.menu_music", "Menu Music", &Settings::menuMusic, "Each game's own music under its card.");
         }
@@ -917,15 +1113,15 @@ namespace ps2x_app
         // The collection menu's settings page: the app's rows above, as the
         // page draws and changes them (a Setting's kind, choices, range, help
         // and functions, one to one).
-        std::vector<ps2x::collection::SettingsRow> menuSettingsRows(AppState &state)
+        std::vector<zx::collection::SettingsRow> menuSettingsRows(AppState &state)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             auto row = [](const st::Setting &setting)
             {
-                ps2x::collection::SettingsRow out;
-                out.kind = setting.kind == st::Kind::Choice ? ps2x::collection::SettingsRow::Choice
-                           : setting.kind == st::Kind::Range ? ps2x::collection::SettingsRow::Range
-                                                             : ps2x::collection::SettingsRow::Toggle;
+                zx::collection::SettingsRow out;
+                out.kind = setting.kind == st::Kind::Choice ? zx::collection::SettingsRow::Choice
+                           : setting.kind == st::Kind::Range ? zx::collection::SettingsRow::Range
+                                                             : zx::collection::SettingsRow::Toggle;
                 out.label = setting.label;
                 out.choices = setting.choices;
                 out.minValue = setting.minValue;
@@ -941,7 +1137,7 @@ namespace ps2x_app
                 return out;
             };
             const Installed platform = platformInstalled();
-            std::vector<ps2x::collection::SettingsRow> rows;
+            std::vector<zx::collection::SettingsRow> rows;
             if (offered(Need::WindowModes, platform))
                 rows.push_back(row(windowModeSetting(state)));
             for (const st::Setting &setting :
@@ -959,11 +1155,11 @@ namespace ps2x_app
         // The settings.ini settings in the shared settings model
         // (runtime/ps2_settings.h): the game's Settings screen and the menu
         // bar both change them through here. Rows of the game's session
-        // (ps2x::session::addSetting): they refer to its runtime and its
+        // (zx::session::addSetting): they refer to its runtime and its
         // options, and go when the game is left.
         void registerSettings(AppState &state, PS2Runtime &runtime)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             auto toggle = [&state](const char *key, const char *label, bool Settings::*field, const char *help)
             { return toggleSetting(state, key, label, field, help); };
             // A row shows only where it does something for this setup.
@@ -971,7 +1167,7 @@ namespace ps2x_app
             auto offers = [&installed](GameOption option) { return g_profile && offered(*g_profile, option, installed); };
 
             if (offered(Need::WindowModes, installed))
-                ps2x::session::addSetting(windowModeSetting(state));
+                zx::session::addSetting(windowModeSetting(state));
 
             st::Setting renderer;
             renderer.key = "display.renderer";
@@ -987,7 +1183,7 @@ namespace ps2x_app
                 runtime.requestRasterBackendReload();
                 saveSettingsNow(state);
             };
-            ps2x::session::addSetting(renderer);
+            zx::session::addSetting(renderer);
 
             st::Setting resolution;
             resolution.key = "display.resolution";
@@ -1004,7 +1200,7 @@ namespace ps2x_app
                     runtime.requestRasterBackendReload();
                 saveSettingsNow(state);
             };
-            ps2x::session::addSetting(resolution);
+            zx::session::addSetting(resolution);
 
             st::Setting fullHeight = toggle("display.full_height", "Full Height", &Settings::fullHeight,
                                             "A sharper picture.");
@@ -1016,7 +1212,7 @@ namespace ps2x_app
                     runtime.requestRasterBackendReload();
                 saveSettingsNow(state);
             };
-            ps2x::session::addSetting(fullHeight);
+            zx::session::addSetting(fullHeight);
 
             st::Setting widescreen = toggle("display.widescreen", "Widescreen", &Settings::widescreen,
                                             "16:9 in levels, 4:3 menus and movies. "
@@ -1029,7 +1225,7 @@ namespace ps2x_app
                 saveSettingsNow(state);
             };
             if (offers(GameOption::Widescreen))
-                ps2x::session::addSetting(widescreen);
+                zx::session::addSetting(widescreen);
 
             st::Setting aspect;
             aspect.key = "display.aspect";
@@ -1041,12 +1237,12 @@ namespace ps2x_app
             aspect.apply = [&state, &runtime](int value)
             {
                 state.settings.wideAspect = std::clamp(value, 0, 4);
-                if (!envSet("PS2X_ASPECT"))
+                if (!envSet("ZX_ASPECT"))
                     runtime.setWideAspect(wideAspectValue(state.settings.wideAspect));
                 saveSettingsNow(state);
             };
             if (offers(GameOption::Widescreen))
-                ps2x::session::addSetting(aspect);
+                zx::session::addSetting(aspect);
 
             st::Setting blur;
             blur.key = "display.motion_blur";
@@ -1058,12 +1254,12 @@ namespace ps2x_app
             blur.apply = [&state, &runtime](int value)
             {
                 state.settings.motionBlur = std::clamp(value, 0, 2);
-                if (!envSet("PS2X_MOTION_BLUR"))
+                if (!envSet("ZX_MOTION_BLUR"))
                     runtime.setMotionBlur(state.settings.motionBlur);
                 saveSettingsNow(state);
             };
             if (offers(GameOption::MotionBlur))
-                ps2x::session::addSetting(blur);
+                zx::session::addSetting(blur);
 
             st::Setting distance;
             distance.key = "display.draw_distance";
@@ -1082,13 +1278,13 @@ namespace ps2x_app
                 saveSettingsNow(state);
             };
             if (offers(GameOption::DrawDistance))
-                ps2x::session::addSetting(distance);
+                zx::session::addSetting(distance);
 
             // Picture quality beyond the PS2 (GPU renderer): anti-aliasing,
             // texture filtering, fog, shadows, depth precision, perspective.
             // Session rows like the others, so the next game booted gets
             // them here again, not before Display Mode.
-            ps2x::gs_quality::addSettings([&state](ps2x::gs_quality::Option option, int value)
+            zx::gs_quality::addSettings([&state](zx::gs_quality::Option option, int value)
                                           {
                                               state.settings.quality[static_cast<size_t>(option)] = value;
                                               saveSettingsNow(state);
@@ -1096,26 +1292,26 @@ namespace ps2x_app
                                           true);
 
             // Only with the Xbox pack made from the player's Xbox disc
-            // (PS2X_XBOX_PACK, set above).
+            // (ZX_XBOX_PACK, set above).
             if (offered(Need::XboxTextures, installed))
             {
                 st::Setting xboxTextures = toggle("display.xbox_textures", "Xbox Textures", &Settings::xboxTextures,
                                                   "Sharper Xbox textures.");
-                xboxTextures.current = []() { return ps2x::texture_replace::enabled() ? 1 : 0; };
+                xboxTextures.current = []() { return zx::texture_replace::enabled() ? 1 : 0; };
                 xboxTextures.apply = [&state](int value)
                 {
                     state.settings.xboxTextures = value != 0;
-                    ps2x::texture_replace::setEnabled(state.settings.xboxTextures);
+                    zx::texture_replace::setEnabled(state.settings.xboxTextures);
                     saveSettingsNow(state);
                 };
-                ps2x::session::addSetting(xboxTextures);
+                zx::session::addSetting(xboxTextures);
             }
             if (offered(Need::XboxSkaters, installed))
             {
                 // Read when a skater is loaded (game_overrides/aggressive_inline_disc.cpp).
                 st::Setting xboxSkaters = toggle("display.xbox_skaters", "Xbox Skaters", &Settings::xboxSkaters,
                                                  "More detailed skaters, from the next level.");
-                ps2x::session::addSetting(xboxSkaters);
+                zx::session::addSetting(xboxSkaters);
             }
             if (offered(Need::XboxMovies, installed))
             {
@@ -1126,33 +1322,33 @@ namespace ps2x_app
                     state.settings.xboxMovies = value != 0; // the movie player reads the row at each movie
                     saveSettingsNow(state);
                 };
-                ps2x::session::addSetting(xboxMovies);
+                zx::session::addSetting(xboxMovies);
             }
 
             // Texture packs' dump mode: for making a pack (SETTINGS.md "Texture packs").
             st::Setting textureDump = toggle("display.texture_dump", "Dump Textures", &Settings::textureDump,
                                              "Save textures to Texture Dumps, for texture packs.");
             textureDump.restart = true;
-            ps2x::session::addSetting(textureDump);
+            zx::session::addSetting(textureDump);
 
-            ps2x::session::addSetting(scalingSetting(state));
-            ps2x::session::addSetting(vsyncSetting(state));
-            ps2x::session::addSetting(variableRefreshSetting(state));
-            ps2x::session::addSetting(frameInterpolationSetting(state));
-            ps2x::session::addSetting(showFpsSetting(state));
-            ps2x::session::addSetting(pauseInBackgroundSetting(state));
+            zx::session::addSetting(scalingSetting(state));
+            zx::session::addSetting(vsyncSetting(state));
+            zx::session::addSetting(variableRefreshSetting(state));
+            zx::session::addSetting(frameInterpolationSetting(state));
+            zx::session::addSetting(showFpsSetting(state));
+            zx::session::addSetting(pauseInBackgroundSetting(state));
             if (offered(Need::SecondWindow, installed))
-                ps2x::session::addSetting(mapWindowSetting(state));
-            ps2x::session::addSetting(recordPlaySetting(state));
-            ps2x::session::addSetting(recordingsSetting(state));
+                zx::session::addSetting(mapWindowSetting(state));
+            zx::session::addSetting(recordPlaySetting(state));
+            zx::session::addSetting(recordingsSetting(state));
             if (kMenu)
-                ps2x::session::addSetting(customFreeplaySetting(state));
+                zx::session::addSetting(customFreeplaySetting(state));
             const st::Setting volume = volumeSetting(state);
-            ps2x::session::addSetting(volume);
-            ps2x::session::addSetting(muteInBackgroundSetting(state));
+            zx::session::addSetting(volume);
+            zx::session::addSetting(muteInBackgroundSetting(state));
 
             // Movies have no volume of their own in the game.
-            ps2x::audio_mix::setGain(state.settings.movieVolume / 100.0f);
+            zx::audio_mix::setGain(state.settings.movieVolume / 100.0f);
             st::Setting movie = volume;
             movie.key = "audio.movie_volume";
             movie.label = "Movie Volume";
@@ -1161,17 +1357,17 @@ namespace ps2x_app
             movie.apply = [&state](int value)
             {
                 state.settings.movieVolume = std::clamp(value, 0, 100);
-                ps2x::audio_mix::setGain(state.settings.movieVolume / 100.0f);
+                zx::audio_mix::setGain(state.settings.movieVolume / 100.0f);
                 saveSettingsNow(state);
             };
             if (offers(GameOption::MovieVolume))
-                ps2x::session::addSetting(movie);
+                zx::session::addSetting(movie);
 
             st::Setting intro = toggle("game.skip_intro_movies", "Skip Intro Movies", &Settings::skipIntroMovies,
                                        "Start at the title screen.");
             intro.restart = true;
             if (offers(GameOption::SkipIntroMovies))
-                ps2x::session::addSetting(intro);
+                zx::session::addSetting(intro);
 
             // Language and French voices: AI's with its Xbox release's files
             // (the US disc's own other string tables only hold the memory
@@ -1195,7 +1391,7 @@ namespace ps2x_app
                     state.settings.frenchVoices = -1;
                     saveSettingsNow(state);
                 };
-                ps2x::session::addSetting(language);
+                zx::session::addSetting(language);
             }
             if (offers(GameOption::FrenchVoices))
             {
@@ -1212,27 +1408,27 @@ namespace ps2x_app
                     state.settings.frenchVoices = value != 0 ? 1 : 0;
                     saveSettingsNow(state);
                 };
-                ps2x::session::addSetting(voices);
+                zx::session::addSetting(voices);
             }
 
             st::Setting developer = toggle("game.developer_menu", "Developer Menu", &Settings::developerMenu,
                                            "Press F1 in a level.");
             developer.restart = true;
             if (offers(GameOption::DeveloperMenu))
-                ps2x::session::addSetting(developer);
+                zx::session::addSetting(developer);
 
             st::Setting zoo = toggle("game.zoo", "Zoo Level", &Settings::zoo,
                                      "The cut level, in Free Skate and Timed Run.");
             zoo.restart = true;
             if (offers(GameOption::Zoo))
-                ps2x::session::addSetting(zoo);
+                zx::session::addSetting(zoo);
             // With the Estate made from the GameCube disc.
             if (offers(GameOption::Estate))
             {
                 st::Setting estate = toggle("game.estate", "Estate Level", &Settings::estate,
                                             "An early Tutorial, in Free Skate.");
                 estate.restart = true;
-                ps2x::session::addSetting(estate);
+                zx::session::addSetting(estate);
             }
             // Dave Mirra BMX 2: with what its Xbox disc gave.
             if (offers(GameOption::Dm2XboxLevels))
@@ -1240,21 +1436,21 @@ namespace ps2x_app
                 st::Setting xbox = toggle("game.dm2_xbox_levels", "Xbox Levels", &Settings::dm2XboxLevels,
                                           "Venice and Greenville, with their goals.");
                 xbox.restart = true;
-                ps2x::session::addSetting(xbox);
+                zx::session::addSetting(xbox);
             }
             if (offers(GameOption::Dm2XboxThemes))
             {
                 st::Setting themes = toggle("game.xbox_themes", "Desert and Highway Themes", &Settings::dm2XboxThemes,
                                             "Two unused park editor themes.");
                 themes.restart = true;
-                ps2x::session::addSetting(themes);
+                zx::session::addSetting(themes);
             }
             if (offers(GameOption::Dm2RetroMovie))
             {
                 st::Setting retro = toggle("game.retro_movie", "Retro Movie", &Settings::dm2RetroMovie,
                                            "Adds Retro to the movie gallery.");
                 retro.restart = true;
-                ps2x::session::addSetting(retro);
+                zx::session::addSetting(retro);
             }
             // DM2: the attract demo at the title screen (the Xbox's and GameCube's).
             if (offers(GameOption::Dm2AttractDemo))
@@ -1262,7 +1458,7 @@ namespace ps2x_app
                 st::Setting demo = toggle("game.attract_demo", "Attract Demo", &Settings::dm2AttractDemo,
                                           "Replays play at an idle title screen.");
                 demo.restart = true;
-                ps2x::session::addSetting(demo);
+                zx::session::addSetting(demo);
             }
             // DM2: its cut Create Player menu, from the main menu (with the
             // readable newRider, which makes a created rider's model).
@@ -1271,7 +1467,7 @@ namespace ps2x_app
                 st::Setting create = toggle("game.create_player", "Create Rider", &Settings::dm2CreatePlayer,
                                             "Adds CREATE RIDER to the main menu.");
                 create.restart = true;
-                ps2x::session::addSetting(create);
+                zx::session::addSetting(create);
             }
             // BMX XXX: its park editor, from the main menu.
             if (offers(GameOption::BmxParkEditor))
@@ -1279,7 +1475,7 @@ namespace ps2x_app
                 st::Setting park = toggle("game.park_editor", "Park Editor", &Settings::bmxParkEditor,
                                           "Adds PARK EDITOR to the main menu.");
                 park.restart = true;
-                ps2x::session::addSetting(park);
+                zx::session::addSetting(park);
             }
             // BMX XXX: its Xbox and GameCube releases' content, each with the
             // disc that gave it (the intro movie is the PS2 disc's own).
@@ -1288,56 +1484,98 @@ namespace ps2x_app
                 st::Setting challenges = toggle("game.xbox_challenges", "Xbox Challenges", &Settings::bmxXboxChallenges,
                                                 "Fixed challenges in four levels.");
                 challenges.restart = true;
-                ps2x::session::addSetting(challenges);
+                zx::session::addSetting(challenges);
             }
             if (offers(GameOption::BmxEditorPieces))
             {
                 st::Setting pieces = toggle("game.editor_pieces", "Pool and Trash Can Pieces", &Settings::bmxEditorPieces,
                                             "Two more pieces, kept for parks using them.");
                 pieces.restart = true;
-                ps2x::session::addSetting(pieces);
+                zx::session::addSetting(pieces);
             }
             if (offers(GameOption::BmxLevelPreviews))
             {
                 st::Setting previews = toggle("game.level_previews", "Level Previews", &Settings::bmxLevelPreviews,
                                               "Preview movies in the level select.");
                 previews.restart = true;
-                ps2x::session::addSetting(previews);
+                zx::session::addSetting(previews);
             }
             if (offers(GameOption::BmxLogoMovie))
             {
                 st::Setting logo = toggle("game.logo_movie", "Z-Axis Logo Movie", &Settings::bmxLogoMovie,
                                           "Adds it to the movie gallery.");
                 logo.restart = true;
-                ps2x::session::addSetting(logo);
+                zx::session::addSetting(logo);
             }
             if (offers(GameOption::BmxGcLevels))
             {
                 st::Setting levels = toggle("game.gc_levels", "GameCube Levels", &Settings::bmxGcLevels,
                                             "The Secret Level and three test levels.");
                 levels.restart = true;
-                ps2x::session::addSetting(levels);
+                zx::session::addSetting(levels);
+            }
+            if (offers(GameOption::BmxLogoSplash))
+            {
+                st::Setting splash = toggle("game.logo_splash", "Z-Axis Logo at Start", &Settings::bmxLogoSplash,
+                                            "The GameCube's logo movie at start.");
+                splash.restart = true;
+                zx::session::addSetting(splash);
+            }
+            if (offers(GameOption::BmxTrailers))
+            {
+                st::Setting trailers = toggle("game.trailers", "Turok and Vexx Trailers", &Settings::bmxTrailers,
+                                              "The Xbox's two trailers in Extras.");
+                trailers.restart = true;
+                zx::session::addSetting(trailers);
+            }
+            if (offers(GameOption::BmxCarTextures))
+            {
+                st::Setting car = toggle("game.car_textures", "Create-a-Rider Extras", &Settings::bmxCarTextures,
+                                         "The other releases' hats, tops and more.");
+                car.restart = true;
+                zx::session::addSetting(car);
+            }
+            if (offers(GameOption::BmxGreenSkin))
+            {
+                st::Setting green = toggle("game.green_skin", "Green Skin", &Settings::bmxGreenSkin,
+                                           "Green skins in create-a-rider.");
+                green.restart = true;
+                zx::session::addSetting(green);
+            }
+            if (offers(GameOption::BmxTopless))
+            {
+                st::Setting topless = toggle("game.topless_girl", "Topless Girl", &Settings::bmxTopless,
+                                             "The topless top in create-a-rider.");
+                topless.restart = true;
+                zx::session::addSetting(topless);
+            }
+            if (offers(GameOption::BmxXboxSongs))
+            {
+                st::Setting songs = toggle("game.xbox_songs", "Xbox Songs", &Settings::bmxXboxSongs,
+                                           "Eight unused songs in the soundtrack.");
+                songs.restart = true;
+                zx::session::addSetting(songs);
             }
             if (offers(GameOption::BmxMenuLines))
             {
                 st::Setting lines = toggle("game.menu_lines", "Unused Menu Lines", &Settings::bmxMenuLines,
                                            "Hidden lines back in the game's menus.");
                 lines.restart = true;
-                ps2x::session::addSetting(lines);
+                zx::session::addSetting(lines);
             }
             if (offers(GameOption::BmxAllMpModes))
             {
                 st::Setting modes = toggle("game.all_mp_modes", "All Multiplayer Modes", &Settings::bmxAllMpModes,
                                            "Every mode that works, in SELECT GAME.");
                 modes.restart = true;
-                ps2x::session::addSetting(modes);
+                zx::session::addSetting(modes);
             }
             if (offers(GameOption::BmxIntroMovie))
             {
                 st::Setting introMovie = toggle("game.intro_movie", "Intro Movie", &Settings::bmxIntroMovie,
                                                 "Plays the intro movie at start.");
                 introMovie.restart = true;
-                ps2x::session::addSetting(introMovie);
+                zx::session::addSetting(introMovie);
             }
             if (offers(GameOption::ZooUnlock))
             {
@@ -1354,7 +1592,7 @@ namespace ps2x_app
                     state.settings.zooUnlock = std::clamp(value, 0, 1);
                     saveSettingsNow(state);
                 };
-                ps2x::session::addSetting(unlock);
+                zx::session::addSetting(unlock);
             }
 
             if (offers(GameOption::Tuning))
@@ -1373,7 +1611,7 @@ namespace ps2x_app
                     state.settings.tuning = std::clamp(value, 0, 1);
                     saveSettingsNow(state);
                 };
-                ps2x::session::addSetting(tuning);
+                zx::session::addSetting(tuning);
             }
             if (offers(GameOption::CareerScripts))
             {
@@ -1390,40 +1628,40 @@ namespace ps2x_app
                     state.settings.careerScripts = std::clamp(value, 0, 1);
                     saveSettingsNow(state);
                 };
-                ps2x::session::addSetting(scripts);
+                zx::session::addSetting(scripts);
             }
 
             st::Setting ape = toggle("game.ape", "Ape Skater", &Settings::ape,
                                      "Unlocked with the Mummy.");
             ape.restart = true;
             if (offers(GameOption::Ape))
-                ps2x::session::addSetting(ape);
+                zx::session::addSetting(ape);
 
             st::Setting freeSkate = toggle("game.xbox_free_skate", "Xbox Free Skate", &Settings::xboxFreeSkate,
                                            "Doors and rides in Boardwalk and Cannery.");
             freeSkate.restart = true;
             if (offers(GameOption::XboxFreeSkate))
-                ps2x::session::addSetting(freeSkate);
+                zx::session::addSetting(freeSkate);
         }
 
-        // Native save files (the game override) unless PS2X_SAVES=card.
+        // Native save files (the game override) unless ZX_SAVES=card.
         bool nativeSaves()
         {
-            const char *mode = ps2x::boot::text("PS2X_SAVES");
+            const char *mode = zx::boot::text("ZX_SAVES");
             return !(mode && std::string(mode) == "card");
         }
 
         // The native save file the game override uses for this profile.
         std::filesystem::path nativeSaveFile()
         {
-            const char *dir = ps2x::boot::text("PS2X_SAVES_DIR");
-            const char *profile = ps2x::boot::text("PS2X_SAVE_PROFILE");
+            const char *dir = zx::boot::text("ZX_SAVES_DIR");
+            const char *profile = zx::boot::text("ZX_SAVE_PROFILE");
             return std::filesystem::path(dir ? dir : "") /
-                   (ps2x::saves::safeFileName(profile ? profile : "", "Career") + ".sav");
+                   (zx::saves::safeFileName(profile ? profile : "", "Career") + ".sav");
         }
 
         // Offers once to copy the game's save from a PCSX2 card: into the
-        // native save file, or into card slot 1 with PS2X_SAVES=card.
+        // native save file, or into card slot 1 with ZX_SAVES=card.
         void offerPcsx2Import(AppState &state)
         {
             const std::string saveEntry = g_game->saveDir;
@@ -1445,8 +1683,8 @@ namespace ps2x_app
                               : importCardSave(card, saveDir, state.paths.memcardSlot1, overwrite, &error);
             };
 
-            // PS2X_APP_IMPORT_CARD=<card.ps2>: import without asking (automation).
-            if (const char *card = std::getenv("PS2X_APP_IMPORT_CARD"); card && card[0])
+            // ZX_APP_IMPORT_CARD=<card.ps2>: import without asking (automation).
+            if (const char *card = std::getenv("ZX_APP_IMPORT_CARD"); card && card[0])
             {
                 std::string error;
                 const bool ok = import(card, true, error);
@@ -1488,15 +1726,15 @@ namespace ps2x_app
 
         // Portable mode: a portable.txt next to the app keeps settings,
         // saves, mods, logs and screenshots in "<app> Data" beside it
-        // instead of the user's folders (unless PS2X_APP_SUPPORT_DIR says).
+        // instead of the user's folders (unless ZX_APP_SUPPORT_DIR says).
         void applyPortableMode(const char *argv0)
         {
-            if (envSet("PS2X_APP_SUPPORT_DIR"))
+            if (envSet("ZX_APP_SUPPORT_DIR"))
                 return;
             const std::filesystem::path folder = appFolder(argv0);
             std::error_code ec;
             if (!folder.empty() && std::filesystem::is_regular_file(folder / "portable.txt", ec))
-                g_portableSupportDir = (folder / (std::string(PS2X_APP_NAME) + " Data")).string();
+                g_portableSupportDir = (folder / (std::string(ZX_APP_NAME) + " Data")).string();
         }
 
         // Screenshots: Pictures/<app> in the user's home, or Screenshots in
@@ -1504,7 +1742,7 @@ namespace ps2x_app
         // automated runs).
         std::filesystem::path screenshotFolder(const AppPaths &paths)
         {
-            if (envSet("PS2X_APP_SUPPORT_DIR"))
+            if (envSet("ZX_APP_SUPPORT_DIR"))
                 return paths.supportDir / "Screenshots";
 #if defined(_WIN32)
             const char *home = getEnv("USERPROFILE");
@@ -1514,8 +1752,8 @@ namespace ps2x_app
             if (!home || !home[0])
                 return paths.supportDir / "Screenshots";
             if (kCollection)
-                return std::filesystem::path(home) / "Pictures" / PS2X_APP_NAME / g_game->name;
-            return std::filesystem::path(home) / "Pictures" / PS2X_APP_NAME;
+                return std::filesystem::path(home) / "Pictures" / ZX_APP_NAME / g_game->name;
+            return std::filesystem::path(home) / "Pictures" / ZX_APP_NAME;
         }
 
         // The game's code: linked into the app (a workshop build), else the module made from this disc on this
@@ -1524,16 +1762,16 @@ namespace ps2x_app
         bool ensureGameCode(const AppState &state, const GameProfile &game, const std::filesystem::path &discDir,
                             const DiscCheck &disc, const std::filesystem::path &toolsFolder, std::string &error)
         {
-            if (ps2x::game_module::hasCodeFor(disc.bootElf))
+            if (zx::game_module::hasCodeFor(disc.bootElf))
                 return true;
-            ps2x::app::GameCodeTools tools;
+            zx::app::GameCodeTools tools;
             if (!tools.open(toolsFolder, &error))
                 return false;
-            ps2x::app::GameCodeRequest request;
+            zx::app::GameCodeRequest request;
             request.elf = discDir / disc.bootElf;
-            request.id = ps2x::app::gameCodeGame(tools, game.id, request.elf);
-            request.cache = ps2x::app::gameCodeCache(state.paths.supportDir);
-            const std::filesystem::path file = ps2x::app::gameCodeFile(tools, request);
+            request.id = zx::app::gameCodeGame(tools, game.id, request.elf);
+            request.cache = zx::app::gameCodeCache(state.paths.supportDir);
+            const std::filesystem::path file = zx::app::gameCodeFile(tools, request);
             std::error_code ec;
             if (!std::filesystem::exists(file, ec))
             {
@@ -1541,7 +1779,7 @@ namespace ps2x_app
                 std::cout << "[app] game code: making " << file.string() << " from " << request.elf.string() << std::endl;
                 const auto t0 = std::chrono::steady_clock::now();
                 std::string last;
-                const bool made = ps2x::app::makeGameCode(tools, request, [&last](const ps2x::app::GameCodeProgress &p)
+                const bool made = zx::app::makeGameCode(tools, request, [&last](const zx::app::GameCodeProgress &p)
                 {
                     const std::string line = std::string(p.step) + " " + std::to_string(p.total ? p.done * 100 / p.total : 0) + "%";
                     if (line != last && (p.done == 0 || p.done == p.total || p.done % 50 == 0))
@@ -1554,7 +1792,7 @@ namespace ps2x_app
                 std::cout << "[app] game code: made in " << std::chrono::duration_cast<std::chrono::seconds>(
                                  std::chrono::steady_clock::now() - t0).count() << " s" << std::endl;
             }
-            if (!ps2x::game_module::load(file.string(), error))
+            if (!zx::game_module::load(file.string(), error))
                 return false;
             std::cout << "[app] game code: " << file.string() << std::endl;
             return true;
@@ -1586,13 +1824,13 @@ namespace ps2x_app
             return {kCollection ? game.id : "game", game.title, game.elf, game.elfSha256};
         }
 
-        // The game's files: PS2X_APP_DISC_DIR, else those set up from the
+        // The game's files: ZX_APP_DISC_DIR, else those set up from the
         // player's disc (<game folder>/disc), else those bundled with the
         // app when it was built (tools/make-app.sh: Resources/disc, or
         // Resources/games/<id>/disc in a collection).
         std::filesystem::path discFolder(const char *argv0, const GameProfile &game)
         {
-            if (const char *forced = std::getenv("PS2X_APP_DISC_DIR"); forced && forced[0])
+            if (const char *forced = std::getenv("ZX_APP_DISC_DIR"); forced && forced[0])
                 return forced;
             std::error_code ec;
             if (!g_supportRoot.empty())
@@ -1615,7 +1853,7 @@ namespace ps2x_app
         if (argc < 2 || !argv[1] || argv[1][0] == '\0')
             return true;
         const std::string arg = argv[1];
-        if (kCollection && arg == "--game")
+        if (kCollection && (arg == "--game" || arg == "--play"))
             return true;
         // The setup from the command line (setupCommand), and a game's code made as the first run makes it
         // (makeGameCodeCommand).
@@ -1626,7 +1864,7 @@ namespace ps2x_app
 
     namespace
     {
-        // --game <id> or PS2X_APP_GAME (developers, checks): the game to
+        // --game <id> or ZX_APP_GAME (developers, checks): the game to
         // boot without the menu, by its index in kGamesInOrder; -1: none (the
         // menu). A single-game app always boots its game.
         int developerGame(int argc, char *argv[])
@@ -1638,7 +1876,7 @@ namespace ps2x_app
                 if (std::string(argv[i]) == "--game")
                     wanted = argv[i + 1];
             if (wanted.empty())
-                if (const char *env = getEnv("PS2X_APP_GAME"); env && env[0])
+                if (const char *env = getEnv("ZX_APP_GAME"); env && env[0])
                     wanted = env;
             if (wanted.empty())
                 return -1;
@@ -1649,7 +1887,7 @@ namespace ps2x_app
             return -1;
         }
 
-        // --map <folder> or PS2X_APP_MAP (developers, the playbot's rides),
+        // --map <folder> or ZX_APP_MAP (developers, the playbot's rides),
         // with --game: Custom Freeplay on the maps folder's map of that
         // folder name, no menu first; "" none.
         std::string developerMap(int argc, char *argv[])
@@ -1657,7 +1895,20 @@ namespace ps2x_app
             for (int i = 1; i + 1 < argc; ++i)
                 if (std::string(argv[i]) == "--map")
                     return argv[i + 1];
-            if (const char *env = getEnv("PS2X_APP_MAP"); env && env[0])
+            if (const char *env = getEnv("ZX_APP_MAP"); env && env[0])
+                return env;
+            return {};
+        }
+
+        // --play <file.zrec> or ZX_APP_PLAY (developers, checks): the
+        // recording played back as its row on the Recordings page plays it,
+        // no menu first; "" none.
+        std::string developerPlayback(int argc, char *argv[])
+        {
+            for (int i = 1; i + 1 < argc; ++i)
+                if (std::string(argv[i]) == "--play")
+                    return argv[i + 1];
+            if (const char *env = getEnv("ZX_APP_PLAY"); env && env[0])
                 return env;
             return {};
         }
@@ -1682,7 +1933,7 @@ namespace ps2x_app
             if (!std::filesystem::exists(dir, ec))
             {
                 const AppPaths legacy = resolveAppPaths(game.name, getEnv);
-                if (!envSet("PS2X_APP_SUPPORT_DIR") && std::filesystem::is_directory(legacy.supportDir, ec))
+                if (!envSet("ZX_APP_SUPPORT_DIR") && std::filesystem::is_directory(legacy.supportDir, ec))
                 {
                     std::filesystem::create_directories(dir, ec);
                     for (const auto &entry : std::filesystem::directory_iterator(legacy.supportDir, ec))
@@ -1712,14 +1963,14 @@ namespace ps2x_app
 
     namespace
     {
-        namespace col = ps2x::collection;
+        namespace col = zx::collection;
 
         const char *g_argv0 = nullptr;
 
-        // The app's tools for making the game code: Resources/game-code-tools, or PS2X_GAME_CODE_TOOLS.
+        // The app's tools for making the game code: Resources/game-code-tools, or ZX_GAME_CODE_TOOLS.
         std::filesystem::path gameCodeToolsFolder()
         {
-            const char *forced = std::getenv("PS2X_GAME_CODE_TOOLS");
+            const char *forced = std::getenv("ZX_GAME_CODE_TOOLS");
             return forced && forced[0] ? std::filesystem::path(forced) : platform::resourceFolder(g_argv0) / "game-code-tools";
         }
 
@@ -1728,32 +1979,37 @@ namespace ps2x_app
         std::unique_ptr<GameCodeStep> appGameCodeStep()
         {
             const std::filesystem::path tools = gameCodeToolsFolder();
-            if (ps2x::app::GameCodeTools probe; probe.open(tools, nullptr))
-                return std::make_unique<ps2x::app::BuiltGameCode>(tools);
+            if (zx::app::GameCodeTools probe; probe.open(tools, nullptr))
+                return std::make_unique<zx::app::BuiltGameCode>(tools);
             return makeGameCodeStep();
         }
+
+        // An update's code step for a game whose code is not ready (pendingUpdates): its code made with the update's
+        // progress in the game's row (job.reporter()). False with `why` when it could not be made.
+        struct SetupJob;
+        bool updateGameCode(SetupJob &job, const GameProfile &game, std::string &why);
         // The runtime of the game running, nullptr on the menu: the menu
         // bar's items act on it.
         PS2Runtime *g_runtime = nullptr;
 
-        // The host's window: none for a null-GS or PS2X_HEADLESS run (as
+        // The host's window: none for a null-GS or ZX_HEADLESS run (as
         // PS2Runtime::initialize decides when it makes the host itself).
         bool headlessHost()
         {
-            const char *headless = std::getenv("PS2X_HEADLESS");
+            const char *headless = std::getenv("ZX_HEADLESS");
             return headless && headless[0] ? std::strcmp(headless, "0") != 0 : gsNullRequested();
         }
 
         // Before the window is made: the Windows icon, SDL's own messages
-        // (PS2X_SDL_LOG=1: video, audio, GPU drivers).
+        // (ZX_SDL_LOG=1: video, audio, GPU drivers).
         void prepareHost()
         {
-#if defined(_WIN32) && defined(PS2X_APP_HAS_ICON)
+#if defined(_WIN32) && defined(ZX_APP_HAS_ICON)
             // The executable's icon resource for the window too.
             SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON, "1");
             SDL_SetHint(SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL, "1");
 #endif
-            SDL_SetLogPriorities(envSet("PS2X_SDL_LOG") ? SDL_LOG_PRIORITY_VERBOSE : SDL_LOG_PRIORITY_WARN);
+            SDL_SetLogPriorities(envSet("ZX_SDL_LOG") ? SDL_LOG_PRIORITY_VERBOSE : SDL_LOG_PRIORITY_WARN);
         }
 
         // The menu bar (View, File): its items act on the game running, if
@@ -1764,7 +2020,7 @@ namespace ps2x_app
             actions.integerScaling = [&state]()
             { return state.settings.scaling == Scaling::Integer; };
             actions.toggleIntegerScaling = [&state]()
-            { ps2x::settings::set("display.scaling", state.settings.scaling == Scaling::Integer ? 0 : 1); };
+            { zx::settings::set("display.scaling", state.settings.scaling == Scaling::Integer ? 0 : 1); };
             // The collection's item is there for every game, greyed out where
             // the game has no widescreen.
             if (kMenu || gameHas(GameOption::Widescreen))
@@ -1774,7 +2030,7 @@ namespace ps2x_app
                 actions.toggleWidescreen = []()
                 {
                     if (g_runtime && gameHas(GameOption::Widescreen))
-                        ps2x::settings::set("display.widescreen", g_runtime->widescreen() ? 0 : 1);
+                        zx::settings::set("display.widescreen", g_runtime->widescreen() ? 0 : 1);
                 };
                 actions.widescreenAvailable = []()
                 { return g_runtime && gameHas(GameOption::Widescreen); };
@@ -1782,7 +2038,7 @@ namespace ps2x_app
             actions.pauseInBackground = [&state]()
             { return state.settings.pauseOnFocusLoss; };
             actions.togglePauseInBackground = [&state]()
-            { ps2x::settings::set("display.pause_in_background", state.settings.pauseOnFocusLoss ? 0 : 1); };
+            { zx::settings::set("display.pause_in_background", state.settings.pauseOnFocusLoss ? 0 : 1); };
             // The row's own apply: it works on the menu too, where the
             // registry has no rows yet.
             actions.mapWindow = [&state]() { return state.settings.mapWindow; };
@@ -1795,8 +2051,8 @@ namespace ps2x_app
             // frames.
             actions.setRenderer = [](bool gpu, int resolution)
             {
-                ps2x::settings::set("display.resolution", std::clamp(resolution, 1, 4) - 1);
-                ps2x::settings::set("display.renderer", gpu ? 1 : 0);
+                zx::settings::set("display.resolution", std::clamp(resolution, 1, 4) - 1);
+                zx::settings::set("display.renderer", gpu ? 1 : 0);
             };
             actions.settingsFolder = folders.supportDir;
             actions.logsFolder = folders.logDir;
@@ -1808,8 +2064,8 @@ namespace ps2x_app
             }
             platform::installMenus(actions);
             // Greyed out unless the game shows the settings in its own menus.
-            platform::setOpenSettingsAction([]() { ps2x::settings::requestOpen(); },
-                                            []() { return ps2x::settings::hasOpenHandler(); });
+            platform::setOpenSettingsAction([]() { zx::settings::requestOpen(); },
+                                            []() { return zx::settings::hasOpenHandler(); });
         }
 
         // How a boot ended, and the app's exit status where it ends the app.
@@ -1830,17 +2086,17 @@ namespace ps2x_app
             {
                 if (!map)
                     return;
-                ps2x::game_files::MemoryFolder files;
+                zx::game_files::MemoryFolder files;
                 for (auto &[path, bytes] : map->files)
                     files[path] = std::make_shared<const std::vector<uint8_t>>(std::move(bytes));
                 map->files.clear();
-                ps2x::game_files::registerMemoryFolder(kConvertedMapFolder, std::move(files));
+                zx::game_files::registerMemoryFolder(kConvertedMapFolder, std::move(files));
                 m_registered = true;
             }
             ~ConvertedMapFiles()
             {
                 if (m_registered)
-                    ps2x::game_files::removeMemoryFolder(kConvertedMapFolder);
+                    zx::game_files::removeMemoryFolder(kConvertedMapFolder);
             }
             ConvertedMapFiles(const ConvertedMapFiles &) = delete;
             ConvertedMapFiles &operator=(const ConvertedMapFiles &) = delete;
@@ -1849,6 +2105,102 @@ namespace ps2x_app
             bool m_registered = false;
         };
 
+        // The bottom screen's level file for a custom map (collection/maps.h),
+        // made from the files the boot reads: the map's (converted, or its
+        // folder's level files in the slot) over the game's PS2 disc, served
+        // under the slot's panel name for the boot's life
+        // (runtime/panel_snapshot.h setServedLevelFile). None for a DM2 park
+        // (its level is built by the game) or when it cannot be made.
+        class MapPanelFile
+        {
+        public:
+            MapPanelFile(const GameProfile &game, const CustomMap *custom, const MapSlot *slot, const ConvertedMap *converted,
+                         const std::filesystem::path &disc)
+            {
+                namespace ex = zx::app::extras;
+                if (!custom || !slot || slot->park || !slot->panelLevel[0])
+                    return;
+                const CustomMap &map = *custom;
+                const auto start = std::chrono::steady_clock::now();
+                ex::FolderFiles discFiles;
+                if (!discFiles.open(disc, {"ASSETS"}))
+                    return;
+                std::map<std::string, ex::Bytes> over;
+                const std::string slotFolder = std::string(slot->folder) + "/" + slot->slot + "/";
+                if (converted)
+                    over = converted->files;
+                else
+                    for (const std::string &path : zx::game_files::listFilesBelow(map.folder))
+                        if (lowerAscii(path).rfind(lowerAscii(slotFolder), 0) == 0)
+                            if (ex::Bytes bytes; zx::game_files::readFileBelow(map.folder, path, bytes))
+                                over[path] = std::move(bytes);
+                const ex::LayeredFiles files(discFiles, std::move(over));
+                const ex::PanelGame which = game.id == std::string("ai")    ? ex::PanelGame::AggressiveInline
+                                            : game.id == std::string("dm2") ? ex::PanelGame::DaveMirra2
+                                                                            : ex::PanelGame::BmxXxx;
+                auto bytes = std::make_shared<ex::Bytes>();
+                std::vector<std::string> log;
+                std::string why;
+                if (!ex::makeMapPanelFile(which, files, slot->slot, map.name, *bytes, log, &why))
+                {
+                    std::cout << "[app] custom freeplay: " << why << std::endl;
+                    return;
+                }
+                const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+                std::cout << "[app] custom freeplay: the bottom screen's map made as " << slot->panelLevel << ".pmap in "
+                          << static_cast<long long>(ms) << " ms (" << bytes->size() << " bytes)" << std::endl;
+                for (const std::string &line : log)
+                    std::cout << "[app] custom freeplay:   " << line << std::endl;
+                panel::setServedLevelFile(slot->panelLevel, std::move(bytes));
+                m_served = true;
+            }
+            ~MapPanelFile()
+            {
+                if (m_served)
+                    panel::setServedLevelFile("", nullptr);
+            }
+            MapPanelFile(const MapPanelFile &) = delete;
+            MapPanelFile &operator=(const MapPanelFile &) = delete;
+
+        private:
+            bool m_served = false;
+        };
+
+        // What a playback boots (a Recordings page's row): the recording and
+        // what it says of its boot.
+        struct PlaybackBoot
+        {
+            zx::collection::RecordingEntry entry;
+            play_recording::Summary summary;
+        };
+
+        // While the player's play is recorded: the level the game is in, as
+        // an event of the recording whenever it changes (the Recordings
+        // page's level), from the panel's snapshot (read-only) every half
+        // second. Game thread, at each VBlank. The first check always notes
+        // where the game is ("" in its menus): none noted yet is not "".
+        std::optional<std::string> g_levelNoted;
+        void noteLevel(const uint8_t *rdram, uint64_t tick)
+        {
+            constexpr uint64_t kEvery = 30; // vsyncs
+            if (!rdram || tick % kEvery != 0u || play_recording::mode() != play_recording::Mode::Record)
+                return;
+            static panel::Snapshot captured;
+            panel::captureSnapshot(rdram, MapWindow::kGuestRamBytes, captured);
+            const std::string level =
+                captured.mode == panel::GameMode::NoLevel
+                    ? std::string()
+                    : std::string(captured.levelFile, strnlen(captured.levelFile, sizeof(captured.levelFile)));
+            if (g_levelNoted && *g_levelNoted == level)
+                return;
+            g_levelNoted = level;
+            play_recording::noteEvent("level", level);
+        }
+
+        namespace ex = zx::app::extras;
+        std::string remakeExtras(const GameProfile &game, std::vector<ex::ExtrasSource> added, const SetupProgressFn &progress,
+                                 bool &ok);
+
         // One game's boot, from its folders to its runtime destroyed: its
         // settings and BootConfig, the runtime on the app's host, its
         // settings rows (the session's), the disc check, the ELF, the run,
@@ -1856,10 +2208,11 @@ namespace ps2x_app
         // settings already (a single-game app, which reads them first for
         // its log). `customMap`: Custom Freeplay's map; `converted`: its
         // files made into this game's (a map made in another game), given
-        // to the boot in memory and freed when it ends.
+        // to the boot in memory and freed when it ends. `playback`: a
+        // recording played back (collection/recordings.h).
         BootResult bootGame(AppState &state, const AppPaths &appPaths, const GameProfile &game,
                             const std::string &gamepadMappings, bool settingsLoaded, const CustomMap *customMap = nullptr,
-                            ConvertedMap *converted = nullptr)
+                            ConvertedMap *converted = nullptr, const PlaybackBoot *playback = nullptr)
         {
             BootResult result;
             const auto bootStart = std::chrono::steady_clock::now();
@@ -1891,6 +2244,14 @@ namespace ps2x_app
                     saveSettingsNow(state);
             }
 
+            // The extras' parts an update left to make (collection/extras/setup.h): the menu's update makes them
+            // first; a game started with no menu (--game) has them made here.
+            if (kCollection && !ex::staleExtras(game.id, gameFolder(game)).empty())
+            {
+                bool extrasOk = false;
+                std::cout << "[update] " << game.id << ": " << remakeExtras(game, {}, {}, extrasOk) << std::endl;
+            }
+
             // Relative paths of the debug switches (dumps, traces) land here.
             std::filesystem::current_path(state.paths.supportDir, ec);
 
@@ -1908,9 +2269,7 @@ namespace ps2x_app
             // Inline's capture until the game's override installs its own
             // (dave_mirra_panel.cpp).
             panel::setGameCapture(nullptr);
-            panel::setGameFiles((std::filesystem::is_directory(folders.extras / "panel", ec) ? folders.extras / "panel"
-                                                                                            : folders.resources / "panel")
-                                    .string());
+            panel::setGameFiles((folders.extras / "panel").string(), (folders.resources / "panel").string());
             folders.screenshots = screenshotFolder(state.paths);
             folders.gamepadMappings = gamepadMappings;
             // The collection's Mods folder (collection/mods.h): its mods for
@@ -1920,26 +2279,67 @@ namespace ps2x_app
             if (customMap)
             {
                 // Custom Freeplay: this boot plays the map (collection/maps.h),
-                // in the slot this game lends, its folder or its files
-                // converted for this game.
-                const MapSlot *slot = mapSlotOf(g_game->id);
+                // its folder in the slot its files are in, or its files
+                // converted for the slot of this game they were made for.
                 folders.customMap = customMap->folder;
-                folders.customMapSlot = slot ? slot->slot : customMap->slot;
+                folders.customMapSlot = converted && converted->slot ? converted->slot->slot : customMap->slot;
                 folders.customMapSlotNpcs = customMap->slotNpcs && !converted;
                 folders.customMapConverted = converted != nullptr;
+                folders.customMapPark = converted ? std::string() : customMap->park;
             }
-            ps2x::BootConfig config =
+            zx::BootConfig config =
                 gameBootConfig(kCollection ? g_game->id : "", state.settings, state.paths, *g_profile, folders, getEnv);
-            std::cout << "[app] screenshots: " << config.text("PS2X_SCREENSHOT_DIR") << std::endl;
+            // A playback (collection/recordings.h): the boot the recording
+            // was made with, from the saves it holds, copied into a folder of
+            // its own (the player's are neither read nor written).
+            zx::collection::PlaybackFolders playbackFolders;
+            if (playback)
+            {
+                playbackFolders = zx::collection::playbackFolders(state.paths.supportDir / "Playback");
+                std::string error;
+                if (!zx::collection::restoreSaves(playback->entry.file, playbackFolders, state.paths.controlsFile, &error))
+                {
+                    std::cerr << "[app] playback: " << error << std::endl;
+                    result.end = col::GameEnd::Failed;
+                    result.status = 2;
+                    result.why = "The recording cannot be played: " + error;
+                    return result;
+                }
+                config = zx::collection::playbackBootConfig(playback->summary, playback->entry.file, config, playbackFolders);
+                // (from here nothing of the player's is saved: playbackFrame, saveSettingsNow)
+                g_playback = {};
+                g_playback.active = true;
+                g_playback.endVsync = playback->entry.vsyncs;
+                std::cout << "[app] playback: " << playback->entry.file.string() << " (" << playback->entry.started << ", "
+                          << zx::collection::lengthText(playback->entry.vsyncs) << ", made by " << playback->entry.commit
+                          << (playback->entry.commit == play_recording::buildCommit() ? ": this build" : ": another build")
+                          << "), its saves in " << playbackFolders.root.string() << std::endl;
+            }
+            // (the playback's state goes with the boot, however it ends)
+            struct EndPlayback
+            {
+                bool playing;
+                ~EndPlayback()
+                {
+                    if (!playing)
+                        return;
+                    g_playback = {};
+                    zx::collection::PlaybackStrip::shared().show(std::nullopt);
+                }
+            } endPlayback{playback != nullptr};
+            const std::filesystem::path cardSlot1 = playback ? playbackFolders.memcardSlot1 : state.paths.memcardSlot1;
+            const std::filesystem::path cardSlot2 = playback ? playbackFolders.memcardSlot2 : state.paths.memcardSlot2;
+            std::cout << "[app] screenshots: " << config.text("ZX_SCREENSHOT_DIR") << std::endl;
             if (customMap)
                 std::cout << "[app] custom freeplay: " << customMap->name << " (" << customMap->folder.string() << ", made in "
-                          << customMap->game << ") in slot " << folders.customMapSlot << ", start " << config.text("PS2X_DEV_START_LEVEL")
-                          << ", mods " << config.text("PS2X_MODS_DIR")
+                          << customMap->game << ") in slot " << folders.customMapSlot << ", start " << config.text("ZX_DEV_START_LEVEL")
+                          << ", mods " << config.text("ZX_MODS_DIR")
                           << (converted ? ", its files converted, in memory (" + std::to_string(converted->files.size()) + " files, " +
                                               std::to_string(converted->bytes) + " bytes)"
                                         : std::string())
                           << std::endl;
             // (before the runtime: the game's file systems are made in its boot)
+            const MapPanelFile mapPanel(game, customMap, mapSlot(g_game->id, folders.customMapSlot), converted, discFolder(g_argv0, game));
             const ConvertedMapFiles convertedFiles(converted);
             if (!state.settings.modsOff.empty())
             {
@@ -1950,16 +2350,16 @@ namespace ps2x_app
                 std::cout << std::endl;
             }
             {
-                const std::string backend = config.text("PS2X_GS_BACKEND");
-                const std::string scale = config.text("PS2X_GS_SCALE");
+                const std::string backend = config.text("ZX_GS_BACKEND");
+                const std::string scale = config.text("ZX_GS_SCALE");
                 const bool gpu = backend == "gpu";
                 std::cout << "[app] renderer: " << (gpu ? "GPU, internal resolution " : "CPU")
                           << (gpu ? (scale.empty() ? std::string("1") : scale) + "x" : "") << std::endl;
             }
             // Scripted and remote-controlled runs have no window focus; never
             // pause them.
-            state.focusPauseAllowed = config.text("PS2X_PAD_SCRIPT").empty() && config.text("PS2X_HOST_INPUT_SCRIPT").empty() &&
-                                      !envSet("PS2X_CONTROL");
+            state.focusPauseAllowed = config.text("ZX_PAD_SCRIPT").empty() && config.text("ZX_HOST_INPUT_SCRIPT").empty() &&
+                                      !envSet("ZX_CONTROL");
             state.pausedForFocus = false;
 
             const std::filesystem::path discDir = discFolder(g_argv0, game);
@@ -1969,7 +2369,7 @@ namespace ps2x_app
                 PS2Runtime::IoPaths early = PS2Runtime::getIoPaths();
                 early.elfDirectory = state.paths.hostRoot;
                 early.hostRoot = state.paths.hostRoot;
-                early.mcRoot = state.paths.memcardSlot1;
+                early.mcRoot = cardSlot1;
                 early.cdRoot = discDir;
                 early.cdImage.clear();
                 early.cdFromImage = false;
@@ -1978,7 +2378,7 @@ namespace ps2x_app
             // A leave asked for before this boot is not this game's.
             ps2_host::clearExitToMenu();
 
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
             // Before the runtime, which calls its shutdown when it goes
             // (a boot that fails after initialize).
             PS2DebugPanel debugPanel;
@@ -2002,13 +2402,15 @@ namespace ps2x_app
             options.hostOwned = true;
             runtime.setHostOptions(options);
 
-#if defined(PS2X_ENABLE_DEBUG_UI)
-            // Hidden unless PS2X_DEBUG_UI=1; F1 still toggles it.
+#if defined(ZX_ENABLE_DEBUG_UI)
+            // Hidden unless ZX_DEBUG_UI=1; F1 still toggles it.
             {
-                const char *debugUi = std::getenv("PS2X_DEBUG_UI");
+                const char *debugUi = std::getenv("ZX_DEBUG_UI");
                 debugPanel.setVisible(debugUi && debugUi[0] == '1');
             }
             state.showFps = [&debugPanel](bool show) { debugPanel.setShowFps(show); };
+            // (the player's messages over the game, as the menus write their help line)
+            debugPanel.setNoticeStyle((platform::resourceFolder(g_argv0) / col::kShippedFontFile).string(), col::kHelpColour);
             runtime.setDebugUiCallbacks(
                 [](PS2Runtime &, void *userData)
                 { static_cast<PS2DebugPanel *>(userData)->initialize(); },
@@ -2062,7 +2464,8 @@ namespace ps2x_app
                 return failed("Making the game code failed. " + codeError, 2);
             }
 
-            offerPcsx2Import(state);
+            if (!playback)
+                offerPcsx2Import(state);
 
             // The bundled folder is the CD (read in place, never written). All
             // roots are set first: loading must not derive any from a folder
@@ -2072,7 +2475,7 @@ namespace ps2x_app
             paths.cdImage.clear();
             paths.cdFromImage = false;
             paths.hostRoot = state.paths.hostRoot;
-            paths.mcRoot = state.paths.memcardSlot1;
+            paths.mcRoot = cardSlot1;
             paths.elfDirectory = state.paths.hostRoot;
             PS2Runtime::setIoPaths(paths);
             if (!runtime.loadELFImage((state.paths.hostRoot / disc.bootElf).string(), disc.elf, false))
@@ -2082,15 +2485,25 @@ namespace ps2x_app
                           << state.paths.memcardSlot1.string() << ", " << state.paths.memcardSlot2.string() << ")"
                           << std::endl;
             else
-                std::cout << "[app] memory cards: " << state.paths.memcardSlot1.string() << ", "
-                          << state.paths.memcardSlot2.string() << std::endl;
+                std::cout << "[app] memory cards: " << cardSlot1.string() << ", " << cardSlot2.string() << std::endl;
 
             g_switchGamePresses = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeySwitchGame);
             g_screenshotPresses = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeyScreenshot);
             runtime.setHostFrameCallback([&state](PS2Runtime &rt)
                                          { gameFrame(rt, state); });
-            runtime.addVSyncHook([](uint8_t *rdram, uint64_t) { captureMapSnapshot(rdram); });
-            std::cout << "[app] " << g_game->id << ": running" << std::endl;
+            g_levelNoted.reset();
+            runtime.addVSyncHook([](uint8_t *rdram, uint64_t tick)
+                                 {
+                                     captureMapSnapshot(rdram);
+                                     noteLevel(rdram, tick);
+                                 });
+            if (playback)
+            {
+                g_playback.lineUntil = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+                g_playback.script = playbackScript(std::getenv("ZX_APP_PLAYBACK_SCRIPT"));
+                ps2_host::setWindowTitle((std::string(g_game->name) + " - Playback").c_str());
+            }
+            std::cout << "[app] " << g_game->id << (playback ? ": playing back" : ": running") << std::endl;
             g_runtime = &runtime;
             runtime.run();
             ps2_game_overrides::runShutdownHooks(runtime);
@@ -2103,9 +2516,31 @@ namespace ps2x_app
                 result.end = col::GameEnd::Quit;
             else
                 result.end = kMenu ? col::GameEnd::ExitToMenu : col::GameEnd::Quit;
+            const bool left = ps2_host::exitToMenuRequested();
             ps2_host::clearExitToMenu();
             state.settings.fullscreen = state.fullscreen;
             saveSettingsNow(state);
+            if (playback)
+            {
+                // The playback's end: what it showed, for the menu's line;
+                // the settings as the player has them again (the ones it
+                // replayed were the recording's, and were not saved).
+                const play_recording::ReplayResults replayed = play_recording::replayResults();
+                std::cout << "[app] playback: " << (left ? "left" : "ended") << " at vsync " << replayed.vsync << " of "
+                          << playback->entry.vsyncs << ", " << replayed.checksumsMatched << " state checks matched, "
+                          << replayed.checksumsDiffered << " differed" << std::endl;
+                if (replayed.checksumsDiffered > 0)
+                    result.why = "It played differently than it was recorded from " +
+                                 zx::collection::lengthText(replayed.firstDifferingVsync) + ".";
+                else if (!left)
+                    result.why = playback->entry.ended ? "End of the recording." : "End of the recording (it was cut short).";
+                const Settings window = state.settings;
+                loadAppSettings(state, state.settings, nullptr);
+                state.settings.windowWidth = window.windowWidth;
+                state.settings.windowHeight = window.windowHeight;
+                state.settings.fullscreen = window.fullscreen;
+                state.settings.fullscreenMode = window.fullscreenMode;
+            }
             const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - bootStart).count();
             char took[32];
             std::snprintf(took, sizeof(took), "%.1f", seconds);
@@ -2170,7 +2605,7 @@ namespace ps2x_app
 
         // ---- the extras: the other releases' discs (collection/extras/setup.h) ----
 
-        namespace ex = ps2x::app::extras;
+        namespace ex = zx::app::extras;
 
         // An extras disc's image: a document through the platform's own
         // access (Android), else the file at the path.
@@ -2206,15 +2641,18 @@ namespace ps2x_app
             };
         }
 
-        // A game's extras made again: from the discs recorded for it (each
-        // read and checked again; one of an added disc's release left out)
-        // and `added` (none: no new one), with the bottom screen's maps. The
-        // player's words for how it went.
+        // A game's extras brought up to date (collection/extras/setup.h): the
+        // parts whose key differs made again, from the discs recorded for it
+        // (each read and checked again; one of an added disc's release left
+        // out) and `added` (none: no new one). A recorded disc that does not
+        // open now (a drive not there, a moved image) keeps what was made
+        // from it, and stays recorded. The player's words for how it went.
         std::string remakeExtras(const GameProfile &game, std::vector<ex::ExtrasSource> added, const SetupProgressFn &progress,
                                  bool &ok)
         {
             const std::filesystem::path dir = gameFolder(game);
             std::vector<ex::ExtrasSource> sources;
+            std::vector<ex::RecordedDisc> unopened;
             for (const ex::RecordedDisc &recorded : ex::recordedExtras(dir))
             {
                 if (std::any_of(added.begin(), added.end(), [&](const ex::ExtrasSource &source)
@@ -2223,8 +2661,9 @@ namespace ps2x_app
                 ex::ExtrasSource again = ex::checkExtrasSource(recorded.source, game.id, extrasOpener());
                 if (!again.disc)
                 {
-                    // (moved or gone: its extras are left out until it is added again)
-                    std::cout << "[extras] " << game.id << ": " << recorded.source << ": " << again.message << std::endl;
+                    std::cout << "[extras] " << game.id << ": " << recorded.source << ": " << again.message
+                              << " (what was made from it is kept)" << std::endl;
+                    unopened.push_back(recorded);
                     continue;
                 }
                 sources.push_back(std::move(again));
@@ -2233,13 +2672,28 @@ namespace ps2x_app
                 sources.push_back(std::move(source));
             const auto started = std::chrono::steady_clock::now();
             const ex::ExtrasResult result =
-                ex::makeExtras(game.id, dir, sources, ex::engineXboxModelMaker(), extrasProgress(progress));
+                ex::makeExtras(game.id, dir, sources, ex::engineXboxModelMaker(), extrasProgress(progress), unopened);
             for (const std::string &line : result.log)
                 std::cout << "[extras] " << line << std::endl;
-            std::cout << "[extras] " << game.id << ": " << result.message << " ("
+            std::string made;
+            for (const std::string &part : result.made)
+                made += (made.empty() ? "" : ", ") + part;
+            std::cout << "[extras] " << game.id << ": " << result.message << (made.empty() ? "" : " (" + made + ")") << " ("
                       << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s)" << std::endl;
             ok = result.ok;
-            return result.message;
+            std::string message = result.message;
+            for (const ex::RecordedDisc &disc : result.missing)
+            {
+                std::string title = disc.release;
+                for (const ex::ExtrasDisc *known : ex::extrasDiscsOf(game.id))
+                    if (disc.release == known->release)
+                        title = known->title;
+                const std::string ask = "Reconnect " + title + " (" + sourceName(pathFromUtf8(disc.source)) + ") to update " +
+                                        col::shortGameName(game.id) + "'s extras: they are kept as they are.";
+                std::cout << "[extras] " << game.id << ": " << ask << std::endl;
+                message += "  " + ask;
+            }
+            return message;
         }
 
         // An Xbox or GameCube disc the player gave, for the game it is a
@@ -2431,6 +2885,8 @@ namespace ps2x_app
             };
             std::vector<GamePart> parts; // (mutex) by game
             bool settingUpFound = false; // (the menu's thread) it sets up the discs found: the Games page shows their progress
+            bool updating = false;       // (the menu's thread) with settingUpFound: the update's work (startUpdate), on those rows
+            bool settingsImported = false; // (mutex) a saves import replaced the settings files
             std::atomic<bool> cancel{false};
             std::atomic<bool> finished{false};
 
@@ -2450,6 +2906,22 @@ namespace ps2x_app
                     worker.join();
             }
         };
+
+        // (declared above) The game's code made as Set Up Games' last step makes it, its progress on the game's row
+        // ("Building code 64%"): the module the boot then loads (ensureGameCode finds it made).
+        bool updateGameCode(SetupJob &job, const GameProfile &game, std::string &why)
+        {
+            const std::unique_ptr<GameCodeStep> code = appGameCodeStep();
+            const std::filesystem::path dir = gameFolder(game);
+            const auto started = std::chrono::steady_clock::now();
+            const bool made = code->make(setupGame(game), installedDiscFolder(dir), dir, job.reporter(), &why);
+            std::cout << "[update] " << game.id << ": its code " << (made ? "made" : job.cancel ? "stopped" : "not made: " + why) << " in "
+                      << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - started).count() << " s"
+                      << std::endl;
+            if (!made && job.cancel)
+                why.clear();
+            return made;
+        }
 
         // The paths a file dialog gave (its callback may run on another
         // thread), each with the game whose row asked (-1: any).
@@ -2550,7 +3022,7 @@ namespace ps2x_app
         // or one to import. False when there is no window to show one on.
         bool askForTransfer(bool exporting)
         {
-            constexpr const char *kSuggested = PS2X_APP_NAME " saves.zip";
+            constexpr const char *kSuggested = ZX_APP_NAME " saves.zip";
             const bool own = exporting ? platform::createDocument(kSuggested, "application/zip",
                                                                   [](std::string pick) { keepTransferPick(true, std::move(pick)); })
                                        : platform::pickDocuments(false, [](std::vector<std::string> picks)
@@ -2671,12 +3143,15 @@ namespace ps2x_app
             int modShown = -1;      // the mod whose page the rows are
             bool modsChanged = false; // a switch or a move on the mod page: list and make its rows again
             col::MenuPage shownPage = col::MenuPage::Tiles;
-            // Custom Freeplay: the player page's tiles (one per game) and
-            // Back, the custom maps of the maps folder (listed again whenever
-            // the map page opens) and the map page's rows for the player's
-            // game.
+            // Custom Freeplay: the player page's games (those whose maps
+            // start, freeplayStarts; read with the front end), their tiles
+            // and Back, and its line on why a game is not there ("" none);
+            // the custom maps of the maps folder (listed again whenever the
+            // map page opens) and the map page's rows for the player's game.
+            std::vector<int> players;
             col::Layout playerLayout = col::layout(kWidth, kHeight, kGameCount);
             col::PageLayout playerPage = col::pageLayout(kWidth, kHeight, 0);
+            std::string playersNote;
             std::vector<CustomMap> maps;
             std::vector<col::SettingsRow> mapRows;
             col::PageLayout mapsPage;
@@ -2689,6 +3164,9 @@ namespace ps2x_app
             // The setup running (one at a time, off this thread), and what a
             // Games page row asked for (done between frames).
             std::unique_ptr<SetupJob> job;
+            // A game's boot or a recording's playback chosen while the game's code was not this app's (the update
+            // stopped or failed before it): taken again once that game's update is done.
+            std::optional<col::MenuAction> afterUpdate;
             struct Request
             {
                 enum Kind
@@ -2720,6 +3198,13 @@ namespace ps2x_app
             // that did not convert this session, by "<folder>|<player>": why.
             std::optional<ConvertedMap> converted;
             std::map<std::string, std::string> conversionFailures;
+            // The Recordings page (Settings > Recordings): every game's
+            // recordings, listed again whenever the page opens, and its rows
+            // (a heading per game, a row per recording), by the index the
+            // rows' Play gives.
+            std::vector<col::RecordingEntry> recordings;
+            std::vector<col::SettingsRow> recordingRows;
+            col::PageLayout recordingsPage;
         };
 
         // The layout of the tiles page: the games' tiles, and the Custom
@@ -2796,6 +3281,9 @@ namespace ps2x_app
             {
                 lists[g] = modsForGame(kGamesInOrder[g].id, own[g], shared, state.settings.modOrder, settings[g].modsOff);
                 winners[g] = modWinners(lists[g], kGamesInOrder[g].id);
+                // (the single archive entries each gives that the game does not read)
+                checkArchiveEntries(lists[g], collection.supportDir / "games" / kGamesInOrder[g].id / "Mods",
+                                    gameResources(g_argv0, kGamesInOrder[g]) / "disc");
             }
             auto nameOf = [](const Mod &mod) { return mod.title.empty() ? mod.name : mod.title; };
             auto overlapText = [&](const std::vector<Mod> &list, const std::vector<ModOverlap> &overlaps, const char *verb)
@@ -2834,6 +3322,7 @@ namespace ps2x_app
                     const std::string wins = overlapText(lists[g], winners[g][at].winsOver, "wins");
                     const std::string loses = overlapText(lists[g], winners[g][at].losesTo, "loses");
                     game.winners = wins + (!wins.empty() && !loses.empty() ? ", " : "") + loses;
+                    game.entriesNotRead = it->entriesNotRead;
                     entry.games.push_back(std::move(game));
                 }
                 menu.mods->push_back(std::move(entry));
@@ -2916,9 +3405,51 @@ namespace ps2x_app
             menu.modShown = index;
         }
 
-        // What a game's Custom Freeplay start needs that the setup lacks, as
-        // the map page says it (the only such start: AI's, through the Estate).
-        constexpr const char *kStartNeeds = "Its custom maps start through the Estate: add its GameCube disc in Games.";
+        // What a slot's start needs that the setup lacks, as the map page
+        // says it (the only such start: AI's Tutorial, through the Estate).
+        constexpr const char *kStartNeeds = "starts through the Estate: add AI's GameCube disc in Games";
+
+        // Which of `player`'s slots its setup can start (collection/maps.h
+        // SlotStartable): what each needs (offered.h), of the folders a boot
+        // of the game would be given.
+        SlotStartable slotStartable(const GameProfile &player)
+        {
+            BootFolders folders;
+            folders.resources = gameResources(g_argv0, player);
+            folders.extras = ex::extrasFolder(gameFolder(player));
+            const Installed installed = findInstalled(folders);
+            return [installed](const MapSlot &slot) { return offered(slot.need, installed); };
+        }
+
+        // Every map the menu lists (collection/maps.h listAllMaps): the
+        // collection's Mods folder's, each game's own Mods folder's, the
+        // maps folder's.
+        std::vector<CustomMap> listMenuMaps(const AppPaths &collection)
+        {
+            std::vector<CustomMap> gameMaps;
+            for (const GameProfile &game : kGamesInOrder)
+                for (CustomMap &map : listGameMaps(collection.supportDir / "games" / game.id / kModsFolder, game.id))
+                    gameMaps.push_back(std::move(map));
+            return listAllMaps(listSharedMods(sharedModsFolder(collection)), collection.supportDir / kMapsFolder, gameMaps);
+        }
+
+        // What a game none of whose slots the setup starts lacks, as the map
+        // page says it (AI's Tutorial slot needs the Estate; its Movie Lot
+        // needs nothing, so today every game starts), and the player page
+        // (after the game's name).
+        constexpr const char *kNoSlotStarts = "Its custom maps start through the Estate: add its GameCube disc in Games.";
+        constexpr const char *kPlayerNeeds = "'s custom maps start through the Estate: add its GameCube disc in Games.";
+
+        // Whether `player`'s Custom Freeplay start works with the setup as
+        // it is: one of its game's slots starts (collection/maps.h).
+        bool freeplayStarts(const GameProfile &player)
+        {
+            const SlotStartable startable = slotStartable(player);
+            for (const MapSlot *slot : mapSlotsOf(player.id))
+                if (startable(*slot))
+                    return true;
+            return false;
+        }
 
         // The custom maps of the collection's maps folder (collection/maps.h),
         // and the map page's rows for the player's game `game`: every map the
@@ -2928,9 +3459,10 @@ namespace ps2x_app
         // here (BMPs).
         void refreshMaps(MenuScreen &menu, const AppPaths &collection, int game)
         {
-            menu.maps = listAllMaps(listSharedMods(sharedModsFolder(collection)), collection.supportDir / kMapsFolder);
+            menu.maps = listMenuMaps(collection);
             std::vector<col::MapChoice> choices;
             const GameProfile &player = kGamesInOrder[static_cast<size_t>(std::clamp<int>(game, 0, static_cast<int>(kGameCount) - 1))];
+            const SlotStartable startable = slotStartable(player);
             for (size_t i = 0; i < menu.maps.size(); ++i)
             {
                 const CustomMap &map = menu.maps[i];
@@ -2945,14 +3477,23 @@ namespace ps2x_app
                     if (map.game == each.id)
                         madeIn = &each;
                 choice.builtFor = madeIn ? col::shortGameName(madeIn->id) : map.game;
-                choice.playable = mapPlayableIn(map, player.id);
+                choice.playable = mapPlayableIn(map, player.id, startable);
                 const auto failure = menu.conversionFailures.find(map.where + "|" + player.id);
+                const MapSlot *own = mapSlot(map.game, map.slot);
                 if (failure != menu.conversionFailures.end())
                 {
                     choice.playable = false;
                     choice.why = failure->second;
                 }
-                else if (!choice.playable)
+                else if (choice.playable)
+                    choice.why.clear();
+                else if (!own)
+                    choice.why = std::string("its files are in no slot ") + col::shortGameName(map.game) + " lends";
+                else if (own->park && map.game != player.id)
+                    choice.why = std::string("a park: ") + col::shortGameName(map.game) + " only";
+                else if (mapPlayableIn(map, player.id))
+                    choice.why = kStartNeeds; // a slot the setup cannot start
+                else
                     choice.why = "not for this game";
                 std::vector<uint8_t> bytes;
                 col::Image preview;
@@ -2963,15 +3504,12 @@ namespace ps2x_app
                               << std::endl;
                 choices.push_back(std::move(choice));
             }
-            // The slot's start needs what the player's setup may lack (AI's: the
-            // Estate, made from its GameCube disc): without it no map is offered.
-            const MapSlot *slot = mapSlotOf(player.id);
-            BootFolders folders;
-            folders.resources = gameResources(g_argv0, player);
-            folders.extras = ex::extrasFolder(gameFolder(player));
-            const bool starts = slot && offered(slot->need, findInstalled(folders));
+            // A game none of whose slots the setup starts offers no map (the
+            // player page leaves such a player out; a setup changed since it
+            // was read is said here).
+            const bool starts = freeplayStarts(player);
             menu.mapRows = col::freeplayMapRows(choices, player.name, kMapsFolder, starts,
-                                                slot && !starts ? kStartNeeds : std::string());
+                                                !starts && mapSlotOf(player.id) ? kNoSlotStarts : std::string());
             menu.mapsPage = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.mapRows.size(), true);
             menu.mapsFor = game;
             std::cout << "[app] custom freeplay: " << menu.maps.size() << " map(s) in " << sharedModsFolder(collection).string() << " and "
@@ -2985,12 +3523,19 @@ namespace ps2x_app
         bool prepareMap(MenuScreen &menu, const CustomMap &map, const GameProfile &player)
         {
             menu.converted.reset();
-            if (!mapNeedsConversion(map, player.id))
+            const MapSlot *target = mapSlotFor(map, player.id, slotStartable(player));
+            if (!target)
+            {
+                menu.notice = map.name + " has no slot in " + std::string(col::shortGameName(player.id)) + ".";
+                return false;
+            }
+            if (!mapNeedsConversion(map, *target))
                 return true;
             try
             {
-                menu.converted = convertMap(map, player.id);
-                std::cout << "[app] custom freeplay: " << map.name << " (made in " << map.game << ") converted for " << player.id << " in "
+                menu.converted = convertMap(map, *target);
+                std::cout << "[app] custom freeplay: " << map.name << " (made in " << map.game << ") converted for " << player.id
+                          << " (slot " << target->slot << ") in "
                           << static_cast<long long>(menu.converted->milliseconds) << " ms: " << menu.converted->files.size() << " files, "
                           << menu.converted->bytes << " bytes" << std::endl;
                 for (const std::string &line : menu.converted->report)
@@ -3032,14 +3577,20 @@ namespace ps2x_app
         }
 
         // The font the app ships (collection/vector_font.h): from the app's
-        // resources folder, or on Android from the APK's assets (SDL reads a
-        // relative path there).
+        // resources folder, or on Android from the APK's assets (android_assets.h:
+        // read from the APK itself, not by SDL's relative path, which a file in
+        // the internal storage would stand in for).
         bool loadShippedFont(col::BitmapFont &font, std::string &from)
         {
-            std::vector<std::string> places = {(platform::resourceFolder(g_argv0) / col::kShippedFontFile).string()};
 #if defined(__ANDROID__)
-            places.push_back(col::kShippedFontFile);
+            if (std::vector<uint8_t> ttf; zx_android::readAsset(col::kShippedFontFile, ttf) &&
+                                          col::bakeFont(ttf, col::kShippedFontPixels, font))
+            {
+                from = std::string("the APK's assets/") + col::kShippedFontFile;
+                return true;
+            }
 #endif
+            std::vector<std::string> places = {(platform::resourceFolder(g_argv0) / col::kShippedFontFile).string()};
             for (const std::string &place : places)
             {
                 size_t size = 0;
@@ -3123,6 +3674,15 @@ namespace ps2x_app
                     tiles.back().lastPlayed = menu.tiles[i].lastPlayed;
             }
             menu.tiles = std::move(tiles);
+            // Custom Freeplay's players: the games whose maps start now.
+            menu.players.clear();
+            menu.playersNote.clear();
+            for (size_t i = 0; i < kGameCount; ++i)
+                if (freeplayStarts(kGamesInOrder[i]))
+                    menu.players.push_back(static_cast<int>(i));
+                else if (mapSlotOf(kGamesInOrder[i].id))
+                    menu.playersNote += (menu.playersNote.empty() ? "" : " ") + std::string(kGamesInOrder[i].name) + kPlayerNeeds;
+            menu.playerLayout = col::layout(MenuScreen::kWidth, MenuScreen::kHeight, menu.players.size());
             menu.front = games;
             menu.scene.setGames(games);
             menu.heads.clear();
@@ -3309,7 +3869,7 @@ namespace ps2x_app
             menu.gameRows.clear();
             menu.gamesSubtitle.clear();
             if (menu.job && menu.job->settingUpFound)
-                menu.gamesSubtitle = "Setting up...";
+                menu.gamesSubtitle = menu.job->updating ? "Updating..." : "Setting up...";
             else if (menu.found.searched)
             {
                 size_t found = 0;
@@ -3340,8 +3900,10 @@ namespace ps2x_app
                 const bool anyPlan = std::any_of(menu.found.plans.begin(), menu.found.plans.end(),
                                                  [](const FoundDiscs &plan) { return plan.game >= 0; });
                 if (menu.job && menu.job->settingUpFound)
-                    top(col::SettingsRow::Action, "Stop", "Stops setting up. Games already done stay set up.", {},
-                        [&menu]() { menu.job->cancel = true; });
+                    top(col::SettingsRow::Action, "Stop",
+                        menu.job->updating ? "Stops updating. What is done stays; the rest is done the next time."
+                                           : "Stops setting up. Games already done stay set up.",
+                        {}, [&menu]() { menu.job->cancel = true; });
                 else if (menu.found.searched && anyPlan)
                     top(col::SettingsRow::Action, "Set Up Games", "Copies each disc, then gets its game ready.", {},
                         [&menu]() { menu.request = {MenuScreen::Request::SetUpFound, -1}; });
@@ -3706,6 +4268,118 @@ namespace ps2x_app
             buildGameRows(menu);
         }
 
+        // What an update leaves to do for a game set up before it (one with
+        // its disc's files in its folder): its code, when the code there is
+        // not this app's, and the parts of its extras whose key differs
+        // (collection/extras/setup.h). Read from the files' keys alone: no
+        // disc is opened. `games`: those games (indexes), none: every game.
+        struct UpdateWork
+        {
+            int game = -1;
+            bool code = false;
+            ex::StaleExtras extras;
+        };
+        std::vector<UpdateWork> pendingUpdates(const std::vector<int> &games = {})
+        {
+            std::vector<UpdateWork> out;
+            const std::unique_ptr<GameCodeStep> code = appGameCodeStep();
+            for (size_t i = 0; i < kGameCount; ++i)
+            {
+                if (!games.empty() && std::find(games.begin(), games.end(), static_cast<int>(i)) == games.end())
+                    continue;
+                const GameProfile &game = kGamesInOrder[i];
+                const std::filesystem::path dir = gameFolder(game);
+                std::error_code ec;
+                if (!std::filesystem::is_regular_file(installedDiscFolder(dir) / "SYSTEM.CNF", ec))
+                    continue;
+                UpdateWork work;
+                work.game = static_cast<int>(i);
+                work.code = code && !code->ready(setupGame(game), installedDiscFolder(dir), dir);
+                work.extras = ex::staleExtras(game.id, dir);
+                if (work.code || !work.extras.empty())
+                    out.push_back(std::move(work));
+            }
+            return out;
+        }
+
+        // The update's work done on the Set Up Games rows, a game at a time:
+        // its code, then its extras. Escape or Stop stops it between steps;
+        // what is done stays, the rest is done the next time.
+        void startUpdate(MenuScreen &menu, std::vector<UpdateWork> work)
+        {
+            if (work.empty())
+                return;
+            std::string names;
+            for (size_t i = 0; i < work.size(); ++i)
+                names += std::string(i == 0 ? "" : i + 1 == work.size() ? " and " : ", ") +
+                         col::shortGameName(kGamesInOrder[static_cast<size_t>(work[i].game)].id);
+            for (const UpdateWork &w : work)
+            {
+                std::string parts;
+                for (const std::string &part : w.extras.parts)
+                    parts += (parts.empty() ? "" : ", ") + part;
+                std::cout << "[update] " << kGamesInOrder[static_cast<size_t>(w.game)].id << ":" << (w.code ? " its code" : "")
+                          << (parts.empty() ? "" : " its extras (" + parts + ")")
+                          << (parts.empty() && w.extras.unkeyed ? " its extras' keys (as 1.1.0 made them)" : "") << std::endl;
+            }
+            startJob(menu, "Updating " + names, [work](SetupJob &job)
+            {
+                using Part = SetupJob::GamePart;
+                {
+                    std::lock_guard lock(job.mutex);
+                    job.parts.assign(kGameCount, Part{});
+                    for (const UpdateWork &w : work)
+                        job.parts[static_cast<size_t>(w.game)].state = Part::Waiting;
+                }
+                const auto started = std::chrono::steady_clock::now();
+                size_t done = 0;
+                std::vector<std::string> asks;
+                for (const UpdateWork &w : work)
+                {
+                    const GameProfile &game = kGamesInOrder[static_cast<size_t>(w.game)];
+                    Part &part = job.parts[static_cast<size_t>(w.game)];
+                    if (job.cancel)
+                    {
+                        std::lock_guard lock(job.mutex);
+                        part.state = Part::Stopped;
+                        continue;
+                    }
+                    {
+                        std::lock_guard lock(job.mutex);
+                        part.state = Part::Running;
+                        job.progress = {};
+                    }
+                    bool ok = true;
+                    std::string said;
+                    if (w.code)
+                        ok = updateGameCode(job, game, said);
+                    if (ok && !w.extras.empty() && !job.cancel)
+                    {
+                        said = remakeExtras(game, {}, job.reporter(), ok);
+                        if (const size_t ask = said.find("Reconnect "); ask != std::string::npos)
+                            asks.push_back(said.substr(ask));
+                    }
+                    std::lock_guard lock(job.mutex);
+                    part.state = job.cancel ? Part::Stopped : ok ? Part::Done : Part::Failed;
+                    part.said = std::move(said);
+                    job.changed.push_back(w.game);
+                    done += ok && !job.cancel ? 1u : 0u;
+                }
+                std::cout << "[update] " << done << " of " << work.size() << " games updated ("
+                          << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count() << " s)" << std::endl;
+                std::lock_guard lock(job.mutex);
+                job.messages.push_back(job.cancel ? std::string("Stopped: the rest is updated the next time.")
+                                       : done == work.size() ? std::string("Updated.")
+                                                             : std::to_string(done) + " of " + std::to_string(work.size()) +
+                                                                   " games updated.");
+                for (std::string &ask : asks)
+                    job.messages.push_back(std::move(ask));
+            });
+            menu.job->settingUpFound = true;
+            menu.job->updating = true;
+            buildGameRows(menu);
+        }
+
         // The saves exported to or imported from the file a dialog gave
         // (its own thread: a document goes through the system's files).
         void startTransfer(MenuScreen &menu)
@@ -3738,7 +4412,8 @@ namespace ps2x_app
                     job.messages.push_back(result.message);
                 });
             else if (!importFrom.empty() &&
-                     platform::ask("Import saves?", "Saves and settings of the same name are replaced.", "Import", "Keep"))
+                     (envSet("ZX_MENU_IMPORT_SAVES") ||
+                      platform::ask("Import saves?", "Saves and settings of the same name are replaced.", "Import", "Keep")))
                 startJob(menu, "Importing the saves", [importFrom](SetupJob &job)
                 {
                     SDL_IOStream *in = SDL_IOFromFile(importFrom.c_str(), "rb");
@@ -3755,12 +4430,12 @@ namespace ps2x_app
                                                         SDL_ReadIO(in, data, count) == count;
                                              });
                         SDL_CloseIO(in);
-                        // (the settings in use now would be written over them)
                         if (result.ok)
                             result.message = "Imported " + std::to_string(result.files) + " files. Restart the app to use them.";
                     }
                     std::cout << "[saves] import: " << result.message << std::endl;
                     std::lock_guard lock(job.mutex);
+                    job.settingsImported = result.ok;
                     job.messages.push_back(result.message);
                 });
         }
@@ -3830,9 +4505,98 @@ namespace ps2x_app
             return stop.empty() ? line : line + "   " + stop;
         }
 
+        // A game's folder in the collection (gamePaths, without making it)
+        // and its folder of recordings.
+        std::filesystem::path recordingsFolder(const AppPaths &collection, const GameProfile &game)
+        {
+            return play_recording::folderFor(collection.supportDir / "games" / game.id);
+        }
+
+        // The Recordings page: a heading per game with recordings, a row per
+        // recording (newest first): its level and when it was made, how
+        // long it is; Enter plays it back.
+        void refreshRecordings(MenuScreen &menu, const AppPaths &collection)
+        {
+            menu.recordings.clear();
+            menu.recordingRows.clear();
+            for (size_t g = 0; g < kGameCount; ++g)
+            {
+                const GameProfile &game = kGamesInOrder[g];
+                std::vector<col::RecordingEntry> entries = col::listRecordings(recordingsFolder(collection, game));
+                if (entries.empty())
+                    continue;
+                col::SettingsRow heading;
+                heading.kind = col::SettingsRow::Heading;
+                heading.label = game.name;
+                menu.recordingRows.push_back(std::move(heading));
+                // The levels' names from the game's panel files (the setup's, else the bundled ones).
+                const std::filesystem::path extrasPanel = collection.supportDir / "games" / game.id / "extras" / "panel";
+                const std::filesystem::path bundledPanel = gameResources(g_argv0, game) / "panel";
+                const auto levelTitle = [&](const std::string &level)
+                {
+                    const std::string title = col::levelTitle(extrasPanel, level);
+                    return title != level ? title : col::levelTitle(bundledPanel, level);
+                };
+                for (col::RecordingEntry &entry : entries)
+                {
+                    col::SettingsRow row;
+                    row.kind = col::SettingsRow::Action;
+                    row.label = !entry.levelsNoted   ? std::string("Level not noted")
+                                : entry.level.empty() ? std::string("Menus")
+                                                      : levelTitle(entry.level);
+                    if (entry.levels > 1)
+                        row.label += " and " + std::to_string(entry.levels - 1) + (entry.levels == 2 ? " more" : " others");
+                    const std::string when = col::startedText(entry.started);
+                    row.summary = [text = (when.empty() ? std::string() : when + "   ") + col::lengthText(entry.vsyncs)]() { return text; };
+                    row.help = entry.commit != play_recording::buildCommit()
+                                   ? "Made by another version of the app: it may play differently."
+                               : !entry.ended ? "Plays it back. It was cut short, so it stops early."
+                                              : "Plays it back as you played it.";
+                    const int index = static_cast<int>(menu.recordings.size());
+                    row.activate = [index, g]()
+                    {
+                        col::MenuAction action;
+                        action.kind = col::MenuAction::Play;
+                        action.game = static_cast<int>(g);
+                        action.recording = index;
+                        return action;
+                    };
+                    menu.recordingRows.push_back(std::move(row));
+                    menu.recordings.push_back(std::move(entry));
+                }
+            }
+            if (menu.recordings.empty())
+            {
+                col::SettingsRow none;
+                none.kind = col::SettingsRow::Note;
+                none.label = "No recordings yet. Turn on Record Play to record your play.";
+                menu.recordingRows.push_back(std::move(none));
+            }
+            menu.recordingsPage = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.recordingRows.size());
+        }
+
         void loadMenu(MenuScreen &menu, AppState &state, const AppPaths &collection)
         {
             menu.rows = menuSettingsRows(state);
+            {
+                // Settings > Recordings, after Record Play: the player's
+                // recordings, each played back.
+                col::SettingsRow recordings;
+                recordings.kind = col::SettingsRow::Page;
+                recordings.label = "Recordings";
+                recordings.opens = col::MenuPage::Recordings;
+                recordings.help = "Watch your recorded play.";
+                recordings.summary = [collection]()
+                {
+                    size_t count = 0;
+                    for (const GameProfile &game : kGamesInOrder)
+                        count += play_recording::countIn(recordingsFolder(collection, game));
+                    return count == 0 ? std::string("None") : std::to_string(count);
+                };
+                const auto recordPlay = std::find_if(menu.rows.begin(), menu.rows.end(),
+                                                     [](const col::SettingsRow &row) { return row.label == "Record Play"; });
+                menu.rows.insert(recordPlay == menu.rows.end() ? menu.rows.end() : recordPlay + 1, std::move(recordings));
+            }
             {
                 // Settings > Mods: the Mods page (each game's mods, on or off).
                 col::SettingsRow mods;
@@ -3865,13 +4629,13 @@ namespace ps2x_app
             loadMenuFont(menu);
             refreshGames(menu);
             refreshLastPlayed(menu, collection);
-            if (const char *spec = std::getenv("PS2X_MENU_SCRIPT"); spec && spec[0])
+            if (const char *spec = std::getenv("ZX_MENU_SCRIPT"); spec && spec[0])
             {
                 std::string error;
                 if (menu.script.parse(spec, &error))
                     std::cout << "[app] menu script: " << menu.script.size() << " steps" << std::endl;
                 else
-                    std::cerr << "[app] PS2X_MENU_SCRIPT: " << error << std::endl;
+                    std::cerr << "[app] ZX_MENU_SCRIPT: " << error << std::endl;
             }
         }
 
@@ -4090,6 +4854,7 @@ namespace ps2x_app
             case col::MenuPage::Mods:
             case col::MenuPage::Games:
             case col::MenuPage::FreeplayMap:
+            case col::MenuPage::Recordings:
                 return 2;
             case col::MenuPage::Mod:
                 return 3;
@@ -4132,14 +4897,45 @@ namespace ps2x_app
             const col::FrontGame &game = (*menu.front)[static_cast<size_t>(chosen)];
             const std::string hint = col::bottomHint(game, menu.pad);
             std::vector<std::string> lines;
+            // (a setup or an update running: what it does in place of the cards and Play, each game's part as its
+            // row on the Games page says it, "Building code 64%")
+            std::string busy, busyLine, busyHint;
+            std::vector<int> busyGames;
+            std::vector<float> busyDone;
+            if (menu.job)
+            {
+                busy = menu.job->updating ? "Updating..." : menu.job->settingUpFound ? "Setting up..." : menu.job->title + "...";
+                if (menu.pad && *menu.pad != col::HintDevice::Touch && *menu.pad != col::HintDevice::Keyboard)
+                    busyHint = col::buttonHint(*menu.pad, nullptr, "Stop");
+            }
             for (size_t i = 0; i < kGameCount; ++i)
-                lines.push_back(!(*menu.front)[i].installed ? "Not set up"
-                                : menu.tiles[i].lastPlayed.empty() ? "Not played yet"
-                                                                   : menu.tiles[i].lastPlayed);
+            {
+                float done = -1.0f;
+                col::SettingsRow::Mark mark = col::SettingsRow::Mark::None;
+                std::string part = gamePartText(menu, static_cast<int>(i), &done, &mark);
+                if (!part.empty())
+                {
+                    busyGames.push_back(static_cast<int>(i));
+                    busyDone.push_back(done);
+                }
+                lines.push_back(!part.empty()                        ? std::move(part)
+                                : !(*menu.front)[i].installed        ? "Not set up"
+                                : menu.tiles[i].lastPlayed.empty()   ? "Not played yet"
+                                                                     : menu.tiles[i].lastPlayed);
+            }
+            if (menu.job && busyGames.empty())
+            {
+                std::lock_guard lock(menu.job->mutex);
+                const SetupProgress &p = menu.job->progress;
+                busyLine = p.step.empty() ? std::string() : p.total ? p.step + " " + std::to_string(static_cast<int>(p.done * 100u / p.total)) + "%" : p.step;
+            }
             std::string key = std::to_string(chosen) + "|" + hint + "|" + (shell.freeplay() ? "f" : "") + "|" +
                               std::to_string(reinterpret_cast<uintptr_t>(menu.front.get()));
             for (const std::string &line : lines)
                 key += "|" + line;
+            key += "|" + busy + "|" + busyLine + "|" + busyHint;
+            for (const float done : busyDone)
+                key += "|" + std::to_string(static_cast<int>(done * 200.0f)); // (the bars move by half a percent)
             if (key == menu.bottomShown)
                 return;
             menu.bottomShown = key;
@@ -4161,6 +4957,11 @@ namespace ps2x_app
             scene->chosen = chosen;
             scene->freeplay = shell.freeplay();
             scene->pad = menu.pad;
+            scene->busy = std::move(busy);
+            scene->busyLine = std::move(busyLine);
+            scene->busyHint = std::move(busyHint);
+            scene->busyGames = std::move(busyGames);
+            scene->busyDone = std::move(busyDone);
             col::BottomScreen::shared().show(std::move(scene));
 #else
             (void)menu;
@@ -4240,7 +5041,7 @@ namespace ps2x_app
         // check's run) or without a window.
         void playIntro(AppState &state, MenuScreen &menu)
         {
-            if (!state.settings.introLogo || ps2_host::headless() || (std::getenv("PS2X_MENU_SCRIPT") && std::getenv("PS2X_MENU_SCRIPT")[0]))
+            if (!state.settings.introLogo || ps2_host::headless() || (std::getenv("ZX_MENU_SCRIPT") && std::getenv("ZX_MENU_SCRIPT")[0]))
                 return;
             const col::MovieClip clip = col::introFor(*menu.front, state.settings.introTurn);
             if (clip.empty())
@@ -4306,7 +5107,7 @@ namespace ps2x_app
                 menu.scene.update(now);
                 col::Backdrop backdrop = menu.scene.backdrop(now);
                 backdrop.launch = static_cast<float>(t);
-                col::drawMenu(menu.canvas, layout, menu.tiles, menu.font, shell, PS2X_APP_NAME, menu.notice, rows, page, menu.hint, backdrop);
+                col::drawMenu(menu.canvas, layout, menu.tiles, menu.font, shell, ZX_APP_NAME, menu.notice, rows, page, menu.hint, backdrop);
                 presentMenu(menu, true);
                 std::this_thread::sleep_for(std::chrono::milliseconds(16));
             }
@@ -4317,11 +5118,12 @@ namespace ps2x_app
         {
             ++menu.visits;
             menu.script.beginVisit();
-            ps2_host::setWindowTitle(PS2X_APP_NAME);
+            ps2_host::setWindowTitle(ZX_APP_NAME);
             ps2_host::clearExitToMenu();
             refreshLastPlayed(menu, collection); // the game just left may have saved
             refreshMods(menu, state, collection);
             shell.setFreeplay(state.settings.customFreeplay);
+            shell.setFreeplayPlayers(menu.players);
             menu.layout = tilesLayout(shell);
             std::cout << "[app] menu (visit " << menu.visits << ", on "
                       << (shell.selection() == shell.freeplayItem() ? "custom freeplay"
@@ -4355,6 +5157,8 @@ namespace ps2x_app
                     return menu.modPageRows;
                 case col::MenuPage::FreeplayMap:
                     return menu.mapRows;
+                case col::MenuPage::Recordings:
+                    return menu.recordingRows;
                 default:
                     return menu.rows;
                 }
@@ -4373,6 +5177,8 @@ namespace ps2x_app
                     return menu.mapsPage;
                 case col::MenuPage::FreeplayPlayer:
                     return menu.playerPage;
+                case col::MenuPage::Recordings:
+                    return menu.recordingsPage;
                 default:
                     return menu.page;
                 }
@@ -4399,7 +5205,9 @@ namespace ps2x_app
                 col::PageLayout page = pageOf();
                 if (settingUp)
                     page.back = {};
-                col::drawMenu(menu.canvas, layoutOf(), menu.tiles, menu.font, shell, PS2X_APP_NAME, menu.notice, rowsOf(), page, menu.hint,
+                const std::string &notice =
+                    menu.notice.empty() && shell.page() == col::MenuPage::FreeplayPlayer ? menu.playersNote : menu.notice;
+                col::drawMenu(menu.canvas, layoutOf(), menu.tiles, menu.font, shell, ZX_APP_NAME, notice, rowsOf(), page, menu.hint,
                               backdropNow(now),
                               shell.page() != col::MenuPage::Games ? std::string()
                               : settingUp && menu.job->cancel     ? std::string("Stopping...")
@@ -4407,14 +5215,14 @@ namespace ps2x_app
                               settingUp ? "Stop" : nullptr);
                 drawnAt = now;
             };
-            // PS2X_MENU_SHOT_DIR (developers, headless checks): every picture
+            // ZX_MENU_SHOT_DIR (developers, headless checks): every picture
             // of a change the menu shows (not its movie's pictures), and of
             // each step of a setup, as menu-<visit>-<n>.png.
             std::string jobShotStep, jobShown;
             double jobShotAt = -10.0;
             auto writeShot = [&]()
             {
-                const char *dir = std::getenv("PS2X_MENU_SHOT_DIR");
+                const char *dir = std::getenv("ZX_MENU_SHOT_DIR");
                 if (!dir || !dir[0])
                     return;
                 static int shots = 0;
@@ -4443,13 +5251,14 @@ namespace ps2x_app
                     break;
                 }
                 windowFrame(state);
-                ps2x::settings::runPending();
+                zx::settings::runPending();
                 if (shell.freeplay() != state.settings.customFreeplay)
                 {
                     // The setting changed on the Settings page: the tile comes or goes.
                     shell.setFreeplay(state.settings.customFreeplay);
                     menu.layout = tilesLayout(shell);
                 }
+                shell.setFreeplayPlayers(menu.players); // (the setup changed on the Games page: read with the front end)
                 const double now = menuSeconds();
                 menu.scene.show(shownGame(shell), now);
                 followMusic(menu, state, shownGame(shell));
@@ -4479,15 +5288,15 @@ namespace ps2x_app
                         menu.job->cancel = true;
                     // (the job's state: shown on the notice line, or for the discs found on their rows, drawn again
                     // whenever it changes)
-                    const std::string state = jobLine(*menu.job, menu.hint) + (menu.job->cancel ? " (stopping)" : "");
+                    const std::string jobState = jobLine(*menu.job, menu.hint) + (menu.job->cancel ? " (stopping)" : "");
                     // (the bottom screen's taps act on nothing while it runs: none kept for after it)
                     col::BottomScreen::shared().takeTaps();
-                    if (state != jobShown)
+                    if (jobState != jobShown)
                     {
-                        jobShown = state;
+                        jobShown = jobState;
                         redraw = true;
                     }
-                    std::string line = settingUp ? std::string() : state;
+                    std::string line = settingUp ? std::string() : jobState;
                     if (menu.job->finished)
                     {
                         menu.job->worker.join();
@@ -4495,6 +5304,7 @@ namespace ps2x_app
                         std::optional<DiscSearch> found;
                         std::vector<SetupJob::GamePart> parts;
                         std::string where;
+                        bool imported = false;
                         {
                             std::lock_guard lock(menu.job->mutex);
                             for (const std::string &message : menu.job->messages)
@@ -4502,7 +5312,10 @@ namespace ps2x_app
                             found = std::move(menu.job->found);
                             parts = menu.job->parts;
                             where = menu.job->where;
+                            imported = menu.job->settingsImported;
                         }
+                        if (imported)
+                            useImportedSettings(state);
                         line = said.empty() ? "Stopped." : said;
                         menu.job.reset();
                         if (found)
@@ -4530,6 +5343,20 @@ namespace ps2x_app
                         }
                         refreshAfterSetup(menu);
                         shot = true;
+                        if (menu.afterUpdate)
+                        {
+                            const size_t game = static_cast<size_t>(menu.afterUpdate->game);
+                            if (game < parts.size() && parts[game].state == SetupJob::GamePart::Done)
+                            {
+                                // Its code made: the boot (or playback) it waited for, from the page it was chosen on.
+                                if (menu.afterUpdate->recording < 0)
+                                    shell.showPage(col::MenuPage::Tiles);
+                                else
+                                    shell.showPage(col::MenuPage::Recordings);
+                            }
+                            else
+                                menu.afterUpdate.reset();
+                        }
                         if (shell.page() == col::MenuPage::Tiles)
                             menu.layout = tilesLayout(shell);
                     }
@@ -4599,6 +5426,26 @@ namespace ps2x_app
                 const bool tappedQuit = takeBottomTaps(menu, shell, in);
                 const MenuPlace before(shell);
                 col::MenuAction action = shell.input(in, layoutOf(), rowsOf(), pageOf());
+                if (menu.afterUpdate)
+                    action = *std::exchange(menu.afterUpdate, std::nullopt);
+                else if ((action.kind == col::MenuAction::Boot && gameHasFiles(g_argv0, kGamesInOrder[action.game])) ||
+                         (action.kind == col::MenuAction::Play && action.recording >= 0))
+                {
+                    // Its code not this app's yet (the update was stopped, or failed): made first on the Games page,
+                    // as the update makes it, never in a boot that shows nothing while it builds. (Only the code:
+                    // extras that wait for their disc do not hold a game back.)
+                    std::vector<UpdateWork> work = pendingUpdates({action.game});
+                    if (!work.empty() && work.front().code)
+                    {
+                        work.front().extras = {};
+                        std::cout << "[app] menu: " << kGamesInOrder[action.game].id << ": its code first" << std::endl;
+                        menu.afterUpdate = action;
+                        startUpdate(menu, std::move(work));
+                        shell.showPage(col::MenuPage::Games);
+                        redraw = shot = true;
+                        continue;
+                    }
+                }
                 if (tappedQuit && action.kind == col::MenuAction::None)
                     action.kind = col::MenuAction::Quit;
                 if (const std::optional<col::MenuSound> sound = menuSoundOf(in, action, before, shell))
@@ -4623,6 +5470,8 @@ namespace ps2x_app
                         refreshModPage(menu, state, collection, shell, shell.modsRow());
                     if (shell.page() == col::MenuPage::FreeplayMap)
                         refreshMaps(menu, collection, shell.freeplayGame());
+                    if (shell.page() == col::MenuPage::Recordings)
+                        refreshRecordings(menu, collection);
                     menu.shownPage = shell.page();
                 }
                 else if (menu.modsChanged && shell.page() == col::MenuPage::Mod)
@@ -4662,7 +5511,7 @@ namespace ps2x_app
                     {
                         const CustomMap &map = menu.maps[static_cast<size_t>(action.map)];
                         const GameProfile &player = kGamesInOrder[action.game];
-                        if (mapNeedsConversion(map, player.id))
+                        if (const MapSlot *slot = mapSlotFor(map, player.id, slotStartable(player)); slot && mapNeedsConversion(map, *slot))
                         {
                             // The page says what happens while the map converts.
                             menu.notice = "Converting " + map.name + " for " + col::shortGameName(player.id) + "...";
@@ -4680,6 +5529,16 @@ namespace ps2x_app
                     launchCard(menu, shell, layoutOf(), rowsOf(), pageOf());
                     leave();
                     shell.boot(action.game, action.map);
+                    break;
+                }
+                if (action.kind == col::MenuAction::Play && action.recording >= 0 &&
+                    action.recording < static_cast<int>(menu.recordings.size()))
+                {
+                    std::cout << "[app] menu: play back " << menu.recordings[static_cast<size_t>(action.recording)].file.string()
+                              << std::endl;
+                    menu.notice.clear();
+                    leave();
+                    shell.play(action.game, action.recording);
                     break;
                 }
                 if (action.kind == col::MenuAction::Quit)
@@ -4723,7 +5582,9 @@ namespace ps2x_app
         [[noreturn]] void quitApp(AppState &state, int status)
         {
             state.settings.fullscreen = state.fullscreen;
-            if (g_profile)
+            if (g_settingsImported)
+                std::cout << "[app] quit: the settings imported are kept as they are (the window's too)" << std::endl;
+            else if (g_profile)
                 saveSettingsNow(state);
             else if (!g_appSettingsFile.empty())
                 // The collection's menu only: its own settings (the window).
@@ -4732,7 +5593,7 @@ namespace ps2x_app
             ps2_host::shutdown();
             std::fflush(stdout);
             std::fflush(stderr);
-#if defined(PS2X_PGO_GENERATE)
+#if defined(ZX_PGO_GENERATE)
             __llvm_profile_write_file();
 #endif
             std::_Exit(status);
@@ -4751,14 +5612,14 @@ namespace ps2x_app
                 std::cerr << "usage: --make-game-code ID ELF TOOLS CACHE [JOBS [TARGET]]" << std::endl;
                 return 2;
             }
-            ps2x::app::GameCodeTools tools;
+            zx::app::GameCodeTools tools;
             std::string error;
             if (!tools.open(argv[4], &error))
             {
                 std::cerr << "[game-code] " << error << std::endl;
                 return 2;
             }
-            ps2x::app::GameCodeRequest request;
+            zx::app::GameCodeRequest request;
             request.id = argv[2];
             request.elf = argv[3];
             request.cache = argv[5];
@@ -4768,7 +5629,7 @@ namespace ps2x_app
             const auto t0 = std::chrono::steady_clock::now();
             auto stepStart = t0;
             std::string step;
-            const bool made = ps2x::app::makeGameCode(tools, request, [&](const ps2x::app::GameCodeProgress &p)
+            const bool made = zx::app::makeGameCode(tools, request, [&](const zx::app::GameCodeProgress &p)
             {
                 if (step != p.step)
                 {
@@ -4786,7 +5647,7 @@ namespace ps2x_app
                 std::cerr << "[game-code] " << error << std::endl;
                 return 1;
             }
-            std::cout << "[game-code] " << ps2x::app::gameCodeFile(tools, request).string() << " in "
+            std::cout << "[game-code] " << zx::app::gameCodeFile(tools, request).string() << " in "
                       << std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() << " s" << std::endl;
             return 0;
         }
@@ -4893,7 +5754,7 @@ namespace ps2x_app
         AppState state;
         g_argv0 = argc > 0 ? argv[0] : nullptr;
         applyPortableMode(g_argv0);
-        const AppPaths appPaths = resolveAppPaths(PS2X_APP_NAME, getEnv);
+        const AppPaths appPaths = resolveAppPaths(ZX_APP_NAME, getEnv);
         state.paths = appPaths;
         g_supportRoot = appPaths.supportDir;
         const int wanted = developerGame(argc, argv);
@@ -4939,7 +5800,7 @@ namespace ps2x_app
             const std::time_t now = std::time(nullptr);
             char stamp[64] = {};
             std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
-            std::cout << "[app] " << PS2X_APP_NAME << " " << PS2X_APP_VERSION << " started " << stamp << "\n"
+            std::cout << "[app] " << ZX_APP_NAME << " " << ZX_APP_VERSION << " started " << stamp << "\n"
                       << (kCollection ? "[app] game: " + std::string(g_game->id) + " (" + g_game->title + ")\n" : std::string())
                       << "[app] support folder: " << state.paths.supportDir.string() << "\n"
                       << "[app] settings: " << state.paths.settingsFile.string() << (hadSettings ? "" : " (new)") << std::endl;
@@ -4968,7 +5829,7 @@ namespace ps2x_app
             const std::time_t now = std::time(nullptr);
             char stamp[64] = {};
             std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
-            std::cout << "[app] " << PS2X_APP_NAME << " " << PS2X_APP_VERSION << " started " << stamp << "\n"
+            std::cout << "[app] " << ZX_APP_NAME << " " << ZX_APP_VERSION << " started " << stamp << "\n"
                       << "[app] support folder: " << appPaths.supportDir.string() << "\n"
                       << "[app] settings: " << g_appSettingsFile.string() << (hadSettings ? "" : " (new)") << std::endl;
             for (const std::string &warning : warnings)
@@ -4981,9 +5842,9 @@ namespace ps2x_app
             window.height = state.settings.windowHeight;
             window.highDpi = true;
             window.headless = headlessHost();
-            if (!ps2_host::initialize(PS2X_APP_NAME, window))
+            if (!ps2_host::initialize(ZX_APP_NAME, window))
             {
-                platform::showMessage(std::string(PS2X_APP_NAME) + " cannot start", "The window could not be created.", true);
+                platform::showMessage(std::string(ZX_APP_NAME) + " cannot start", "The window could not be created.", true);
                 return 1;
             }
         }
@@ -5000,14 +5861,28 @@ namespace ps2x_app
         col::Shell shell(kGameCount, state.settings.customFreeplay);
         menu.layout = tilesLayout(shell);
         const std::string wantedMap = developerMap(argc, argv);
-        shell.start(wantedMap.empty() ? wanted : -1);
+        const std::string wantedPlayback = developerPlayback(argc, argv);
+        shell.start(wantedMap.empty() && wantedPlayback.empty() ? wanted : -1);
+        if (!wantedPlayback.empty())
+        {
+            play_recording::Summary summary;
+            const int game = play_recording::summarize(wantedPlayback, summary) ? gameIndexOf(summary.value("game")) : -1;
+            if (game < 0)
+                std::cerr << "[app] --play " << wantedPlayback << ": not a recording of a game in this app" << std::endl;
+            else
+            {
+                std::cout << "[app] --play " << wantedPlayback << ": no menu first" << std::endl;
+                menu.recordings = {col::recordingEntry(wantedPlayback, summary)};
+                shell.play(game, 0);
+            }
+        }
         if (wanted >= 0)
             std::cout << "[app] --game " << kGamesInOrder[wanted].id << ": no menu first" << std::endl;
         if (wanted >= 0 && !wantedMap.empty())
         {
             // The map started as the map page starts it (converted first when
             // it was made in another game).
-            menu.maps = listAllMaps(listSharedMods(sharedModsFolder(appPaths)), appPaths.supportDir / kMapsFolder);
+            menu.maps = listMenuMaps(appPaths);
             int index = -1;
             for (size_t i = 0; i < menu.maps.size(); ++i)
                 if (lowerAscii(menu.maps[i].folderName) == lowerAscii(wantedMap))
@@ -5015,7 +5890,7 @@ namespace ps2x_app
             if (index < 0)
                 std::cerr << "[app] --map " << wantedMap << ": no such map in " << sharedModsFolder(appPaths).string() << " or "
                           << (appPaths.supportDir / kMapsFolder).string() << std::endl;
-            else if (!mapPlayableIn(menu.maps[static_cast<size_t>(index)], kGamesInOrder[wanted].id))
+            else if (!mapPlayableIn(menu.maps[static_cast<size_t>(index)], kGamesInOrder[wanted].id, slotStartable(kGamesInOrder[wanted])))
                 std::cerr << "[app] --map " << wantedMap << ": not a map " << kGamesInOrder[wanted].id << " can start" << std::endl;
             else if (prepareMap(menu, menu.maps[static_cast<size_t>(index)], kGamesInOrder[wanted]))
             {
@@ -5024,7 +5899,19 @@ namespace ps2x_app
             }
         }
         if (shell.state() == col::State::Menu)
+        {
+            // An update's work for the games set up before it (their code,
+            // their extras' parts whose key differs), on the Games page.
+            if (std::vector<UpdateWork> work = pendingUpdates(); !work.empty())
+            {
+                startUpdate(menu, std::move(work));
+                shell.showPage(col::MenuPage::Games);
+            }
             playIntro(state, menu);
+        }
+        // (a developer's check of the saves' import: this file imported as the Games page's Import would, no dialog)
+        if (const char *saves = std::getenv("ZX_MENU_IMPORT_SAVES"); saves && saves[0])
+            keepTransferPick(false, saves);
         while (shell.state() != col::State::Quit)
         {
             if (shell.state() == col::State::Menu)
@@ -5032,11 +5919,30 @@ namespace ps2x_app
                 runMenu(state, appPaths, shell, menu);
                 continue;
             }
-            // A Custom Freeplay boot: the map chosen on the map page.
-            const CustomMap *map =
-                shell.map() >= 0 && shell.map() < static_cast<int>(menu.maps.size()) ? &menu.maps[static_cast<size_t>(shell.map())] : nullptr;
-            const BootResult result =
-                bootGame(state, appPaths, kGamesInOrder[shell.game()], gamepadMappings, false, map, map && menu.converted ? &*menu.converted : nullptr);
+            // A playback: the recording chosen on the Recordings page (the
+            // strip on a second screen in the menu's font). A Custom
+            // Freeplay boot: the map chosen on the map page.
+            std::optional<PlaybackBoot> playing;
+            if (shell.playback() >= 0 && shell.playback() < static_cast<int>(menu.recordings.size()))
+            {
+                playing.emplace();
+                playing->entry = menu.recordings[static_cast<size_t>(shell.playback())];
+                if (!play_recording::summarize(playing->entry.file, playing->summary))
+                {
+                    std::cerr << "[app] playback: " << playing->entry.file.string() << " is not a recording" << std::endl;
+                    menu.notice = "The recording cannot be played: it cannot be read.";
+                    shell.gameEnded(col::GameEnd::Failed);
+                    continue;
+                }
+                col::PlaybackStrip::shared().show(col::StripView{}, std::make_shared<col::BitmapFont>(menu.font));
+            }
+            const PlaybackBoot *playback = playing ? &*playing : nullptr;
+            const CustomMap *map = !playback && shell.map() >= 0 && shell.map() < static_cast<int>(menu.maps.size())
+                                       ? &menu.maps[static_cast<size_t>(shell.map())]
+                                       : nullptr;
+            const BootResult result = bootGame(state, appPaths, kGamesInOrder[shell.game()], gamepadMappings, false, map,
+                                               map && menu.converted ? &*menu.converted : nullptr, playback);
+            col::PlaybackStrip::shared().show(std::nullopt);
             menu.converted.reset();
             menu.notice = result.why;
             shell.gameEnded(result.end);
@@ -5048,5 +5954,5 @@ namespace ps2x_app
 namespace
 {
     // The runner's main starts the app (runtime/ps2_front_end.h).
-    [[maybe_unused]] const bool g_installed = ps2x::front_end::installApp({&ps2x_app::startedAsApp, &ps2x_app::runApp});
+    [[maybe_unused]] const bool g_installed = zx::front_end::installApp({&zx_app::startedAsApp, &zx_app::runApp});
 }

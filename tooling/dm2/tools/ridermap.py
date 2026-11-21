@@ -47,7 +47,7 @@ GAME = (0x150000, 0x1C2728)  # DM2's game layer (MATCH3.md section 4's bounds)
 ROOTS = (0x1A2348, 0x1643D8, 0x1A33F0, 0x192180, 0x191DC0)
 TABLES = ((0x241D80, 12), (0x241DB0, 12), (0x241DE0, 11), (0x241E0C, 11), (0x241E38, 11),
           (0x241E64, 11), (0x241E90, 8), (0x241EB0, 6), (0x259530, 9))
-# What PS2Recomp's dm2rider2 round ported (runtime/dm2_rider.h dr::MotionPicker, removed 2026-11-05): the motion choice
+# What the dm2rider2 round ported (runtime/dm2_rider.h dr::MotionPicker, removed 2026-11-05): the motion choice
 # of these, driven by AI's skater; not their physics, and not as registered readable functions.
 MOTION_CHOICE = {0x1A2348, 0x1A33F0, 0x1A3C50, 0x1A41D0, 0x1A4620, 0x1A5240, 0x1A5360, 0x1A5498,
                  0x1A56E8, 0x1A5A00, 0x1A5E68, 0x1A65A8, 0x1A6808, 0x1A6F18, 0x1A7470, 0x1A7520,

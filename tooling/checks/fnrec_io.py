@@ -1,5 +1,5 @@
 """A recording's file (<address>.fnrec) in either form it is kept in: plain, or compressed with zstd
-(runtime/src/game/ee/fnrec_file.h, the format; ps2xFnCheck and the recorder read and write it there).
+(runtime/src/game/ee/fnrec_file.h, the format; zx-fncheck and the recorder read and write it there).
 
 The compressed form is a zstd stream whose decompressed bytes are the plain file. It begins with a skippable frame
 holding the plain file's header and size (the head), then frames of whole records with their checksums. The head
@@ -13,7 +13,7 @@ is read without zstd (plain bytes), so the size every tool keys a file by is the
     pack(src, dst)          the converter's compression of one plain file (fnrec_pack.py): records grouped into
                             frames of at least PACK_FRAME bytes at PACK_LEVEL, the head naming the plain size
 
-The library is zstd's (1.5.7, as runtime/cmake/ps2x_zstd.cmake pins): Python 3.14's compression.zstd where there is
+The library is zstd's (1.5.7, as runtime/cmake/zx_zstd.cmake pins): Python 3.14's compression.zstd where there is
 one (the Mac's Python), else the zstandard module (the Windows worker's Python 3.12); only open_plain and pack need it.
 """
 import io

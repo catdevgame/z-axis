@@ -31,7 +31,7 @@ resolve as a jump table.
 
   readable_voids.py [--build BUILD | --drafts DIR] [--games ai,dm2] [--unknowns] [--bind FILE] [--dm2-root DIR]
       exit 1 when any void function has a caller that reads its result; 2 when AI's ELF or Ghidra
-      map is missing. --build: the sweep's drafts that build wrote (ps2xRuntime/readable_sweep) are
+      map is missing. --build: the sweep's drafts that build wrote (runtime/readable_sweep) are
       registrations too.
 
 Each hit is one line: game, function, its registration, the caller (and the functions the
@@ -62,7 +62,7 @@ import readable_symbols  # noqa: E402
 
 TREE = ztree.TREE
 GAME_SRC = readable_symbols.GAME_SRC
-# game.cmake's PS2X_GAME_INSTANCE_SOURCES_dm2: the default build's DM2 instance.
+# game.cmake's ZX_GAME_INSTANCE_SOURCES_dm2: the default build's DM2 instance.
 DEFAULT_INSTANCE_DM2 = ['zge/text/cstring.cpp', 'zge/container/heap.cpp', 'zge/container/tree.cpp',
                         'sce/libc.cpp', 'sce/libgcc.cpp']
 
@@ -742,18 +742,18 @@ def main():
     ap.add_argument('--games', default='ai,dm2')
     ap.add_argument('--workspace', default=workspace, help='the bring-up workspace (recomp/, extracted/)')
     ap.add_argument('--elf', help="AI's ELF (default: recomp/config.game.toml's input)")
-    ap.add_argument('--dm2-root', help="DM2's workspace (default: $PS2X_DM2_ROOT, else dm2 beside "
+    ap.add_argument('--dm2-root', help="DM2's workspace (default: $ZX_DM2_ROOT, else dm2 beside "
                     "the workspace)")
-    ap.add_argument('--bind', help="DM2's bind table (default: $PS2X_BIND_DIR/dm2.tsv, else the tree's "
+    ap.add_argument('--bind', help="DM2's bind table (default: $ZX_BIND_DIR/dm2.tsv, else the tree's "
                     "runtime/tools/bind/dm2.tsv, else $ZAXIS_SCRATCH/workdb/bind/dm2.tsv)")
-    ap.add_argument('--build', help="a build dir: its sweep drafts (ps2xRuntime/readable_sweep) are checked too")
+    ap.add_argument('--build', help="a build dir: its sweep drafts (runtime/readable_sweep) are checked too")
     ap.add_argument('--drafts', help='the sweep drafts folder itself')
     ap.add_argument('--unknowns', action='store_true', help='list the unknowns')
     a = ap.parse_args()
     games = a.games.split(',')
-    a.dm2_root = a.dm2_root or os.environ.get('PS2X_DM2_ROOT') or \
+    a.dm2_root = a.dm2_root or os.environ.get('ZX_DM2_ROOT') or \
         os.path.join(os.path.dirname(os.path.abspath(a.workspace)), 'dm2')
-    drafts = a.drafts or (os.path.join(a.build, 'ps2xRuntime', 'readable_sweep') if a.build else None)
+    drafts = a.drafts or (os.path.join(a.build, 'runtime', 'readable_sweep') if a.build else None)
     if drafts and not os.path.isdir(drafts):
         print('readable_voids: no sweep drafts at %s' % drafts)
         return 2
@@ -786,7 +786,7 @@ def main():
             ghidra = os.path.join(a.dm2_root, 'recomp', 'ghidra-functions.csv')
             # (the tree's own table, runtime/tools/bind since tools39; the shared folder's for a tree from before)
             own = os.path.join(ztree.TOOLS, 'bind')
-            bind = a.bind or os.path.join(os.environ.get('PS2X_BIND_DIR') or (own if os.path.isfile(os.path.join(own, 'dm2.tsv'))
+            bind = a.bind or os.path.join(os.environ.get('ZX_BIND_DIR') or (own if os.path.isfile(os.path.join(own, 'dm2.tsv'))
                                           else os.path.join(SCRATCH_ROOT, 'workdb', 'bind')), 'dm2.tsv')
             missing = [p for p in (elf, ghidra, bind) if not os.path.exists(p)]
             if missing:

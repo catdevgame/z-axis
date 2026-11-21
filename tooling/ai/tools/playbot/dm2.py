@@ -226,11 +226,11 @@ CLOCK = 4096
 
 def run_config(name, script, env=None, max_secs=900, gs=False, root=None):
     # The gate's clock: no frame overruns its vsync, so a played run is the same run for any runner and any spec.
-    e = {'PS2X_DEV_UNLOCK_ALL': '1', 'PS2X_READABLE': 'off', 'PS2X_SAVES': 'card', 'PS2X_MC_FD_BASE0': '1', 'PS2X_MC_FIXED_TIME': '1',
-         'PS2X_EE_SCALE': str(CLOCK)}
+    e = {'ZX_DEV_UNLOCK_ALL': '1', 'ZX_READABLE': 'off', 'ZX_SAVES': 'card', 'ZX_MC_FD_BASE0': '1', 'ZX_MC_FIXED_TIME': '1',
+         'ZX_EE_SCALE': str(CLOCK)}
     if os.environ.get('PLAY_FNPROF'):     # the functions a run calls (runtime ee/profile.cpp): calls per function, CSV
         os.makedirs(os.path.join(SCRATCH, 'prof'), exist_ok=True)
-        e['PS2X_FNPROF'] = os.path.join(SCRATCH, 'prof', name + '.csv')
+        e['ZX_FNPROF'] = os.path.join(SCRATCH, 'prof', name + '.csv')
     e.update(env or {})
     return core.RunConfig(name=name, runner=RUNNER, elf=ELF, root=root or SCRATCH + '/runs', script=script, env=e,
                           max_secs=max_secs, gs=gs)
@@ -319,21 +319,21 @@ def play_session(name, mode, level, rider=0, bike=0, seed=1, ticks=10800, gs=Fal
     d = session_dir(name)
     os.makedirs(d, exist_ok=True)
     multiplayer = mode.startswith('mp-')
-    poke = {'PS2X_PAD_PORT1': 'mirror'} if multiplayer else {}
+    poke = {'ZX_PAD_PORT1': 'mirror'} if multiplayer else {}
     if mode == 'competition':
         # (routes3, test only) the level's progress flags for the rider's character: open (1) and competition open (2), a
         # word at CAREER + character x 0x3C8 + 0x13C + level number x 0x44 + 0x3C, written once in the front end
         import dm2routes
         at = dm2routes.CAREER + rider * 0x3C8 + 0x13C + dm2routes.LEVEL_BLOCKS[level] * 0x44 + 0x3C
-        poke['PS2X_POKE_SCRIPT'] = '%x:%x=3' % (int(os.environ.get('COMP_POKE_TICK', '3000')), at)
+        poke['ZX_POKE_SCRIPT'] = '%x:%x=3' % (int(os.environ.get('COMP_POKE_TICK', '3000')), at)
     if level in XBOX_LEVELS:
         # (the app's [extras] dm2_xbox_levels) the Xbox levels' folder as the app bundles it (make-app.sh's dm2_xbox.py):
         # menu values 9, 10 in Free Ride, after Airport
-        poke['PS2X_DM2_XBOX_LEVELS_DIR'] = os.environ['DM2_XBOX_LEVELS_DIR']
-        poke['PS2X_DM2_XBOX_LEVELS'] = '1'
+        poke['ZX_DM2_XBOX_LEVELS_DIR'] = os.environ['DM2_XBOX_LEVELS_DIR']
+        poke['ZX_DM2_XBOX_LEVELS'] = '1'
     if os.environ.get('SP_CARD') == 'native':
-        poke['PS2X_SAVES'] = None          # the native save file (run_config's card unset)
-        poke['PS2X_TRACE_SAVES'] = '1'
+        poke['ZX_SAVES'] = None          # the native save file (run_config's card unset)
+        poke['ZX_TRACE_SAVES'] = '1'
     cfg = run_config(name, menu.text(), env=poke, max_secs=max_secs, gs=gs)
     meter, log = Meter(), player_dm2.Log(os.path.join(d, 'play.log'))
     lv = dm2map.Level(XBOX_LEVELS.get(level) or dm2map.LEVELS[level])
@@ -343,6 +343,8 @@ def play_session(name, mode, level, rider=0, bike=0, seed=1, ticks=10800, gs=Fal
     rec = core.Recorder()
     trace = core.Trace(os.path.join(d, 'trace.txt'))
     start = {}
+    dump_every = int(os.environ.get('DUMP_EVERY', '0'))
+    dump_ticks = {int(x) for x in os.environ.get('DUMP_TICKS', '').split(',') if x}
     shots = sorted(shots)
     picture = []
     mp_screens = (multiplayer and os.environ.get('MP_SCREENS') == '1') or mode == 'competition'
@@ -551,6 +553,10 @@ def play_session(name, mode, level, rider=0, bike=0, seed=1, ticks=10800, gs=Fal
             return core.NOTHING
         start.setdefault('t', st.script)
         t = st.script - start['t']
+        if (dump_every and t % dump_every == 0) or t in dump_ticks:
+            # (DUMP_EVERY, DUMP_TICKS) the RAM every so many ticks of play, and at the ticks listed: the panel's shots of a run (zx-panelshot --game dm2)
+            with open(os.path.join(d, 'tick-%d.ram' % t), 'wb') as f:
+                f.write(run.mem(0, 0x2000000))
         if start.get('pq_live'):
             p = pq_flow(st)
             if p == 'end':
@@ -653,9 +659,9 @@ def reload(name, saves, profile=None):
     s.presses('DOWN', 'DOWN', 'DOWN', after=30)
     s.press('CROSS', after=600)          # LOAD GAME
     s.wait(600)
-    env = {'PS2X_SAVES': None, 'PS2X_SAVES_DIR': saves, 'PS2X_TRACE_SAVES': '1'}
+    env = {'ZX_SAVES': None, 'ZX_SAVES_DIR': saves, 'ZX_TRACE_SAVES': '1'}
     if profile:
-        env['PS2X_SAVE_PROFILE'] = profile
+        env['ZX_SAVE_PROFILE'] = profile
     cfg = run_config(name, s.text(), env=env, max_secs=600)
     out = {}
     before = s.t - 1400
@@ -683,7 +689,7 @@ def replay(name, suffix='replay', spec=None, runner=None):
     script = open(os.path.join(d, 'script.txt')).read()
     env = dict(meta.get('env', {}))
     if spec:
-        env['PS2X_READABLE'] = spec if not spec.startswith('@') else 'tested,' + ','.join(open(spec[1:]).read().split())
+        env['ZX_READABLE'] = spec if not spec.startswith('@') else 'tested,' + ','.join(open(spec[1:]).read().split())
     cfg = run_config(name + '-' + suffix, script, env=env, max_secs=1200)
     if runner:
         cfg.runner = runner
@@ -711,7 +717,7 @@ def states(name, spec, first, last, words=None):
     d = session_dir(name)
     meta = json.load(open(os.path.join(d, 'meta.json')))
     script = open(os.path.join(d, 'script.txt')).read()
-    env = dict(meta.get('env', {}), PS2X_READABLE=spec)
+    env = dict(meta.get('env', {}), ZX_READABLE=spec)
     cfg = run_config(name + '-states-' + (spec or 'defaults'), script, env=env, max_secs=1200)
     extra = []
     for w in filter(None, (words or '').split(',')):

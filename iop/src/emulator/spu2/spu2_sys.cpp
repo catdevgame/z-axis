@@ -17,7 +17,7 @@
 #include <cstring>
 #include <string>
 
-namespace ps2x::iop::detail::spu2
+namespace zx::spu2
 {
     Spu2System::Spu2System(std::span<u8> iopRam)
         : spu2regs(0x10000 / sizeof(s16)),
@@ -27,9 +27,9 @@ namespace ps2x::iop::detail::spu2
     {
         Cores[0].Sys = this;
         Cores[1].Sys = this;
-        if (const char *dump = std::getenv("PS2X_SPU2_ADMA_DUMP"); dump && *dump)
+        if (const char *dump = std::getenv("ZX_SPU2_ADMA_DUMP"); dump && *dump)
             AdmaDump = std::fopen(dump, "wb");
-        if (const char *dump = std::getenv("PS2X_SPU2_RAM_DUMP"); dump && *dump)
+        if (const char *dump = std::getenv("ZX_SPU2_RAM_DUMP"); dump && *dump)
             RamDumpPrefix = dump;
         BuildRegTable();
         Reset();

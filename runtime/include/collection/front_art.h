@@ -29,7 +29,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     // A part of a movie: from `start` to `end` seconds (end 0: to its end).
     struct MovieClip

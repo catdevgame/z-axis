@@ -265,7 +265,7 @@ void VU1Interpreter::run(uint8_t *vuCode, uint32_t codeSize,
     m_expectedPc = ~0u;
     static const bool aotBlocks = []()
     {
-        const char *value = std::getenv("PS2X_VU1_AOT_BLOCKS");
+        const char *value = std::getenv("ZX_VU1_AOT_BLOCKS");
         return !(value && value[0] == '0');
     }();
     m_aotBlocksOff = !aotBlocks || m_tracingPairs;
@@ -363,9 +363,9 @@ VU1AotRun VU1Interpreter::aotRegistry(uint64_t hash, VU1AotRun add)
     return it == programs.end() ? nullptr : it->second;
 }
 
-// PS2X_VU1_AOT=0 runs everything on the interpreter. PS2X_VU1_CODE_DUMP=<dir>
+// ZX_VU1_AOT=0 runs everything on the interpreter. ZX_VU1_CODE_DUMP=<dir>
 // writes every micro memory image VU1 runs as <dir>/<hash>.vu1code (input for
-// ps2xVu1Aot).
+// zx-vu1aot).
 void VU1Interpreter::selectAotProgram(const uint8_t *vuCode, uint32_t codeSize)
 {
     m_aotProgram = nullptr;
@@ -373,10 +373,10 @@ void VU1Interpreter::selectAotProgram(const uint8_t *vuCode, uint32_t codeSize)
         return;
     static const bool enabled = []()
     {
-        const char *value = std::getenv("PS2X_VU1_AOT");
+        const char *value = std::getenv("ZX_VU1_AOT");
         return !(value && value[0] == '0');
     }();
-    static const char *dumpDir = std::getenv("PS2X_VU1_CODE_DUMP");
+    static const char *dumpDir = std::getenv("ZX_VU1_CODE_DUMP");
     const uint64_t hash = codeHash(vuCode, codeSize);
     if (enabled)
         m_aotProgram = findAotProgram(hash);
@@ -388,7 +388,7 @@ void VU1Interpreter::selectAotProgram(const uint8_t *vuCode, uint32_t codeSize)
             return;
     }
     std::fprintf(stderr, "[vu1] micro memory %016llx: %s\n", static_cast<unsigned long long>(hash),
-                 m_aotProgram ? "ahead-of-time code" : (enabled ? "interpreter (no ahead-of-time code)" : "interpreter (PS2X_VU1_AOT=0)"));
+                 m_aotProgram ? "ahead-of-time code" : (enabled ? "interpreter (no ahead-of-time code)" : "interpreter (ZX_VU1_AOT=0)"));
     if (dumpDir && dumpDir[0])
     {
         char name[32];

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """BMX XXX booted with no memory card (routes1).
 
-    bmxfront.py nocard NAME        booted with no memory card in either slot (PS2X_MC_SLOT1/2=none) and the game's own
-                                   card jobs (PS2X_SAVES=card): the boot's autoload finds none and its question stays
+    bmxfront.py nocard NAME        booted with no memory card in either slot (ZX_MC_SLOT1/2=none) and the game's own
+                                   card jobs (ZX_SAVES=card): the boot's autoload finds none and its question stays
                                    up, polling the slots, to the tick limit (12,000)
 
 play.log in sessions/NAME: each mode change and step with its tick.
@@ -17,9 +17,9 @@ import core  # noqa: E402
 
 
 def play(kind, name, ticks=12000):
-    env = {'PS2X_EE_SCALE': '4096'}
+    env = {'ZX_EE_SCALE': '4096'}
     if kind == 'nocard':
-        env.update(PS2X_SAVES='card', PS2X_MC_SLOT1='none', PS2X_MC_SLOT2='none')
+        env.update(ZX_SAVES='card', ZX_MC_SLOT1='none', ZX_MC_SLOT2='none')
     cfg = bmx.run_config(name, '', env=env, max_secs=1500)
     d = bmx.session_dir(name)
     os.makedirs(d, exist_ok=True)

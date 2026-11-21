@@ -7,10 +7,10 @@
 
 // Frame timeline trace (developer tool): timestamped marks from the EE, the
 // graphics workers and the window thread, to see where a frame's wall time
-// goes and which threads wait for which. Off unless started (PS2X_CONTROL
+// goes and which threads wait for which. Off unless started (ZX_CONTROL
 // "ftrace start" / "ftrace stop FILE"); a mark costs one relaxed load when
 // off. tools/ftrace.py in the game repo reads the file.
-namespace ps2x::ftrace
+namespace zx::ftrace
 {
     enum Kind : uint16_t
     {

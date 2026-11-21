@@ -9,8 +9,8 @@
 //
 // The Xbox textures follow the files the game opens (zge_xbox_textures.h).
 //
-// [host] disc = ps2 keeps ZCDDVD over the emulated IOP. PS2X_MODS_DIR and
-// PS2X_TRACE_DISC as for Aggressive Inline.
+// [host] disc = ps2 keeps ZCDDVD over the emulated IOP. ZX_MODS_DIR and
+// ZX_TRACE_DISC as for Aggressive Inline.
 #include "dave_mirra.h"
 #include "zge_host.h"
 #include "zge_xbox_textures.h"

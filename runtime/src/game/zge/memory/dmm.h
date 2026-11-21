@@ -24,7 +24,7 @@ namespace zge
         uint32_t end;       // +0x04 its end; handle i is at end - 8 * i
         uint32_t handleLow; // +0x08 the lowest handle made (end while none)
         uint32_t top;       // +0x0C the blocks' high-water mark
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         int32_t hint;       // +0x10 where the search for a free handle starts (an index - 1)
         int32_t searchHint() const { return hint; }
         void setSearchHint(int32_t index) { hint = index; }
@@ -37,7 +37,7 @@ namespace zge
         uint32_t bytes;     // +0x14 (DM2 +0x10)
         int32_t lockCount;  // +0x18 (DM2 +0x14) the blocks locked: dmmCompact moves nothing while there are any
         uint32_t freeList;  // +0x1C (DM2 +0x18) the first free block by address, kDmmNoFreeBlock when none
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t unused;    // DM2 +0x1C: nothing reads or writes it
 #endif
     };

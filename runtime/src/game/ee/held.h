@@ -15,7 +15,7 @@
 // one per call made before it (Case: the original's call site of the previous
 // call, or the entry). The runtime follows the readable function's calls through
 // the original's sites (the readable makes the original's calls in its order:
-// ps2xFnCheck requires it), works the values out at each call, and gives them to
+// zx-fncheck requires it), works the values out at each call, and gives them to
 // the callee as the original's caller would (Frame::next, as ee::calleeSaves
 // publishes them: abi.cpp), with the jal's return address. A value the table
 // cannot give (it depends on how often a loop with no call in it ran, or on an
@@ -171,7 +171,7 @@ namespace ee::held
     // The runtime reads them as the function is entered, so no later store of the
     // readable function's makes them stale. At most kEntryLoads per function. In
     // a replay none is read (a recording does not say which bytes it holds): not
-    // known, so the entry value. PS2X_READABLE_HELD_ENTRY_LOADS=0: none read.
+    // known, so the entry value. ZX_READABLE_HELD_ENTRY_LOADS=0: none read.
     constexpr int kEntryLoads = 8;
     struct Function
     {
@@ -281,7 +281,7 @@ namespace ee::held
     // texture coordinates). Set before the game runs; a pair set twice is kept once.
     void placeAs(uint32_t game, uint32_t target, uint32_t standsFor);
 
-    // PS2X_READABLE_HELD (default 1): 0 leaves the table out (every call gives
+    // ZX_READABLE_HELD (default 1): 0 leaves the table out (every call gives
     // the entry values, the model before tools18). on(): the table on in this
     // boot (wanted(), less lean's held part: ee::bootSwitches, read once per
     // boot); wanted(): the environment's and the frame table's part alone.
@@ -291,15 +291,15 @@ namespace ee::held
     // Evaluates one expression (the unit tests' view): false if a part of it
     // is not known. loads: memory is read only for the case the call is known
     // to be (the original made those loads on every path there; another case's
-    // may be anywhere, and ps2xFnCheck's RAM holds only what the recording read),
+    // may be anywhere, and zx-fncheck's RAM holds only what the recording read),
     // and for a case's checks, which only choose among the cases: read through
     // the bounds check, never recorded as an access. unreadable (if given): set
     // when a load could not be read (an unmapped address): that case does not
-    // match (ee/held.cpp matches). In a replay no check load is read (ps2xFnCheck
+    // match (ee/held.cpp matches). In a replay no check load is read (zx-fncheck
     // does not say what its recording holds) and such a check is not known, as
     // before: ruling those cases out left another site's case alone, whose value
     // loads then read where that site's base points (AI's drawScene, 0x178).
-    // `replaying`: under ps2xFnCheck's call handler (its check loads are not read).
+    // `replaying`: under zx-fncheck's call handler (its check loads are not read).
     bool evaluate(const Frame &frame, const State &state, const CallRegs &regs, const Node *nodes, uint32_t count,
                   uint64_t &out, bool loads = true, bool *unreadable = nullptr, bool replaying = false);
 }

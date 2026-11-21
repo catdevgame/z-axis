@@ -14,14 +14,14 @@
 // readable callers reach the wrapper: game::call goes through the table for
 // a hooked function (Function::hooked). The status says how far it is proven:
 //
-//   Planned   no readable version yet; registered so ps2xFnCheck can
+//   Planned   no readable version yet; registered so zx-fncheck can
 //             record its calls (READABLE_PLANNED)
 //   Draft     written, not yet clean against its recorded calls
 //   Tested    identical to the recompiled function on every recorded call
-//             (ps2xFnCheck, game/ee/fncheck.h)
+//             (zx-fncheck, game/ee/fncheck.h)
 //   Verified  Tested, and tools/logiccheck.py stays 21/21 MATCH with it on
 //
-// Verified functions are on by default. PS2X_READABLE changes that, a
+// Verified functions are on by default. ZX_READABLE changes that, a
 // comma-separated list read left to right:
 //
 //   on / verified   the default (Verified functions)
@@ -94,7 +94,7 @@ namespace game::readable
         // The C++ function itself (for game::call<&fn>).
         const void *host = nullptr;
         // Its C++ type (signatureOf): a call of the function at this address from its own body runs `host` directly
-        // under ps2xFnCheck only when the caller's entry has the same type (an own body's caller is its shared
+        // under zx-fncheck only when the caller's entry has the same type (an own body's caller is its shared
         // body's name: game::detail::Route).
         const void *signature = nullptr;
         // Its callees can wait (a file read, a semaphore): it runs on a fiber
@@ -102,7 +102,7 @@ namespace game::readable
         bool waits = false;
         // Its callers read what it leaves in VU0: it writes the registers,
         // Q and flags as the original leaves them (ee::vu0::Leave), and
-        // ps2xFnCheck compares them (READABLE_FUNCTION_VU0).
+        // zx-fncheck compares them (READABLE_FUNCTION_VU0).
         bool leavesVu0 = false;
 
         // Set by install(): the recompiled function, the same built with
@@ -131,7 +131,7 @@ namespace game::readable
     Function *findHost(const void *host);
     // Whether game::call or game::tailCall names this host function somewhere
     // in the build: only its signature's arguments reach it there, so a
-    // register it leaves for a callee must be one a call passes (ps2xFnCheck
+    // register it leaves for a callee must be one a call passes (zx-fncheck
     // holds it to that: entry_left).
     bool noteCalledDirectly(const void *host);
     bool calledDirectly(const void *host);
@@ -141,7 +141,7 @@ namespace game::readable
     bool runsInGame(uint32_t address, Game game);
     bool runsInGame(uint32_t address);
     // Whether install() will switch the readable version of the function at
-    // `address` in `game` on: its status's default, then PS2X_READABLE (as
+    // `address` in `game` on: its status's default, then ZX_READABLE (as
     // install() reads it). Asked before the game starts (a front end's row
     // that needs the function); changes nothing.
     bool switchedOnAtBoot(uint32_t address, Game game);
@@ -161,7 +161,7 @@ namespace game::readable
     // TracedRegistration (ee/fncheck_trace.h).
     PS2Runtime::RecompiledFunction tracedOriginal(uint32_t address, Game game = Game::Ai);
 
-    // Which functions PS2X_READABLE switches on (see above), among `game`'s.
+    // Which functions ZX_READABLE switches on (see above), among `game`'s.
     // A library function the game links that the runtime replaces with host code (ps2_stubs) which neither
     // waits nor calls the game: memcpy, memset, the malloc family (sce/libc.cpp). A readable function running
     // on a fiber calls one there, as it calls a readable callee, instead of leaving its fiber for the host stack
@@ -181,8 +181,8 @@ namespace game::readable
     bool applySwitch(const std::string &spec, std::string *error = nullptr, Game game = Game::Ai);
 
     // Installs the running game's switched-on readable functions over the
-    // recompiled ones (every other game's are off) and, with PS2X_FNREC and
-    // PS2X_FNPROF, the call recorder and the profiler. Call before any other
+    // recompiled ones (every other game's are off) and, with ZX_FNREC and
+    // ZX_FNPROF, the call recorder and the profiler. Call before any other
     // override looks functions up, so wrappers wrap the readable version.
     void install(PS2Runtime &runtime, Game game);
     void install(PS2Runtime &runtime); // AI's (the AI override declares it itself)
@@ -190,27 +190,27 @@ namespace game::readable
 
 namespace game::profile
 {
-    // PS2X_FNPROF=<file.csv>: calls and time per game function (profile.cpp).
+    // ZX_FNPROF=<file.csv>: calls and time per game function (profile.cpp).
     void install(PS2Runtime &runtime);
-    // PS2X_TAILCALL_STATS=<file.csv>: the tail calls generated code made to
+    // ZX_TAILCALL_STATS=<file.csv>: the tail calls generated code made to
     // a replaced function, by site (tailcall_stats.cpp).
     void installTailCallStats(PS2Runtime &runtime);
-    // PS2X_FNCYCLES=<addr>[,<addr>...]:<file>: EE cycles of a few functions,
+    // ZX_FNCYCLES=<addr>[,<addr>...]:<file>: EE cycles of a few functions,
     // call by call (cycletrace.cpp).
     void installCycleTrace(PS2Runtime &runtime);
     // Its view of readable functions called directly (game::call and
     // game::tailCall: no dispatch table to wrap): begin returns a token for
     // end (0: not traced), called after the dispatch the caller charges.
-    // Null unless PS2X_FNCYCLES is set.
+    // Null unless ZX_FNCYCLES is set.
     struct DirectCallTrace
     {
         uint64_t (*begin)(uint32_t address);
         void (*end)(uint64_t token);
     };
-#if ZAXIS_DEV_CHECKS
+#if ZX_DEV_CHECKS
     inline const DirectCallTrace *g_directCallTrace = nullptr;
 #else
-    inline constexpr const DirectCallTrace *g_directCallTrace = nullptr; // (the app's flavour: no PS2X_FNCYCLES)
+    inline constexpr const DirectCallTrace *g_directCallTrace = nullptr; // (the app's flavour: no ZX_FNCYCLES)
 #endif
 }
 
@@ -220,7 +220,7 @@ namespace game
     {
         // A readable callee called directly, as the original's jal: the
         // dispatch (8 EE cycles, a safe point) and, if its frame unwound,
-        // the return through the scheduler (ee::enterDirectCall). PS2X_FNCYCLES
+        // the return through the scheduler (ee::enterDirectCall). ZX_FNCYCLES
         // sees it when it traces the address, from after the dispatch (and
         // its resume, if a checkpoint was due there) to after the return, as
         // a table call's wrapper does.
@@ -260,7 +260,7 @@ namespace game
             }
         }
 
-        // A function that calls itself, under ps2xFnCheck: the body runs here, a call the recording does not hold
+        // A function that calls itself, under zx-fncheck: the body runs here, a call the recording does not hold
         // (CallHandler::callsItself).
         template <typename F, typename... A>
         auto itselfThrough(F body, A... args)
@@ -291,7 +291,7 @@ namespace game
         }
 
         // A readable callee of a tail call, directly: the callee's own
-        // safe-point mode, no dispatch; seen by PS2X_FNCYCLES as generated
+        // safe-point mode, no dispatch; seen by ZX_FNCYCLES as generated
         // code's tail call through the table is (PS2Runtime::tailCall).
         template <auto Fn, typename... A>
         auto directTail(uint32_t address, A... args)
@@ -326,7 +326,7 @@ namespace game
             }
         }
 
-        // Under ps2xFnCheck, a tail call that is a jump inside the function replayed (CallHandler::jumpsInside):
+        // Under zx-fncheck, a tail call that is a jump inside the function replayed (CallHandler::jumpsInside):
         // generated code runs it as a goto, so the callee's body runs here, at the caller's sp with its own frame
         // row (directTail), and its calls are answered from the caller's recording.
         inline bool jumpsInside(uint32_t address)
@@ -337,7 +337,7 @@ namespace game
 
     // Calls another readable function: directly when it is on and no override
     // hooks it, else the game function at its address (the recompiled one, or
-    // the hook around either). Under ps2xFnCheck
+    // the hook around either). Under zx-fncheck
     // the call is answered from the recording like any other, so a
     // function is checked on its own; as a direct call (CallRegs::direct):
     // only the arguments the callee's signature names reach it, so one its
@@ -429,7 +429,7 @@ namespace game
 //
 //     orthonormalize(right, up, forward);
 //
-// The function's name is `orthonormalize` everywhere else (PS2X_READABLE,
+// The function's name is `orthonormalize` everywhere else (ZX_READABLE,
 // the tables): a registration drops the underscore. Arguments go as they are
 // given, an ee::Local, an object in game memory and an ee::Ptr as the address
 // they are. A body whose callees can wait gets its fiber as a call through
@@ -711,7 +711,7 @@ namespace game::readable
 // A function to be ported: registered for recording only. In a game's
 // instance it is that game's, and one the game has not got (its table gives
 // the symbol no row: bindPlanned, below) registers nothing.
-#if defined(PS2X_GAME_INSTANCE)
+#if defined(ZX_GAME_INSTANCE)
 #define READABLE_PLANNED(ADDRESS, NAME)                                                                             \
     static const ::game::readable::Bound READABLE_JOIN(g_readableRegistration_, __LINE__) =                        \
         ::game::readable::bindPlanned<(ADDRESS)>(NAME, READABLE_SOURCE_FILE)
@@ -741,18 +741,18 @@ namespace game::readable
 // READABLE_FUNCTION(fn, Verified), the address is the symbol's;
 // READABLE_FUNCTION(sym::name, fn, Verified) when the symbol is not the C++ name.
 // A source built for another game (a per-game instance, game.cmake:
-// PS2X_GAME_INSTANCE) has that game's level and status from its generated
+// ZX_GAME_INSTANCE) has that game's level and status from its generated
 // header: 2 its body runs there, 1 only the address is known (registered
 // Planned, so game::call<&fn> reaches the recompiled function), 0 no such
 // function there.
 namespace game::readable
 {
     // The game a source is built for: AI's, unless it is a per-game instance
-    // (game.cmake compiles a shared source again with PS2X_GAME_INSTANCE set,
+    // (game.cmake compiles a shared source again with ZX_GAME_INSTANCE set,
     // its symbols at that game's addresses and zge and sce renamed, so every
     // function and constant of it is that game's own).
-#if defined(PS2X_GAME_INSTANCE)
-    inline constexpr Game kInstanceGame = ::game::games::PS2X_GAME_INSTANCE;
+#if defined(ZX_GAME_INSTANCE)
+    inline constexpr Game kInstanceGame = ::game::games::ZX_GAME_INSTANCE;
 #else
     inline constexpr Game kInstanceGame = Game::Ai;
 #endif
@@ -811,7 +811,7 @@ namespace game::readable
     }
 }
 
-#if defined(PS2X_GAME_INSTANCE)
+#if defined(ZX_GAME_INSTANCE)
 // (sym::name, fn, status): the address, level and status the name has in this
 // game; in the lambda `sym` stands for the table of levels or of statuses.
 #define READABLE_LEVEL_OF(SYMBOL) ([] { namespace sym = ::sym::level; return SYMBOL; }())
@@ -842,7 +842,7 @@ namespace game::readable
         (SYMBOL), ::game::readable::kInstanceGame)
 
 #define READABLE_PICK(_1, _2, _3, NAME, ...) NAME
-#if defined(PS2X_GAME_INSTANCE)
+#if defined(ZX_GAME_INSTANCE)
 #define READABLE_NAMED(FN, WAITS, VU0)                                                                             \
     static const ::game::readable::Bound READABLE_JOIN(g_readableRegistration_, __LINE__) =                        \
         ::game::readable::bind<&FN, sym::FN, sym::level::FN, sym::status::FN, WAITS, VU0>(#FN, READABLE_SOURCE_FILE)

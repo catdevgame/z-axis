@@ -18,7 +18,7 @@
 #include <unistd.h>
 #endif
 
-namespace ps2x::saves
+namespace zx::saves
 {
     namespace
     {
@@ -105,7 +105,7 @@ namespace ps2x::saves
 
     bool writeFileAtomic(const std::filesystem::path &file, const uint8_t *data, size_t size, std::string *error)
     {
-        ps2x::ftrace::Scope traceWrite(ps2x::ftrace::kFileWrite, ps2x::ftrace::kFileWrite + 100);
+        zx::ftrace::Scope traceWrite(zx::ftrace::kFileWrite, zx::ftrace::kFileWrite + 100);
         std::error_code ec;
         const std::filesystem::path folder = file.parent_path();
         if (!folder.empty())
@@ -255,10 +255,10 @@ namespace ps2x::saves
 
     void writeFileAtomicLater(const std::filesystem::path &file, Bytes data, const std::string &what)
     {
-        // PS2X_SAVES_SYNC=1: on the calling thread (as before; for measurements).
+        // ZX_SAVES_SYNC=1: on the calling thread (as before; for measurements).
         static const bool sync = []
         {
-            const char *v = std::getenv("PS2X_SAVES_SYNC");
+            const char *v = std::getenv("ZX_SAVES_SYNC");
             return v && v[0] == '1';
         }();
         if (sync)

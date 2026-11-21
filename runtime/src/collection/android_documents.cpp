@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x_android
+namespace zx_android
 {
     namespace
     {
@@ -106,7 +106,7 @@ namespace ps2x_android
             return result;
         }
 
-        class AndroidDocuments final : public ps2x::app::DocumentAccess
+        class AndroidDocuments final : public zx::app::DocumentAccess
         {
         public:
             bool isDocument(std::string_view text) const override { return text.rfind("content://", 0) == 0; }
@@ -195,7 +195,7 @@ namespace ps2x_android
 // for the calls from native threads, which find no app class by name.
 extern "C" JNIEXPORT void JNICALL Java_io_github_catdevgame_zaxiscollection_Documents_nativeInstall(JNIEnv *env, jclass documents)
 {
-    using namespace ps2x_android;
+    using namespace zx_android;
     if (!g_class)
     {
         g_class = static_cast<jclass>(env->NewGlobalRef(documents));
@@ -205,14 +205,14 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_catdevgame_zaxiscollection_Docu
         g_list = env->GetStaticMethodID(documents, "list", "(Ljava/lang/String;)[Ljava/lang/String;");
         g_open = env->GetStaticMethodID(documents, "open", "(Ljava/lang/String;)I");
     }
-    ps2x::app::installDocumentAccess(&g_documents);
+    zx::app::installDocumentAccess(&g_documents);
 }
 
 // The documents UI's picks or made document (the UI thread): to whoever asked.
 extern "C" JNIEXPORT void JNICALL Java_io_github_catdevgame_zaxiscollection_Documents_nativePicked(JNIEnv *env, jclass,
                                                                                                   jobjectArray uris)
 {
-    using namespace ps2x_android;
+    using namespace zx_android;
     std::vector<std::string> picks = strings(env, uris);
     std::function<void(std::vector<std::string>)> picked;
     {

@@ -255,10 +255,10 @@ void GSCpuBackend::Initialize(uint8_t *vram, uint32_t vramSize)
     if (vram && vramSize < GSMem::MEMORY_SIZE)
         throw std::invalid_argument("GS CPU backend requires at least 4 MiB of VRAM");
 
-    // This boot's texture packs and dump folder (PS2X_TEXTURE_PACKS,
-    // PS2X_TEXTURE_DUMP): the CPU renderer and the GPU one (which has one
+    // This boot's texture packs and dump folder (ZX_TEXTURE_PACKS,
+    // ZX_TEXTURE_DUMP): the CPU renderer and the GPU one (which has one
     // of these) draw from them.
-    ps2x::texture_pack::configureFromBoot();
+    zx::texture_pack::configureFromBoot();
     std::lock_guard<std::mutex> lock(m_mutex);
     FlushQueueUnlocked();
     m_vram = vram;
@@ -443,7 +443,7 @@ void GSCpuBackend::Sync(GSSyncReason reason)
     // them), and Present waits for the pages it shows.
     if (reason != GSSyncReason::Finish && reason != GSSyncReason::Presentation)
         FlushQueueUnlocked();
-    // PS2X_GS_STATS=1: fast path counters per presented frame.
+    // ZX_GS_STATS=1: fast path counters per presented frame.
     if (reason == GSSyncReason::Presentation && m_fast->statsEnabled)
         m_fast->reportStats();
 }
@@ -534,12 +534,12 @@ void GSCpuBackend::RestoreClutState(const std::vector<uint8_t> &in)
 
 namespace
 {
-    // Same knob as gs_frontend.cpp: PS2X_GS_LOG_LIMIT=<n>.
+    // Same knob as gs_frontend.cpp: ZX_GS_LOG_LIMIT=<n>.
     uint32_t gsCpuDebugLogLimit(uint32_t fallback)
     {
         static const long configured = []()
         {
-            const char *value = std::getenv("PS2X_GS_LOG_LIMIT");
+            const char *value = std::getenv("ZX_GS_LOG_LIMIT");
             return value ? std::strtol(value, nullptr, 0) : -1L;
         }();
         return configured >= 0 ? static_cast<uint32_t>(configured) : fallback;

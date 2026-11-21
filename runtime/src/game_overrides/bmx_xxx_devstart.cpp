@@ -3,19 +3,19 @@
 // (aggressive_inline_devstart.cpp): developer runs without menus, and the
 // collection's Custom Freeplay starting the game into its map's slot.
 //
-//   PS2X_DEV_START_LEVEL=<n>|<folder>  the level select's row (0 the first,
+//   ZX_DEV_START_LEVEL=<n>|<folder>  the level select's row (0 the first,
 //                                      the Bronx), or a level's folder name
 //                                      (CMP_RMPG): the row that lists it,
 //                                      from the game's own level table
-//   PS2X_DEV_START_SKATER=<n>          the rider select's entry (default 0),
+//   ZX_DEV_START_SKATER=<n>          the rider select's entry (default 0),
 //                                      or "ask": the game's rider select
 //                                      waits for the player's own pick, then
 //                                      the route goes on
-//   PS2X_DEV_START_QUIT=<s>            stop the runner s seconds after the
+//   ZX_DEV_START_QUIT=<s>            stop the runner s seconds after the
 //                                      rider is placed
-//   PS2X_BMX_KEEP_LEVEL_GOALS=1        the row's level goal counts kept for
-//                                      the player's record and put back once
-//                                      the ride is over (a custom map's)
+//   ZX_BMX_KEEP_LEVEL_GOALS=1        the row's level record kept for the
+//                                      player's save and put back once the
+//                                      ride is over (a custom map's)
 //
 // The presses are the game's own pad input (PSPadBackend::
 // setOverrideButtons), each step waiting on the front end's menu machine
@@ -37,16 +37,20 @@
 // state has begun, so a save made after keeps the player's own progress.
 //
 // A level's goals are counted into the player's record of it as the level
-// loads (loadLevelObjectives: the goals and gaps its OBJCTV.TXT has) and as
-// the turn starts (resetTurnGoals: those done). A custom map in a level's
-// slot has goals of its own (none, as bmx_level_convert.py writes it), so
-// with PS2X_BMX_KEEP_LEVEL_GOALS every character's four counts of the row's
-// level are kept at the pick and put back on the screens a ride ends on
-// (game over, saving, the exit questions, the fade out) and in the menus:
-// a save and the select show the player's own progress in that level.
-// The marks of the goals done are not touched by a file without goals.
+// loads (loadLevelObjectives: the goals and gaps its OBJCTV.TXT has), as
+// the turn starts (resetTurnGoals: those done) and as each is done (its
+// mark). A custom map in a level's slot has goals of its own (its own
+// OBJCTV.TXT, or none, as bmx_level_convert.py writes it), so with
+// ZX_BMX_KEEP_LEVEL_GOALS every character's record of the row's level
+// (the counts, the flags, the marks) and the level's saved records (its
+// bests) are kept at the pick and put back on
+// the screens a ride ends on (game over, saving, the exit questions, the
+// fade out) and in the menus: a save and the select show the player's own
+// progress in that level, whatever the map's goals marked; and a game save
+// written meanwhile gets them as they were (keepLevelRecordInSave, the
+// native saves' completeSave).
 //
-// The values are the boot's (ps2x::boot::text: the environment, else what
+// The values are the boot's (zx::boot::text: the environment, else what
 // the app gave this boot: collection/maps.h mapSlots).
 
 #include "bmx_xxx.h"
@@ -96,8 +100,15 @@ namespace bmx_xxx::devstart
         // it: a character's level record and its open bit.
         constexpr uint32_t kSavedCharacters = 0x00024, kCharacterBytes = 0x1FF4, kCharacterLevels = 0x078E;
         constexpr uint32_t kLevelGoalsBytes = 0x206, kLevelGoalsFlags = 0x05, kRiderCharacters = 17;
-        // LevelGoals' counts: goals, goals done, gaps, gaps done (+0x00 to +0x03).
+        // LevelGoals: its counts (goals, goals done, gaps, gaps done: +0x00
+        // to +0x03), its flags (+0x05) and the marks of the goals and gaps
+        // done after them, kLevelGoalsBytes in all.
         constexpr uint32_t kLevelGoalsCounts = 4;
+        // The levels' saved records (game/bmx/profile/records.h
+        // LevelSavedRecords: a level's best of each kind, 0x230 bytes a
+        // level, g_savedRecords), saved after the saved game.
+        constexpr uint32_t kLevelRecordsBytes = 0x230;
+        constexpr size_t kSaveRecordsAt = 0x22000; // GameSaveFile::records
         constexpr uint8_t kLevelGoalsOpen = 0x01;
         // The rider record's physics position (game/bmx/rider, as the panel
         // reads it) and how far the physics has run.
@@ -122,13 +133,14 @@ namespace bmx_xxx::devstart
         struct State
         {
             Step step = Step::Boot;
-        bool keepGoals = false;              // PS2X_BMX_KEEP_LEVEL_GOALS
-        std::vector<uint8_t> goalsBefore;    // every character's counts of the row's level, as they were
+        bool keepGoals = false;              // ZX_BMX_KEEP_LEVEL_GOALS
+        std::vector<uint8_t> goalsBefore;    // every character's record of the row's level, as it was
+        std::vector<uint8_t> recordsBefore;  // the row's level's saved records (its bests), as they were
         bool goalsPutBack = false;           // (logged once)
             Step afterMenu = Step::Done;
             int32_t menuWanted = -1;   // WaitMenu: this menu steady (-1: any other than menuLeft)
             int32_t menuLeft = -1;
-            std::string level;         // PS2X_DEV_START_LEVEL
+            std::string level;         // ZX_DEV_START_LEVEL
             int row = -1;              // the level select's row, once known
             int levelNumber = -1;      // its level
             uint32_t rider = 0;
@@ -146,7 +158,7 @@ namespace bmx_xxx::devstart
             std::chrono::steady_clock::time_point crossed, placed;
             PS2Runtime *runtime = nullptr;
         };
-        State &devStart() { return ps2x::session::state<State>(); }
+        State &devStart() { return zx::session::state<State>(); }
 
         uint32_t word(const uint8_t *rdram, uint32_t address)
         {
@@ -263,41 +275,91 @@ namespace bmx_xxx::devstart
                     *flags |= kLevelGoalsOpen;
         }
 
+        uint32_t levelRecords(uint32_t level) { return sym::bmx::g_savedRecords + level * kLevelRecordsBytes; }
+
         uint32_t levelGoals(uint32_t character, uint32_t level)
         {
             return sym::bmx::g_savedGame + kSavedCharacters + character * kCharacterBytes + kCharacterLevels + level * kLevelGoalsBytes;
         }
 
-        // Every character's goal counts of the row's level kept (once).
+        // Every character's record of the row's level kept (once): its
+        // counts, flags and marks of goals done.
         void keepGoals(const uint8_t *rdram)
         {
             State &s = devStart();
             if (!s.keepGoals || s.levelNumber < 0 || !s.goalsBefore.empty())
                 return;
             for (uint32_t character = 0; character < kRiderCharacters; ++character)
-                for (uint32_t i = 0; i < kLevelGoalsCounts; ++i)
+                for (uint32_t i = 0; i < kLevelGoalsBytes; ++i)
                     s.goalsBefore.push_back(byte(rdram, levelGoals(character, static_cast<uint32_t>(s.levelNumber)) + i));
+            for (uint32_t i = 0; i < kLevelRecordsBytes; ++i)
+                s.recordsBefore.push_back(byte(rdram, levelRecords(static_cast<uint32_t>(s.levelNumber)) + i));
         }
 
-        // The kept counts written back (they stay kept: a next run's turn
-        // start counts the map's goals again).
+        // The kept records written back (they stay kept: a next run's turn
+        // start counts the map's goals again), the open bit as the player's
+        // save had it before openLevel (the snapshot was taken with it set,
+        // and the game may set it as the level is played).
         void putGoalsBack(uint8_t *rdram)
         {
             State &s = devStart();
-            if (s.goalsBefore.size() != kRiderCharacters * kLevelGoalsCounts)
+            if (s.goalsBefore.size() != kRiderCharacters * kLevelGoalsBytes)
                 return;
-            uint32_t changed = 0; // counts the map's goals had changed
+            uint32_t changed = 0, marks = 0; // counts, and other bytes, the map's goals had changed
             for (uint32_t character = 0; character < kRiderCharacters; ++character)
-                if (uint8_t *counts = getMemPtr(rdram, levelGoals(character, static_cast<uint32_t>(s.levelNumber))))
+                if (uint8_t *record = getMemPtr(rdram, levelGoals(character, static_cast<uint32_t>(s.levelNumber))))
                 {
-                    for (uint32_t i = 0; i < kLevelGoalsCounts; ++i)
-                        changed += counts[i] != s.goalsBefore[character * kLevelGoalsCounts + i] ? 1u : 0u;
-                    std::memcpy(counts, &s.goalsBefore[character * kLevelGoalsCounts], kLevelGoalsCounts);
+                    const uint8_t *before = &s.goalsBefore[character * kLevelGoalsBytes];
+                    const bool wasOpen = character < s.openedBefore.size() ? s.openedBefore[character] != 0
+                                                                          : (before[kLevelGoalsFlags] & kLevelGoalsOpen) != 0;
+                    const uint8_t open = wasOpen ? kLevelGoalsOpen : 0;
+                    for (uint32_t i = 0; i < kLevelGoalsBytes; ++i)
+                        if (record[i] != before[i] && i != kLevelGoalsFlags)
+                            ++(i < kLevelGoalsCounts ? changed : marks);
+                    std::memcpy(record, before, kLevelGoalsBytes);
+                    record[kLevelGoalsFlags] = static_cast<uint8_t>((record[kLevelGoalsFlags] & ~kLevelGoalsOpen) | open);
                 }
-            if (!s.goalsPutBack)
-                std::cout << "[devstart] the saved game's goal counts of level " << s.levelNumber << " as they were (" << changed
-                          << " changed by the map)" << std::endl;
+            uint32_t bests = 0; // bytes of the level's saved records the map's ride set
+            if (uint8_t *records = s.recordsBefore.size() == kLevelRecordsBytes ? getMemPtr(rdram, levelRecords(static_cast<uint32_t>(s.levelNumber)))
+                                                                                 : nullptr)
+            {
+                for (uint32_t i = 0; i < kLevelRecordsBytes; ++i)
+                    bests += records[i] != s.recordsBefore[i] ? 1u : 0u;
+                std::memcpy(records, s.recordsBefore.data(), kLevelRecordsBytes);
+            }
+            if (!s.goalsPutBack || changed || marks || bests)
+                std::cout << "[devstart] the saved game's record of level " << s.levelNumber << " as it was (" << changed
+                          << " counts, " << marks << " other bytes and " << bests << " bytes of its saved records changed by the map)"
+                          << std::endl;
             s.goalsPutBack = true;
+        }
+
+        // A game save's copy of the saved game (game/bmx/save/game_save.cpp
+        // GameSaveFile: the version word, then the saved game's mirror): the
+        // kept records in it, the open bits as the player's save had them.
+        constexpr size_t kSaveGameAt = 4;
+
+        void keptRecordsInto(std::vector<uint8_t> &save)
+        {
+            State &s = devStart();
+            if (s.goalsBefore.size() != kRiderCharacters * kLevelGoalsBytes)
+                return;
+            for (uint32_t character = 0; character < kRiderCharacters; ++character)
+            {
+                const size_t at = kSaveGameAt + levelGoals(character, static_cast<uint32_t>(s.levelNumber)) - sym::bmx::g_savedGame;
+                if (at + kLevelGoalsBytes > save.size())
+                    return;
+                const uint8_t *before = &s.goalsBefore[character * kLevelGoalsBytes];
+                const bool wasOpen = character < s.openedBefore.size() ? s.openedBefore[character] != 0
+                                                                      : (before[kLevelGoalsFlags] & kLevelGoalsOpen) != 0;
+                std::memcpy(save.data() + at, before, kLevelGoalsBytes);
+                save[at + kLevelGoalsFlags] =
+                    static_cast<uint8_t>((before[kLevelGoalsFlags] & ~kLevelGoalsOpen) | (wasOpen ? kLevelGoalsOpen : 0));
+            }
+            const size_t records = kSaveRecordsAt + static_cast<size_t>(s.levelNumber) * kLevelRecordsBytes;
+            if (s.recordsBefore.size() == kLevelRecordsBytes && records + kLevelRecordsBytes <= save.size())
+                std::memcpy(save.data() + records, s.recordsBefore.data(), kLevelRecordsBytes);
+            std::cout << "[devstart] the save gets the saved game's record of level " << s.levelNumber << " as it was" << std::endl;
         }
 
         bool rideOver(uint32_t screen)
@@ -510,19 +572,19 @@ namespace bmx_xxx::devstart
 
     void install(PS2Runtime &runtime)
     {
-        const char *level = ps2x::boot::text("PS2X_DEV_START_LEVEL");
+        const char *level = zx::boot::text("ZX_DEV_START_LEVEL");
         if (!level || !*level)
             return;
         State &s = devStart();
         s.level = level;
-        if (const char *rider = ps2x::boot::text("PS2X_DEV_START_SKATER"); rider && *rider)
+        if (const char *rider = zx::boot::text("ZX_DEV_START_SKATER"); rider && *rider)
         {
             s.askRider = std::strcmp(rider, "ask") == 0;
             s.rider = s.askRider ? 0u : static_cast<uint32_t>(std::atoi(rider));
         }
-        if (const char *quit = ps2x::boot::text("PS2X_DEV_START_QUIT"); quit && *quit)
+        if (const char *quit = zx::boot::text("ZX_DEV_START_QUIT"); quit && *quit)
             s.quitAfter = std::atof(quit);
-        if (const char *keep = ps2x::boot::text("PS2X_BMX_KEEP_LEVEL_GOALS"); keep && *keep && std::strcmp(keep, "0") != 0)
+        if (const char *keep = zx::boot::text("ZX_BMX_KEEP_LEVEL_GOALS"); keep && *keep && std::strcmp(keep, "0") != 0)
             s.keepGoals = true;
         s.runtime = &runtime;
         runtime.addVSyncHook([](uint8_t *rdram, uint64_t vsync) { onVsync(rdram, vsync); });
@@ -536,5 +598,10 @@ namespace bmx_xxx
     void installDevStart(PS2Runtime &runtime)
     {
         devstart::install(runtime);
+    }
+
+    void keepLevelRecordInSave(const uint8_t *, std::vector<uint8_t> &save)
+    {
+        devstart::keptRecordsInto(save);
     }
 }

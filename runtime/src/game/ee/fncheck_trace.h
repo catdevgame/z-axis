@@ -73,7 +73,7 @@ namespace fncheck
         virtual void cycles(uint32_t count) { (void)count; }
         // At a safe point of the traced code (a branch back, a call's
         // dispatch), after its cycles: whether a checkpoint is due there, so
-        // that it unwinds as the game's does (ps2xFnCheck --safepoints; never
+        // that it unwinds as the game's does (zx-fncheck --safepoints; never
         // in the game).
         virtual bool safePointDue(uint32_t count) { (void)count; return false; }
         // An I/O register access of the traced code, with its value.
@@ -81,7 +81,7 @@ namespace fncheck
     };
     inline thread_local Tracer *t_tracer = nullptr;
 
-    // Where I/O register accesses go instead of the runtime: ps2xFnCheck
+    // Where I/O register accesses go instead of the runtime: zx-fncheck
     // answers the loads from a recording and compares the stores (for the
     // traced original and for readable code, ee/io.h). Null in the game.
     class IoPort
@@ -197,7 +197,7 @@ namespace fncheck
                      game::Game game = game::Game::Ai);
     };
     // The game whose traced functions run (whose extents tracedDispatch
-    // looks in): set by installRecorder, and by ps2xFnCheck per recording.
+    // looks in): set by installRecorder, and by zx-fncheck per recording.
     void setTracedGame(game::Game game);
     // The end of the traced function's extent that starts at `start`, in the
     // traced game (0 if none is registered there).

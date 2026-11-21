@@ -2,7 +2,7 @@
 
 // Aggressive Inline's Ape (the Xbox release's secret skater) made into the
 // PS2's model format at build time, from the user's Xbox files: the
-// packaging step runs ps2xXboxConvert (tools/xbox_convert.cpp), which writes
+// packaging step runs zx-xbox-convert (tools/xbox_convert.cpp), which writes
 // what build() makes next to the Zoo's (runtime/ps2_zaxis_zoo.h); the game
 // override (game_overrides/aggressive_inline_ape.cpp) only serves the file.
 //
@@ -24,7 +24,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::zaxis::ape
+namespace zx::zaxis::ape
 {
     constexpr const char kXboxModel[] = "skaters/Gorilla/GOR.ZIT"; // Xbox path (media/assets)
     constexpr const char kModelPath[] = "ASSETS/SKATERS/GORILLA/GOR.ZIT";

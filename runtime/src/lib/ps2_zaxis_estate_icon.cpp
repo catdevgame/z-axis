@@ -3,7 +3,7 @@
 // oval badge, on a page of the level font's format (ICONS.UFNT). See
 // runtime/ps2_zaxis_estate.h.
 //
-// Compiled without contracting a*b+c into one FMA (PS2X_FP_NO_CONTRACT), and
+// Compiled without contracting a*b+c into one FMA (ZX_FP_NO_CONTRACT), and
 // with only + - * / and sqrt (correctly rounded everywhere), so the Mac and
 // Windows builds make the same bytes.
 
@@ -17,7 +17,7 @@
 #include <map>
 #include <tuple>
 
-namespace ps2x::zaxis::estate
+namespace zx::zaxis::estate
 {
     namespace
     {
@@ -905,13 +905,13 @@ namespace ps2x::zaxis::estate
     {
         // The picture in 256 colours, as the build makes the level's one
         // 24-bit texture 8-bit (ps2_zaxis_xbox palettize: median cut, k-means).
-        ps2x::zaxis::xbox::Picture rgba;
+        zx::zaxis::xbox::Picture rgba;
         rgba.width = picture.width;
         rgba.height = picture.height;
         rgba.rgba = picture.rgba;
-        ps2x::zaxis::xbox::Palettized image;
-        ps2x::zaxis::xbox::palettize(rgba, false, image);
-        const std::vector<uint8_t> bmp = ps2x::zaxis::xbox::writeBmp8(picture.width, picture.height, image, false);
+        zx::zaxis::xbox::Palettized image;
+        zx::zaxis::xbox::palettize(rgba, false, image);
+        const std::vector<uint8_t> bmp = zx::zaxis::xbox::writeBmp8(picture.width, picture.height, image, false);
         const uint32_t w = static_cast<uint32_t>(picture.width), h = static_cast<uint32_t>(picture.height);
         // UAST { HAST source path, UMTL { HMTL, TXRC { TXRH, TBMP } } } in a ULIB,
         // as the FrontEnd library's still_bkg_01 asset is made.

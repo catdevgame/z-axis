@@ -27,7 +27,7 @@
 // build's carry a Cygnus/SCE quadword step with no source on disk, and the
 // runtime's stubs are the game's (not_ported.tsv); the code here calls them.
 //
-// Those are Draft: with no recompiled function there is nothing for ps2xFnCheck
+// Those are Draft: with no recompiled function there is nothing for zx-fncheck
 // to compare them with, and the runtime's handlers stay the game's. Past them is
 // the FILE machinery the game does run, from stdio/stdio.c, findfp.c, fwalk.c,
 // makebuf.c, wsetup.c, refill.c, ungetc.c and reent/*r.c. The allocator is

@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-using namespace ps2x;
+using namespace zx;
 
 namespace
 {
@@ -112,7 +112,7 @@ void register_ps2_spu_voice_tests()
         tc.Run("audio files: WAV", [](TestCase &t)
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            const auto path = std::filesystem::temp_directory_path() / ("ps2x-wav-" + std::to_string(now) + ".wav");
+            const auto path = std::filesystem::temp_directory_path() / ("zx-wav-" + std::to_string(now) + ".wav");
             {
                 // Mono 24-bit, 22050 Hz, three samples.
                 const uint8_t wav[] = {'R', 'I', 'F', 'F', 45, 0, 0, 0, 'W', 'A', 'V', 'E',

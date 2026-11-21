@@ -7,28 +7,28 @@
 
 class PS2Runtime;
 
-namespace ps2x::settings
+namespace zx::settings
 {
     struct Setting;
 }
 
 // The game overrides' state for one game boot (a session): what a module
 // kept in file statics, so a game booted again in the same process (the
-// collection's menu, ps2EntryRunner --sequence) starts as it does in a
+// collection's menu, zx-runner --sequence) starts as it does in a
 // process of its own, and what it registered with the host is undone when
 // the game is left.
 //
 //   struct Disc { ... };                     // a module's state
-//   Disc &disc() { return ps2x::session::state<Disc>(); }
-//   ps2x::session::onEnd([] { ... });        // undoes a host registration
+//   Disc &disc() { return zx::session::state<Disc>(); }
+//   zx::session::onEnd([] { ... });        // undoes a host registration
 //
-// A session ends with the boot (ps2x::boot::end, when the game's runtime is
-// destroyed, its threads stopped; and ps2x::boot::begin, so what was made
+// A session ends with the boot (zx::boot::end, when the game's runtime is
+// destroyed, its threads stopped; and zx::boot::begin, so what was made
 // between two boots is not the next game's): the onEnd work runs, the last
 // added first, then every state is destroyed, the last made first. The next
 // use of state<T>() makes a new one. A single-game run never ends its
 // session (the process exits).
-namespace ps2x::session
+namespace zx::session
 {
     namespace detail
     {
@@ -69,7 +69,7 @@ namespace ps2x::session
     // (a settings row, a game file provider, a disc patch, pad state).
     void onEnd(std::function<void()> work);
 
-    // A settings row of this game (ps2x::settings::add), removed when the
+    // A settings row of this game (zx::settings::add), removed when the
     // session ends. Window thread.
     void addSetting(const settings::Setting &setting);
 
@@ -81,7 +81,7 @@ namespace ps2x::session
     void addShutdownHook(ShutdownFn fn);
     void runShutdownHooks(PS2Runtime &runtime);
 
-    // Ends the session (ps2x::boot::begin and end call it). Only while no
+    // Ends the session (zx::boot::begin and end call it). Only while no
     // game thread runs.
     void end();
 

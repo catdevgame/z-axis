@@ -7,14 +7,19 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace ps2x::texture_replace
+namespace zx::texture_replace
 {
+    bool isBlockFormat(Format format)
+    {
+        return format == Format::BC1 || format == Format::BC2 || format == Format::BC3 || format == Format::BC7;
+    }
+
     size_t Picture::levelBytes(Format format, uint32_t width, uint32_t height)
     {
         width = std::max<uint32_t>(width, 1u);
         height = std::max<uint32_t>(height, 1u);
-        if (format == Format::BC2)
-            return static_cast<size_t>((width + 3u) / 4u) * ((height + 3u) / 4u) * 16u;
+        if (isBlockFormat(format))
+            return static_cast<size_t>((width + 3u) / 4u) * ((height + 3u) / 4u) * (format == Format::BC1 ? 8u : 16u);
         return static_cast<size_t>(width) * height * 4u;
     }
 
@@ -35,7 +40,7 @@ namespace ps2x::texture_replace
     {
         if (width == 0u || height == 0u || width > 4096u || height > 4096u || mips == 0u || mips > 13u)
             return false;
-        if (format != Format::BC2 && format != Format::RGBA8)
+        if (format != Format::RGBA8 && !isBlockFormat(format))
             return false;
         // A level below 1 x 1 does not exist.
         if ((std::max(width, height) >> (mips - 1u)) == 0u)

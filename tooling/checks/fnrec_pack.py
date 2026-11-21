@@ -10,10 +10,10 @@ syncs (corpus-sync.sh, wk.py manifest) see the same file.
     fnrec_pack.py CORPUS [CORPUS ...] [--jobs N] [--dry-run] [--folders A,B] [--level 9]
 
 CORPUS is a corpus folder (its route folders are converted one at a time) or a route folder. A folder that a
-running job names (a ps2xFnCheck, fncheck_corpus.py, the recorder, a sync's wk.py: by its command line naming the
+running job names (a zx-fncheck, fncheck_corpus.py, the recorder, a sync's wk.py: by its command line naming the
 folder or its corpus) is left for later in the pass, and the pass ends with the folders still busy listed. Safe to
 stop at any point and run again: compressed files are skipped, leftover temporaries removed. Prints each folder's
-size before and after and the corpus' totals. The ps2xFnCheck that replays a converted corpus must read the
+size before and after and the corpus' totals. The zx-fncheck that replays a converted corpus must read the
 compressed form (rzstd1 on): an older one stops at a converted file ("not a fncheck recording").
 """
 import argparse
@@ -32,7 +32,7 @@ WINDOWS = sys.platform == 'win32'
 TEMP_PREFIX = '._packing.'
 FNREC = re.compile(r'^(?:[a-z0-9]+-)?[0-9a-f]{8}\.fnrec$')
 # The processes that read or write a corpus (by name, lower case, without .exe).
-JOB_NAMES = ('ps2xfncheck', 'ps2entryrunner')
+JOB_NAMES = ('zx-fncheck', 'zx-runner')
 JOB_SCRIPTS = ('fncheck_corpus.py', 'wk.py', 'dm2corpus.py', 'readable_corpus.py', 'replay-gate', 'corpus-sync')
 try:   # fncheck_corpus.py's corpus without --corpus: $ZAXIS_SCRATCH/reccorpus/v5 (the tooling's paths.env)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -1017,7 +1017,7 @@ void PS2Memory::write32(uint32_t address, uint32_t value)
             if (regOff == 0x70u || regOff == 0x90u)
             {
                 if (off == 0u)
-                    ps2x::ftrace::mark(ps2x::ftrace::kDisplayWrite, static_cast<uint16_t>(newVal & 0x1FFu));
+                    zx::ftrace::mark(zx::ftrace::kDisplayWrite, static_cast<uint16_t>(newVal & 0x1FFu));
                 setDisplayBuffer(*reg, newVal);
             }
             else
@@ -1081,7 +1081,7 @@ void PS2Memory::write64(uint32_t address, uint64_t value)
         {
             if (regOff == 0x70u || regOff == 0x90u)
             {
-                ps2x::ftrace::mark(ps2x::ftrace::kDisplayWrite, static_cast<uint16_t>(value & 0x1FFu));
+                zx::ftrace::mark(zx::ftrace::kDisplayWrite, static_cast<uint16_t>(value & 0x1FFu));
                 setDisplayBuffer(*reg, value);
             }
             else
@@ -1144,8 +1144,8 @@ void PS2Memory::write128(uint32_t address, __m128i value)
     {
         alignas(16) uint8_t fifoData[16];
         _mm_storeu_si128(reinterpret_cast<__m128i *>(fifoData), value);
-        if (ps2x::packets::g_on)
-            ps2x::packets::add(ps2x::packets::kVif1, fifoData, sizeof(fifoData));
+        if (zx::packets::g_on)
+            zx::packets::add(zx::packets::kVif1, fifoData, sizeof(fifoData));
         if (vif1AsyncNow())
         {
             std::vector<std::vector<uint8_t>> queued;
@@ -1414,10 +1414,10 @@ bool PS2Memory::writeIORegister(uint32_t address, uint32_t value)
             const uint32_t qwc = m_ioRegisters[channelBase + 0x20];
             m_dmaStartCount.fetch_add(1, std::memory_order_relaxed);
             {
-                // PS2X_TRACE_DMA=<n>: log the first n DMA starts per channel.
+                // ZX_TRACE_DMA=<n>: log the first n DMA starts per channel.
                 static const long traceLimit = []()
                 {
-                    const char *env = std::getenv("PS2X_TRACE_DMA");
+                    const char *env = std::getenv("ZX_TRACE_DMA");
                     return env ? std::strtol(env, nullptr, 0) : 0L;
                 }();
                 if (traceLimit > 0)
@@ -1865,8 +1865,8 @@ bool PS2Memory::fetchVif1Stream(std::vector<uint8_t> &out)
     const size_t firstByte = scanned;
     const auto logPacket = [&]
     {
-        if (ps2x::packets::g_on && out.size() > firstByte)
-            ps2x::packets::add(ps2x::packets::kVif1, out.data() + firstByte, out.size() - firstByte);
+        if (zx::packets::g_on && out.size() > firstByte)
+            zx::packets::add(zx::packets::kVif1, out.data() + firstByte, out.size() - firstByte);
     };
     // Native draws: the substituted packet the bytes from each position on
     // came from (setVif1Substitute), and the microprogram runs scanned.
@@ -2298,9 +2298,9 @@ void PS2Memory::processPendingTransfers()
         }
     }
     m_pendingGifTransfers.clear();
-    if (ps2x::packets::g_on)
+    if (zx::packets::g_on)
         for (const std::vector<uint8_t> &packet : gifPackets)
-            ps2x::packets::add(ps2x::packets::kGif, packet.data(), packet.size());
+            zx::packets::add(zx::packets::kGif, packet.data(), packet.size());
 
     const bool hadVif0 = !m_pendingVif0Transfers.empty();
     for (auto &p : m_pendingVif0Transfers)
@@ -2465,13 +2465,13 @@ void PS2Memory::setAsyncGraphics(bool enabled)
     }
     m_vifStage = std::make_unique<Ps2AsyncStage>("vif1-stage");
     m_gsStage = std::make_unique<Ps2AsyncStage>("gs-stage");
-    // Their cores (PS2X_THREAD_PLACEMENT=1, runtime/ps2_thread_placement.h), set on each worker.
-    if (ps2x::placement::enabled())
+    // Their cores (ZX_THREAD_PLACEMENT=1, runtime/ps2_thread_placement.h), set on each worker.
+    if (zx::placement::enabled())
     {
         m_vifStage->post([]()
-                         { ps2x::placement::placeCurrentThread(ps2x::placement::Role::Graphics); });
+                         { zx::placement::placeCurrentThread(zx::placement::Role::Graphics); });
         m_gsStage->post([]()
-                        { ps2x::placement::placeCurrentThread(ps2x::placement::Role::Graphics); });
+                        { zx::placement::placeCurrentThread(zx::placement::Role::Graphics); });
     }
     m_gsStage->setIdleHook([this]()
                            {
@@ -2499,7 +2499,7 @@ bool PS2Memory::vif1AsyncNow()
 
 void PS2Memory::postVif1Work(std::function<void()> work)
 {
-    ps2x::ftrace::mark(ps2x::ftrace::kVifPost);
+    zx::ftrace::mark(zx::ftrace::kVifPost);
     m_vifStage->post([this, work = std::move(work)]()
                      {
                          work();
@@ -2657,19 +2657,19 @@ void PS2Memory::queueGsWork(std::function<void()> fn)
     if (m_gsWorkDone.load(std::memory_order_acquire) < m_gsWorkPosted)
     {
         m_syncWaits[SyncGsHle].fetch_add(1u, std::memory_order_relaxed);
-        ps2x::ftrace::Scope traceWait(ps2x::ftrace::kSwapWaitBegin, ps2x::ftrace::kSwapWaitEnd);
+        zx::ftrace::Scope traceWait(zx::ftrace::kSwapWaitBegin, zx::ftrace::kSwapWaitEnd);
         std::unique_lock<std::mutex> lock(m_gsWorkMutex);
         m_gsWorkCv.wait(lock, [this]()
                         { return m_gsWorkDone.load(std::memory_order_acquire) >= m_gsWorkPosted; });
     }
     ++m_gsWorkPosted;
-    ps2x::ftrace::mark(ps2x::ftrace::kSwapPosted);
+    zx::ftrace::mark(zx::ftrace::kSwapPosted);
     m_vifStage->post([this, fn = std::move(fn)]() mutable
                      {
                          flushGsBatch();
                          m_gsStage->post([this, fn = std::move(fn)]()
                                          {
-                                             ps2x::ftrace::mark(ps2x::ftrace::kSwapRun);
+                                             zx::ftrace::mark(zx::ftrace::kSwapRun);
                                              fn();
                                              {
                                                  std::lock_guard<std::mutex> lock(m_gsWorkMutex);
@@ -3149,11 +3149,11 @@ uint32_t PS2Memory::readIORegister(uint32_t address)
 {
     // VIF1 registers and GIF_STAT come from the EE-side shadow (scanVif1Stream)
     // while the worker may still be busy; the other GIF/VIF registers here
-    // only hold what the EE wrote. PS2X_VIF1_SHADOW_CHECK=1 drains the worker
+    // only hold what the EE wrote. ZX_VIF1_SHADOW_CHECK=1 drains the worker
     // on every read and reports where the shadow differs.
     static const bool shadowCheck = []()
     {
-        const char *value = std::getenv("PS2X_VIF1_SHADOW_CHECK");
+        const char *value = std::getenv("ZX_VIF1_SHADOW_CHECK");
         return value && value[0] == '1';
     }();
     // Only the VIF1 registers 0x10003C00-0x10003CE0 and GIF_STAT's PATH3 mask

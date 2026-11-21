@@ -2,7 +2,7 @@
 
 // Game modules: each game's recompiled code (its generated functions and their table), built apart from the runtime
 // and reached through one table each way (game_module/abi.h). A module is linked into the program
-// (PS2X_GAME_MODULES=static, the workshop's builds) or loaded as a shared library (PS2X_GAME_MODULES=shared, and the
+// (ZX_GAME_MODULES=static, the workshop's builds) or loaded as a shared library (ZX_GAME_MODULES=shared, and the
 // app's code built from the player's disc). Either way it registers its table as the runtime's generated code:
 // AI's (id "") as the default, the others by their ELF (ps2_generated, ps2_runtime.h).
 
@@ -10,7 +10,7 @@
 
 #include <string>
 
-namespace ps2x::game_module
+namespace zx::game_module
 {
     // A module linked into this program: the build's game_modules_linked.cpp adds each one's entry before main.
     struct Linked
@@ -26,7 +26,7 @@ namespace ps2x::game_module
     // with the reason in `error`, when it cannot be loaded or was built for another boundary.
     bool load(const std::string &path, std::string &error);
 
-    // The linked modules, then every module in the game code folder (PS2X_GAME_CODE_DIR, else the build's): once,
+    // The linked modules, then every module in the game code folder (ZX_GAME_CODE_DIR, else the build's): once,
     // before the runtime first chooses a function table (ps2_runtime.cpp).
     void ensureLoaded();
 

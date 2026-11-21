@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::disc_patch
+namespace zx::disc_patch
 {
     // Changes the file's bytes in place; false leaves the file as it is.
     using Patch = std::function<bool(std::vector<uint8_t> &bytes)>;

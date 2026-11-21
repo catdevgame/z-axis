@@ -40,7 +40,7 @@ namespace zge
             Records &r = g_records;
             if (r.trace < 0)
             {
-                const char *v = std::getenv("PS2X_TRACE_DRAW_RECORDS");
+                const char *v = std::getenv("ZX_TRACE_DRAW_RECORDS");
                 r.trace = v ? std::atoi(v) : 0;
             }
             const uint64_t tick = native::vsyncTick();
@@ -183,7 +183,7 @@ namespace zge
     {
         void checkMeshOnce(const Node &node, uint32_t view, RenderType type)
         {
-            ps2x::zaxis::PacketKind kind;
+            zx::zaxis::PacketKind kind;
             if (host::packetKindOf(*node.views[view].part, type, kind))
                 native::checkPartMeshOnce(native::gameRam(), node.views[view].part, static_cast<uint32_t>(type), kind,
                                           host::skinnedDrawForm());
@@ -199,7 +199,7 @@ namespace zge
         {
             record(node, cullFlags);
             // The mesh made from the GEO file against the packet drawn, once
-            // per part (PS2X_NATIVE_MESHES_CHECK).
+            // per part (ZX_NATIVE_MESHES_CHECK).
             if (native::meshCheckEnabled())
                 checkMeshOnce(*node, view, type);
         }

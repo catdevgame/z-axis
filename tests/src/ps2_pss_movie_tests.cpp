@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-using namespace ps2x;
+using namespace zx;
 
 namespace
 {
@@ -24,7 +24,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = std::filesystem::temp_directory_path() / ("ps2x-pss-" + std::to_string(now));
+            path = std::filesystem::temp_directory_path() / ("zx-pss-" + std::to_string(now));
             std::filesystem::create_directories(path);
         }
         ~TempDir()
@@ -170,14 +170,14 @@ void register_ps2_pss_movie_tests()
         tc.Run("audio mix input", [](TestCase &t)
         {
             int16_t frames[4] = {100, -100, 32000, -32000};
-            ps2x::audio_mix::mix(frames, 2);
+            zx::audio_mix::mix(frames, 2);
             t.Equals(frames[0], int16_t(100), "no source: unchanged");
-            const int id = ps2x::audio_mix::addSource([](int32_t *mix, size_t count)
+            const int id = zx::audio_mix::addSource([](int32_t *mix, size_t count)
             {
                 for (size_t i = 0; i < count * 2u; ++i)
                     mix[i] += i % 2u ? -1000 : 1000;
             });
-            ps2x::audio_mix::mix(frames, 2);
+            zx::audio_mix::mix(frames, 2);
             t.Equals(frames[0], int16_t(1100), "added");
             t.Equals(frames[1], int16_t(-1100), "added (right)");
             // The second frame: the SPU2's DC-blocking high-pass has started
@@ -185,10 +185,10 @@ void register_ps2_pss_movie_tests()
             t.Equals(frames[2], int16_t(32767), "saturated high");
             t.Equals(frames[3], int16_t(-32768), "saturated low");
             int16_t later[2] = {0, 0};
-            ps2x::audio_mix::mix(later, 1);
+            zx::audio_mix::mix(later, 1);
             t.Equals(later[0], int16_t(990), "a constant decays (1000 * 0.995^2)");
-            ps2x::audio_mix::removeSource(id);
-            t.IsFalse(ps2x::audio_mix::hasSources(), "removed");
+            zx::audio_mix::removeSource(id);
+            t.IsFalse(zx::audio_mix::hasSources(), "removed");
         });
         tc.Run("pictures counted from the headers", [](TestCase &t)
         {
@@ -210,11 +210,11 @@ void register_ps2_pss_movie_tests()
             t.Equals(countPictures(videoStream(false, "IPPP"), 2, references), size_t(4), "I and P only: every picture");
         });
 
-        tc.Run("black pictures as many as decoded (with PS2X_TEST_MOVIES)", [](TestCase &t)
+        tc.Run("black pictures as many as decoded (with ZX_TEST_MOVIES)", [](TestCase &t)
         {
             // Every PSS and PSM under the folder (the discs' movies): the
             // decoder's pictures against the count from the headers.
-            const char *root = std::getenv("PS2X_TEST_MOVIES");
+            const char *root = std::getenv("ZX_TEST_MOVIES");
             if (!root)
                 return;
             std::vector<std::filesystem::path> movies;

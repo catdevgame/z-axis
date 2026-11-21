@@ -168,6 +168,7 @@ namespace panel
     struct Panel::State
     {
         std::string folder;
+        std::string fallback; // (the bundled files: a file the folder lacks or has in another version)
         UiFile ui;
         bool uiLoaded = false;
         LevelFile level;
@@ -265,7 +266,11 @@ namespace panel
             if (uiLoaded)
                 return;
             uiLoaded = true;
-            loadUiFile(folder + "/UI.pmap", ui);
+            if (!loadUiFile(folder + "/UI.pmap", ui) && !fallback.empty())
+            {
+                ui = UiFile{};
+                loadUiFile(fallback + "/UI.pmap", ui);
+            }
             const auto font = [&](const char *name) -> const Font * {
                 const auto found = ui.fonts.find(name);
                 return found == ui.fonts.end() ? nullptr : &found->second;
@@ -296,8 +301,20 @@ namespace panel
             lastState.clear();
             progressGoal = -1;
             level = LevelFile{};
-            if (name[0])
+            if (!name[0])
+                return;
+            // (a custom map's, made at its boot: served in place of the folder's)
+            if (const std::shared_ptr<const std::vector<uint8_t>> served = servedLevelFile(levelName))
+                levelLoaded = parseLevelFile(served->data(), served->size(), level);
+            else
+            {
                 levelLoaded = loadLevelFile(folder + "/" + levelName + ".pmap", level);
+                if (!levelLoaded && !fallback.empty())
+                {
+                    level = LevelFile{};
+                    levelLoaded = loadLevelFile(fallback + "/" + levelName + ".pmap", level);
+                }
+            }
         }
 
         // The level file's goals for the script the game has loaded (AI: the
@@ -613,7 +630,7 @@ namespace panel
         void drawItemList(Canvas &c, const Snapshot &snap, const Rect &list);
         void drawTrickTable(Canvas &c, const Snapshot &snap, const Rect &list);
         void drawMarker(Canvas &c, Point at, const Place &place, uint32_t colour, float radius, bool emphasis, double seconds);
-        void drawLegend(Canvas &c, int goal, bool givers, bool running);
+        void drawLegend(Canvas &c, const Snapshot &snap, int goal, bool givers, bool running);
         void drawWhereTile(Canvas &c, const Snapshot &snap, Point world, const char *word, uint32_t ink);
         void drawClockTile(Canvas &c, float seconds);
         void drawProgressBar(Canvas &c, const Rect &track, int have, int target);
@@ -676,9 +693,10 @@ namespace panel
     Panel::Panel() : state_(std::make_unique<State>()) {}
     Panel::~Panel() = default;
 
-    void Panel::setDataFolder(const std::string &folder)
+    void Panel::setDataFolder(const std::string &folder, const std::string &fallback)
     {
         state_->folder = folder;
+        state_->fallback = fallback;
         state_->uiLoaded = false;
         state_->levelName.clear();
     }
@@ -990,10 +1008,19 @@ namespace panel
 
     // The key to the markers, in the map's bottom left corner (above the
     // buttons on the live screen).
-    void Panel::State::drawLegend(Canvas &c, int goal, bool givers, bool running)
+    void Panel::State::drawLegend(Canvas &c, const Snapshot &snap, int goal, bool givers, bool running)
     {
         if (!title)
             return;
+        // The kinds of place the level's map has markers for: its file's
+        // targets' and the game's own this frame (DM2's are all places).
+        bool has[3] = {false, false, false};
+        for (const TargetRecord &t : level.targets)
+            if (t.role <= static_cast<uint32_t>(TargetRole::Place))
+                has[t.role] = true;
+        for (uint32_t i = 0; i < snap.goalTargetCount && i < kMaxGoalTargets; ++i)
+            if (snap.goalTargets[i].role <= TargetRole::Place)
+                has[static_cast<size_t>(snap.goalTargets[i].role)] = true;
         struct Entry
         {
             const char *word;
@@ -1003,7 +1030,12 @@ namespace panel
         };
         std::vector<Entry> entries;
         if (goal >= 0)
-            entries = {{"PICK UP", TargetRole::Pickup, kPickupInk, 8}, {"DROP OFF", TargetRole::DropOff, kDropOffInk, 8}, {"GO TO", TargetRole::Place, kPlaceInk, 8}};
+        {
+            const Entry kinds[3] = {{"PICK UP", TargetRole::Pickup, kPickupInk, 8}, {"DROP OFF", TargetRole::DropOff, kDropOffInk, 8}, {"GO TO", TargetRole::Place, kPlaceInk, 8}};
+            for (const Entry &e : kinds)
+                if (has[static_cast<size_t>(e.role)])
+                    entries.push_back(e);
+        }
         else
         {
             if (givers)
@@ -1173,8 +1205,10 @@ namespace panel
         if (lineActive || banked)
         {
             char score[48];
-            if (lineActive)
-                std::snprintf(score, sizeof(score), "%s x %d", grouped(static_cast<int>(snap.pendingScore)).c_str(), std::max(snap.multiplier, 1));
+            if (lineActive && snap.multiplier > 0)
+                std::snprintf(score, sizeof(score), "%s x %d", grouped(static_cast<int>(snap.pendingScore)).c_str(), snap.multiplier);
+            else if (lineActive)
+                std::snprintf(score, sizeof(score), "%s", grouped(static_cast<int>(snap.pendingScore)).c_str()); // (a game with no multiplier: DM2)
             else
                 std::snprintf(score, sizeof(score), "%s", grouped(bankedScore).c_str());
             const std::string names = lineActive ? std::string(snap.line) : bankedLine;
@@ -1828,7 +1862,7 @@ namespace panel
 
             // (the idle legend only explains what the map drew)
             if (!items && (shown >= 0 || nearest >= 0 || givers || runningPlaces))
-                s.drawLegend(c, shown >= 0 ? shown : nearest, givers, runningPlaces);
+                s.drawLegend(c, snap, shown >= 0 ? shown : nearest, givers, runningPlaces);
         }
         else if (s.body)
         {

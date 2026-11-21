@@ -5,7 +5,7 @@
 // (the reference: the same bytes but the Retro movie, which the game plays
 // as the Xbox disc has it). The game overrides serve them behind their
 // settings (game_overrides/dave_mirra_xboxlevel.cpp, dave_mirra_xboxthemes.cpp,
-// dave_mirra_gallery.cpp, dave_mirra_xcareer.cpp; PS2X_DM2_XBOX_LEVELS_DIR).
+// dave_mirra_gallery.cpp, dave_mirra_xcareer.cpp; ZX_DM2_XBOX_LEVELS_DIR).
 // Under <out>:
 //
 //   <LEVEL>/<LEVEL>.{ZIT,GEO,INS,TXR,DAT}   VENICE and GREENVIL, the Xbox's
@@ -33,7 +33,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     struct Dm2XboxOptions
     {

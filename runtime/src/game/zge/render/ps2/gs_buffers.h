@@ -55,7 +55,7 @@ namespace zge
     {
         uint64_t gifTag[2];          // +0x00
         GsDrawEnvironment1 draw1;    // +0x10
-#if !PS2X_GAME_DM2 // (DM2's libgraph is the earlier sceGsDBuff: one draw environment)
+#if !ZX_GAME_DM2 // (DM2's libgraph is the earlier sceGsDBuff: one draw environment)
         GsDrawEnvironment2 draw2;    // +0x90
 #endif
         GsClear clear;               // +0x110 (DM2: +0x90)

@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     using Vec2 = std::array<double, 2>;
     using Colour = std::array<double, 4>; // r, g, b, a; 1.0 the texture as it is

@@ -172,8 +172,8 @@ QUIT_FLAG = 0x252A94
 
 
 def quit_env(at):
-    """The loop flag set at tick `at` (PS2X_POKE_SCRIPT), the route's end 1,800 ticks on (the guest stops at its Exit)."""
-    return {'PS2X_POKE_SCRIPT': '%x:%x=1' % (at, QUIT_FLAG), 'PS2X_DUMP_WHEN': 'end:tick>=%d' % (at + 1800)}
+    """The loop flag set at tick `at` (ZX_POKE_SCRIPT), the route's end 1,800 ticks on (the guest stops at its Exit)."""
+    return {'ZX_POKE_SCRIPT': '%x:%x=1' % (at, QUIT_FLAG), 'ZX_DUMP_WHEN': 'end:tick>=%d' % (at + 1800)}
 
 
 def quit_fe():
@@ -185,8 +185,8 @@ def quit_fe():
 
 
 ROUTES['frontend'] = (frontend, 'the main menu: rider editor, extras, options')
-ROUTES['frontend-hle'] = (frontend, 'as frontend with the game\'s own movie player (PS2X_MOVIES=hle): Extras, Movies')
-ENVIRONMENT['frontend-hle'] = {'PS2X_MOVIES': 'hle'}
+ROUTES['frontend-hle'] = (frontend, 'as frontend with the game\'s own movie player (ZX_MOVIES=hle): Extras, Movies')
+ENVIRONMENT['frontend-hle'] = {'ZX_MOVIES': 'hle'}
 ROUTES['quit-fe'] = (quit_fe, "the game's exit from the main menu (main's loop flag poked: test only): the game and engine shutdown")
 ENVIRONMENT['quit-fe'] = quit_env(1400 + 240 + 6 + 240 + 600)
 
@@ -243,7 +243,7 @@ def fe_card():
 
 ROUTES['fe-card'] = (fe_card, 'routes2: the front end card (save, load), controls, audio, extras')
 ROUTES['fe-card-hle'] = (fe_card, 'routes2: as fe-card with the game\'s own movie player')
-ENVIRONMENT['fe-card-hle'] = {'PS2X_MOVIES': 'hle'}
+ENVIRONMENT['fe-card-hle'] = {'ZX_MOVIES': 'hle'}
 
 
 def fe_misc():
@@ -322,7 +322,7 @@ def fe_extras():
 ROUTES['fe-extras'] = (fe_extras, 'routes3: cheats for the movies and features, the media viewer, credits, special modes')
 
 def menus():
-    """The app's Settings page (PS2X_GAME_SETTINGS_MENUS=1, bmx_xxx_settings.cpp) from Options (its fourth line,
+    """The app's Settings page (ZX_GAME_SETTINGS_MENUS=1, bmx_xxx_settings.cpp) from Options (its fourth line,
     SETTINGS) and from the pause menu in the Bronx (its last line), every section and row stepped Right and Left
     (dm2routes' settings_walk); back out each time."""
     s = Script()
@@ -355,8 +355,8 @@ def menus():
 
 # The Settings page's rows in each section the runner has (Sound, Controls, Camera, Assists, Cheats: dm2routes' MENUS_ROWS).
 MENUS_ROWS = (3, 46, 3, 2, 3)
-ROUTES['menus'] = (menus, "the app's Settings page (PS2X_GAME_SETTINGS_MENUS=1) from Options and the pause menu: every section, Right and Left on every row")
-ENVIRONMENT['menus'] = {'PS2X_GAME_SETTINGS_MENUS': '1', 'PS2X_TRACE_SETTINGS': '1'}  # (the trace: the page's keys, which the A/B reads back)
+ROUTES['menus'] = (menus, "the app's Settings page (ZX_GAME_SETTINGS_MENUS=1) from Options and the pause menu: every section, Right and Left on every row")
+ENVIRONMENT['menus'] = {'ZX_GAME_SETTINGS_MENUS': '1', 'ZX_TRACE_SETTINGS': '1'}  # (the trace: the page's keys, which the A/B reads back)
 
 if os.path.isdir(SESSIONS):
     import json as _json

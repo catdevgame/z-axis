@@ -78,7 +78,7 @@ namespace zge
     // An emitter (0x40 bytes, from effectAllocate; aggressive::fx::Emitter).
     struct EffectEmitter
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // ZGE2's emitter (0x40 bytes, kEffectEmitterBytes; game/dm2/fx/particles.h's Emitter) keeps its
         // particles' records in a pool of its own, and no particle size or owner. ZGE3's two fields at its end
         // stand past the end of DM2's record: nothing of DM2's reads them.

@@ -8,7 +8,7 @@
 #include <cctype>
 #include <cstdlib>
 
-namespace ps2x::gs_quality
+namespace zx::gs_quality
 {
     namespace
     {
@@ -22,33 +22,33 @@ namespace ps2x::gs_quality
         std::vector<OptionInfo> makeOptions()
         {
             std::vector<OptionInfo> o;
-            o.push_back({Option::AntiAliasing, "display.anti_aliasing", "anti_aliasing", "PS2X_GS_AA", "Anti-Aliasing",
+            o.push_back({Option::AntiAliasing, "display.anti_aliasing", "anti_aliasing", "ZX_GS_AA", "Anti-Aliasing",
                          "Smooths jagged edges.", {"off", "fxaa"}, {"Off", "FXAA"}, 1});
-            o.push_back({Option::Anisotropy, "display.texture_filtering", "texture_filtering", "PS2X_GS_ANISO",
+            o.push_back({Option::Anisotropy, "display.texture_filtering", "texture_filtering", "ZX_GS_ANISO",
                          "Texture Filtering", "Sharper ground at an angle.",
                          {"off", "2x", "4x", "8x", "16x"}, {"Off", "2x", "4x", "8x", "16x"}, 4});
-            o.push_back({Option::Fog, "display.fog", "fog", "PS2X_NATIVE_FOG", "Fog",
+            o.push_back({Option::Fog, "display.fog", "fog", "ZX_NATIVE_FOG", "Fog",
                          "Smooth fog without bands.", {"original", "smooth"},
                          {"Original", "Smooth"}, 1});
-            o.push_back({Option::Shadows, "display.shadows", "shadows", "PS2X_NATIVE_SHADOWS", "Shadows",
+            o.push_back({Option::Shadows, "display.shadows", "shadows", "ZX_NATIVE_SHADOWS", "Shadows",
                          "Sharp draws the shadow in one piece.", {"original", "sharp"},
                          {"Original", "Sharp"}, 1});
-            o.push_back({Option::DepthPrecision, "display.depth_precision", "depth_precision", "PS2X_GS_PRECISE_DEPTH",
+            o.push_back({Option::DepthPrecision, "display.depth_precision", "depth_precision", "ZX_GS_PRECISE_DEPTH",
                          "Depth Precision", "High stops far surfaces flickering.",
                          {"original", "high"}, {"Original", "High"}, 1});
-            o.push_back({Option::Perspective, "display.perspective_correct", "perspective_correct", "PS2X_NATIVE_PERSPECTIVE",
+            o.push_back({Option::Perspective, "display.perspective_correct", "perspective_correct", "ZX_NATIVE_PERSPECTIVE",
                          "Perspective Correction", "Textures without the PS2's warping.",
                          {"off", "on"}, {"Off", "On"}, 1});
-            o.push_back({Option::Lighting, "display.character_lighting", "character_lighting", "PS2X_NATIVE_LIGHTING",
+            o.push_back({Option::Lighting, "display.character_lighting", "character_lighting", "ZX_NATIVE_LIGHTING",
                          "Character Lighting", "People lit as on PS2 or Xbox.",
                          {"ps2", "xbox"}, {"PS2", "Xbox"}, 1});
-            // Fast: phones and handhelds (Android) by default, exact elsewhere (GPU_BACKEND.md, PS2X_GS_DEPTH16).
+            // Fast: phones and handhelds (Android) by default, exact elsewhere (GPU_BACKEND.md, ZX_GS_DEPTH16).
 #if defined(__ANDROID__)
             constexpr int kFastDepthDefault = 1;
 #else
             constexpr int kFastDepthDefault = 0;
 #endif
-            o.push_back({Option::DepthTest, "display.depth_test", "depth_test", "PS2X_GS_DEPTH16", "Depth Test",
+            o.push_back({Option::DepthTest, "display.depth_test", "depth_test", "ZX_GS_DEPTH16", "Depth Test",
                          "Fast suits phones, a few pixels differ.",
                          {"exact", "fast"}, {"Exact", "Fast"}, kFastDepthDefault});
             return o;
@@ -145,7 +145,7 @@ namespace ps2x::gs_quality
 
     void addSettings(std::function<void(Option, int)> save, bool sessionRows)
     {
-        namespace st = ps2x::settings;
+        namespace st = zx::settings;
         for (const OptionInfo &i : options())
         {
             if (st::has(i.settingKey))
@@ -168,7 +168,7 @@ namespace ps2x::gs_quality
                     save(option, get(option));
             };
             if (sessionRows)
-                ps2x::session::addSetting(s);
+                zx::session::addSetting(s);
             else
                 st::add(s);
         }

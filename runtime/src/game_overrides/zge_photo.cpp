@@ -18,8 +18,8 @@ namespace zge_host::photo
     namespace
     {
         namespace hi = ps2_host_input;
-        namespace ph = ps2x::photo;
-        namespace st = ps2x::settings;
+        namespace ph = zx::photo;
+        namespace st = zx::settings;
         using Device = PSPadBackend::InputDevice;
 
         constexpr uint64_t kHelpFrames = 600u;
@@ -247,7 +247,7 @@ namespace zge_host::photo
             else if (key("LEFT_ALT") || key("RIGHT_ALT"))
                 c.speedFactor = 0.25f;
         }
-        // The pad (and PS2X_CONTROL / PS2X_PAD_SCRIPT, which arrive the same way).
+        // The pad (and ZX_CONTROL / ZX_PAD_SCRIPT, which arrive the same way).
         c.moveForward += -axis(in.sticks[hi::kLy]);
         c.moveRight += axis(in.sticks[hi::kLx]);
         c.turnYaw = axis(in.sticks[hi::kRx]);

@@ -33,8 +33,8 @@ namespace zge::host
     void notePartPacketBuilt(ee::Ptr<ZgePart> part, bool whole, uint32_t streams);
 
     // The game's skinned packet form (game/host/native_draws.h attach): for the mesh check's file meshes.
-    const ps2x::zaxis::SkinnedDrawForm &skinnedDrawForm();
+    const zx::zaxis::SkinnedDrawForm &skinnedDrawForm();
     // The packet a part of a render type is built as (false: a type with no packet the host form knows): the game's
     // rigid packet form says whether a part's normals go where its colours do (ZGE4's).
-    bool packetKindOf(const ZgePart &part, RenderType type, ps2x::zaxis::PacketKind &kind);
+    bool packetKindOf(const ZgePart &part, RenderType type, zx::zaxis::PacketKind &kind);
 }

@@ -7,8 +7,8 @@ Any game's disc may come in any of the usual formats; which one, its bytes tell 
   Windows' tar do not read. This makes the 2048-byte ISO from the CUE's data track (a multi-track dump's audio
   tracks left out): each sector's user data (Mode 1 at byte 16, Mode 2 Form 1 at byte 24), the same bytes the app's
   own reader (iop Iso9660Image) takes;
-- a CHD, CSO or ZSO (compressed): the app's own reader makes the ISO, ps2x_disc (built with the recompiler by
-  tooling/recompile.sh; PS2X_DISC=<path> names another).
+- a CHD, CSO or ZSO (compressed): the app's own reader makes the ISO, zx-disc (built with the recompiler by
+  tooling/recompile.sh; ZX_DISC_TOOL=<path> names another).
 
     disc_image.py is-raw IMAGE        exit 0 when IMAGE is no ISO tar reads (BIN/CUE, CHD, CSO, ZSO), 1 for an ISO
     disc_image.py to-iso IMAGE OUT    OUT: the 2048-byte ISO of IMAGE
@@ -93,19 +93,19 @@ def raw_layout(path):
         return offset if f.read(6)[1:6] == b'CD001' else None
 
 
-def ps2x_disc():
-    tool = os.environ.get('PS2X_DISC') or os.path.join(CHECKOUT, 'out', 'build-recomp', 'ps2xIOP',
-                                                       'ps2x_disc.exe' if os.name == 'nt' else 'ps2x_disc')
+def disc_tool():
+    tool = os.environ.get('ZX_DISC_TOOL') or os.path.join(CHECKOUT, 'out', 'build-recomp', 'iop',
+                                                       'zx-disc.exe' if os.name == 'nt' else 'zx-disc')
     if not os.path.isfile(tool):
-        sys.exit('disc_image: a compressed image (CHD, CSO, ZSO) needs ps2x_disc (%s): run tooling/recompile.sh first, '
-                 'or PS2X_DISC=<path>' % tool)
+        sys.exit('disc_image: a compressed image (CHD, CSO, ZSO) needs zx-disc (%s): run tooling/recompile.sh first, '
+                 'or ZX_DISC_TOOL=<path>' % tool)
     return tool
 
 
 def to_iso(image, out):
     path = data_file(image)
     if compressed(path):
-        subprocess.run([ps2x_disc(), 'to-iso', path, out], check=True)
+        subprocess.run([disc_tool(), 'to-iso', path, out], check=True)
         return
     offset = raw_layout(path)
     if offset is None:

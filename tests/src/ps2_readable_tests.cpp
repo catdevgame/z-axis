@@ -1,5 +1,5 @@
 // The readable game's framework (runtime/src/game/ee): EE floats, the
-// calling convention adapter, the PS2X_READABLE switch and the fncheck
+// calling convention adapter, the ZX_READABLE switch and the fncheck
 // recording format.
 #include "MiniTest.h"
 
@@ -40,7 +40,7 @@
 
 namespace
 {
-    // Two ps2x_tests at once (agents, a check beside a build) must not share
+    // Two zx-tests at once (agents, a check beside a build) must not share
     // a folder: each run's is its own.
     std::filesystem::path uniqueTempFolder(const std::string &name)
     {
@@ -527,7 +527,7 @@ namespace
         return game::tail(jumpedOutside, first);
     }
     READABLE_FUNCTION(0x00002C00, jumpingOuter, Draft);
-    // Answers calls as a recording does, in order (each returns its argument + 1), with ps2xFnCheck's rule for a
+    // Answers calls as a recording does, in order (each returns its argument + 1), with zx-fncheck's rule for a
     // jump inside the function replayed (fncheck_main.cpp Script::jumpsInside).
     struct JumpInsideHandler : ee::CallHandler
     {
@@ -602,7 +602,7 @@ namespace
     READABLE_PLANNED(0x00004E00, "twoChunks");
 
     // Callee writes as the recorder keeps them (round 14: page protection,
-    // PS2X_FNREC_EFFECTS=pages, against the full RAM diff): pageWriter
+    // ZX_FNREC_EFFECTS=pages, against the full RAM diff): pageWriter
     // (0x4C00, and the same at 0x4C80) calls 0x4D00, which writes a word in
     // one page and one in another, writes a word back unchanged, writes its
     // own frame (dead), and fills 64 bytes as a file read does
@@ -637,7 +637,7 @@ namespace
     READABLE_PLANNED(0x00004C00, "pageWriter");
     READABLE_PLANNED(0x00004C80, "pageWriterB");
 
-    // A function that never returns (fncheck_stops.h, PS2X_FNREC_STOP): it
+    // A function that never returns (fncheck_stops.h, ZX_FNREC_STOP): it
     // writes a0 + 1 at 0x5800, calls 0x6C00 with a0 (which writes 0x5810 and
     // returns a0 + 13), writes the result at 0x5804 and calls 0x6D00 with it,
     // which overwrites 0x5800 and then ends the thread (throws to the
@@ -747,7 +747,7 @@ namespace
     READABLE_PLANNED(0x00007100, "frameRecordReader");
     READABLE_PLANNED(0x00007200, "frameRecordRelay");
 
-    // A function of two blocks (PS2X_FNREC_NEW_BLOCKS=3, the recorder's refusal): its first block writes a0 to
+    // A function of two blocks (ZX_FNREC_NEW_BLOCKS=3, the recorder's refusal): its first block writes a0 to
     // 0x5900 and returns a0 + 1; its second runs only for a0 = 7. The traced original reports its blocks as
     // fncheck_traced.h's markers do. Four copies at four addresses: the recorder keeps a function's state for the
     // process, so each install of a test records a function of its own.
@@ -846,11 +846,11 @@ namespace
     // The recorder as a recording run installs it: with readable code off (it refuses otherwise, fncheck.h).
     bool installTestRecorder(PS2Runtime &runtime, game::Game game = game::Game::Ai)
     {
-        const char *was = std::getenv("PS2X_READABLE");
+        const char *was = std::getenv("ZX_READABLE");
         const std::string previous = was ? was : "";
-        setEnvironment("PS2X_READABLE", "off");
+        setEnvironment("ZX_READABLE", "off");
         const bool installed = fncheck::installRecorder(runtime, game);
-        setEnvironment("PS2X_READABLE", previous.c_str());
+        setEnvironment("ZX_READABLE", previous.c_str());
         return installed;
     }
 
@@ -931,7 +931,7 @@ namespace
                                    nullptr, nullptr, nullptr, kHeldCaseValues, nullptr}};
 
     // What each call was given in s0, s1, s2 and ra (~0: nothing published,
-    // the entry value), as ps2xFnCheck's compareSaves sees it.
+    // the entry value), as zx-fncheck's compareSaves sees it.
     struct HeldHandler : ee::CallHandler
     {
         std::vector<std::vector<uint64_t>> got;
@@ -1829,7 +1829,7 @@ void register_ps2_readable_tests()
             }
         });
 
-        tc.Run("PS2X_READABLE switch", [](TestCase &t)
+        tc.Run("ZX_READABLE switch", [](TestCase &t)
         {
             namespace r = game::readable;
             r::Function *verified = r::find(0x00000100u);
@@ -1943,7 +1943,7 @@ void register_ps2_readable_tests()
         tc.Run("fncheck recordings plain or compressed: the same records either way, a seek, a cut or damaged file said", [](TestCase &t)
         {
             namespace fs = std::filesystem;
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_packed_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_packed_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
             fs::create_directories(folder);
@@ -2105,14 +2105,14 @@ void register_ps2_readable_tests()
             std::memcpy(ram + kSelfCallReturn - 8u, &jal, 4);
             runtime.replaceFunction(kSelfCalling, &selfCallingTraced);
             runtime.replaceFunction(kCounter, &counterCallee);
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_selfcall_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_selfcall_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
-            setEnvironment("PS2X_FNREC", "selfCalling");
-            setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-            setEnvironment("PS2X_FNREC_ATOMIC", "1");
+            setEnvironment("ZX_FNREC", "selfCalling");
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            setEnvironment("ZX_FNREC_ATOMIC", "1");
             installTestRecorder(runtime);
-            setEnvironment("PS2X_FNREC", "");
+            setEnvironment("ZX_FNREC", "");
 
             // 250: two self-calls, each call ending by a tail call (50, 150,
             // 250); 300: the innermost (100) returns by jr ra, then two tail
@@ -2194,14 +2194,14 @@ void register_ps2_readable_tests()
             runtime.replaceFunction(kNestedJumpTarget, &nestedJumpTarget);
             *reinterpret_cast<uint32_t *>(ram + 0x5300u) = 0x11111111u;
             *reinterpret_cast<uint32_t *>(ram + 0x5304u) = 0x22222222u;
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_nested_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_nested_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
-            setEnvironment("PS2X_FNREC", "nestedPlaying");
-            setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-            setEnvironment("PS2X_FNREC_ATOMIC", "1");
+            setEnvironment("ZX_FNREC", "nestedPlaying");
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            setEnvironment("ZX_FNREC_ATOMIC", "1");
             installTestRecorder(runtime);
-            setEnvironment("PS2X_FNREC", "");
+            setEnvironment("ZX_FNREC", "");
 
             R5900Context ctx = callContext(0x00100040u);
             ee::setGpr64(&ctx, ee::reg::a0, 0x5300u);
@@ -2249,18 +2249,18 @@ void register_ps2_readable_tests()
             runtime.replaceFunction(kStoppingFirst, &stoppingFirst);
             runtime.replaceFunction(kStoppingEnd, &stoppingEnd);
             std::error_code ignored;
-            // stop: PS2X_FNREC_STOP names it (the frame rule's form); else recorded as before.
+            // stop: ZX_FNREC_STOP names it (the frame rule's form); else recorded as before.
             auto record = [&](bool stop, const char *name)
             {
                 const fs::path folder = uniqueTempFolder(name);
                 fs::remove_all(folder, ignored);
-                setEnvironment("PS2X_FNREC", "stoppingTest");
-                setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-                setEnvironment("PS2X_FNREC_ATOMIC", "1");
-                setEnvironment("PS2X_FNREC_STOP", stop ? "stoppingTest" : "");
+                setEnvironment("ZX_FNREC", "stoppingTest");
+                setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+                setEnvironment("ZX_FNREC_ATOMIC", "1");
+                setEnvironment("ZX_FNREC_STOP", stop ? "stoppingTest" : "");
                 installTestRecorder(runtime);
-                setEnvironment("PS2X_FNREC", "");
-                setEnvironment("PS2X_FNREC_STOP", "");
+                setEnvironment("ZX_FNREC", "");
+                setEnvironment("ZX_FNREC_STOP", "");
                 std::memset(ram + 0x5800u, 0, 0x20u);
                 R5900Context ctx = callContext(0x00100040u);
                 ee::setGpr64(&ctx, ee::reg::a0, 7u);
@@ -2291,8 +2291,8 @@ void register_ps2_readable_tests()
                 fs::remove_all(folder, ignored);
                 return records;
             };
-            t.Equals(record(false, "ps2x_fnrec_nostop_test").size(), size_t(0), "not recorded to a stop: no call kept, as before");
-            const std::vector<fncheck::Record> records = record(true, "ps2x_fnrec_stop_test");
+            t.Equals(record(false, "zx_fnrec_nostop_test").size(), size_t(0), "not recorded to a stop: no call kept, as before");
+            const std::vector<fncheck::Record> records = record(true, "zx_fnrec_stop_test");
             t.Equals(records.size(), size_t(1), "recorded to a stop: the call kept");
             if (!records.empty())
             {
@@ -2326,11 +2326,11 @@ void register_ps2_readable_tests()
             fn->traced = registered;
         });
 
-#if defined(PS2X_FNCHECK_EXE)
-        tc.Run("ps2xFnCheck judges a stop record at its stop: the right version passes, the broken ones fail", [](TestCase &t)
+#if defined(ZX_FNCHECK_EXE)
+        tc.Run("zx-fncheck judges a stop record at its stop: the right version passes, the broken ones fail", [](TestCase &t)
         {
-            const std::string command = std::string("\"") + PS2X_FNCHECK_EXE + "\" --self-test-stops";
-            t.Equals(std::system(command.c_str()), 0, "ps2xFnCheck --self-test-stops");
+            const std::string command = std::string("\"") + ZX_FNCHECK_EXE + "\" --self-test-stops";
+            t.Equals(std::system(command.c_str()), 0, "zx-fncheck --self-test-stops");
         });
 #endif
 
@@ -2354,7 +2354,7 @@ void register_ps2_readable_tests()
             runtime.replaceFunction(kFrameRelay, &FrameRecordCode<false>::relay);
             *reinterpret_cast<uint32_t *>(ram + 0x5600u) = 5u;
             *reinterpret_cast<uint32_t *>(ram + 0x5604u) = 6u;
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_frame_reads_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_frame_reads_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
             fs::create_directories(folder);
@@ -2366,11 +2366,11 @@ void register_ps2_readable_tests()
                 list << "frameRecordCaller\nframeRecordReader 100 1\nframeRecordRelay 100 1\n";
             }
             const std::string spec = "@" + (folder / "list.txt").string();
-            setEnvironment("PS2X_FNREC", spec.c_str());
-            setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-            setEnvironment("PS2X_FNREC_ATOMIC", "1");
+            setEnvironment("ZX_FNREC", spec.c_str());
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            setEnvironment("ZX_FNREC_ATOMIC", "1");
             installTestRecorder(runtime);
-            setEnvironment("PS2X_FNREC", "");
+            setEnvironment("ZX_FNREC", "");
 
             R5900Context ctx = callContext(0x00100040u);
             ctx.pc = kFrameCaller;
@@ -2438,13 +2438,13 @@ void register_ps2_readable_tests()
             GuestRamFixture guest;
             uint8_t *ram = guest.map.base();
             PS2Runtime runtime;
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_refuse_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_refuse_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
             fs::create_directories(folder);
-            const char *was = std::getenv("PS2X_READABLE");
+            const char *was = std::getenv("ZX_READABLE");
             const std::string previous = was ? was : "";
-            // Each case: PS2X_READABLE, PS2X_FNREC_ALLOW_READABLE, the function asked for, installed or refused.
+            // Each case: ZX_READABLE, ZX_FNREC_ALLOW_READABLE, the function asked for, installed or refused.
             struct Case
             {
                 const char *readable, *allow;
@@ -2477,14 +2477,14 @@ void register_ps2_readable_tests()
                 char file[32];
                 std::snprintf(file, sizeof(file), "%08x.fnrec", c.address);
                 fs::remove(folder / file, ignored);
-                setEnvironment("PS2X_FNREC", c.name);
-                setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-                setEnvironment("PS2X_READABLE", c.readable);
-                setEnvironment("PS2X_FNREC_ALLOW_READABLE", c.allow);
+                setEnvironment("ZX_FNREC", c.name);
+                setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+                setEnvironment("ZX_READABLE", c.readable);
+                setEnvironment("ZX_FNREC_ALLOW_READABLE", c.allow);
                 const bool installed = fncheck::installRecorder(runtime);
-                setEnvironment("PS2X_FNREC", "");
-                setEnvironment("PS2X_FNREC_ALLOW_READABLE", "");
-                setEnvironment("PS2X_READABLE", previous.c_str());
+                setEnvironment("ZX_FNREC", "");
+                setEnvironment("ZX_FNREC_ALLOW_READABLE", "");
+                setEnvironment("ZX_READABLE", previous.c_str());
                 t.Equals(installed, c.installs, c.what);
                 R5900Context ctx = callContext(0x00100040u);
                 ee::setGpr64(&ctx, ee::reg::a0, 1u);
@@ -2496,7 +2496,7 @@ void register_ps2_readable_tests()
             fs::remove_all(folder, ignored);
         });
 
-        tc.Run("fncheck PS2X_FNREC_UNTIL_SCRIPT: no call begun once the pad script's clock is at its value", [](TestCase &t)
+        tc.Run("fncheck ZX_FNREC_UNTIL_SCRIPT: no call begun once the pad script's clock is at its value", [](TestCase &t)
         {
             namespace fs = std::filesystem;
             GuestRamFixture guest;
@@ -2515,7 +2515,7 @@ void register_ps2_readable_tests()
                                    &TwoBlocks<kTwoBlocksUntilPast>::run<true>, false},
                                   {"0", kTwoBlocksUntilAhead, "twoBlocksUntilAhead", &TwoBlocks<kTwoBlocksUntilAhead>::run<false>,
                                    &TwoBlocks<kTwoBlocksUntilAhead>::run<true>, true}};
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_until_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_until_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
             fs::create_directories(folder);
@@ -2528,12 +2528,12 @@ void register_ps2_readable_tests()
                 const PS2Runtime::RecompiledFunction registered = fn->traced;
                 fn->traced = c.traced;
                 runtime.replaceFunction(c.address, c.plain);
-                setEnvironment("PS2X_FNREC", c.name);
-                setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-                setEnvironment("PS2X_FNREC_UNTIL_SCRIPT", c.until);
+                setEnvironment("ZX_FNREC", c.name);
+                setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+                setEnvironment("ZX_FNREC_UNTIL_SCRIPT", c.until);
                 installTestRecorder(runtime);
-                setEnvironment("PS2X_FNREC", "");
-                setEnvironment("PS2X_FNREC_UNTIL_SCRIPT", "");
+                setEnvironment("ZX_FNREC", "");
+                setEnvironment("ZX_FNREC_UNTIL_SCRIPT", "");
                 R5900Context ctx = callContext(0x00100040u);
                 ee::setGpr64(&ctx, ee::reg::a0, 1u);
                 ctx.pc = c.address;
@@ -2574,13 +2574,13 @@ void register_ps2_readable_tests()
                     list << function << " 2 8\n";
                 }
                 const std::string spec = "@" + (folder / "list.txt").string();
-                setEnvironment("PS2X_FNREC", spec.c_str());
-                setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-                setEnvironment("PS2X_FNREC_ATOMIC", "1");
-                setEnvironment("PS2X_FNREC_NEW_BLOCKS", mode);
+                setEnvironment("ZX_FNREC", spec.c_str());
+                setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+                setEnvironment("ZX_FNREC_ATOMIC", "1");
+                setEnvironment("ZX_FNREC_NEW_BLOCKS", mode);
                 installTestRecorder(runtime);
-                setEnvironment("PS2X_FNREC", "");
-                setEnvironment("PS2X_FNREC_NEW_BLOCKS", "");
+                setEnvironment("ZX_FNREC", "");
+                setEnvironment("ZX_FNREC_NEW_BLOCKS", "");
                 for (uint32_t a0 : {1u, 1u, 1u, 7u, 1u, 7u})
                 {
                     R5900Context ctx = callContext(0x00100040u);
@@ -2608,11 +2608,11 @@ void register_ps2_readable_tests()
                 return a0s;
             };
             const std::vector<uint32_t> capped =
-                record("", "ps2x_fnrec_mode3_capped", kTwoBlocksCapped, "twoBlocksCapped",
+                record("", "zx_fnrec_mode3_capped", kTwoBlocksCapped, "twoBlocksCapped",
                        &TwoBlocks<kTwoBlocksCapped>::run<false>, &TwoBlocks<kTwoBlocksCapped>::run<true>);
             t.Equals(capped.size(), size_t(2), "unset: the cap's two calls");
             const std::vector<uint32_t> mode3 =
-                record("3", "ps2x_fnrec_mode3", kTwoBlocksMode3, "twoBlocksMode3", &TwoBlocks<kTwoBlocksMode3>::run<false>,
+                record("3", "zx_fnrec_mode3", kTwoBlocksMode3, "twoBlocksMode3", &TwoBlocks<kTwoBlocksMode3>::run<false>,
                        &TwoBlocks<kTwoBlocksMode3>::run<true>);
             t.Equals(mode3.size(), size_t(3), "mode 3: the sample and one call past it");
             if (mode3.size() == 3u && capped.size() == 2u)
@@ -2641,15 +2641,15 @@ void register_ps2_readable_tests()
             runtime.replaceFunction(kSecondChunk, fncheck_test::twoChunksWhole());
             runtime.replaceFunction(kChunkCallee, &chunkCallee);
             runtime.replaceFunction(0x00100040u, caller);
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_chunks_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_chunks_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
             fn->traced = fncheck_test::twoChunksWhole();
-            setEnvironment("PS2X_FNREC", "twoChunks");
-            setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-            setEnvironment("PS2X_FNREC_ATOMIC", "1");
+            setEnvironment("ZX_FNREC", "twoChunks");
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            setEnvironment("ZX_FNREC_ATOMIC", "1");
             installTestRecorder(runtime);
-            setEnvironment("PS2X_FNREC", "");
+            setEnvironment("ZX_FNREC", "");
             // Two calls with `traced` as the traced original (the recorder
             // reads it at each call): a0 0, the fall through into the second
             // chunk; 5, the branch.
@@ -2719,7 +2719,7 @@ void register_ps2_readable_tests()
                 // second chunk (EeScheduler's slice dispatch) and the return's.
                 t.Equals(r.cycles, uint64_t(3u * EeScheduler::kGuestDispatchCycles), "three dispatches");
 
-                // Replayed as ps2xFnCheck does: the inputs on a filled RAM,
+                // Replayed as zx-fncheck does: the inputs on a filled RAM,
                 // the callee answered from the recording, the traced original
                 // run once from the entry, which must return to ra with the
                 // recorded outputs.
@@ -2770,7 +2770,7 @@ void register_ps2_readable_tests()
                 t.IsTrue(ctx.pc == 0x00100040u && written == 8u, "a resume goes on in its chunk, then the next");
 
                 // The hop is the scheduler's dispatch of the second chunk, a safe point: interrupted there
-                // (ps2xFnCheck --safepoints), the traced original unwinds with pc at the second chunk, and a
+                // (zx-fncheck --safepoints), the traced original unwinds with pc at the second chunk, and a
                 // resume there finishes the call. Not interrupted, the same two safe points (the call's dispatch,
                 // the hop) and the same cycles.
                 struct HopTracer : fncheck::Tracer
@@ -2948,14 +2948,14 @@ void register_ps2_readable_tests()
                 return;
             fn->traced = &ioTouchingTraced;
             runtime.replaceFunction(kIoTouching, &ioTouchingTraced);
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_io_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_io_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
-            setEnvironment("PS2X_FNREC", "ioTouching");
-            setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-            setEnvironment("PS2X_FNREC_ATOMIC", "1");
+            setEnvironment("ZX_FNREC", "ioTouching");
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            setEnvironment("ZX_FNREC_ATOMIC", "1");
             installTestRecorder(runtime);
-            setEnvironment("PS2X_FNREC", "");
+            setEnvironment("ZX_FNREC", "");
             for (uint32_t mark : {1u, 2u})
             {
                 g_ioMark = mark;
@@ -2990,7 +2990,7 @@ void register_ps2_readable_tests()
                          "a quadword store, both halves");
             }
 
-            // ps2xFnCheck's side: an IoPort answers the loads instead of the runtime.
+            // zx-fncheck's side: an IoPort answers the loads instead of the runtime.
             struct Port final : fncheck::IoPort
             {
                 std::vector<fncheck::IoAccess> seen;
@@ -3033,11 +3033,11 @@ void register_ps2_readable_tests()
             runtime.replaceFunction(kPageWriter, &pageWriterTraced<kPageWriter>);
             runtime.replaceFunction(kPageWriterB, &pageWriterTraced<kPageWriterB>);
             runtime.replaceFunction(kPageCallee, &pageCallee);
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_pages_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_pages_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
-            setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-            setEnvironment("PS2X_FNREC_ATOMIC", "1");
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            setEnvironment("ZX_FNREC_ATOMIC", "1");
             std::vector<fncheck::Line> effects[2];
             const uint32_t functions[2] = {kPageWriter, kPageWriterB};
             const char *modes[2] = {"pages", "diff"};
@@ -3046,8 +3046,8 @@ void register_ps2_readable_tests()
                 std::memset(ram + 0x5400u, 0, 16);
                 std::memset(ram + 0x00300000u, 0, 32);
                 std::memset(ram + 0x00400000u, 0, 64);
-                setEnvironment("PS2X_FNREC_EFFECTS", modes[i]);
-                setEnvironment("PS2X_FNREC", i == 0 ? "pageWriter" : "pageWriterB");
+                setEnvironment("ZX_FNREC_EFFECTS", modes[i]);
+                setEnvironment("ZX_FNREC", i == 0 ? "pageWriter" : "pageWriterB");
                 installTestRecorder(runtime);
                 R5900Context ctx = callContext(0x00100040u);
                 ctx.pc = functions[i];
@@ -3067,8 +3067,8 @@ void register_ps2_readable_tests()
                 if (!record.calls.empty())
                     effects[i] = record.calls[0].effects;
             }
-            setEnvironment("PS2X_FNREC", "");
-            setEnvironment("PS2X_FNREC_EFFECTS", "");
+            setEnvironment("ZX_FNREC", "");
+            setEnvironment("ZX_FNREC_EFFECTS", "");
             t.Equals(effects[0].size(), size_t(6), "two words and four lines of the file read; not the unchanged word, "
                                                    "not the dead frame");
             t.Equals(effects[0].size(), effects[1].size(), "as many lines as the full diff");
@@ -3241,15 +3241,15 @@ void register_ps2_readable_tests()
             PS2Runtime runtime;
             runtime.replaceFunction(0x00000800u, &recompiledAt800);
             runtime.replaceFunction(kDm2Planned, &dm2PlannedTraced);
-            setEnvironment("PS2X_READABLE", "");
+            setEnvironment("ZX_READABLE", "");
             r::install(runtime, game::Game::Dm2);
             t.IsTrue(runtime.lookupFunction(0x00000800u) == &recompiledAt800, "DM2's code stays (AI's Verified one not installed)");
             t.IsTrue(!ai->enabled && ai->original == nullptr, "AI's off, no original in DM2");
             t.IsTrue(dm2->original == &recompiledAt800 && dm2->traced == &recompiledAt800, "DM2's original and traced");
             t.IsTrue(r::runningGame() == game::Game::Dm2 && !r::runsInGame(0x00000800u), "running DM2; AI's not running");
-            setEnvironment("PS2X_READABLE", "tested");
+            setEnvironment("ZX_READABLE", "tested");
             r::install(runtime, game::Game::Dm2);
-            setEnvironment("PS2X_READABLE", "");
+            setEnvironment("ZX_READABLE", "");
             t.IsTrue(dm2->enabled && runtime.lookupFunction(0x00000800u) == dm2->readable, "DM2's Tested one with tested");
             t.IsTrue(!ai->enabled && r::runsInGame(0x00000800u, game::Game::Dm2), "AI's still off");
             runtime.replaceFunction(0x00000800u, &recompiledAt800);
@@ -3272,10 +3272,10 @@ void register_ps2_readable_tests()
             PS2Runtime runtime;
             runtime.replaceFunction(0x00000800u, &recompiledAt800);
             runtime.replaceFunction(kDm2Planned, &dm2PlannedTraced);
-            setEnvironment("PS2X_READABLE", "tested");
+            setEnvironment("ZX_READABLE", "tested");
             r::install(runtime, game::Game::Dm2);
             t.IsTrue(dm2->enabled && !ai->enabled, "DM2 with tested: DM2's Tested one on, AI's off");
-            setEnvironment("PS2X_READABLE", "");
+            setEnvironment("ZX_READABLE", "");
             runtime.replaceFunction(0x00000800u, &recompiledAt800);
             r::install(runtime, game::Game::Dm2);
             t.IsTrue(!dm2->enabled && runtime.lookupFunction(0x00000800u) == &recompiledAt800,
@@ -3289,7 +3289,7 @@ void register_ps2_readable_tests()
                 f->enabled = enabled;
         });
 
-        tc.Run("a DM2 recording names its game; ps2xFnCheck's reader takes it", [](TestCase &t)
+        tc.Run("a DM2 recording names its game; zx-fncheck's reader takes it", [](TestCase &t)
         {
             namespace fs = std::filesystem;
             t.Equals(fncheck::recordingName(0x001A9C90u, game::Game::Ai), std::string("001a9c90.fnrec"), "AI's file");
@@ -3333,14 +3333,14 @@ void register_ps2_readable_tests()
                 return;
             fn->traced = &dm2PlannedTraced;
             runtime.replaceFunction(kDm2Planned, &dm2PlannedTraced);
-            const fs::path folder = uniqueTempFolder("ps2x_fnrec_dm2_test");
+            const fs::path folder = uniqueTempFolder("zx_fnrec_dm2_test");
             std::error_code ignored;
             fs::remove_all(folder, ignored);
-            setEnvironment("PS2X_FNREC", "dm2PlannedProbe,selfCalling");
-            setEnvironment("PS2X_FNREC_DIR", folder.string().c_str());
-            setEnvironment("PS2X_FNREC_ATOMIC", "0");
+            setEnvironment("ZX_FNREC", "dm2PlannedProbe,selfCalling");
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            setEnvironment("ZX_FNREC_ATOMIC", "0");
             installTestRecorder(runtime, game::Game::Dm2);
-            setEnvironment("PS2X_FNREC", "");
+            setEnvironment("ZX_FNREC", "");
             fncheck::setTracedGame(game::Game::Ai);
             *reinterpret_cast<uint32_t *>(ram + 0x5200u) = 41u;
             R5900Context ctx = callContext(0x00100040u);
@@ -3510,7 +3510,7 @@ void register_ps2_readable_tests()
             uint8_t stream[sizeof(words)];
             std::memcpy(stream, words, sizeof(words));
 
-            PS2Runtime runtime; // (no initialize(): ps2xFnCheck's has no memory of its own but VU0's)
+            PS2Runtime runtime; // (no initialize(): zx-fncheck's has no memory of its own but VU0's)
             PS2Memory &memory = runtime.memory();
             t.IsTrue(memory.getVU0Code() == nullptr, "no VU0 memory before the upload");
             fncheck::Vu0Memory vu0;

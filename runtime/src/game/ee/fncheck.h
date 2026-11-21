@@ -2,8 +2,8 @@
 
 // fncheck: proving a readable function equal to the recompiled one.
 //
-// 1. Recording (in the game). PS2X_FNREC=<functions> makes the runner
-//    record calls of those functions into PS2X_FNREC_DIR (one
+// 1. Recording (in the game). ZX_FNREC=<functions> makes the runner
+//    record calls of those functions into ZX_FNREC_DIR (one
 //    <address>.fnrec file each; game data, so keep them in a scratch
 //    folder). A recorded call runs the recompiled function built a second
 //    time with every memory access traced (game/ee/fncheck_traced.h), and
@@ -20,7 +20,7 @@
 //        (round 14, fncheck.cpp WriteTracker: RAM read-only around the call,
 //        each page copied at its first write, compared at the return; about
 //        0.1 ms a call against the full RAM diff's 6 to 8 ms, which
-//        PS2X_FNREC_EFFECTS=diff still does).
+//        ZX_FNREC_EFFECTS=diff still does).
 //    Calls that yield to the scheduler halfway (an interrupt, a thread
 //    switch) are not kept. Accesses to I/O registers (and the other
 //    addresses the runtime handles, PS2Runtime::isSpecialAddress) are kept
@@ -30,7 +30,7 @@
 //    the recorder; a call of the function itself, which generated code runs
 //    inline, is followed through its return (kMaxSelfCallResumes below).
 //
-// 2. Checking (ps2xFnCheck, game/ee/fncheck_main.cpp). Every recorded call
+// 2. Checking (zx-fncheck, game/ee/fncheck_main.cpp). Every recorded call
 //    is replayed from its entry state in an otherwise empty RAM, against
 //    the traced original (which must give the recording back: a check of
 //    the recording itself) and against the readable version, twice, with
@@ -59,34 +59,34 @@
 //    calls do (ee::chargeCycles).
 //
 // Environment (recording):
-//   PS2X_FNREC=all | <name or 0xaddress>,...   functions to record
-//   PS2X_FNREC=@<file>                         ... listed in a file, one a line (or commas; `#` a
+//   ZX_FNREC=all | <name or 0xaddress>,...   functions to record
+//   ZX_FNREC=@<file>                         ... listed in a file, one a line (or commas; `#` a
 //                                              comment), each line optionally with its own caps:
 //                                              `ADDRESS 200 8` (calls kept, at most per vsync)
-//   PS2X_FNREC_EFFECTS=pages | diff            how callee writes are found (default pages)
-//   PS2X_FNREC_DIR=<folder>                    where (required)
-//   PS2X_FNREC_MAX=<n>                         calls per function (default 3000)
-//   PS2X_FNREC_PER_VSYNC=<n>                   at most n per function per vsync (default 64)
-//   PS2X_FNREC_FROM=<vsync>                    none kept before this vsync (default 0)
-//   PS2X_FNREC_UNTIL_SCRIPT=<n>                none begun once the pad script's clock is at n (vsyncs): a
+//   ZX_FNREC_EFFECTS=pages | diff            how callee writes are found (default pages)
+//   ZX_FNREC_DIR=<folder>                    where (required)
+//   ZX_FNREC_MAX=<n>                         calls per function (default 3000)
+//   ZX_FNREC_PER_VSYNC=<n>                   at most n per function per vsync (default 64)
+//   ZX_FNREC_FROM=<vsync>                    none kept before this vsync (default 0)
+//   ZX_FNREC_UNTIL_SCRIPT=<n>                none begun once the pad script's clock is at n (vsyncs): a
 //                                              route's recording ends at its last input on every host
-//   PS2X_FNREC_ATOMIC=1                        recorded calls run with EE safe points held off,
+//   ZX_FNREC_ATOMIC=1                        recorded calls run with EE safe points held off,
 //                                              as readable code runs (long functions are
 //                                              otherwise unwound mid-call, and not kept)
-//   PS2X_FNREC_MIN_CALLS=<n>                   keep only calls that made at least n calls (rare paths)
-//   PS2X_FNREC_STOPS=1                         record the functions of the stop table (fncheck_stops.h)
+//   ZX_FNREC_MIN_CALLS=<n>                   keep only calls that made at least n calls (rare paths)
+//   ZX_FNREC_STOPS=1                         record the functions of the stop table (fncheck_stops.h)
 //                                              to a stop: a call of one that does not return is kept up
 //                                              to the callee that never comes back (kStopsAtCall)
-//   PS2X_FNREC_STOP=<name>,...                 more functions recorded to a stop, by the frame rule
+//   ZX_FNREC_STOP=<name>,...                 more functions recorded to a stop, by the frame rule
 //                                              (experiments only: the table is what routes use)
-//   PS2X_FNREC_STOP_FRAMES=<n>                 the frame rule's vsyncs (default 1)
-//   PS2X_FNREC_NEW_BLOCKS=1 | 2 | 3            1: only calls that run a block of the original no kept call
-//                                              ran (nor PS2X_FNREC_COVERED=<file>'s), a few a vsync; 2: every
+//   ZX_FNREC_STOP_FRAMES=<n>                 the frame rule's vsyncs (default 1)
+//   ZX_FNREC_NEW_BLOCKS=1 | 2 | 3            1: only calls that run a block of the original no kept call
+//                                              ran (nor ZX_FNREC_COVERED=<file>'s), a few a vsync; 2: every
 //                                              call tried; 3: the capped sample as unset, and past it the calls
 //                                              that run a new block
-//   PS2X_FNREC_ALLOW_READABLE=1                record with readable code on (a deliberate test only): without
-//                                              it the recorder refuses unless PS2X_READABLE=off
-//   PS2X_FNREC_PLAIN=1                         plain files (by default compressed with zstd, a frame a
+//   ZX_FNREC_ALLOW_READABLE=1                record with readable code on (a deliberate test only): without
+//                                              it the recorder refuses unless ZX_READABLE=off
+//   ZX_FNREC_PLAIN=1                         plain files (by default compressed with zstd, a frame a
 //                                              record: fnrec_file.h, which every reader goes through)
 // Games (ee/game_id.h): the recorder records the running game's registered
 // functions (readable::install(runtime, game) installs it); an item is a
@@ -94,14 +94,14 @@
 // and must be the running one). A recording's header names its game
 // (version 6 on; older ones are AI's), its file is <address>.fnrec for AI
 // and <game>-<address>.fnrec for another (dm2-001a33f0.fnrec), and
-// ps2xFnCheck replays it against that game's traced original.
+// zx-fncheck replays it against that game's traced original.
 //
 // Spread: every call until 250 are kept (an eighth of a smaller cap, at
 // least 8), then every 2nd, 4th ... 64th, so a long run is sampled
 // throughout. Files are opened as calls are kept, at most 64 at once. Recordings are made with
-// PS2X_READABLE=off: readable functions that are on call each other directly, past the recorder, so a run with
+// ZX_READABLE=off: readable functions that are on call each other directly, past the recorder, so a run with
 // them on misses calls and records states the original does not make. installRecorder refuses (a message, no
-// recorder) unless PS2X_READABLE=off or PS2X_FNREC_ALLOW_READABLE=1; the game's own install then ends the run.
+// recorder) unless ZX_READABLE=off or ZX_FNREC_ALLOW_READABLE=1; the game's own install then ends the run.
 
 #include "abi.h"
 #include "fncheck_trace.h"
@@ -160,7 +160,7 @@ namespace fncheck
         kDirectTailCall = 2u,
         // The call the record stops at (a record with kStopsAtCall): the
         // callee never came back to the function (its thread ended in it, or
-        // the recording stopped at this wait, PS2X_FNREC_STOPS). Its target,
+        // the recording stopped at this wait, ZX_FNREC_STOPS). Its target,
         // arguments and sp are kept, no results and no effects.
         kStopCall = 4u,
     };
@@ -187,13 +187,13 @@ namespace fncheck
         // and hands it (BMX XXX's beginObjectiveBlock and registerBlockClass,
         // tools44): the call is answered from the recording, so these bytes
         // are the one sign of a wrong word there. Known for a callee the
-        // recorder records (one it chose, PS2X_FNREC): its traced original
+        // recorder records (one it chose, ZX_FNREC): its traced original
         // runs at every call that passes it a pointer into the caller's
         // frame, recorded or not (Recording::framePassed), and the callees it
         // calls the same way add theirs (their reads of this frame through
         // the pointer it handed on). A callee it does not record, a library
         // call, and a pointer the caller leaves in memory: none, so the set
-        // is a lower bound. ps2xFnCheck compares them at the readable
+        // is a lower bound. zx-fncheck compares them at the readable
         // version's call (callee_read).
         std::vector<Line> reads;
     };
@@ -213,7 +213,7 @@ namespace fncheck
         // Recordings made before (drafter25) start Count at 0.
         kEntryCount = 4u,
         // The call does not return: the record ends at its last call, marked
-        // kStopCall (PS2X_FNREC_STOPS: a function that never returns, such as
+        // kStopCall (ZX_FNREC_STOPS: a function that never returns, such as
         // a job that ends its own thread or a thread's endless loop). Its
         // outputs are RAM as it was at that call, its exit the registers at
         // the call. The checker replays it to that call, checks the call as
@@ -278,7 +278,7 @@ namespace fncheck
     bool readRecordAsWritten(std::istream &in, Record &record, uint32_t version = kRecordVersion);
     // A record's head (its flags, sequence, vsync and the registers at entry
     // and at the return), the rest skipped: for indexing a file's calls
-    // without reading their memory (ps2xFnCheck's callee recordings). False
+    // without reading their memory (zx-fncheck's callee recordings). False
     // as readRecord.
     struct RecordHead
     {
@@ -288,21 +288,21 @@ namespace fncheck
     };
     bool skimRecord(std::istream &in, RecordHead &head, uint32_t version = kRecordVersion);
 
-    // ps2xFnCheck's callee probes: a call (jal, jalr) of traced code is run
+    // zx-fncheck's callee probes: a call (jal, jalr) of traced code is run
     // by this instead of dispatched when it returns true (ctx then at the
     // call's return point). Null in the game.
     using CallRunner = bool (*)(PS2Runtime *runtime, uint8_t *rdram, R5900Context *ctx, uint32_t target, uint32_t returnPc);
     extern CallRunner g_callRunner;
 
-    // PS2X_FNREC: wraps the chosen functions of `game` (the running game)
-    // with the recorder. False when it refused: PS2X_FNREC set but readable code on (above).
+    // ZX_FNREC: wraps the chosen functions of `game` (the running game)
+    // with the recorder. False when it refused: ZX_FNREC set but readable code on (above).
     bool installRecorder(PS2Runtime &runtime, game::Game game = game::Game::Ai);
 
     // VU0's code memory in a replay: what the game had uploaded when the call was recorded, as a VCALLMS the
     // replayed code makes runs what is there (PS2Runtime::executeVU0Microprogram). A game's own upload is the
     // VIF0 stream its DMA chain makes (each tag's VIF codes, then its data, as the DMAC hands VIF0 them;
     // runtime/tools/vu0_upload.py writes it from the game's ELF into its generated code's folder,
-    // vu0_upload.vif), built into ps2xFnCheck (game.cmake) and sent through the runtime's VIF0
+    // vu0_upload.vif), built into zx-fncheck (game.cmake) and sent through the runtime's VIF0
     // (PS2Memory::processVIF0Data), as the game's boot sent it. BMX XXX's is initPlatform's (loadVu0Microprogram:
     // the sine and cosine program, at VU0's address 0, that angleSin and angleCos start). AI and DM2 upload none
     // and start none: their only VCALLMSR is sceDevVu0Exec, which nothing calls.
@@ -312,7 +312,7 @@ namespace fncheck
         const uint8_t *stream;
         uint32_t bytes;
     };
-    // The uploads ps2xFnCheck was built with, a game at most once (none: empty).
+    // The uploads zx-fncheck was built with, a game at most once (none: empty).
     std::span<const Vu0Upload> vu0Uploads();
 
     // A game's VU0 memory after its upload, put back at the start of each replay (a microprogram an earlier

@@ -35,7 +35,7 @@
 // 100; game/bmx/ui/trick_list.cpp).
 // Read-only and bounded, as DM2's capture (dave_mirra_panel.cpp): a level
 // half loaded reads as no level. Installed by the override (bmx_xxx.cpp);
-// ps2xPanelShot --game bmx runs the same capture on a RAM dump.
+// zx-panelshot --game bmx runs the same capture on a RAM dump.
 
 #include "runtime/panel_snapshot.h"
 #include "sym/game_overrides/bmx_xxx_panel.cpp.h"

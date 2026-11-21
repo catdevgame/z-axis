@@ -42,7 +42,7 @@ namespace zge
     {
         uint32_t first;            // +0x00 the first block's header: the allocation's start
         uint32_t last;             // +0x04 the sentinel's header
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4 starts heapTake's search at the block after the last one taken (0: at the first); newHeap and
         // heapGive set it back to 0. The fields after it are a word on.
         uint32_t searchFrom;       // BMX +0x08
@@ -58,7 +58,7 @@ namespace zge
     // one taken and starts over at the first after newHeap and heapGive; ZGE2 and ZGE3 always start at the first.
     inline uint32_t searchStart(ee::Ptr<Heap> heap)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return heap->searchFrom ? heap->searchFrom : heap->first;
 #else
         return heap->first;
@@ -67,7 +67,7 @@ namespace zge
     // (heapTake: the block it takes is the one before the next search's start)
     inline void searchOnAfter(ee::Ptr<Heap> heap, uint32_t block)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         heap->searchFrom = ee::Ptr<HeapBlock>(block)->next;
 #else
         (void)heap;
@@ -76,7 +76,7 @@ namespace zge
     }
     inline void searchFromFirst(ee::Ptr<Heap> heap)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         heap->searchFrom = 0;
 #else
         (void)heap;

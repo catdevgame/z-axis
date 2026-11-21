@@ -8,7 +8,7 @@
 #include <mutex>
 #include <unordered_map>
 
-namespace ps2x::disc_patch
+namespace zx::disc_patch
 {
     namespace
     {
@@ -37,7 +37,7 @@ namespace ps2x::disc_patch
         // its own files, not the other's patches (runtime/ps2_boot_config.h).
         Registry &registry()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<Registry>> ofBoot([] { return std::make_unique<Registry>(); });
+            static zx::boot::PerBoot<std::unique_ptr<Registry>> ofBoot([] { return std::make_unique<Registry>(); });
             return *ofBoot.get();
         }
 

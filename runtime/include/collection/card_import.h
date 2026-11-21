@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::app
+namespace zx::app
 {
     // PCSX2 memory card images (.ps2, 8 MB, with or without ECC spare bytes).
     struct CardSave

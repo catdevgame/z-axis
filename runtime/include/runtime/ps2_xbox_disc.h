@@ -5,9 +5,9 @@
 // screens). The app never reads a disc image: the build (tools/make-app.sh,
 // tools/make-windows.ps1) extracts the user's Xbox image once and bundles
 // the files the port uses, like the PS2 disc's; what needs another format
-// (the Zoo, the Ape) is converted there too (ps2xXboxConvert), not here.
+// (the Zoo, the Ape) is converted there too (zx-xbox-convert), not here.
 //
-// The folder is PS2X_XBOX_DIR (the app sets it to Resources/xbox; for
+// The folder is ZX_XBOX_DIR (the app sets it to Resources/xbox; for
 // developer runs, any extracted copy): the disc root (default.xbe and
 // media/), its media folder or the assets folder, any case.
 //
@@ -36,7 +36,7 @@ namespace ps2_xbox_disc
     // What was opened, for logs, or why there is nothing.
     std::string description();
 
-    // Uses this folder instead of PS2X_XBOX_DIR (tests, tools); drops
+    // Uses this folder instead of ZX_XBOX_DIR (tests, tools); drops
     // whatever was open. False if it holds no assets folder.
     bool openPath(const std::string &path);
     // Drops the folder; init() looks again (tests).

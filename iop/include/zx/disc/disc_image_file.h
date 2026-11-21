@@ -13,7 +13,7 @@
 #include <memory>
 #include <string>
 
-namespace ps2x::iop
+namespace zx::disc
 {
     class DiscImageFile
     {

@@ -12,11 +12,11 @@
 // frames, on underrun it fades the last frame out and re-buffers.
 //
 // Environment:
-//   PS2X_SPU2_AUDIO=0           do not open a host audio stream
-//   PS2X_SPU2_WAV=<path>        write the mixed output (s16 stereo 48 kHz WAV)
-//   PS2X_SPU2_WAV_SECONDS=<n>   stop the WAV after n seconds (default 120)
-//   PS2X_SPU2_LATENCY_MS=<n>    ring buffer target latency (default 60)
-//   PS2X_SPU2_STATS=<n>         log level/buffer stats every n emulated seconds (default 30, 0 = off)
+//   ZX_SPU2_AUDIO=0           do not open a host audio stream
+//   ZX_SPU2_WAV=<path>        write the mixed output (s16 stereo 48 kHz WAV)
+//   ZX_SPU2_WAV_SECONDS=<n>   stop the WAV after n seconds (default 120)
+//   ZX_SPU2_LATENCY_MS=<n>    ring buffer target latency (default 60)
+//   ZX_SPU2_STATS=<n>         log level/buffer stats every n emulated seconds (default 30, 0 = off)
 
 #include <atomic>
 #include <chrono>

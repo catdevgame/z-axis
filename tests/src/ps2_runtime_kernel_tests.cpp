@@ -1268,9 +1268,9 @@ void register_ps2_runtime_kernel_tests()
             t.IsTrue(u.mainInUse == 0u && u.mainPeak == 0u && u.extendedPeak == 0u, "a heap reset starts them again");
         });
 
-        tc.Run("PS2X_TRACE_HEAP's lines: a level's stretch when its name changes, so far every 600 vsyncs", [](TestCase &t)
+        tc.Run("ZX_TRACE_HEAP's lines: a level's stretch when its name changes, so far every 600 vsyncs", [](TestCase &t)
         {
-            using ps2x::heap_trace::Levels;
+            using zx::heap_trace::Levels;
             Levels levels;
             GuestHeap::Usage u;
             bool ended = false;

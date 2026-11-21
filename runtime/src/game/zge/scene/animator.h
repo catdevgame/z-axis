@@ -67,7 +67,7 @@ namespace zge
         ee::Float time;         // +0x0C seconds into the animation
         RecordList<TrackRecord> tracks; // +0x10 the last is the newest; none: the animator is freed
         RecordList<PoseLayer> layers;       // +0x1C this frame's pose layers
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         ee::Ptr<BoneMirror> mirror; // +0x28 the bone mirror map (made for its first mirrored animation)
         ee::Ptr<BoneMirror> mirrorMap() const { return mirror; }
         void setMirrorMap(ee::Ptr<BoneMirror> map) { mirror = map; }
@@ -99,7 +99,7 @@ namespace zge
         ee::Ptr<TrackRecord> previous; // +0x04
         uint32_t loops;      // +0x08 started again at its end (playAnimation's mode bit 0)
         ee::Float blendTime; // +0x0C seconds it blends in over (0: started at once)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t mirrorHook; // +0x10 mirrorTrack when it plays mirrored (mode bit 3), else 0
         ee::Ptr<AnimatorRecord> owner; // +0x14
         ee::Float rootMotion; // +0x18 the Hips bone's translation scaled by it (blendHips; 0: none)
@@ -134,7 +134,7 @@ namespace zge
         ee::Ptr<Motion> animation; // +0x08
         ee::Float time;      // +0x0C within the animation's length
         ee::Float weight;    // +0x10 0 .. 1
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t mirrorHook; // +0x14 mirrorLayer when mirrored, else 0
         ee::Ptr<AnimatorRecord> owner; // +0x18
         TrackHooks hooks;    // (ZGE4's; past the end)

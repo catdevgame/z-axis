@@ -1049,7 +1049,7 @@ STACK_ROW = re.compile(r'\{(\d+)u, 0x([0-9a-fA-F]+)u, (\d+)u, (\d+)u\}')
 def stack_arguments(build):
     """{address: bytes} of the functions that read arguments off their caller's stack."""
     rows = {}
-    path = os.path.join(build, 'ps2xRuntime', 'fncheck_build', 'fncheck_stack_args.cpp')
+    path = os.path.join(build, 'runtime', 'fncheck_build', 'fncheck_stack_args.cpp')
     text = open(path, errors='replace').read()
     for m in STACK_ROW.finditer(text[:text.find('}};') if '}};' in text else len(text)]):
         if int(m.group(1)) == 0:
@@ -1059,7 +1059,7 @@ def stack_arguments(build):
 
 def frame_rows(build):
     rows = {}
-    path = os.path.join(build, 'ps2xRuntime', 'fncheck_build', 'readable_frames.cpp')
+    path = os.path.join(build, 'runtime', 'fncheck_build', 'readable_frames.cpp')
     for m in FRAME_ROW.finditer(open(path, errors='replace').read()):
         rows[(int(m.group(1)), int(m.group(2), 16))] = int(m.group(3), 16)
     return rows

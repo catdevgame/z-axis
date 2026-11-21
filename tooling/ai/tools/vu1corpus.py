@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read a VU1 run corpus (PS2X_VU1_RECORD, see PS2Recomp ps2_vu1_record.h).
+"""Read a VU1 run corpus (ZX_VU1_RECORD, see runtime/ps2_vu1_record.h).
 
 Usage:
   vu1corpus.py summary <corpus>            runs per program, packets, vertices

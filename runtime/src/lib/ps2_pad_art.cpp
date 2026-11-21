@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace ps2x::glyphs
+namespace zx::glyphs
 {
     namespace
     {

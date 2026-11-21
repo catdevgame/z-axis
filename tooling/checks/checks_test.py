@@ -76,15 +76,15 @@ class BaseScriptCommands(unittest.TestCase):
 
     def tree(self, top, slot, extra=''):
         b, h = os.path.join(top, 'out', slot + '-bmx'), os.path.join(top, 'wt', slot)
-        os.makedirs(os.path.join(b, 'ps2xRuntime', 'CMakeFiles'), exist_ok=True)
-        with open(os.path.join(b, 'ps2xRuntime', 'CMakeFiles', 'bmx.stamp-860dca4.bat'), 'w') as f:
-            f.write('@echo off\ncd /D %s/ps2xRuntime || (set FAIL_LINE=2& goto :ABORT)\n'
-                    'python -B %s/runtime/tools/readable_symbols.py headers --game bmx --out %s/ps2xRuntime/symbols/bmx '
+        os.makedirs(os.path.join(b, 'runtime', 'CMakeFiles'), exist_ok=True)
+        with open(os.path.join(b, 'runtime', 'CMakeFiles', 'bmx.stamp-860dca4.bat'), 'w') as f:
+            f.write('@echo off\ncd /D %s/runtime || (set FAIL_LINE=2& goto :ABORT)\n'
+                    'python -B %s/runtime/tools/readable_symbols.py headers --game bmx --out %s/runtime/symbols/bmx '
                     '--bind %s/runtime/tools/bind/bmx.tsv%s --instance sce/libc.cpp sce/libm.cpp\n' % (b, h, b, h, extra))
         t = fncheck_corpus.Tree.__new__(fncheck_corpus.Tree)
         t.build, t.home, t.links = fncheck_corpus.norm_path(b), fncheck_corpus.norm_path(h), []
         digest = '91092afcaac59b56' if slot == 'slot4' else 'a0037c3d54a39381'
-        t.ninja = lambda *args: 'ps2xRuntime/CMakeFiles/bmx.stamp-860dca4.bat %s\nclang++ -c %s/runtime/src/a.cpp -o x.o\n' % (digest, h)
+        t.ninja = lambda *args: 'runtime/CMakeFiles/bmx.stamp-860dca4.bat %s\nclang++ -c %s/runtime/src/a.cpp -o x.o\n' % (digest, h)
         return t
 
     def test_two_slots_alike(self):
@@ -104,15 +104,15 @@ class BaseObjects(unittest.TestCase):
     into every key)."""
 
     QUERY = {
-        'ps2xRuntime/ps2xFnCheck': 'ps2xRuntime/ps2xFnCheck:\n  input: CXX_EXECUTABLE_LINKER__ps2xFnCheck\n'
-                                   '    ps2xRuntime/CMakeFiles/ps2xFnCheck.dir/src/game/ee/fncheck_main.cpp.o\n'
-                                   '    | ps2xRuntime/libps2_runtime.a\n    | _deps/sdl3-build/libSDL3.a\n'
-                                   '    || ps2xRuntime/CMakeFiles/ps2_game_headers.dir/game_headers/zge_math_box_h.cpp.o\n'
-                                   '    || ps2xRuntime/libps2_runtime.a\n  outputs:\n    ps2xFnCheck\n',
-        'ps2xRuntime/libps2_runtime.a': 'ps2xRuntime/libps2_runtime.a:\n  input: CXX_STATIC_LIBRARY_LINKER__ps2_runtime\n'
-                                        '    ps2xRuntime/CMakeFiles/ps2_runtime.dir/src/lib/ps2_memory.cpp.o\n'
-                                        '    ps2xRuntime/CMakeFiles/ps2_runtime.dir/src/lib/gs_record.cpp.o\n'
-                                        '    ps2xRuntime/CMakeFiles/ps2_runtime.dir/cmake_pch.hxx.cxx.o\n  outputs:\n',
+        'runtime/zx-fncheck': 'runtime/zx-fncheck:\n  input: CXX_EXECUTABLE_LINKER__zx-fncheck\n'
+                                   '    runtime/CMakeFiles/zx-fncheck.dir/src/game/ee/fncheck_main.cpp.o\n'
+                                   '    | runtime/libzx_runtime.a\n    | _deps/sdl3-build/libSDL3.a\n'
+                                   '    || runtime/CMakeFiles/zx_game_headers.dir/game_headers/zge_math_box_h.cpp.o\n'
+                                   '    || runtime/libzx_runtime.a\n  outputs:\n    zx-fncheck\n',
+        'runtime/libzx_runtime.a': 'runtime/libzx_runtime.a:\n  input: CXX_STATIC_LIBRARY_LINKER__ps2_runtime\n'
+                                        '    runtime/CMakeFiles/zx_runtime.dir/src/lib/ps2_memory.cpp.o\n'
+                                        '    runtime/CMakeFiles/zx_runtime.dir/src/lib/gs_record.cpp.o\n'
+                                        '    runtime/CMakeFiles/zx_runtime.dir/cmake_pch.hxx.cxx.o\n  outputs:\n',
         '_deps/sdl3-build/libSDL3.a': '_deps/sdl3-build/libSDL3.a:\n  input: C_STATIC_LIBRARY_LINKER__SDL3\n'
                                       '    _deps/sdl3-build/CMakeFiles/SDL3.dir/src/SDL.c.o\n  outputs:\n',
     }
@@ -120,16 +120,16 @@ class BaseObjects(unittest.TestCase):
     def setUp(self):
         t = self.tree = fncheck_corpus.Tree.__new__(fncheck_corpus.Tree)
         t.build, t.home, t.rt, t.generated = '/b', '/h', 'runtime', []
-        t.fncheck = '/b/ps2xRuntime/ps2xFnCheck'
+        t.fncheck = '/b/runtime/zx-fncheck'
         t.ninja = lambda *args: self.QUERY[args[-1]]
         t.compiled_sources = lambda: {}
 
     def test_the_link_takes_no_order_only_input(self):
         self.assertEqual(self.tree.linked_objects(), {
-            '/b/ps2xRuntime/CMakeFiles/ps2xFnCheck.dir/src/game/ee/fncheck_main.cpp.o',
-            '/b/ps2xRuntime/CMakeFiles/ps2_runtime.dir/src/lib/ps2_memory.cpp.o',
-            '/b/ps2xRuntime/CMakeFiles/ps2_runtime.dir/src/lib/gs_record.cpp.o',
-            '/b/ps2xRuntime/CMakeFiles/ps2_runtime.dir/cmake_pch.hxx.cxx.o',
+            '/b/runtime/CMakeFiles/zx-fncheck.dir/src/game/ee/fncheck_main.cpp.o',
+            '/b/runtime/CMakeFiles/zx_runtime.dir/src/lib/ps2_memory.cpp.o',
+            '/b/runtime/CMakeFiles/zx_runtime.dir/src/lib/gs_record.cpp.o',
+            '/b/runtime/CMakeFiles/zx_runtime.dir/cmake_pch.hxx.cxx.o',
             '/b/_deps/sdl3-build/CMakeFiles/SDL3.dir/src/SDL.c.o'})
 
     def test_no_query_no_narrowing(self):
@@ -139,10 +139,10 @@ class BaseObjects(unittest.TestCase):
         self.assertIsNone(self.tree.linked_objects())
 
     def test_the_objects_a_replay_runs(self):
-        o = lambda src: 'ps2xRuntime/CMakeFiles/ps2_runtime.dir/%s.o' % src
+        o = lambda src: 'runtime/CMakeFiles/zx_runtime.dir/%s.o' % src
         deps = {o('src/lib/ps2_memory.cpp'): ['/h/runtime/src/lib/ps2_memory.cpp', '/h/runtime/include/runtime/ps2_memory.h'],
                 o('src/lib/gs_record.cpp'): ['/h/runtime/src/lib/gs_record.cpp', '/h/runtime/include/runtime/gs/gs_record.h'],
-                o('cmake_pch.hxx.cxx'): ['/b/ps2xRuntime/CMakeFiles/ps2_runtime.dir/cmake_pch.hxx.cxx'],
+                o('cmake_pch.hxx.cxx'): ['/b/runtime/CMakeFiles/zx_runtime.dir/cmake_pch.hxx.cxx'],
                 o('src/lib/unknown.cpp'): ['/h/runtime/include/runtime/ps2_memory.h']}
         self.assertEqual(self.tree.run_objects(sorted(deps), deps), {
             o('src/lib/ps2_memory.cpp'),     # (a verdict input: the replay's memory)
@@ -179,7 +179,7 @@ class KeyInputs(unittest.TestCase):
 
     def keys(self, env, names=()):
         tree = type('T', (), {'base': 'b', 'env_names': lambda self: set(names)})()
-        saved = {n: os.environ.pop(n) for n in list(os.environ) if n.startswith(('PS2X_', 'ZAXIS_'))}
+        saved = {n: os.environ.pop(n) for n in list(os.environ) if n.startswith(('ZX_', 'ZAXIS_'))}
         self.addCleanup(os.environ.update, saved)
         os.environ.update(env)
         try:
@@ -193,16 +193,74 @@ class KeyInputs(unittest.TestCase):
     def test_a_switch_the_replay_reads_is_in_every_key(self):
         path = os.path.abspath(__file__)
         plain = self.keys({}).of(path)
-        self.assertEqual(self.keys({'PS2X_SAVES_DIR': '/tmp/h/saves', 'PS2X_UNPACED': '1'}).of(path), plain)
-        frames = self.keys({'PS2X_READABLE_FRAMES': '0'})
-        self.assertEqual(frames.env, ['PS2X_READABLE_FRAMES=0'])
+        self.assertEqual(self.keys({'ZX_SAVES_DIR': '/tmp/h/saves', 'ZX_UNPACED': '1'}).of(path), plain)
+        frames = self.keys({'ZX_READABLE_FRAMES': '0'})
+        self.assertEqual(frames.env, ['ZX_READABLE_FRAMES=0'])
         self.assertTrue(all(frames.of(path)[p][0] != plain[p][0] for p in plain))
         # (a name the sources read that no table classes: keyed)
-        self.assertNotEqual(self.keys({'PS2X_NEW_SWITCH': '1'}, {'PS2X_NEW_SWITCH'}).of(path), plain)
-        self.assertEqual(self.keys({'PS2X_NEW_SWITCH': '1'}).of(path), plain)
+        self.assertNotEqual(self.keys({'ZX_NEW_SWITCH': '1'}, {'ZX_NEW_SWITCH'}).of(path), plain)
+        self.assertEqual(self.keys({'ZX_NEW_SWITCH': '1'}).of(path), plain)
+
+    def test_a_cached_line_of_another_impl_is_stale(self):
+        k = self.keys({})
+        k.tree.checker_impls = lambda: {('ai', 0x100000): 'aaaa'}
+        line = {'kind': 'result', 'impl': 'aaaa'}
+        self.assertFalse(k.stale('x', [line, {'kind': 'coverage'}]))
+        self.assertTrue(k.stale('x', [dict(line, impl='bbbb')]))
+        k.tree.checker_impls = lambda: {}     # (no digest table: as before)
+        self.assertFalse(k.stale('x', [dict(line, impl='bbbb')]))
 
     def test_every_name_is_classed_once(self):
         self.assertFalse(set(fncheck_corpus.ENV_KEYED) & set(fncheck_corpus.ENV_NOT_KEYED))
+
+
+class CopiedSourceKeys(unittest.TestCase):
+    """fncheck_corpus.Tree: a game's registration finds its body in the build's copy of a plain source whose #line is
+    relative to the build (pubprep1's readable_entries.py), so its key holds the body and the callees in the file
+    (cachekey1: rng1's cullNode change came whole from the cache for drawScene and BMX XXX's drawNodeTree)."""
+
+    def tree(self, callee, line=None, build_dir='build'):
+        root = tempfile.mkdtemp(prefix='cachekey-')
+        self.addCleanup(shutil.rmtree, root)
+        home, build = os.path.join(root, 'home'), os.path.join(root, build_dir)
+        src = os.path.join(home, 'runtime', 'src', 'game', 'zge', 'tree.cpp')
+        copy = os.path.join(build, 'runtime', 'readable_entries', 'zge', 'tree.cpp')
+        for p in (src, copy):
+            os.makedirs(os.path.dirname(p))
+        body = ('namespace zge\n{\n    namespace\n    {\n        int cullNode(int node) { %s }\n    }\n'
+                '    int drawTree_(int node) { return cullNode(node) + 1; }\n'
+                '    READABLE_FUNCTION_WAITS(drawTree_, Verified);\n}\n' % callee)
+        with open(src, 'w') as f:
+            f.write(body)
+        with open(copy, 'w') as f:
+            f.write('#line 1 "%s"\n%s' % (line or os.path.relpath(src, build).replace('\\', '/'), body))
+        t = fncheck_corpus.Tree.__new__(fncheck_corpus.Tree)
+        t.rd, t.lv, t.fcache, t.links, t.generated, t._unpath_re = readable_digest, (lambda text: text), {}, [], [], None
+        t.build, t.home, t.rt = fncheck_corpus.norm_path(build), fncheck_corpus.norm_path(home), 'runtime'
+        t.base_files, t.frame_locals, t._impl, t.closure, t.listed_order = set(), None, {}, {}, {}
+        obj = 'runtime/CMakeFiles/zx_game_readable_bmx.dir/readable_entries/zge/tree.cpp.o'
+        t.readable_deps = {obj: [fncheck_corpus.norm_path(copy)]}
+        t.listed = [('bmx', 0x10ed78, 'verified', 'drawTree_', 'runtime/src/game/zge/tree.cpp', ''),
+                    ('bmx', 0x100008, 'planned', 'start', 'record_only.cpp', '')]   # (game.cmake's: no C++)
+        t._sources([obj], 'bmx')
+        return t
+
+    def test_the_body_and_its_callee_are_in_the_key(self):
+        a = self.tree('return node;')
+        self.assertEqual(a.unresolved, [])
+        self.assertEqual([r[2] for r in a.regs[('bmx', 0x100008)]], ['bmx:start planned '])
+        b, same = self.tree('return node ^ 1;'), self.tree('return  node; /* the same */')
+        self.assertNotEqual(a.closure_digest('bmx', 0x10ed78), b.closure_digest('bmx', 0x10ed78))
+        self.assertEqual(a.closure_digest('bmx', 0x10ed78), same.closure_digest('bmx', 0x10ed78))
+        # (another build dir of the tree, its copy's #line another relative path: the same key)
+        elsewhere = self.tree('return node;', build_dir=os.path.join('out', 'job2'))
+        self.assertEqual(a.closure_digest('bmx', 0x10ed78), elsewhere.closure_digest('bmx', 0x10ed78))
+
+    def test_a_body_not_found_keys_every_source(self):
+        # (a #line no registration's path matches: the registration is unresolved, and a change anywhere misses it)
+        a, b = self.tree('return node;', 'elsewhere/tree.cpp'), self.tree('return node ^ 1;', 'elsewhere/tree.cpp')
+        self.assertEqual([(g, n) for g, _, n, _ in a.unresolved], [('bmx', 'drawTree_')])
+        self.assertNotEqual(a.closure_digest('bmx', 0x10ed78), b.closure_digest('bmx', 0x10ed78))
 
 
 class FormatRowGame(unittest.TestCase):
@@ -374,7 +432,7 @@ class RunOutFolder(unittest.TestCase):
                 shutil.rmtree(out)
         fncheck_corpus.log = log
         self.addCleanup(setattr, fncheck_corpus, 'log', real_log)
-        a = argparse.Namespace(fncheck=os.path.join(root, 'ps2xFnCheck'), out=out, corpus=[corpus], jobs='1', max_jobs=2,
+        a = argparse.Namespace(fncheck=os.path.join(root, 'zx-fncheck'), out=out, corpus=[corpus], jobs='1', max_jobs=2,
                                max_mem_gb=0, chunk=150, timeout=60, only=None, fncheck_arg=None, semantic=True,
                                frame_index=None, build=None, emit=None, results=None, cache=None, no_cache=True,
                                incremental=False, extras_changed=False, extras_for=None, verify=0.01, seed=1)

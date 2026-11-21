@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The mechanical sweep (docs/READABLE.md, "Drafts and the sweep"): every function of a layer
 that is not readable yet drafted by readable_draft.py, built, checked with
-ps2xFnCheck against the recording corpus over every route, and registered as
+zx-fncheck against the recording corpus over every route, and registered as
 Tested (identical on every recorded call of every route) or Draft, with the
 results written to the work database's result files (MATCH3.md section 6).
 
@@ -44,7 +44,7 @@ Stages and their results (one JSON line each, workdb.py's format, in
   draft     drafted | failed (the reason; not lifted instructions are a failure)
   build     ok | compile_error (the first error; the function is set aside as Planned)
   check     per route: pass | fail | no_recording | crash | timeout; one
-            ps2xFnCheck process per function (--cycles), every route's
+            zx-fncheck process per function (--cycles), every route's
             recording of it in the corpus (a memory fault in one route ends
             that process; the routes after it are checked in another)
   failure   the stage and the failure class (below)
@@ -101,7 +101,7 @@ import readable_symbols
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PS2RECOMP = ztree.TREE
+ZAXIS_TREE = ztree.TREE
 WORKSPACE = zaxis_paths.get('AI_WORKSPACE', required=False) or ''  # tools/, recomp/ (its data links)
 GAME_SRC = ztree.GAME
 sys.path.insert(0, HERE)
@@ -202,7 +202,7 @@ def workdb_query(sql):
 
 def workspace():
     import readable_draft as rd
-    generated = os.environ.get('PS2X_RUNNER_GENERATED_DIR') or os.path.join(WORKSPACE, 'recomp', 'generated')
+    generated = os.environ.get('ZX_RUNNER_GENERATED_DIR') or os.path.join(WORKSPACE, 'recomp', 'generated')
     ws = rd.Workspace(WORKSPACE, generated, os.path.join(zaxis_paths.get('DM2_WORKSPACE'), 'ai-decomp.c'))
     # A draft whose call path reaches an indirect call runs on a fiber
     # (READABLE_FUNCTION_WAITS): the call graph cannot see what such a call
@@ -466,7 +466,7 @@ DIAG = re.compile(r'^([^:\n ][^:\n]*):(\d+):(\d+): (fatal error|error|note|warni
 
 
 def spans_of(build):
-    path = os.path.join(build, 'ps2xRuntime', 'readable_sweep', 'spans.json')
+    path = os.path.join(build, 'runtime', 'readable_sweep', 'spans.json')
     return json.load(open(path)) if os.path.exists(path) else {}
 
 
@@ -475,7 +475,7 @@ def draft_errors(run, out, build):
     has, each mapped to the draft whose lines hold it or one of its notes (an
     error in a header names the draft's line in an "in instantiation" note)."""
     spans = collections.defaultdict(list)
-    gen = os.path.join(build, 'ps2xRuntime', 'readable_sweep')
+    gen = os.path.join(build, 'runtime', 'readable_sweep')
     for path, items in spans_of(build).items():
         for a, (lo, hi) in items.items():
             spans[os.path.realpath(os.path.join(gen, path))].append((lo, hi, '0x%08x' % int(a, 16)))
@@ -526,7 +526,7 @@ def cmake(build):
 
 def cmd_build(run, targets=None):
     build = os.path.abspath(run.args.build)
-    targets = targets or (['ps2xFnCheck', 'ps2EntryRunner'] if run.args.runner else ['ps2xFnCheck'])
+    targets = targets or (['zx-fncheck', 'zx-runner'] if run.args.runner else ['zx-fncheck'])
     write_manifests(run)
     cmake(build)
     keys = set(run.selected(run.args.only))
@@ -541,7 +541,7 @@ def cmd_build(run, targets=None):
         if not hit:
             # An error in a batch file outside every draft (its constants): the
             # file's drafts are set aside, so the rest still build.
-            gen = os.path.realpath(os.path.join(build, 'ps2xRuntime', 'readable_sweep'))
+            gen = os.path.realpath(os.path.join(build, 'runtime', 'readable_sweep'))
             for path, line, col, kind, msg in DIAG.findall(out):
                 full = os.path.realpath(path if os.path.isabs(path) else os.path.join(build, path))
                 if kind in ('error', 'fatal error') and full.startswith(gen + os.sep):
@@ -550,7 +550,7 @@ def cmd_build(run, targets=None):
                         if f.get('file') == rel and f.get('status') in ('Draft', 'Tested'):
                             hit.setdefault(k, 'its batch file does not compile: %s' % msg)
         if not hit:
-            gen = os.path.realpath(os.path.join(build, 'ps2xRuntime', 'readable_sweep'))
+            gen = os.path.realpath(os.path.join(build, 'runtime', 'readable_sweep'))
             files = {os.path.realpath(p if os.path.isabs(p) else os.path.join(build, p))
                      for p, _, _, kind, _ in DIAG.findall(out) if kind in ('error', 'fatal error')}
             mine = {os.path.realpath(os.path.join(gen, f['file'])) for f in run.functions.values()}
@@ -598,7 +598,7 @@ def fields(text):
 
 def check_class(why):
     rules = [
-        # ps2xFnCheck's checks of round `coverage`: f0 left by an integer
+        # zx-fncheck's checks of round `coverage`: f0 left by an integer
         # function, a callee's stack arguments
         (r'^(with another fill: )?f0 left = ', 'int_f0'), (r'stack argument byte at', 'stack_args'),
         # (drafter16) v0 left by a void function a caller reads it after
@@ -669,7 +669,7 @@ def check_one(fncheck, key, files, timeout):
 
 def cmd_check(run):
     args = run.args
-    fncheck = os.path.join(os.path.abspath(args.build), 'ps2xRuntime', 'ps2xFnCheck')
+    fncheck = os.path.join(os.path.abspath(args.build), 'runtime', 'zx-fncheck')
     corpus = os.path.abspath(os.path.expanduser(args.corpus or CORPUS))
     rec = corpus_files(corpus)
     keys = [k for k in run.selected(args.only) if run.functions[k].get('status') in ('Draft', 'Tested')
@@ -708,13 +708,13 @@ def cmd_check(run):
                         result, cls, detail = 'fail', check_class(r.get('first_readable', '')), r.get('first_readable')
                     elif int(r.get('dead_v0', 0)):
                         # Declared void, but its v0 differs from the original's,
-                        # which callers may read (ps2xFnCheck only notes it).
+                        # which callers may read (zx-fncheck only notes it).
                         result, cls, detail = 'fail', 'void_v0', 'v0 differs in %s calls (declared void)' % r['dead_v0']
                     else:
                         result, cls, detail = 'pass', None, None
                     run.emit('check', k, route=route, result=result, calls=recorded, failed=bad + orig_bad,
                              first_failure=detail, cycles_equal=int(r.get('cycles_differ', 0)) == 0,
-                             # what the check was made against (ps2xFnCheck's digests)
+                             # what the check was made against (zx-fncheck's digests)
                              **{d: r[d] for d in ('impl', 'orig', 'rec', 'checker') if r.get(d) not in (None, '', '-')})
                 else:
                     recorded = 0
@@ -960,7 +960,7 @@ def cmd_manifest_redraft(args):
     run = argparse.Namespace(functions=by_key)
     for attempt in range(40):
         cmake(build)
-        p = subprocess.run(['ninja', '-C', build, '-k', '0', '-j', str(args.build_jobs)] + (args.target or ['ps2xFnCheck']),
+        p = subprocess.run(['ninja', '-C', build, '-k', '0', '-j', str(args.build_jobs)] + (args.target or ['zx-fncheck']),
                            capture_output=True, text=True)
         out = p.stdout + p.stderr
         if p.returncode == 0:
@@ -1141,7 +1141,7 @@ def aside_list(path):
 def code_and_profile():
     """({start: bytes}, {start: self_ns}, total ns): Ghidra's functions (inner
     entry_ labels left out), each clipped at the next start, and the live-play
-    profile (PS2X_FNPROF, recomp/traces/live-fnprof.csv) with entries at inner
+    profile (ZX_FNPROF, recomp/traces/live-fnprof.csv) with entries at inner
     addresses (a function resumed at an entry block) folded into the function."""
     import bisect
     import csv
@@ -1550,10 +1550,10 @@ def main():
     ap.add_argument('--runner', action='store_true', help='build: the runner too (for recording)')
     ap.add_argument('--build-jobs', type=int, default=8)
     ap.add_argument('--add', action='store_true', help='manifest-redraft: --only may name functions in no manifest yet')
-    ap.add_argument('--target', action='append', help='manifest-redraft: the build\'s targets (default ps2xFnCheck)')
+    ap.add_argument('--target', action='append', help='manifest-redraft: the build\'s targets (default zx-fncheck)')
     ap.add_argument('--corpus', help='check: the corpus version folder (default %s)' % CORPUS)
-    ap.add_argument('--jobs', type=int, default=6, help='check: ps2xFnCheck processes at once')
-    ap.add_argument('--timeout', type=int, default=900, help='check: seconds for one ps2xFnCheck process')
+    ap.add_argument('--jobs', type=int, default=6, help='check: zx-fncheck processes at once')
+    ap.add_argument('--timeout', type=int, default=900, help='check: seconds for one zx-fncheck process')
     ap.add_argument('--cls', help='classes: only this class')
     ap.add_argument('--why', help='demote: the failure class after game: (boot, logiccheck, ...)')
     ap.add_argument('--promote', action='store_true', help='manifest-demote: take the demotion back (Draft to Tested)')

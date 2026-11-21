@@ -1877,15 +1877,15 @@ GATE_CLOCK = int(os.environ.get('PLAY_CLOCK', '4096'))
 
 
 def config(name, env=None, secs=900, gs=False, script=CLOCK_ONLY):
-    e = {'PS2X_SAVES': 'card', 'PS2X_EE_SCALE': str(GATE_CLOCK)}
-    # A run that records (PS2X_FNREC) has readable code off, as dm2.py's and bmx.py's runs always do: readable
+    e = {'ZX_SAVES': 'card', 'ZX_EE_SCALE': str(GATE_CLOCK)}
+    # A run that records (ZX_FNREC) has readable code off, as dm2.py's and bmx.py's runs always do: readable
     # functions that are on call each other past the recorder (the recorder refuses otherwise). A run that does not
     # record plays the defaults, the readable code a play test is for.
-    if os.environ.get('PS2X_FNREC'):
-        e['PS2X_READABLE'] = 'off'
+    if os.environ.get('ZX_FNREC'):
+        e['ZX_READABLE'] = 'off'
     if os.environ.get('PLAY_FNPROF'):     # the functions a run calls (runtime ee/profile.cpp): calls per function, CSV
         os.makedirs(os.path.join(SCRATCH, 'prof'), exist_ok=True)
-        e['PS2X_FNPROF'] = os.path.join(SCRATCH, 'prof', name + '.csv')
+        e['ZX_FNPROF'] = os.path.join(SCRATCH, 'prof', name + '.csv')
     e.update(env or {})
     return core.RunConfig(name=name, runner=RUNNER, elf=ELF, root=os.path.join(SCRATCH, 'runs'), env=e,
                           max_secs=secs, gs=gs, script=script)
@@ -1917,7 +1917,7 @@ class Log:
 def session(name, k, level, ticks, seed=1, skater=0, gs=False, env=None, real=False):
     env = dict(env or {})
     if not real:
-        env['PS2X_DEV_UNLOCK_ALL'] = '1'
+        env['ZX_DEV_UNLOCK_ALL'] = '1'
     plan = Plan(level)
 
     def behaviour(bot):
@@ -1929,10 +1929,22 @@ def session(name, k, level, ticks, seed=1, skater=0, gs=False, env=None, real=Fa
     rec = core.Recorder()
     log = Log(os.path.join(SCRATCH, 'measure', name + '.samples.gz'))
     trace = core.Trace(os.path.join(SCRATCH, 'sessions', name + '.trace'), every=60)
+    # (DUMP_EVERY) the RAM every so many ticks of play, in dumps/NAME: the panel's shots of a run (zx-panelshot)
+    dump_every = int(os.environ.get('DUMP_EVERY', '0'))
+    dumps = os.path.join(SCRATCH, 'dumps', name)
+    if dump_every:
+        os.makedirs(dumps, exist_ok=True)
+
+    def on_tick(s, p):
+        log(s, p)
+        if dump_every and s.mode == PLAY and s.player and s.tick % dump_every == 0:
+            with open(os.path.join(dumps, 'tick-%d.ram' % s.tick), 'wb') as f:
+                f.write(run.mem(0, 0x2000000))
+
     with core.Run(config(name, env, secs=max(300, ticks // 40), gs=gs)) as run:
         bot = Player(run, behaviour, seed)
         try:
-            core.play(run, read, bot, ticks + 12000, on_tick=log, recorder=rec, trace=trace)
+            core.play(run, read, bot, ticks + 12000, on_tick=on_tick, recorder=rec, trace=trace)
         finally:
             log.close()
             trace.close()
@@ -1977,9 +1989,9 @@ def career_session(name, ticks, seed=1, skater=0, first=1, most=8, gs=False):
             k = news[0]
             yield from next_level(bot, k)
 
-    # PLAY_UNLOCK=1 (test only): PS2X_DEV_UNLOCK_ALL, each level after the last whatever its points, so the levels
+    # PLAY_UNLOCK=1 (test only): ZX_DEV_UNLOCK_ALL, each level after the last whatever its points, so the levels
     # past the player's limit are played as career levels with their goals (FIRST: the entry to start at)
-    env = {'PS2X_DEV_UNLOCK_ALL': '1'} if unlock else {}
+    env = {'ZX_DEV_UNLOCK_ALL': '1'} if unlock else {}
     with core.Run(config(name, env, secs=max(300, (ticks + 2000) * most // 30))) as run:
         bot = Player(run, behaviour, seed)
         try:
@@ -1997,9 +2009,9 @@ def career_session(name, ticks, seed=1, skater=0, first=1, most=8, gs=False):
 def reload_session(name, saves, profile=None, k=1, ticks=600):
     """A career saved in native files (SAVES: its folder) played on: boot, CAREER, level select entry k, placed; the
     profile's open levels, goals and completion as the game holds them then (PROFILE: another one, a fresh career)."""
-    env = {'PS2X_SAVES': None, 'PS2X_SAVES_DIR': saves}
+    env = {'ZX_SAVES': None, 'ZX_SAVES_DIR': saves}
     if profile:
-        env['PS2X_SAVE_PROFILE'] = profile
+        env['ZX_SAVE_PROFILE'] = profile
     out = {}
 
     def behaviour(bot):
@@ -2181,11 +2193,11 @@ def mp_session(name, game, ticks, seed=1, rounds=1):
     rec = core.Recorder()
     log = Log(os.path.join(SCRATCH, 'measure', name + '.samples.gz'))
     trace = core.Trace(os.path.join(SCRATCH, 'sessions', name + '.trace'), every=60)
-    env = {'PS2X_PAD_PORT1': 'mirror'}
+    env = {'ZX_PAD_PORT1': 'mirror'}
 
     def behaviour(bot):
         # The menus are a pad script (SPLIT_MENU): player two's choices are port 1's, which the link does not reach
-        # and the script does (PS2X_PAD_PORT1=mirror: the script's presses go to every port).
+        # and the script does (ZX_PAD_PORT1=mirror: the script's presses go to every port).
         last = None
         for _ in range(6000):
             if bot.s.mode == PLAY and bot.s.placed:
@@ -2446,7 +2458,7 @@ def shots(name, most):
     script = open(path + '.script').read()
     end = max(moments.values()) + 5
     at = {t: label for label, t in moments.items()}
-    env = dict(session_env(name), PS2X_HEADLESS='1')          # pictures without a window on anyone's screen
+    env = dict(session_env(name), ZX_HEADLESS='1')          # pictures without a window on anyone's screen
     with core.Run(config(name + '-shots', env, secs=max(500, end // 15), gs=True, script=script)) as run:
         def policy(s):
             due = [t for t in at if s.tick >= t]
@@ -2622,7 +2634,7 @@ def main(argv):
                     print(' ', o['index'], 'kind', o['kind'], 'pts', o['points'], o['state'], 'locked' if o['locked'] else '',
                           repr(o['title']), repr(o['text'][:110]), [round(v) for v in p['pos']] if p else 'no point %#x' % o['object'])
 
-            with core.Run(config('obj%d' % k, {'PS2X_DEV_UNLOCK_ALL': '1'}, secs=120)) as run:
+            with core.Run(config('obj%d' % k, {'ZX_DEV_UNLOCK_ALL': '1'}, secs=120)) as run:
                 core.play(run, read, Player(run, behaviour), 8000)
         return
     if argv and argv[0] == 'measure':

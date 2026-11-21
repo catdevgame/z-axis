@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """BMX XXX's multiplayer modes no release's SELECT GAME offers, by the collection's all-modes extra (routes2;
-PS2X_BMX_ALL_MP_MODES=1, game_overrides/bmx_xxx_modes.cpp): bmxmp.py's session with SELECT GAME's lines as the extra
+ZX_BMX_ALL_MP_MODES=1, game_overrides/bmx_xxx_modes.cpp): bmxmp.py's session with SELECT GAME's lines as the extra
 makes them, each mode taken by its own line.
 
     [LEVEL=n] bmxmpmodes.py play NAME SEED GAMES [TICKS]
@@ -24,7 +24,7 @@ OFFERED = ('skillz', 'highfive', 'randomspot', 'wipeout', 'grind', 'walltap', 'b
            'nosewheelie', 'paintball', 'strip')
 
 if __name__ == '__main__':
-    os.environ['PS2X_BMX_ALL_MP_MODES'] = '1'
+    os.environ['ZX_BMX_ALL_MP_MODES'] = '1'
     bmxmp.MODES = OFFERED
     bmxmp.SELECT_LINES, bmxmp.SELECT_EXIT = len(OFFERED) + 1, len(OFFERED)
     bmxmp.TURN_RIDER_ALWAYS = True

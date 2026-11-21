@@ -59,8 +59,8 @@ namespace zge_host::sound
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
-        namespace spu = ps2x::spu;
+        namespace gf = zx::game_files;
+        namespace spu = zx::spu;
 
         constexpr int kRegA0 = 4, kRegA1 = 5, kRegA2 = 6, kRegA3 = 7, kRegSp = 29, kRegRa = 31;
 
@@ -139,8 +139,8 @@ namespace zge_host::sound
             const Game *game = nullptr;
             bool trace = false;
             int traceLevel = 0;
-            std::FILE *log = nullptr;     // PS2X_SOUND_LOG
-            std::FILE *memDump = nullptr; // PS2X_SOUND_MEMDUMP: every allocation and free with the vsync tick, and
+            std::FILE *log = nullptr;     // ZX_SOUND_LOG
+            std::FILE *memDump = nullptr; // ZX_SOUND_MEMDUMP: every allocation and free with the vsync tick, and
                                           // the table with each sample's bytes hashed every 300 ticks when it changed
             PS2Runtime::RecompiledFunction originalRpc = nullptr; // (the log with ZAUDIO on the IOP)
             PS2Runtime::RecompiledFunction originalPlaylistEntry = nullptr;
@@ -168,7 +168,7 @@ namespace zge_host::sound
                         std::fclose(file);
             }
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
         const Game &game() { return *state().game; }
 
         gf::GameFileSystem &files()
@@ -182,7 +182,7 @@ namespace zge_host::sound
                     roots.disc = paths.cdRoot;
                 if (roots.disc.empty())
                     roots.image = PS2Runtime::cdImageFileSystem();
-                if (const char *mods = ps2x::boot::text("PS2X_MODS_DIR"); mods && *mods)
+                if (const char *mods = zx::boot::text("ZX_MODS_DIR"); mods && *mods)
                     roots.mods = gf::modsRoots(mods);
                 fileSystem = std::make_unique<gf::GameFileSystem>(std::move(roots));
             }
@@ -271,7 +271,7 @@ namespace zge_host::sound
                 std::vector<uint8_t> chunk(want, 0u);
                 size_t got = 0u;
                 {
-                    ps2x::ftrace::Scope traceRead(ps2x::ftrace::kDiscRead, ps2x::ftrace::kDiscRead + 100, 1);
+                    zx::ftrace::Scope traceRead(zx::ftrace::kDiscRead, zx::ftrace::kDiscRead + 100, 1);
                     got = m_file ? m_file->read(m_start + m_position, chunk.data(), want) : 0u;
                 }
                 std::fill(chunk.begin() + static_cast<std::ptrdiff_t>(got), chunk.end(), uint8_t{0}); // past the file: silence
@@ -389,7 +389,7 @@ namespace zge_host::sound
         class TrackData
         {
         public:
-            TrackData(std::unique_ptr<ps2x::audio_file::Reader> reader, SourceBlocks::LoopQuery loop)
+            TrackData(std::unique_ptr<zx::audio_file::Reader> reader, SourceBlocks::LoopQuery loop)
                 : m_reader(std::move(reader)), m_loop(std::move(loop))
             {
             }
@@ -457,7 +457,7 @@ namespace zge_host::sound
                 return more;
             }
 
-            std::unique_ptr<ps2x::audio_file::Reader> m_reader;
+            std::unique_ptr<zx::audio_file::Reader> m_reader;
             SourceBlocks::LoopQuery m_loop;
             std::array<Queue, 2> m_queues;
             uint64_t m_played = 0;
@@ -480,17 +480,17 @@ namespace zge_host::sound
         // <mod>/Music/NN*.wav (.ogg/.flac/.mp3 with FFmpeg's libavformat)
         // for MUSIC.ZSD wave NN-1, names case-insensitive; the files this
         // build reads, in name order, the last mod folder's first
-        // (PS2X_MODS_DIR, ps2_game_files.h).
+        // (ZX_MODS_DIR, ps2_game_files.h).
         std::vector<std::filesystem::path> customTrackFiles(uint32_t wave)
         {
             std::vector<std::filesystem::path> candidates;
-            const char *modsText = ps2x::boot::text("PS2X_MODS_DIR");
+            const char *modsText = zx::boot::text("ZX_MODS_DIR");
             if (!modsText || !*modsText)
                 return candidates;
-            const std::vector<std::filesystem::path> mods = ps2x::game_files::modsRoots(modsText);
+            const std::vector<std::filesystem::path> mods = zx::game_files::modsRoots(modsText);
             char prefix[8];
             std::snprintf(prefix, sizeof(prefix), "%02u", wave + 1u);
-            const auto readable = ps2x::audio_file::extensions();
+            const auto readable = zx::audio_file::extensions();
             auto wanted = [&](const std::string &name)
             {
                 std::string ext = std::filesystem::path(name).extension().string();
@@ -502,7 +502,7 @@ namespace zge_host::sound
             {
                 // A mod packed as a zip (runtime/ps2_zip_archive.h): its
                 // Music folder's files, as paths through the zip.
-                if (const ps2x::game_files::ZipPath zip = ps2x::game_files::zipPathOf(*root); zip.zip)
+                if (const zx::game_files::ZipPath zip = zx::game_files::zipPathOf(*root); zip.zip)
                 {
                     const std::string music = zip.inside.empty() ? std::string("MUSIC") : zip.inside + "/MUSIC";
                     std::vector<std::filesystem::path> here;
@@ -544,12 +544,12 @@ namespace zge_host::sound
             return text;
         }
 
-        std::unique_ptr<ps2x::audio_file::Reader> openCustomTrack(uint32_t wave, std::filesystem::path *opened = nullptr)
+        std::unique_ptr<zx::audio_file::Reader> openCustomTrack(uint32_t wave, std::filesystem::path *opened = nullptr)
         {
             for (const auto &path : customTrackFiles(wave))
             {
                 std::string error;
-                if (auto track = ps2x::audio_file::open(path, &error))
+                if (auto track = zx::audio_file::open(path, &error))
                 {
                     std::cout << "[sound] custom soundtrack: song " << songNumber(wave) << " from " << path.string() << " ("
                               << track->rate() << " Hz)" << std::endl;
@@ -782,8 +782,8 @@ namespace zge_host::sound
             bool m_clockStarted = false;
             std::vector<SampleSlot> m_samples;
             std::array<bool, kPages> m_pageUsed{};
-            uint64_t m_tick = 0;     // the vsync tick (PS2X_SOUND_MEMDUMP)
-            bool m_memDirty = false; // (PS2X_SOUND_MEMDUMP)
+            uint64_t m_tick = 0;     // the vsync tick (ZX_SOUND_MEMDUMP)
+            bool m_memDirty = false; // (ZX_SOUND_MEMDUMP)
             uint32_t m_generation = 0;
             std::array<Channel, kChannels> m_channels;
             std::array<Stream, kStreams> m_streams;
@@ -795,7 +795,7 @@ namespace zge_host::sound
 
         // The boot's driver: a game booted again starts with every sample,
         // stream and channel free and its clock at 0, as in a process of its own.
-        Driver &driver() { return ps2x::session::state<Driver>(); }
+        Driver &driver() { return zx::session::state<Driver>(); }
 
         // ---- ZGE3's streams (AI, BMX XXX) -------------------------------------------------
 
@@ -1746,7 +1746,7 @@ namespace zge_host::sound
 
         void Driver::openSource(Stream &s, const std::string &path, uint32_t offset, uint32_t length)
         {
-            ps2x::ftrace::Scope traceOpen(ps2x::ftrace::kDiscOpen, ps2x::ftrace::kDiscOpen + 100, 1);
+            zx::ftrace::Scope traceOpen(zx::ftrace::kDiscOpen, zx::ftrace::kDiscOpen + 100, 1);
             s.sourceOpen = false;
             s.file = files().open(path);
             if (!s.file)
@@ -2034,7 +2034,7 @@ namespace zge_host::sound
                     std::string name = captionText(track->tag("title"), kTextBytes - 4u);
                     const std::string by = captionText(track->tag("artist"), kTextBytes - 4u);
                     if (name.empty())
-                        name = captionText(ps2x::audio_file::nameFromFileName(path), kTextBytes - 4u);
+                        name = captionText(zx::audio_file::nameFromFileName(path), kTextBytes - 4u);
                     if (!name.empty() && name.find_first_not_of("0123456789") != std::string::npos)
                     {
                         writeGuestString(rdram, strings, name, kTextBytes);
@@ -2084,7 +2084,7 @@ namespace zge_host::sound
                     continue;
                 std::string title = captionText(track->tag("title"), kTextLimit);
                 if (title.empty())
-                    title = captionText(ps2x::audio_file::nameFromFileName(path), kTextLimit);
+                    title = captionText(zx::audio_file::nameFromFileName(path), kTextLimit);
                 if (title.empty() || title.find_first_not_of("0123456789") == std::string::npos)
                     continue;
                 char prefix[64];
@@ -2172,15 +2172,15 @@ namespace zge_host::sound
     {
         State &st = state();
         st.game = &gameSound;
-        if (const char *log = std::getenv("PS2X_SOUND_LOG"); log && *log)
+        if (const char *log = std::getenv("ZX_SOUND_LOG"); log && *log)
         {
             st.log = std::fopen(log, "w");
             if (st.log)
                 std::setvbuf(st.log, nullptr, _IOLBF, 0); // the runs end by kill
         }
-        const char *mode = std::getenv("PS2X_SOUND");
+        const char *mode = std::getenv("ZX_SOUND");
         // The game's own movie sound, when its movies run in their PS2 form
-        // (PS2X_MOVIES=hle, or their host form not installed:
+        // (ZX_MOVIES=hle, or their host form not installed:
         // zge_host::movieForm), goes to the IOP (sceSifSetDma, SDRDRV's
         // block transfer into the SPU2's core 1 input, which needs the SPU2
         // that ZAUDIO's Init set up): with the native driver nothing drains
@@ -2191,7 +2191,7 @@ namespace zge_host::sound
         if (zge_host::soundOnIop(mode, zge_host::movieForm()))
         {
             std::cout << "[sound] ZAUDIO on the IOP and the emulated SPU2 ("
-                      << (ps2Movies ? "the movies' PS2 form needs it" : "PS2X_SOUND=spu2") << ")" << std::endl;
+                      << (ps2Movies ? "the movies' PS2 form needs it" : "ZX_SOUND=spu2") << ")" << std::endl;
             if (st.log)
             {
                 st.originalRpc = runtime.lookupFunction(gameSound.rpc);
@@ -2201,7 +2201,7 @@ namespace zge_host::sound
             }
             return false;
         }
-        if (const char *trace = std::getenv("PS2X_TRACE_SOUND"); trace && *trace)
+        if (const char *trace = std::getenv("ZX_TRACE_SOUND"); trace && *trace)
         {
             st.traceLevel = std::atoi(trace);
             st.trace = st.traceLevel > 0;
@@ -2215,7 +2215,7 @@ namespace zge_host::sound
             driver().configure(std::make_unique<SharedRings>());
         else
             driver().configure(std::make_unique<PerStreamRings>());
-        if (const char *gains = std::getenv("PS2X_SOUND_BUS_GAIN"); gains && *gains)
+        if (const char *gains = std::getenv("ZX_SOUND_BUS_GAIN"); gains && *gains)
         {
             float e = 1.0f, m = 1.0f, sp = 1.0f;
             if (std::sscanf(gains, "%f,%f,%f", &e, &m, &sp) >= 1)
@@ -2244,11 +2244,11 @@ namespace zge_host::sound
                 (!st.originalStringTableText || !runtime.replaceFunction(gameSound.stringTableText, &songText)))
                 std::cerr << "[sound] custom soundtrack titles not installed" << std::endl;
         }
-        if (const char *dump = std::getenv("PS2X_SOUND_MEMDUMP"); dump && *dump)
+        if (const char *dump = std::getenv("ZX_SOUND_MEMDUMP"); dump && *dump)
             st.memDump = std::fopen(dump, "w");
         runtime.setNativeAudio(true);
         runtime.addVSyncHook([&runtime](uint8_t *rdram, uint64_t) { driver().vsync(rdram, &runtime); });
-        std::cout << "[sound] native ZAudio driver (PS2X_SOUND=spu2 for ZAUDIO on the IOP)" << std::endl;
+        std::cout << "[sound] native ZAudio driver (ZX_SOUND=spu2 for ZAUDIO on the IOP)" << std::endl;
         return true;
     }
 }

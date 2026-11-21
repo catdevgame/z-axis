@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x_android
+namespace zx_android
 {
     // The documents UI for disc images (several at once) or a folder; the
     // picks come to `picked` on the UI thread. False before the activity

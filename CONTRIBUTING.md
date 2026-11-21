@@ -35,15 +35,15 @@ The unit tests need no game data, no generated code and no disc (a clean clone o
 
 ```sh
 cmake -S . -B out/dev -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPS2X_IOP_BUILD_TESTS=ON
-ninja -C out/dev ps2x_tests ps2_iop_emulator_tests ps2_iop_import_tests ps2_iop_compatibility_tests \
+ninja -C out/dev zx-tests ps2_iop_emulator_tests ps2_iop_import_tests ps2_iop_compatibility_tests \
   ps2_iop_import_version_tests ps2_iop_spu2_tests
-out/dev/ps2xTest/ps2x_tests                 # from the repository's root; every test must pass
-ctest --test-dir out/dev/ps2xIOP            # the IOP's own tests
+out/dev/tests/zx-tests                 # from the repository's root; every test must pass
+ctest --test-dir out/dev/iop            # the IOP's own tests
 ```
 
 On Windows, configure from a Visual Studio 2022 x64 developer prompt with clang-cl as `docs/BRINGUP.md` shows,
 then build and run the same targets. Run the tests with a scratch home folder if you want your own settings and
-saves left alone (`PS2X_APP_SUPPORT_DIR`, `PS2X_APP_LOG_DIR`).
+saves left alone (`ZX_APP_SUPPORT_DIR`, `ZX_APP_LOG_DIR`).
 
 A change to game code is checked further on the maintainers' machines before it lands: each readable function
 against every recorded call of the original (the corpus replay), each game's logic against a reference run, and
@@ -57,6 +57,9 @@ for what it is (a wrong name is worse than none, so don't guess), code organized
 game logic that reads as game logic, without the proof scaffolding. Identical engine code is shared across the
 three games in `runtime/src/game/zge`; each game's own code is in `runtime/src/game/aggressive`, `dm2` and `bmx`.
 The PlayStation 2 release of Aggressive Inline is the reference for behaviour. Fix causes, not symptoms.
+What is known about a function (its purpose, the traps in changing it, the bugs kept, the layouts) is in the work
+database's notes: `python3 -I tooling/dm2/tools/workdb.py card NAME` (or an address, `--build dm2_ps2` for DM2's)
+and `workdb.py notes NAME` read their public export, no game data needed.
 
 Libraries (Sony's SDK, libc, libm, libgcc) are never rewritten: they are ported from the pinned version's source,
 with its notices kept (`NOTICE`).

@@ -2,7 +2,7 @@
 """BMX XXX: a played run that goes after the level's goals by the game's own tables and state (routes2), on bmx.py's
 player: the NPC riders met (g_npcs), goal givers' challenges taken (the .DAT's people, found live as path men), a goal's
 things ridden through and its edges ground or ridden by, and at the end the run ended from the pause and the game over
-screen's VIEW REPLAY watched (PS2X_BMX_MENU_LINES=1).
+screen's VIEW REPLAY watched (ZX_BMX_MENU_LINES=1).
 
     bmxgoalrun.py NAME LEVEL PLAN [TICKS [SEED]]
 
@@ -180,7 +180,7 @@ def play(name, level, plan, ticks=9000, seed=1, max_secs=2400):
     menu = bmx.menu_script(level)
     d = bmx.session_dir(name)
     os.makedirs(d, exist_ok=True)
-    env = {'PS2X_EE_SCALE': '4096', 'PS2X_BMX_MENU_LINES': '1'}
+    env = {'ZX_EE_SCALE': '4096', 'ZX_BMX_MENU_LINES': '1'}
     for kv in filter(None, os.environ.get('PLAY_ENV', '').split(';')):
         k, v = kv.split('=', 1)
         env[k] = v

@@ -328,7 +328,7 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
 
     // cdrom0: paths have no host file when the disc image is the file
     // system (translateGuestPath returns nothing for them).
-    if (std::shared_ptr<const ps2x::iop::Iso9660Image> image = PS2Runtime::cdImageFileSystem())
+    if (std::shared_ptr<const zx::disc::Iso9660Image> image = PS2Runtime::cdImageFileSystem())
     {
         // Only explicit device paths: parsePs2Path also takes a bare host
         // path (the image itself) for cdrom0:.
@@ -337,15 +337,15 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
         const ps2x::iop::ParsedPs2Path parsed = cdromPrefix ? ps2x::iop::parsePs2Path(path) : ps2x::iop::ParsedPs2Path{};
         if (parsed && parsed.device == ps2x::iop::Ps2PathDevice::Cdrom)
         {
-            const std::optional<ps2x::iop::IsoEntry> entry = image->find(parsed.path);
+            const std::optional<zx::disc::IsoEntry> entry = image->find(parsed.path);
             if (!entry || entry->directory)
             {
                 return 0u;
             }
             HostFile file;
             file.size = entry->size;
-            file.imageOffset = static_cast<uint64_t>(entry->lsn) * ps2x::iop::Iso9660Image::kSectorSize;
-            file.patched = ps2x::disc_patch::contents(
+            file.imageOffset = static_cast<uint64_t>(entry->lsn) * zx::disc::Iso9660Image::kSectorSize;
+            file.patched = zx::disc_patch::contents(
                 parsed.path, [&](std::vector<uint8_t> &bytes)
                 {
                     bytes.resize(static_cast<size_t>(entry->size));
@@ -359,10 +359,10 @@ uint64_t PS2IopHostAdapter::openHostFile(std::string_view path)
     }
 
     const std::filesystem::path hostPath{std::string(path)};
-    if (ps2x::disc_patch::hasPatch(hostPath.filename().string()))
+    if (zx::disc_patch::hasPatch(hostPath.filename().string()))
     {
         HostFile file;
-        file.patched = ps2x::disc_patch::contents(
+        file.patched = zx::disc_patch::contents(
             hostPath.filename().string(), [&](std::vector<uint8_t> &bytes)
             {
                 std::ifstream in(hostPath, std::ios::binary);

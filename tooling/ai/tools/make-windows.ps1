@@ -30,7 +30,7 @@
 #                                     # (tools/xbox_files.py); the files the app reads
 #                                     # as they are (tools/xbox-files.txt) go in xbox\,
 #                                     # the Zoo and the Ape made into the PS2's formats
-#                                     # (PS2Recomp ps2xXboxConvert) in xbox-converted\
+#                                     # (zx-xbox-convert) in xbox-converted\
 #
 # Needs: Visual Studio 2022 (Build Tools) with the C++ workload, its
 # Clang/LLVM (clang-cl) and C++ CMake tools components, and the Windows SDK
@@ -38,14 +38,14 @@
 # for the FFmpeg build (-Msys, default C:\msys64, else tools\msys64 beside
 # the z-axis checkout); this workspace's generated code (recomp\generated,
 # recomp\generated-vu1: links into the data, as tooling/setup.sh makes them)
-# and the z-axis checkout this tooling sits in (-PS2Recomp).
+# and the z-axis checkout this tooling sits in (-ZaxisTree).
 # Settings, saves and logs go to %APPDATA%\Aggressive Inline.
 #
 #   ... -Games ai,dm2 ... -Dm2XboxIso "D:\Dave Mirra Freestyle BMX 2 (USA)-xbox.iso"
 #                                     # DM2's Xbox-only levels Venice and Greenville in
 #                                     # games\dm2\xbox-levels (tools\dm2_xbox.py),
 #                                     # for its own Free Ride, and its levels' Xbox textures in
-#                                     # games\dm2\xbox-pack (ps2xExtras xbox-pack); the app never
+#                                     # games\dm2\xbox-pack (zx-extras xbox-pack); the app never
 #                                     # reads the image.
 #                                     # Each game runs on its own riders and levels: none is
 #                                     # made into another's.
@@ -56,7 +56,7 @@
 #                                     # extracted (tools\gc_disc.py, Python 3 with zstd:
 #                                     # 3.14's compression.zstd, the zstandard package or
 #                                     # the zstd command) and made into the files the game
-#                                     # loads (PS2Recomp ps2xGcConvert) in estate\, for Free
+#                                     # loads (zx-gc-convert) in estate\, for Free
 #                                     # Skate (Settings > Game > Estate Level); the app never
 #                                     # reads the image
 #
@@ -91,7 +91,7 @@
 #                                     # movie (tools\bmx_releases.py; the movies need ffmpeg and
 #                                     # ffprobe on PATH) in games\bmx\releases, each behind its
 #                                     # setting, and from the Xbox image its levels' and props' Xbox
-#                                     # textures in games\bmx\xbox-pack (ps2xExtras xbox-pack);
+#                                     # textures in games\bmx\xbox-pack (zx-extras xbox-pack);
 #                                     # without either, BMX XXX as its PS2 release alone
 param(
     # The set of generated code (the Mac's paths.env GENERATED_SET): each folder with -<set> after its name; empty: the
@@ -113,7 +113,7 @@ param(
     [switch]$NoGameData,
     [string]$DiscDir = "",
     [string]$Elf = "",
-    [string]$PS2Recomp = "",
+    [string]$ZaxisTree = "",
     [string]$BuildDir = "",
     [string]$Dist = "",
     [string]$Msys = "",
@@ -133,8 +133,8 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 # The z-axis checkout this tooling sits in (<z-axis>\tooling\ai), as tools/make-app.sh.
 $ZAxis = Split-Path -Parent (Split-Path -Parent $Root)
-if (-not $PS2Recomp) { $PS2Recomp = $ZAxis }
-if (-not $BuildDir) { $BuildDir = Join-Path $PS2Recomp "out\build-release-win" }
+if (-not $ZaxisTree) { $ZaxisTree = $ZAxis }
+if (-not $BuildDir) { $BuildDir = Join-Path $ZaxisTree "out\build-release-win" }
 if (-not $Dist) { $Dist = Join-Path $Root "dist" }
 $AppName = "Aggressive Inline"
 # (powershell -File passes "ai,dm2" as one string)
@@ -149,7 +149,7 @@ foreach ($name in "Dm2Root", "BmxRoot", "Dm2DiscDir", "BmxDiscDir", "DiscDir", "
 }
 if ($Collection) {
     $AppName = $CollectionName
-    if (-not $PSBoundParameters.ContainsKey("BuildDir")) { $BuildDir = Join-Path $PS2Recomp "out\build-release-collection-win" }
+    if (-not $PSBoundParameters.ContainsKey("BuildDir")) { $BuildDir = Join-Path $ZaxisTree "out\build-release-collection-win" }
 }
 $AppDir = Join-Path $Dist $AppName
 
@@ -392,20 +392,20 @@ if (-not $SkipBuild) {
 
     # ---- release runner -------------------------------------------------------
     $vu1 = Join-Path $Root "recomp\generated-vu1"
-    $vu1Arg = "-DPS2X_VU1_AOT_DIR="
+    $vu1Arg = "-DZX_VU1_AOT_DIR="
     if ((Get-ChildItem -Path $vu1 -Filter "*.vu1code" -ErrorAction SilentlyContinue) -or
-        (Get-ChildItem -Path $vu1 -Filter "vu1_aot_*.cpp" -ErrorAction SilentlyContinue)) { $vu1Arg = "-DPS2X_VU1_AOT_DIR=$($vu1 -replace '\\','/')" }
+        (Get-ChildItem -Path $vu1 -Filter "vu1_aot_*.cpp" -ErrorAction SilentlyContinue)) { $vu1Arg = "-DZX_VU1_AOT_DIR=$($vu1 -replace '\\','/')" }
     $lto = if ($NoLto) { "OFF" } else { "ON" }
-    $cmakeArgs = @("-S", $PS2Recomp, "-B", $BuildDir, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
+    $cmakeArgs = @("-S", $ZaxisTree, "-B", $BuildDir, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
         "-DCMAKE_C_COMPILER=clang-cl", "-DCMAKE_CXX_COMPILER=clang-cl", "-DCMAKE_LINKER=lld-link",
-        "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DPS2X_ENABLE_LTO=$lto",
-        "-DPS2X_RUNNER_GENERATED_DIR=$((Join-Path $Root "recomp\generated$GS") -replace '\\','/')", $vu1Arg,
-        "-DPS2X_BUILD_RECOMPILER=OFF", "-DPS2X_BUILD_TEST=OFF", "-DZAXIS_DEV_CHECKS=OFF",
-        "-DPS2X_ENABLE_RUNTIME_LOGS=OFF", "-DPS2X_ENABLE_AGRESSIVE_LOGS=OFF", "-DPS2X_ENABLE_IOP_RPC_TRACE=OFF",
-        "-DPS2X_SHOW_WINDOWS_CONSOLE=OFF", "-DPS2X_FFMPEG_PREFIX=$FFmpeg",
-        "-DPS2X_APP_NAME=$AppName", "-DPS2X_APP_GAME_TITLE=Aggressive Inline (USA)",
-        "-DPS2X_APP_ELF=$ElfName", "-DPS2X_APP_ELF_SHA256=$ElfSha",
-        "-DPS2X_APP_SAVE_DIR=BASLUS-20327CEAIGAME", "-DPS2X_APP_VERSION=$AppVersion")
+        "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded", "-DZX_ENABLE_LTO=$lto",
+        "-DZX_RUNNER_GENERATED_DIR=$((Join-Path $Root "recomp\generated$GS") -replace '\\','/')", $vu1Arg,
+        "-DZX_BUILD_RECOMPILER=OFF", "-DZX_BUILD_TEST=OFF", "-DZX_DEV_CHECKS=OFF",
+        "-DZX_ENABLE_RUNTIME_LOGS=OFF", "-DZX_ENABLE_AGRESSIVE_LOGS=OFF", "-DPS2X_ENABLE_IOP_RPC_TRACE=OFF",
+        "-DZX_SHOW_WINDOWS_CONSOLE=OFF", "-DZX_FFMPEG_PREFIX=$FFmpeg",
+        "-DZX_APP_NAME=$AppName", "-DZX_APP_GAME_TITLE=Aggressive Inline (USA)",
+        "-DZX_APP_ELF=$ElfName", "-DZX_APP_ELF_SHA256=$ElfSha",
+        "-DZX_APP_SAVE_DIR=BASLUS-20327CEAIGAME", "-DZX_APP_VERSION=$AppVersion")
     if ($Collection) {
         $appGames = "ai|Aggressive Inline|Aggressive Inline (USA)|$ElfName|$ElfSha|BASLUS-20327CEAIGAME"
         $extraGenerated = @()
@@ -430,17 +430,17 @@ if (-not $SkipBuild) {
                 $extraVu1 += (Join-Path $BmxRoot 'recomp\generated-vu1') -replace '\\','/'
             }
         }
-        if ($extraGenerated.Count) { $cmakeArgs += "-DPS2X_RUNNER_EXTRA_GENERATED_DIRS=$($extraGenerated -join ';')" }
-        if ($extraVu1.Count) { $cmakeArgs += "-DPS2X_VU1_AOT_EXTRA_DIRS=$($extraVu1 -join ';')" }
-        $cmakeArgs += "-DPS2X_APP_GAMES=$appGames"
+        if ($extraGenerated.Count) { $cmakeArgs += "-DZX_RUNNER_EXTRA_GENERATED_DIRS=$($extraGenerated -join ';')" }
+        if ($extraVu1.Count) { $cmakeArgs += "-DZX_VU1_AOT_EXTRA_DIRS=$($extraVu1 -join ';')" }
+        $cmakeArgs += "-DZX_APP_GAMES=$appGames"
         # The other games' bind tables: without them each game's instance of the shared readable engine is not
         # compiled, and DM2 and BMX XXX run the engine as recompiled code. The checkout's own, runtime\tools\bind
         # (committed since tools39: game.cmake builds with those whatever -BindDir says); -BindDir only for a commit from
         # before, the folder with dm2.tsv and bmx.tsv (the Mac's paths.env GAME_BIND_LEGACY).
-        $ownBind = Join-Path $PS2Recomp 'runtime\tools\bind'
+        $ownBind = Join-Path $ZaxisTree 'runtime\tools\bind'
         if (Test-Path (Join-Path $ownBind 'dm2.tsv')) { $BindDir = $ownBind }
         if (-not $BindDir -or -not (Test-Path $BindDir)) { throw "no bind tables for the collection: a commit from before tools39 needs -BindDir (the folder with dm2.tsv and bmx.tsv)" }
-        $cmakeArgs += "-DPS2X_BIND_DIR=$($BindDir -replace '\\','/')"
+        $cmakeArgs += "-DZX_BIND_DIR=$($BindDir -replace '\\','/')"
         Say "collection: $($Games -join ', ') (bind tables $BindDir)"
     }
     $cxxFlags = "/DWIN32 /D_WINDOWS /EHsc"
@@ -454,7 +454,7 @@ if (-not $SkipBuild) {
     # The local game-art icon when there is one (baseline\, never committed), else the repository's own
     # (runtime\resources\app-icon.png); -NoGameData always the repository's.
     $iconPng = Join-Path $Root "baseline\icon\square.png"
-    if ($NoGameData -or -not (Test-Path $iconPng)) { $iconPng = Join-Path $PS2Recomp "runtime\resources\app-icon.png" }
+    if ($NoGameData -or -not (Test-Path $iconPng)) { $iconPng = Join-Path $ZaxisTree "runtime\resources\app-icon.png" }
     if (Test-Path $iconPng) {
         New-Item -ItemType Directory -Force $BuildDir | Out-Null
         $ico = Join-Path $BuildDir "app.ico"
@@ -488,11 +488,11 @@ if (-not $SkipBuild) {
         $w.Flush(); $icoBytes = $out.ToArray(); $w.Dispose()
         $same = (Test-Path $ico) -and ([System.Convert]::ToBase64String([System.IO.File]::ReadAllBytes($ico)) -eq [System.Convert]::ToBase64String($icoBytes))
         if (-not $same) { [System.IO.File]::WriteAllBytes($ico, $icoBytes) }
-        $cmakeArgs += "-DPS2X_APP_ICON=$($ico -replace '\\','/')"
+        $cmakeArgs += "-DZX_APP_ICON=$($ico -replace '\\','/')"
         Say "icon from $iconPng"
     } else {
         Say "no icon ($iconPng); building without one"
-        $cmakeArgs += "-DPS2X_APP_ICON="
+        $cmakeArgs += "-DZX_APP_ICON="
     }
     # The stamp of a build of this tree with these arguments (make-app.sh's): the build's inputs as committed, none
     # when they have a change here; the arguments but -S, -B, the icon and the fetched sources, every rooted path in a
@@ -556,24 +556,24 @@ if (-not $SkipBuild) {
     }
     $stamp = ""
     $stampClock = [System.Diagnostics.Stopwatch]::StartNew()
-    $dirty = & git -C $PS2Recomp status --porcelain -- CMakeLists.txt runtime iop 2>$null
-    $tree = & git -C $PS2Recomp rev-parse HEAD:CMakeLists.txt HEAD:runtime HEAD:iop 2>$null
+    $dirty = & git -C $ZaxisTree status --porcelain -- CMakeLists.txt runtime iop 2>$null
+    $tree = & git -C $ZaxisTree rev-parse HEAD:CMakeLists.txt HEAD:runtime HEAD:iop 2>$null
     if ($LASTEXITCODE -eq 0 -and -not $dirty -and $tree) {
         $sha = [System.Security.Cryptography.SHA256]::Create()
         $hex = { param($t) (($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($t)) | ForEach-Object { $_.ToString("x2") }) -join "").Substring(0, 16) }
         $kept = @(); $data = @(); $skip = $false
-        # (an item that can name no path, such as PS2X_APP_GAMES' "ai|Aggressive Inline|...", is no path: .NET
+        # (an item that can name no path, such as ZX_APP_GAMES' "ai|Aggressive Inline|...", is no path: .NET
         # Framework's IsPathRooted and Test-Path throw on its characters, which stopped b132's first pack here)
         $isPath = { param($p, $type) $p -and $p.IndexOfAny([System.IO.Path]::GetInvalidPathChars()) -lt 0 -and
                     (Test-Path -LiteralPath $p -PathType $type) }
         foreach ($x in $cmakeArgs) {
             if ($skip) { $skip = $false; continue }
             if ($x -eq "-S" -or $x -eq "-B") { $skip = $true; continue }
-            if ($x -like "-DFETCHCONTENT_SOURCE_DIR_*" -or $x -like "-DPS2X_APP_ICON=*") { continue }
+            if ($x -like "-DFETCHCONTENT_SOURCE_DIR_*" -or $x -like "-DZX_APP_ICON=*") { continue }
             if ($x -match '^(-D[^=]+)=(.*)$') {
                 $name = $Matches[1]; $items = $Matches[2] -split ';'
                 $kept += "$name=$(($items | ForEach-Object { if ((& $isPath $_ Any) -and [System.IO.Path]::IsPathRooted($_)) { Split-Path -Leaf $_ } else { $_ } }) -join ';')"
-                if ($name -ne "-DPS2X_FFMPEG_PREFIX") {
+                if ($name -ne "-DZX_FFMPEG_PREFIX") {
                     for ($n = 0; $n -lt $items.Count; $n++) {
                         if (-not (& $isPath $items[$n] Container)) { continue }
                         $data += "$name $n $(DataLine $items[$n])"
@@ -583,7 +583,7 @@ if (-not $SkipBuild) {
                 $kept += $x
             }
         }
-        $stamp = "tree $(& $hex (($tree -join "`n") + "`n")) ($(& git -C $PS2Recomp rev-parse --short HEAD))`nargs $(& $hex (($kept -join "`n") + "`n"))`ndata $(& $hex (($data -join "`n") + "`n"))"
+        $stamp = "tree $(& $hex (($tree -join "`n") + "`n")) ($(& git -C $ZaxisTree rev-parse --short HEAD))`nargs $(& $hex (($kept -join "`n") + "`n"))`ndata $(& $hex (($data -join "`n") + "`n"))"
         Say ("stamp: {0:N1} s ($($data.Count) data folders)" -f $stampClock.Elapsed.TotalSeconds)
     }
     $key = { param($t) ($t -split "`n" | ForEach-Object { $_ -replace ' \([0-9a-f]+\)$', '' }) -join "`n" }
@@ -612,13 +612,13 @@ if (-not $SkipBuild) {
             Say "configured ($(Took $clock))"
         } else { Say "configured before with these arguments: ninja configures again if an input changed (-Reconfigure: always)" }
         $clock = [System.Diagnostics.Stopwatch]::StartNew()
-        & ninja -C $BuildDir ps2EntryRunner
+        & ninja -C $BuildDir zx-runner
         if ($LASTEXITCODE -ne 0) { Die "build failed" }
         Say "built ($(Took $clock))"
         if ($stamp) { Set-Content -NoNewline -Path $stampFile -Value $stamp }
     }
 }
-$Runner = Join-Path $ToolsDir "ps2xRuntime\ps2EntryRunner.exe"
+$Runner = Join-Path $ToolsDir "runtime\zx-runner.exe"
 if (-not (Test-Path $Runner)) { Die "no runner at $Runner" }
 # Tool NAME: a build tool the folder's steps run, from ToolsDir (built there when it is BuildDir).
 function Tool([string]$name) {
@@ -626,37 +626,37 @@ function Tool([string]$name) {
         & ninja -C $BuildDir $name | Out-Null
         if ($LASTEXITCODE -ne 0) { Die "$name build failed" }
     }
-    $exe = Join-Path $ToolsDir "ps2xRuntime\$name.exe"
+    $exe = Join-Path $ToolsDir "runtime\$name.exe"
     if (-not (Test-Path $exe)) { Die "no $name in $ToolsDir" }
     return $exe
 }
 
 # ---- Xbox skaters (optional): the Xbox release's more detailed skaters made
-# into the PS2's model format here (ps2xNativeAssets --xbox-models) under the
+# into the PS2's model format here (zx-native-assets --xbox-models) under the
 # pack's models\; the app only loads them (Settings > Display > Xbox Skaters).
 if (-not $NoGameData -and (Test-Path $XboxDir) -and (Test-Path $XboxPack)) {
-    $ps2xNativeAssetsExe = Tool ps2xNativeAssets
+    $zxNativeAssetsExe = Tool zx-native-assets
     $models = Join-Path $XboxPack "models"
     if (Test-Path $models) { Remove-Item -Recurse -Force $models }
-    & $ps2xNativeAssetsExe --xbox-models $XboxPack --ps2 $GameFiles --xbox $XboxDir | ForEach-Object { Say $_ }
-    if ($LASTEXITCODE -ne 0) { Die "ps2xNativeAssets --xbox-models failed" }
+    & $zxNativeAssetsExe --xbox-models $XboxPack --ps2 $GameFiles --xbox $XboxDir | ForEach-Object { Say $_ }
+    if ($LASTEXITCODE -ne 0) { Die "zx-native-assets --xbox-models failed" }
 }
 
 # ---- the Zoo and the Ape (optional): the Xbox release's Zoo (level, split
 # screen, ambient NPCs) and Ape made into the PS2's formats here, with the Xbox
-# originals of their textures (ps2xXboxConvert); the app only loads them
+# originals of their textures (zx-xbox-convert); the app only loads them
 # (xbox-converted\). Without the Xbox files the Zoo is the PS2 disc's prototype.
 $XboxConverted = Join-Path $Dist ".xbox-converted"
 if (Test-Path $XboxConverted) { Remove-Item -Recurse -Force $XboxConverted }
 if (Test-Path $XboxDir) {
-    $ps2xXboxConvertExe = Tool ps2xXboxConvert
-    & $ps2xXboxConvertExe --xbox $XboxDir --ps2 $GameFiles --out $XboxConverted | ForEach-Object { Say $_ }
-    if ($LASTEXITCODE -ne 0) { Die "ps2xXboxConvert could not make the Zoo and the Ape from $XboxDir" }
+    $zxXboxConvertExe = Tool zx-xbox-convert
+    & $zxXboxConvertExe --xbox $XboxDir --ps2 $GameFiles --out $XboxConverted | ForEach-Object { Say $_ }
+    if ($LASTEXITCODE -ne 0) { Die "zx-xbox-convert could not make the Zoo and the Ape from $XboxDir" }
 }
 
 # ---- Estate (optional): TUT/Estate, an earlier Tutorial left on the GameCube
 # disc, extracted from your GameCube image (tools\gc_disc.py) and made into the
-# files the game loads (ps2xGcConvert); the app only loads them (estate\).
+# files the game loads (zx-gc-convert); the app only loads them (estate\).
 $Estate = Join-Path $Dist ".estate"
 if (Test-Path $Estate) { Remove-Item -Recurse -Force $Estate }
 if ($GcImage -and -not $NoGameData) {
@@ -667,9 +667,9 @@ if ($GcImage -and -not $NoGameData) {
     $gcArgs = PythonArgs @("-I", (Join-Path $Root "tools\gc_disc.py"), "extract", $GcImage, "--out", $gcCache, "assets/levels/TUT/Estate")
     & $python.Source @gcArgs | ForEach-Object { Say $_ }
     if ($LASTEXITCODE -ne 0) { Die "could not extract TUT/Estate from the GameCube image $GcImage" }
-    $ps2xGcConvertExe = Tool ps2xGcConvert
-    & $ps2xGcConvertExe --gc $gcCache --out $Estate | ForEach-Object { Say $_ }
-    if ($LASTEXITCODE -ne 0) { Die "ps2xGcConvert could not make Estate from $GcImage" }
+    $zxGcConvertExe = Tool zx-gc-convert
+    & $zxGcConvertExe --gc $gcCache --out $Estate | ForEach-Object { Say $_ }
+    if ($LASTEXITCODE -ne 0) { Die "zx-gc-convert could not make Estate from $GcImage" }
 }
 
 # ---- the folder ----------------------------------------------------------------------
@@ -682,7 +682,7 @@ Copy-Item $Runner (Join-Path $AppDir "$AppName.exe")
 # unchanged, its licence beside it), the collection menu's text before Aggressive Inline's disc is set up.
 $fontsOut = Join-Path $AppDir "fonts"
 New-Item -ItemType Directory -Force $fontsOut | Out-Null
-Copy-Item (Join-Path $PS2Recomp "runtime\resources\fonts\Michroma-Regular.ttf"), (Join-Path $PS2Recomp "runtime\resources\fonts\Michroma-OFL.txt") $fontsOut
+Copy-Item (Join-Path $ZaxisTree "runtime\resources\fonts\Michroma-Regular.ttf"), (Join-Path $ZaxisTree "runtime\resources\fonts\Michroma-OFL.txt") $fontsOut
 # Game files: hard links where the volume allows it (no extra space), else copies.
 # A collection: each game's files in games\<id>.
 $GameOut = if ($Collection) { Join-Path $AppDir "games\ai" } else { $AppDir }
@@ -769,15 +769,15 @@ if ($Collection -and ($Games -contains "dm2")) {
         Copy-Item -Recurse $xboxLevels (Join-Path $AppDir "games\dm2\xbox-levels")
         Say "DM2's Xbox levels for its Free Ride in games\dm2\xbox-levels"
     } elseif ($python) { Say "no -Dm2XboxIso: no Venice and Greenville in DM2" }
-    # DM2's Xbox textures: its levels' from -Dm2XboxIso, made as the extras' setup makes them (ps2xExtras
+    # DM2's Xbox textures: its levels' from -Dm2XboxIso, made as the extras' setup makes them (zx-extras
     # xbox-pack --no-movies; collection/extras/setup.cpp), into games\dm2\xbox-pack, where the app reads a
     # bundled game's pack (Xbox Textures).
     if ($Dm2XboxIso -and (Test-Path $Dm2XboxIso)) {
-        $ps2xExtrasExe = Tool ps2xExtras
+        $zxExtrasExe = Tool zx-extras
         $dm2Pack = Join-Path $Dist ".dm2-xbox-pack"
         if (Test-Path $dm2Pack) { Remove-Item -Recurse -Force $dm2Pack }
-        & $ps2xExtrasExe xbox-pack --ps2 (Resolve-Path $Dm2DiscDir).Path --xbox $Dm2XboxIso --out $dm2Pack --no-movies | ForEach-Object { Say $_ }
-        if ($LASTEXITCODE -ne 0) { Die "ps2xExtras xbox-pack could not make DM2's Xbox textures from $Dm2XboxIso" }
+        & $zxExtrasExe xbox-pack --ps2 (Resolve-Path $Dm2DiscDir).Path --xbox $Dm2XboxIso --out $dm2Pack --no-movies | ForEach-Object { Say $_ }
+        if ($LASTEXITCODE -ne 0) { Die "zx-extras xbox-pack could not make DM2's Xbox textures from $Dm2XboxIso" }
         Copy-Item -Recurse $dm2Pack (Join-Path $AppDir "games\dm2\xbox-pack")
         Say "DM2's Xbox textures in games\dm2\xbox-pack"
     }
@@ -833,14 +833,14 @@ if ($Collection -and ($Games -contains "bmx")) {
         Say "BMX XXX's Xbox and GameCube content in games\bmx\releases"
     } else { Say "no -BmxXboxIso or -BmxGcImage: BMX XXX as its PS2 release alone" }
     # BMX XXX's Xbox textures: its levels' and their props' (the ZAL archives) from -BmxXboxIso, made as the
-    # extras' setup makes them (ps2xExtras xbox-pack --no-movies --archives), into games\bmx\xbox-pack, where the
+    # extras' setup makes them (zx-extras xbox-pack --no-movies --archives), into games\bmx\xbox-pack, where the
     # app reads a bundled game's pack (Xbox Textures).
     if ($BmxXboxIso -and (Test-Path $BmxXboxIso)) {
-        $ps2xExtrasExe = Tool ps2xExtras
+        $zxExtrasExe = Tool zx-extras
         $bmxPack = Join-Path $Dist ".bmx-xbox-pack"
         if (Test-Path $bmxPack) { Remove-Item -Recurse -Force $bmxPack }
-        & $ps2xExtrasExe xbox-pack --ps2 (Resolve-Path $BmxDiscDir).Path --xbox $BmxXboxIso --out $bmxPack --no-movies --archives | ForEach-Object { Say $_ }
-        if ($LASTEXITCODE -ne 0) { Die "ps2xExtras xbox-pack could not make BMX XXX's Xbox textures from $BmxXboxIso" }
+        & $zxExtrasExe xbox-pack --ps2 (Resolve-Path $BmxDiscDir).Path --xbox $BmxXboxIso --out $bmxPack --no-movies --archives | ForEach-Object { Say $_ }
+        if ($LASTEXITCODE -ne 0) { Die "zx-extras xbox-pack could not make BMX XXX's Xbox textures from $BmxXboxIso" }
         Copy-Item -Recurse $bmxPack (Join-Path $AppDir "games\bmx\xbox-pack")
         Say "BMX XXX's Xbox textures in games\bmx\xbox-pack"
     }

@@ -4,7 +4,7 @@
 
 #include "script_text.h"
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     RgbaPicture bmpRgba(ByteView data)
     {

@@ -1,6 +1,6 @@
 #pragma once
 
-// Xbox models for the PS2 game, made at build time (ps2xNativeAssets
+// Xbox models for the PS2 game, made at build time (zx-native-assets
 // --xbox-models, run by the packaging step next to tools/xbox_pack.py; the
 // running game only loads the result).
 //

@@ -1,4 +1,4 @@
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 
 #include <algorithm>
 #include <cctype>
@@ -6,7 +6,7 @@
 #include <system_error>
 #include <unordered_map>
 
-namespace ps2x::iop
+namespace zx::disc
 {
     namespace
     {

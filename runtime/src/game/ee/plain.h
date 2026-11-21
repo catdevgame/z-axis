@@ -119,7 +119,7 @@ namespace ee
     // function's body its row's, in order, as `Register`, which a source never
     // writes. In the game the value is the caller's (a readable caller's call
     // made directly: what it published for its callee, Frame::view; else the
-    // context, as the caller left it); under ps2xFnCheck the context is the
+    // context, as the caller left it); under zx-fncheck the context is the
     // recording's registers at entry, so the replay hands the function what
     // the original's caller left.
     template <typename T, int Register = -1>

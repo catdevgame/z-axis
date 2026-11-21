@@ -18,7 +18,7 @@
 // then is identical to one taken at the miss). Draws that could read a stale
 // copy go through the reference rasterizer.
 //
-// PS2X_GS_REFERENCE=1 disables the fast path. PS2X_GS_THREADS=<n> sets the
+// ZX_GS_REFERENCE=1 disables the fast path. ZX_GS_THREADS=<n> sets the
 // number of raster threads (default: all cores, 1 = draw on the caller).
 
 #include "runtime/gs/gs_cpu_backend.h"
@@ -219,7 +219,7 @@ struct GSCpuBackend::FastPath
     std::unique_ptr<Batch> cur;
     std::vector<std::unique_ptr<Batch>> freeBatches;
 
-    // Asynchronous drawing (PS2X_GS_ASYNC=0 draws on the caller instead).
+    // Asynchronous drawing (ZX_GS_ASYNC=0 draws on the caller instead).
     bool async = true;
     std::thread rasterThread;
     std::mutex rasterMutex;

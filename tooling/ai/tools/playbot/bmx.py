@@ -120,7 +120,7 @@ def read(run):
 
 
 def run_config(name, script, env=None, max_secs=900, gs=False, root=None):
-    e = {'PS2X_READABLE': 'off', 'PS2X_MC_FD_BASE0': '1', 'PS2X_HEADLESS': '1', 'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy'}
+    e = {'ZX_READABLE': 'off', 'ZX_MC_FD_BASE0': '1', 'ZX_HEADLESS': '1', 'SDL_VIDEODRIVER': 'dummy', 'SDL_AUDIODRIVER': 'dummy'}
     e.update(env or {})
     return core.RunConfig(name=name, runner=RUNNER, elf=ELF, root=root or SCRATCH + '/runs', script=script, env=e,
                           max_secs=max_secs, gs=gs)
@@ -248,8 +248,8 @@ def replay(name, suffix='replay', spec=None):
     d = session_dir(name)
     meta = json.load(open(os.path.join(d, 'meta.json')))
     script = open(os.path.join(d, 'script.txt')).read()
-    # the session's own environment (its clock: PS2X_EE_SCALE), readable off unless a spec is given
-    env = dict(meta.get('env', {}), PS2X_READABLE=spec or 'off')
+    # the session's own environment (its clock: ZX_EE_SCALE), readable off unless a spec is given
+    env = dict(meta.get('env', {}), ZX_READABLE=spec or 'off')
     cfg = run_config(name + '-' + suffix, script, env=env, max_secs=int(os.environ.get('MAX_SECS', '420')))
     trace = core.Trace(os.path.join(d, 'trace-%s.txt' % suffix))
     meter = dm2.Meter()
@@ -273,7 +273,7 @@ def states(name, spec, first, last, words=None):
     d = session_dir(name)
     meta = json.load(open(os.path.join(d, 'meta.json')))
     script = open(os.path.join(d, 'script.txt')).read()
-    cfg = run_config(name + '-states-' + (spec or 'defaults'), script, env=dict(meta.get('env', {}), PS2X_READABLE=spec),
+    cfg = run_config(name + '-states-' + (spec or 'defaults'), script, env=dict(meta.get('env', {}), ZX_READABLE=spec),
                      max_secs=int(os.environ.get('MAX_SECS', '900')))
     extra = []
     for w in filter(None, (words or '').split(',')):
@@ -304,7 +304,7 @@ def route(name, route_name, env=None):
     import bmxroutes
     script = bmxroutes.script_of(route_name)
     end = max(int(i.split('v')[0]) for i in script.split(',')) + 600
-    e = dict(bmxroutes.extra_env(route_name), PS2X_EE_SCALE='4096')
+    e = dict(bmxroutes.extra_env(route_name), ZX_EE_SCALE='4096')
     e.update(env or {})
     cfg = run_config(name, script, env=e, max_secs=int(os.environ.get('MAX_SECS', '900')))
     with core.Run(cfg) as run:
@@ -902,7 +902,7 @@ def play_session(name, level=0, rider=0, seed=1, ticks=5400, gs=False, max_secs=
     os.makedirs(d, exist_ok=True)
     # (routes2) the guest clock fixed, so the recording of the session's script replays the play: PLAY_ENV adds more
     env = dict(env or {})
-    env.setdefault('PS2X_EE_SCALE', '4096')
+    env.setdefault('ZX_EE_SCALE', '4096')
     for kv in filter(None, os.environ.get('PLAY_ENV', '').split(';')):
         k, v = kv.split('=', 1)
         env[k] = v

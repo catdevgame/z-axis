@@ -28,7 +28,7 @@ LEVEL is dm2map.LEVELS' index (the level select's), MODE proquest, session or fr
                     EXIT TO MAIN MENU (UP wraps to it), YES; the run stops once the front end is back
 
 tier=T (test only, as routes1's dm2touch.py): every rider's career record of the level put at tier T in the front end
-(PS2X_POKE_SCRIPT), so ProQuest plays that tier's challenges (Woodward AMATEUR's ladders: tier 1; Trainyards PRO's
+(ZX_POKE_SCRIPT), so ProQuest plays that tier's challenges (Woodward AMATEUR's ladders: tier 1; Trainyards PRO's
 station glass: tier 2). sessions/NAME: play.log (each step, each object reached and how near), stats.json (dm2.Meter's
 numbers, the steps), script.txt (the pad script).
 """
@@ -266,7 +266,7 @@ def play(name, level, mode, plan, ticks=9000, seed=1, tier=None, max_secs=2400):
                 for below in range(tier):
                     pokes += ['%x:%x=%x' % (int(t), base + below * 12 + 4 * w, done[w]) for w in range(3)]
                 pokes.append('%x:%x=%x' % (int(t), base + 0x3C, 0x0001 | tier << 8))
-        env['PS2X_POKE_SCRIPT'] = ','.join(pokes)
+        env['ZX_POKE_SCRIPT'] = ','.join(pokes)
     for kv in filter(None, os.environ.get('PLAY_ENV', '').split(';')):
         k, v = kv.split('=', 1)
         env[k] = v

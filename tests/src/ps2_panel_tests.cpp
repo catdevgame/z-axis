@@ -6,6 +6,8 @@
 #include "collection/panel_policy.h"
 #include "collection/panel_view.h"
 #include "aggressive_inline_panel.h"
+// (DM2's globals at its addresses, as its capture reads them)
+#include "sym/game_overrides/dave_mirra_panel.cpp.h"
 
 #include <cmath>
 #include <cstring>
@@ -13,6 +15,11 @@
 #include <vector>
 
 using namespace panel;
+
+namespace dave_mirra::panel_state
+{
+    void capture(const uint8_t *guestRam, size_t ramBytes, panel::Snapshot &out);
+}
 
 namespace
 {
@@ -41,6 +48,34 @@ namespace
         file.insert(file.end(), reinterpret_cast<const uint8_t *>(&size), reinterpret_cast<const uint8_t *>(&size) + 4);
         file.insert(file.end(), data.begin(), data.end());
         file.resize(file.size() + (-size & 3u));
+    }
+
+    // The engine's name hash (zge/text/strings.h nameHash).
+    uint32_t engineNameHash(const char *name)
+    {
+        uint32_t hash = 0;
+        for (const char *c = name; *c; ++c)
+        {
+            uint32_t letter = static_cast<uint8_t>(*c);
+            if (letter >= 'a' && letter <= 'z')
+                letter -= 'a' - 'A';
+            hash = (hash << 4) + letter;
+            const uint32_t high = hash & 0xF0000000u;
+            if (high)
+                hash ^= high >> 24;
+            hash &= ~high;
+        }
+        return hash;
+    }
+
+    // A DM2 label widget showing `text`, at `object` (ZGE2: a scene object of kind 4, its ListedLabel at +0x3C).
+    void putLabel(std::vector<uint8_t> &ram, uint32_t object, const char *text)
+    {
+        const uint32_t record = object + 0x40u, chars = object + 0x100u;
+        putWord(ram, object, 0x54u);
+        putWord(ram, object + 0x3Cu, record);
+        putWord(ram, record + 0x64u, chars);
+        std::memcpy(ram.data() + chars, text, std::strlen(text) + 1);
     }
 
     template <typename T> void append(std::vector<uint8_t> &out, const T &value)
@@ -504,6 +539,112 @@ void register_ps2_panel_tests()
             putFloat(ram, player + 0x94u, 20000.0f);
             aggressive_inline::panel_state::capture(ram.data(), ram.size(), *snapshot);
             t.IsTrue(snapshot->mode == GameMode::NoLevel, "not placed yet");
+        });
+
+        tc.Run("DM2's capture reads its clock, trick line, shown goal and the NPCs' goals", [](TestCase &t) {
+            std::vector<uint8_t> ram(32u << 20);
+            auto snapshot = std::make_unique<Snapshot>();
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(snapshot->mode == GameMode::NoLevel, "an empty RAM is no level");
+
+            // Woodward Camp (menu value 0, game level 2), a ProQuest game: the rider, character 0.
+            const uint32_t rider = 0x00400000u, npcRider = 0x00410000u, definition = 0x00420000u;
+            ram[sym::dm2::g_currentGameState] = 1;
+            putWord(ram, sym::dm2::g_physicsTaskFrames, 1u);
+            putWord(ram, sym::dm2::g_riders, rider);
+            putWord(ram, sym::dm2::g_currentLevel, 0u);
+            ram[sym::dm2::g_sessionLevel] = 2;
+            ram[sym::dm2::g_sessionSinglePlayerMode] = 0;
+            ram[sym::dm2::g_playerSetups + 3] = 0;
+            putFloat(ram, rider + 0x1040u, 12.0f);
+            putFloat(ram, rider + 0x1048u, -30.0f);
+            // The character's Woodward goals: the rookie goal done, the amateur challenge next, three of its goals given.
+            const uint32_t goals = sym::dm2::g_riderCharacters + 0x13Cu + 2u * 0x44u;
+            ram[goals] = 0x40 | 0x80;
+            ram[goals + 0x3D] = 1;
+            for (uint32_t g = 0; g < 3; ++g)
+                ram[goals + 0x0C + g * 3] = 0x80;
+            // Its NPC: the amateur challenge's last goal; a wild one after it ends nothing.
+            ram[sym::dm2::g_npcs + 0x00] = 1;
+            putWord(ram, sym::dm2::g_npcs + 0x28u, definition);
+            ram[sym::dm2::g_npcs + 0x30] = 0xFF;
+            ram[definition + 0x10] = 1;
+            ram[definition + 0x11] = 3;
+            ram[definition + 0x12] = 3;
+            putWord(ram, sym::dm2::g_riders + 4u, npcRider);
+            putFloat(ram, npcRider + 0x1040u, 80.0f);
+            putFloat(ram, npcRider + 0x1048u, 45.0f);
+            ram[sym::dm2::g_objectiveState] = 0xFF;
+            putWord(ram, sym::dm2::g_trickDisplayWidgets + 0x00u, 0xFFFFFFF0u); // wild labels are not followed
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(snapshot->mode == GameMode::Play, "in a level");
+            t.Equals(snapshot->objectiveState[0], kStateComplete, "the rookie goal done");
+            t.Equals(snapshot->objectiveState[4], kStateOpen, "a given goal runs");
+            t.Equals(snapshot->objectiveState[7], kStateReady, "the NPC's goal can be started");
+            t.Equals(snapshot->objectiveState[8], kStateInit, "the next challenge's are not offered");
+            t.Equals(snapshot->trackedCount, 1u, "the giver tracked");
+            t.Equals(snapshot->tracked[0].nameHash, engineNameHash("KSTRSP_GOAL_LEV02_EASY_3"), "by the goal's text key");
+            t.IsTrue(near(snapshot->tracked[0].x, 80.0f) && near(snapshot->tracked[0].z, 45.0f), "where the NPC's rider is");
+            t.Equals(snapshot->activeGoal, -1, "no goal labelled");
+            t.IsTrue(snapshot->timerSeconds < 0.0f, "no clock before the turn runs");
+            t.Equals(std::string(snapshot->line), std::string(""), "no line");
+
+            // The NPC gave it: it runs, and no giver is tracked.
+            ram[goals + 0x0C + 3 * 3] = 0x80 | 0x20;
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.Equals(snapshot->objectiveState[7], kStateOpen, "given, it runs");
+            t.Equals(snapshot->trackedCount, 0u, "no giver once given");
+
+            // The objective label shows the amateur challenge's second goal.
+            ram[sym::dm2::g_objectiveState] = 5;
+            ram[sym::dm2::g_objectiveState + 2] = 1;
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.Equals(snapshot->activeGoal, 5, "the labelled goal");
+            ram[sym::dm2::g_objectiveState + 2] = 0;
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.Equals(snapshot->activeGoal, -1, "its label faded out");
+
+            // The turn's clock, in the seconds the timer writes.
+            ram[sym::dm2::g_roundPhase] = 5;
+            putWord(ram, sym::dm2::g_phaseFramesLeft, 3542u);
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(near(snapshot->timerSeconds, 60.0f), "1:00");
+            putWord(ram, sym::dm2::g_phaseFramesLeft, 3541u);
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(near(snapshot->timerSeconds, 59.0f), "0:59");
+            putWord(ram, sym::dm2::g_phaseFramesLeft, 61u);
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(near(snapshot->timerSeconds, 1.0f), "a started second counts");
+            putWord(ram, sym::dm2::g_phaseFramesLeft, 1u);
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(near(snapshot->timerSeconds, 0.0f), "the last frame reads 0:00, as the timer writes it");
+            ram[sym::dm2::g_singlePlayerMode] = 3;
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(snapshot->timerSeconds < 0.0f, "a free ride has no clock");
+            ram[sym::dm2::g_singlePlayerMode] = 0;
+
+            // The run's two lines, in the labels they took (the current one's is label 2).
+            const uint32_t labels = 0x00430000u;
+            for (uint32_t i = 0; i < 4; ++i)
+                putWord(ram, sym::dm2::g_trickDisplayWidgets + i * 4u, labels + i * 0x200u);
+            putWord(ram, sym::dm2::g_trickDisplayWidgets + 0x14u, 0x00438000u);
+            putWord(ram, sym::dm2::g_trickNameLabel, 2u);
+            putLabel(ram, labels + 0x000u, "stale");
+            putLabel(ram, labels + 0x200u, "#RGB{0 255 0}perfect #RGB{238 181 44}360\ntailwhip");
+            putLabel(ram, labels + 0x400u, "#RGB{192 192 192}TO#RGB{238 181 44}\r\nx-up barspin");
+            putLabel(ram, labels + 0x800u, "750 points");
+            putWord(ram, sym::dm2::g_trickDisplayWidgets + 0x10u, labels + 0x800u);
+            ram[rider + 0x1A0u + 0x69Du] = 2;
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.Equals(std::string(snapshot->line), std::string("perfect 360 tailwhip TO x-up barspin"), "the run's lines, oldest first");
+            t.Equals(std::string(snapshot->currentTrick), std::string("TO x-up barspin"), "the current line");
+            t.IsTrue(near(snapshot->pendingScore, 750.0f), "the points under them");
+            putLabel(ram, labels + 0x800u, "");
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.IsTrue(near(snapshot->pendingScore, 0.0f), "no points where the game shows none");
+            ram[rider + 0x1A0u + 0x69Du] = 0;
+            dave_mirra::panel_state::capture(ram.data(), ram.size(), *snapshot);
+            t.Equals(std::string(snapshot->line), std::string(""), "the run over: no line");
         });
 
         tc.Run("a UI file's tricks by move and its families' names", [](TestCase &t) {

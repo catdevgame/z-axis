@@ -22,7 +22,7 @@ namespace zge::zgui
         // position + vector, its colour running from startColor to endColor.
         struct GuiLine
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Width is the widget's, named here over it (WidgetLayout).
             union
             {
@@ -41,7 +41,7 @@ namespace zge::zgui
             uint8_t _104[4];
             WidgetColour startColor; // +0x108
             WidgetColour endColor;   // +0x118
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;         // +0x128 (a property; no draw reads it; ZGE4: the widget's, above)
 #endif
             uint32_t material;       // +0x12C (ZGE4 +0x128)
@@ -54,7 +54,7 @@ namespace zge::zgui
         // An image (defineGuiImageProperties; quad.cpp draws it).
         struct GuiImage
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Alignment, Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -79,11 +79,11 @@ namespace zge::zgui
             WidgetColour topRightColor;    // +0x128
             WidgetColour bottomRightColor; // +0x138
             uint32_t material;       // +0x148
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             uint32_t alignment;      // +0x14C (ZGE4: the widget's, above)
 #endif
             uint32_t unused;         // +0x150 (ZGE4 +0x14C) made 0 here; read nowhere (PS2, Xbox, GameCube; DM2's image the same at +0x7C)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;         // +0x154 (ZGE4: the widget's, above)
             ee::Float height;        // +0x158
 #endif
@@ -101,7 +101,7 @@ namespace zge::zgui
         constexpr uint32_t kFrameParts = 9; // top left, top, top right, left, centre, right, bottom left, bottom, bottom right
         struct GuiFrame
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Alignment, Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -122,11 +122,11 @@ namespace zge::zgui
             ee::Ptr<UiAsset> assets[kFrameParts]; // +0x100
             uint8_t _124[4];
             WidgetColour color;      // +0x128
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             uint32_t alignment;      // +0x138 (ZGE4: the widget's, above)
 #endif
             uint32_t materials[kFrameParts]; // +0x13C (ZGE4 +0x138)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;         // +0x160 (ZGE4: the widget's, above)
             ee::Float height;        // +0x164
 #endif
@@ -148,7 +148,7 @@ namespace zge::zgui
         // Sint32s of its own in ZGE3, the widget's ZFloats in ZGE4.
         struct GuiClipper
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -163,7 +163,7 @@ namespace zge::zgui
 #else
             Widget widget;
 #endif
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             int32_t width;               // +0x0F0 "Width" (Sint32)
             int32_t height;              // +0x0F4 "Height" (Sint32)
 #endif
@@ -176,7 +176,7 @@ namespace zge::zgui
         // The clipper's rectangle's size.
         [[gnu::always_inline]] inline ee::Float clipWidth(ee::Ptr<GuiClipper> clipper)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return clipper->widget.width;
 #else
             return ee::toFloat(clipper->width);
@@ -184,7 +184,7 @@ namespace zge::zgui
         }
         [[gnu::always_inline]] inline ee::Float clipHeight(ee::Ptr<GuiClipper> clipper)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return clipper->widget.height;
 #else
             return ee::toFloat(clipper->height);
@@ -200,7 +200,7 @@ namespace zge::zgui
             zge::Vec4 position; // +0x00 the widget's screen position
             zge::Vec4 size;     // +0x10
             uint8_t colour[4];  // +0x20
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             ee::Float lineSpacing; // +0x24
             int32_t letterSpacing; // +0x28
             uint32_t align;     // +0x2C
@@ -226,7 +226,7 @@ namespace zge::zgui
         // An image as its Draw reads it (quad.cpp: drawQuadWidget).
         struct QuadWidget
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Alignment, Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -255,11 +255,11 @@ namespace zge::zgui
             uint8_t bottomRight[4];   // +0x138
             uint32_t _13c[3];
             uint32_t textureName;     // +0x148 0: none
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             uint32_t alignment;       // +0x14C low nibble 0 left, 1 centre, 2 right; high 0 top, 1 middle, 2 bottom (ZGE4: the widget's, above)
 #endif
             uint32_t _150;            // (ZGE4 +0x14C)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;          // +0x154 (ZGE4: the widget's, above)
             ee::Float height;         // +0x158
 #endif
@@ -274,7 +274,7 @@ namespace zge::zgui
         // A tape (widgets_small.cpp): a ruler that scrolls by a value.
         struct GuiTape
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -306,7 +306,7 @@ namespace zge::zgui
             ee::Float textOffsetX;     // +0x160
             ee::Float textOffsetY;     // +0x164
             ee::Float middleRatio;     // +0x168
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             uint32_t width;            // +0x16C a Sint32 (ZGE4: the widget's ZFloat, above)
             uint32_t height;           // +0x170
 #endif
@@ -320,7 +320,7 @@ namespace zge::zgui
         // A scroll view (scroll_view.cpp): text that scrolls up through a window.
         struct GuiScrollView
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Alignment, Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -347,12 +347,12 @@ namespace zge::zgui
             WidgetColour midColor;    // +0x130
             int32_t tracking;         // +0x140
             ee::Float spacing;        // +0x144
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;          // +0x148 (ZGE4: the widget's, above)
             ee::Float height;         // +0x14C
 #endif
             ee::Float offset;         // +0x150 (ZGE4 +0x148) how far the text has scrolled up
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4 +0x14C "EndReached" (a Bool variable): the last line drawn
             // has scrolled above the window's top (drawGuiScrollView).
             uint32_t endReached;
@@ -368,7 +368,7 @@ namespace zge::zgui
 
         constexpr ClassProperty kScrollViewProperties[] = {
             {sym::g_textScale, sym::g_textZ3DVector, offsetof(GuiScrollView, scale)}, // "Scale" Z3DVector
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {sym::g_textAlignment, sym::g_textAlignment, offsetof(GuiScrollView, alignment)}, // "Alignment" Alignment (ZGE4)
 #endif
             {sym::g_textSpacing, sym::g_textZFloat, offsetof(GuiScrollView, spacing)}, // "Spacing" ZFloat
@@ -388,7 +388,7 @@ namespace zge::zgui
         // property (the widget's, above).
         [[gnu::always_inline]] inline uint32_t lineAlignment([[maybe_unused]] ee::Ptr<GuiScrollView> view)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return view->alignment;
 #else
             return kCentredText;
@@ -398,7 +398,7 @@ namespace zge::zgui
         // asks for it).
         [[gnu::always_inline]] inline ee::Ptr<uint32_t> endReachedOf([[maybe_unused]] ee::Ptr<GuiScrollView> view)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return &view->endReached;
 #else
             return {};
@@ -408,7 +408,7 @@ namespace zge::zgui
         // A menu (menu.cpp): Items' lines, one selected.
         struct GuiMenu
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Alignment, Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -427,7 +427,7 @@ namespace zge::zgui
 #endif
             zge::Vec4 scale;             // +0x0F0
             zge::Vec4 selectedCoord;     // +0x100 from the menu to the selected item
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4 +0x110, +0x114: set to 1 when the selection steps towards
             // the start (or the end), less by a rate each draw down to 0; the
             // StartArrow's (EndArrow's) colours' alpha is 255 * (1 - it).
@@ -445,14 +445,14 @@ namespace zge::zgui
             int32_t scrollOffset;        // +0x130 the first row shown
             uint32_t hideSelectionOnLostFocus; // +0x134
             uint32_t blockedPlayed;      // +0x138 the blocked sound played since the selection last moved
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             uint32_t alignment;          // +0x13C (ZGE4: the widget's, above)
 #endif
             WidgetColour color;          // +0x140 (ZGE4 +0x148: the colours' 8-byte alignment)
             WidgetColour selectedColor;  // +0x150
             WidgetColour disabledColor;  // +0x160
             ee::Float spacing;           // +0x170
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;             // +0x174 measured (ZGE4: the widget's, above)
             ee::Float height;            // +0x178
 #endif
@@ -466,7 +466,7 @@ namespace zge::zgui
             uint32_t onItemUnFocus;      // +0x198
             uint32_t onItemSelect;       // +0x19C
             uint32_t onChange;           // +0x1A0
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4 +0x1A4, +0x1A8 (Event properties): the paths of the widgets
             // shown as arrows while there is more to scroll to at the start
             // (the end) of a menu with a VisibleCount.
@@ -508,7 +508,7 @@ namespace zge::zgui
             {Property, menuNode(18), sym::g_textOnItemUnFocus, sym::g_textEvent, offsetof(GuiMenu, onItemUnFocus)}, // "OnItemUnFocus" Event
             {Property, menuNode(19), sym::g_textOnItemSelect, sym::g_textEvent, offsetof(GuiMenu, onItemSelect)}, // "OnItemSelect" Event
             {Property, menuNode(20), sym::g_textOnChange, sym::g_textEvent, offsetof(GuiMenu, onChange)}, // "OnChange" Event
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {Property, menuNode(21), sym::bmx::g_textStartArrow, sym::g_textEvent, offsetof(GuiMenu, startArrow)}, // "StartArrow" Event (ZGE4)
             {Property, menuNode(22), sym::bmx::g_textEndArrow, sym::g_textEvent, offsetof(GuiMenu, endArrow)}, // "EndArrow" Event (ZGE4)
 #endif
@@ -519,7 +519,7 @@ namespace zge::zgui
         // ZGE4's menu arrows (its own draw and input bodies, menu.cpp, read
         // and write them; a ZGE3 build only declares these: no step of it
         // calls them).
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         inline ee::Float &startArrowFlash(ee::Ptr<GuiMenu> menu) { return menu->startArrowFlash; }
         inline ee::Float &endArrowFlash(ee::Ptr<GuiMenu> menu) { return menu->endArrowFlash; }
         inline uint32_t &startArrow(ee::Ptr<GuiMenu> menu) { return menu->startArrow; }
@@ -534,7 +534,7 @@ namespace zge::zgui
         // A keyboard (keyboard.cpp): a grid of keys that types a String.
         struct GuiKeyboard
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -577,7 +577,7 @@ namespace zge::zgui
             uint32_t showDel;           // +0x184
             uint32_t showSpace;         // +0x188
             uint32_t showCancel;        // +0x18C
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;            // +0x190 measured (ZGE4: the widget's, above)
             ee::Float height;           // +0x194
 #endif
@@ -595,7 +595,7 @@ namespace zge::zgui
             uint32_t active;          // +0x0F0
             uint32_t flags;           // +0x0F4
             int32_t curCtrl;          // +0x0F8 the pad it reads
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             uint32_t _0fc[4];         // ZGE4 +0x0FC: 1 at definition; no property names them, its draw reads none
 #endif
             uint32_t enableAnalogDir; // +0x0FC (ZGE4 +0x10C; the rest 0x10 further)
@@ -609,7 +609,7 @@ namespace zge::zgui
             uint32_t onAccept;        // +0x11C
             uint32_t onCancel;        // +0x120
             uint32_t onOption;        // +0x124
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             uint32_t onOption2;       // ZGE4 +0x138 zgui's second option button
 #endif
             uint32_t onStart;         // +0x128
@@ -618,12 +618,12 @@ namespace zge::zgui
             uint32_t onRightStickMove; // +0x134
             uint32_t onLTrig1;        // +0x138
             uint32_t onLTrig2;        // +0x13C
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             uint32_t onLTrig3;        // ZGE4 +0x154 (button 0x1000)
 #endif
             uint32_t onRTrig1;        // +0x140
             uint32_t onRTrig2;        // +0x144
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             uint32_t onRTrig3;        // ZGE4 +0x160 a property its draw never runs (button 0x2000 runs OnRTrig2)
             uint32_t onSpecial;       // ZGE4 +0x164 a property its draw never runs
 #endif
@@ -641,7 +641,7 @@ namespace zge::zgui
                       offsetof(GuiKeySniffer, enableAnalogDir) == game::readable::perGame(0xFCu, 0xFCu, 0x10Cu) &&
                       offsetof(GuiKeySniffer, onFire4) == game::readable::perGame(0x164u, 0x164u, 0x184u) &&
                       offsetof(GuiKeySniffer, properties) == game::readable::perGame(0x168u, 0x168u, 0x188u));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         static_assert(offsetof(GuiKeySniffer, onOption2) == 0x138 && offsetof(GuiKeySniffer, onSpecial) == 0x164);
         // A new ZGE4 sniffer's own fields: its four words 1, its own Events none.
         inline void clearZge4SnifferFields(ee::Ptr<GuiKeySniffer> sniffer)
@@ -667,12 +667,12 @@ namespace zge::zgui
             {sym::g_textOnAccept, sym::g_textEvent, offsetof(GuiKeySniffer, onAccept)}, // "OnAccept" Event
             {sym::g_textOnCancel, sym::g_textEvent, offsetof(GuiKeySniffer, onCancel)}, // "OnCancel" Event
             {sym::g_textOnOption, sym::g_textEvent, offsetof(GuiKeySniffer, onOption)}, // "OnOption" Event
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {sym::bmx::g_textOnOption2, sym::g_textEvent, offsetof(GuiKeySniffer, onOption2)}, // "OnOption2" Event (ZGE4)
 #endif
             {sym::g_textOnStart, sym::g_textEvent, offsetof(GuiKeySniffer, onStart)}, // "OnStart" Event
             {sym::g_textOnSelect, sym::g_textEvent, offsetof(GuiKeySniffer, onSelect)}, // "OnSelect" Event
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             {sym::g_textOnFire1, sym::g_textEvent, offsetof(GuiKeySniffer, onFire1)}, // "OnFire1" Event
             {sym::g_textOnFire2, sym::g_textEvent, offsetof(GuiKeySniffer, onFire2)}, // "OnFire2" Event
             {sym::g_textOnFire3, sym::g_textEvent, offsetof(GuiKeySniffer, onFire3)}, // "OnFire3" Event
@@ -686,12 +686,12 @@ namespace zge::zgui
             {sym::g_textOnRightStickMove, sym::g_textEvent, offsetof(GuiKeySniffer, onRightStickMove)}, // "OnRightStickMove" Event
             {sym::g_textOnLTrig1, sym::g_textEvent, offsetof(GuiKeySniffer, onLTrig1)}, // "OnLTrig1" Event
             {sym::g_textOnLTrig2, sym::g_textEvent, offsetof(GuiKeySniffer, onLTrig2)}, // "OnLTrig2" Event
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {sym::bmx::g_textOnLTrig3, sym::g_textEvent, offsetof(GuiKeySniffer, onLTrig3)}, // "OnLTrig3" Event (ZGE4)
 #endif
             {sym::g_textOnRTrig1, sym::g_textEvent, offsetof(GuiKeySniffer, onRTrig1)}, // "OnRTrig1" Event
             {sym::g_textOnRTrig2, sym::g_textEvent, offsetof(GuiKeySniffer, onRTrig2)}, // "OnRTrig2" Event
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {sym::bmx::g_textOnRTrig3, sym::g_textEvent, offsetof(GuiKeySniffer, onRTrig3)}, // "OnRTrig3" Event (ZGE4)
             {sym::bmx::g_textOnSpecial, sym::g_textEvent, offsetof(GuiKeySniffer, onSpecial)}, // "OnSpecial" Event (ZGE4)
             {sym::g_textOnFire1, sym::g_textEvent, offsetof(GuiKeySniffer, onFire1)}, // "OnFire1" Event (ZGE4: last)
@@ -716,7 +716,7 @@ namespace zge::zgui
             {0, &Zgui::acceptButton, &GuiKeySniffer::onAccept},
             {0, &Zgui::cancelButton, &GuiKeySniffer::onCancel},
             {0, &Zgui::optionButton, &GuiKeySniffer::onOption},
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {0, &Zgui::option2Button, &GuiKeySniffer::onOption2},
 #endif
             {kButtonFire1, nullptr, &GuiKeySniffer::onFire1},
@@ -725,12 +725,12 @@ namespace zge::zgui
             {kButtonFire4, nullptr, &GuiKeySniffer::onFire4},
             {0x100, nullptr, &GuiKeySniffer::onLTrig1},
             {0x400, nullptr, &GuiKeySniffer::onLTrig2},
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {0x1000, nullptr, &GuiKeySniffer::onLTrig3},
 #endif
             {0x200, nullptr, &GuiKeySniffer::onRTrig1},
             {0x800, nullptr, &GuiKeySniffer::onRTrig2},
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             {0x2000, nullptr, &GuiKeySniffer::onRTrig2}, // a bug kept: ZGE4's third right trigger runs OnRTrig2
 #endif
             {0x4000, nullptr, &GuiKeySniffer::onStart},
@@ -743,7 +743,7 @@ namespace zge::zgui
         // A frame as its Draw reads it (box.cpp: drawBoxWidget).
         struct BoxWidget
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             // ZGE4: the kind's Alignment, Width and Height are the widget's, named here over it (WidgetLayout).
             union
             {
@@ -770,11 +770,11 @@ namespace zge::zgui
             uint32_t _124;
             uint8_t colour[4];        // +0x128 RGBA, RGB scaled by zgui's alpha
             uint32_t _12c[3];
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             uint32_t alignment;       // +0x138 low nibble 0 left, 1 centre, 2 right; high 0 top, 1 middle, 2 bottom (ZGE4: above)
 #endif
             uint32_t textureName[9];  // +0x13C (ZGE4 +0x138) 0: none
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
             ee::Float width;          // +0x160 (ZGE4: above)
             ee::Float height;         // +0x164
 #endif

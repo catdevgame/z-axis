@@ -1,11 +1,11 @@
-// A disc image's file read as the image it holds (ps2x/iop/disc_image_file.h).
+// A disc image's file read as the image it holds (zx/disc/disc_image_file.h).
 #include "disc_image_formats.h"
 
 #include <cstring>
 
-namespace ps2x::iop
+namespace zx::disc
 {
-    namespace disc_formats
+    namespace formats
     {
         bool seekTo(std::FILE *file, uint64_t offset)
         {
@@ -35,7 +35,7 @@ namespace ps2x::iop
 
     namespace
     {
-        using namespace disc_formats;
+        using namespace formats;
 
         // The image's own bytes.
         class PlainImage final : public DiscImageFile

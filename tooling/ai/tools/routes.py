@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Scripted routes for test runs: any level, the skater states the Tutorial's lessons reach.
 
-Drives a native runner through PS2X_CONTROL (tools/nctl.py), closed loop: the
+Drives a native runner through ZX_CONTROL (tools/nctl.py), closed loop: the
 moves wait on the game's state (position, mode), not on wall-clock time. Used
-to record readable functions (PS2X_FNREC) in states the logiccheck and
+to record readable functions (ZX_FNREC) in states the logiccheck and
 careercheck inputs never reach (docs/READABLE.md, round 6).
 
     routes.py start NAME [KEY=VAL ...]   launch RUNNER with a scratch HOME, card and support folder
@@ -107,11 +107,11 @@ Commands (NAME's runner must be running):
     career K                 from the main menu: CAREER, first skater, level-select entry K
     splitscreen              from the main menu: MULTIPLAYER, the default game (Most Points,
                              Movie Lot, split screen), P2 on the next skater; placed
-                             (start with PS2X_PAD_PORT1=mirror: without a second
+                             (start with ZX_PAD_PORT1=mirror: without a second
                              gamepad port 1 is empty and the game skips MULTIPLAYER)
     freeskate K [SKATER]     from the main menu: FREE SKATE, skater SKATER (0), level K
                              (other levels than the Tutorial and the Movie Lot need
-                             PS2X_DEV_UNLOCK_ALL=1 or an unlocked card)
+                             ZX_DEV_UNLOCK_ALL=1 or an unlocked card)
     skate [N]                N rounds (1) of tools/sweep.py's routine: pushes, jumps, grabs,
                              grinds, turns, a manual
     menu                     pause, EXIT (back to the main menu)
@@ -164,7 +164,7 @@ Commands (NAME's runner must be running):
                              coverage=FILE (or MASH_COVERAGE; fncheck_corpus.py coverage
                              --json): the weights from the uncovered blocks of the
                              covstatus= (Verified) functions each state's callbacks reach
-                             instead; with PS2X_FNREC_NEW_BLOCKS=1 the recorder's new-block
+                             instead; with ZX_FNREC_NEW_BLOCKS=1 the recorder's new-block
                              lines credit the spot the skater was put on (visited more).
     where                    position, state, level, mode
     sound [front|pause [N]]  (for recording) the sound options: front (from the main menu, cursor on
@@ -176,7 +176,7 @@ Commands (NAME's runner must be running):
                              stick (inside and past Control / Controller Deadzone on each axis: readStick),
                              then L1+R1, R2 and L2 presses on the ground (meant for twoButtonCommand and
                              cessSlideButton; they reach nothing new: the pad's pressed word, PadState
-                             +0x0C, stays 0 for buttons held through PS2X_CONTROL)
+                             +0x0C, stays 0 for buttons held through ZX_CONTROL)
     pe2enter [THEME [load]]  (paths2: the Park Editor) from the main menu: PARK EDITOR, the first skater, New
                              Park in theme THEME (0-3, 1), or Load Saved Park (card slot 1, the first park)
     pe2terrain, pe2objects [VARIANTS], pe2rails [CELLS], pe2start, pe2camera
@@ -218,7 +218,7 @@ Commands (NAME's runner must be running):
     carddialog [save|load [SLOT [STEP ...]]]
                              (paths9; main menu) OPTIONS > SAVE & LOAD > SAVE or LOAD, card slot SLOT (0), then each STEP (buttons
                              joined by +, e.g. DOWN+CROSS) pressed with 150 vsyncs after it: the dialogs of an unformatted,
-                             missing or failing card (PS2X_MC_SLOT1/2, PS2X_MC_FAIL); back to the main menu
+                             missing or failing card (ZX_MC_SLOT1/2, ZX_MC_FAIL); back to the main menu
     menumash [PRESSES [SEED]]
                              (paths9; from the main menu, for recording) PRESSES (800) seeded random presses (d-pad half of them, CROSS a\n                             quarter, TRIANGLE, START, SQUARE, CIRCLE, L1, R1) 12 to 40 vsyncs apart: the menus' input handlers, no closed loop
     boxes, points [CLASS], talk NAME
@@ -252,7 +252,7 @@ Commands (NAME's runner must be running):
     pausetour [K,K..]        (in a career level) the pause menu's pages K (1,2,4,5,3: Challenges, Attributes,
                              View Loot, Trick List, Save): each opened, presses inside (a challenge's
                              detail and fly-thru, a list's categories), back to play
-    devmenu [STEP]           (in a level; the runner with PS2X_DEV_MENU=1) the hidden debug menu
+    devmenu [STEP]           (in a level; the runner with ZX_DEV_MENU=1) the hidden debug menu
                              (docs/DEVTOOLS.md): Toggle Debug three times, Respawn, the Art Viewer (every
                              button, Select: its screen dump), every Tuning category (each STEP-th (3) entry
                              stepped up and back), Resume
@@ -293,12 +293,12 @@ Commands (NAME's runner must be running):
                              draws while the game is paused (the effects' clock goes on)
     cardfill [KB]            (paths6) card slot 1 filled with a KB (8000) file of its own (an 8 MB card holds 8,135
                              KB): too full for a save; KB 0 empties it again
-    restartlevel [LEVEL]     (paths7; in Career or Freeskate; the runner with PS2X_GAME_SETTINGS_MENUS=1) the pause
+    restartlevel [LEVEL]     (paths7; in Career or Freeskate; the runner with ZX_GAME_SETTINGS_MENUS=1) the pause
                              menu's Restart Level (item 1, the port's: the level's exit, then the same level,
                              skaters and mode loaded again); LEVEL (test
                              only): the level byte (0x24C9B4) set to it first, so that level loads instead (9:
                              LOCAL, the January 2002 test level no menu reaches, with its own scripts)
-    shot FILE                (paths7) the presented picture to FILE (a run with the GS on: PS2X_GS_NULL=0)
+    shot FILE                (paths7) the presented picture to FILE (a run with the GS on: ZX_GS_NULL=0)
     buttons7 B,B.. [K,K..]   (paths7) each button pressed in turn; with K (the Park Editor's roll entries, as pe2roll:
                              0 Terrain, 1-13 the piece groups, 14 Rail, 15 Start) the presses in each of those tools
                              (the editors' button callbacks no other route pressed: Triangle, Square, Left, L3 ...)
@@ -322,7 +322,7 @@ Graduation Day.
 Environment: RUNNER (default the z-axis checkout's out/build-ai), ROUTES_DIR, ROUTES_SLOW (wall-clock
 limits that many times longer, for a runner slowed down by recording); mash: MASH_SECS,
 MASH_SPOTS, MASH_REACHED, MASH_COVERAGE, WORKDB_PY. Every KEY=VAL
-of start goes to the runner (PS2X_FNREC=..., PS2X_DEV_UNLOCK_ALL=1, ...); PS2X_ROUTES_CARD=DIR
+of start goes to the runner (ZX_FNREC=..., ZX_DEV_UNLOCK_ALL=1, ...); ZX_ROUTES_CARD=DIR
 puts a copy of a ready-made card (recomp/run/mc-sweep-park, ...) in slot 1 (the original is
 never written).
 """
@@ -717,7 +717,7 @@ MOVES = ["stall", "vpole", "vpolea", "hpole", "skitch", "skitchgo", "wallride", 
 
 
 # ---- paths2: the Park Editor, tool by tool -----------------------------------------
-# (PS2Recomp paths2: routes to the Park Editor's swept drafts.) The editor's tools come
+# (round paths2: routes to the Park Editor's swept drafts.) The editor's tools come
 # from its theme file, ASSETS/EDITOR/INLINE.PEP: the front end's four themes have the
 # Terrain, Object, Rail and Start tools (StartTool 0: Terrain first); the careers' in-level
 # editors have one tool each (Cannery: EditPisserTool, Industrial: EditCraneTool, AirField
@@ -1117,7 +1117,7 @@ def pe_ingame(r, rounds=3, skate=2):
     """(In a career level whose in-level editor its giver started: Cannery's Pisser Tool,
     Industrial's Crane Tool, Airfield's Vacuum Tool) jumps until the editor runs; ROUNDS of
     every button (pick, move, turn, drop, delete; the shoulder buttons); pause > Do challenge;
-    skated (sweep.py's routine). (PS2X_GUEST_CALL of activateParkEditor 0x1BFE18 from the
+    skated (sweep.py's routine). (ZX_GUEST_CALL of activateParkEditor 0x1BFE18 from the
     level's update sets the editor object and then crashes the EE: no route uses it.)"""
     for _ in range(40):
         if r.u32(PE_EDITOR):
@@ -1589,7 +1589,7 @@ def pickup_run(r, most=40, hold=150, first=0, isolate=False):
     updatePickup's paths), the skater moved 2 units off halfway (it turns
     to face him). ISOLATE (test only: pokes): the other NPCs' `still`
     (+0x30) set while one is tried (no box or light update: their frames
-    make 3 calls), so a recorder with PS2X_FNREC_MIN_CALLS=6 keeps only the
+    make 3 calls), so a recorder with ZX_FNREC_MIN_CALLS=6 keeps only the
     tried NPC's frames, the get-up's end (6 calls) among them."""
     r.tips()
     found = sorted(pickups(r), key=lambda f: f[3])
@@ -2163,7 +2163,7 @@ class Mash:
         base = os.path.join(os.environ.get("ROUTES_DIR", "/tmp/routes"), r.name)
         os.makedirs(base, exist_ok=True)
         self.logfile = open(os.path.join(base, "mash-%s.jsonl" % seed), "a")
-        # The recorder's [fncheck:newblocks] lines (PS2X_FNREC_NEW_BLOCKS=1):
+        # The recorder's [fncheck:newblocks] lines (ZX_FNREC_NEW_BLOCKS=1):
         # each credits the spot the skater was last put on and the state it
         # is in, so spots that led to new paths are visited again.
         self.runner_log = os.path.join(nctl.LOGS, r.name + ".log")
@@ -3077,7 +3077,7 @@ def sound(r, where="pause", entry=2):
 
 
 def controls(r):
-    """The controls update's analog and two-button paths (PS2Recomp gamehand,
+    """The controls update's analog and two-button paths (round gamehand,
     aggressive/skater/control_steps.cpp): the left stick in and past the dead
     zone (0.1) on each axis, L1+R1 together on the ground, R2 and L2 taps."""
     player = r.player()
@@ -3095,7 +3095,7 @@ def controls(r):
 
 
 # ---- paths1: the front end, Timed Run, Multiplayer games, air tricks, the debug menu ----
-# (PS2Recomp paths1: routes to the swept drafts no route reached; docs/READABLE.md.)
+# (round paths1: routes to the swept drafts no route reached; docs/READABLE.md.)
 CHEAT_CODES = ("sddsasasddd", "wwssadadBABA", "SKELETON", "wswsadadABABS", "aaddadswwsAI", "KHUFU",
                "BIGUPYASELF", "JUSTIN BAILEY", "aaaaddddadadw", "QUEZDONTSLEEP", "BAKABAKA", "ZZZ")
 # Options > Cheats keyboard: 9 a row, w a s d the arrow keys (BRINGUP.md "Level and mode sweep")
@@ -3309,7 +3309,7 @@ def mp_game(r, game, frames=3000, seed=1):
 
 
 # ---- paths4: the Multiplayer games to their results, pause pages, effects -------------------
-# (PS2Recomp paths4.) A zgui screen is known by the name hash (zge::nameHash, +0x10) of the top
+# (round paths4.) A zgui screen is known by the name hash (zge::nameHash, +0x10) of the top
 # panel's parent group: the pause's "Pause", split screen's game choice "MultiplayerStart" and
 # its results "MultiplayerOverStats" (UILIB.ZAL's InGame scripts).
 SCREEN_PAUSE, SCREEN_MP_MENU, SCREEN_MP_RESULTS = 0x546A75, 0x29AAAB4, 0x6BA1013
@@ -3570,7 +3570,7 @@ PATHS5_COMMANDS = {
                                  % (r.player(), r.u32(r.player() + 0x14), r.u32(r.player() + 0xC))),
 }
 
-# Round paths6 (PS2Recomp paths6): small helpers for the weather, effect and card routes.
+# Round paths6: small helpers for the weather, effect and card routes.
 def pause_for(r, frames=120):
     """(In a level) paused for FRAMES vsyncs, then back to play."""
     paused(r, True)
@@ -3776,7 +3776,7 @@ def air_tricks(r, entries=None, lift=-40.0, button="SQUARE", hold=6, jizz=False)
 
 
 def dev_menu(r, step=3):
-    """(In a level; the runner started with PS2X_DEV_MENU=1) the hidden debug menu
+    """(In a level; the runner started with ZX_DEV_MENU=1) the hidden debug menu
     (docs/DEVTOOLS.md): Toggle Debug three times, Respawn, the Art Viewer (the camera moved
     with every button, Select: its screen dump 0x110BC0), every Tuning category opened (each
     STEP-th entry stepped up and back down), Resume."""
@@ -3890,7 +3890,7 @@ def pause_tour(r, entries=(1, 2, 4, 5, 3), presses=("DOWN", "RIGHT", "CROSS", "D
         r.log("pause entry", k, "done: mode", r.u32(MODE))
 
 # ---- paths3: career progress (keys), the challenge givers, the career editors -------------
-# (PS2Recomp paths3.) A career level's givers are its script's NPC objects (createNPCBubble on
+# (round paths3.) A career level's givers are its script's NPC objects (createNPCBubble on
 # the object of the same name; CIRCLE by it sends the script object "action"); their places are
 # the level's data points of class 0x5343 (named by zge::nameHash of the object's name; the
 # list at +0x10 next / +0x14 previous, mash_points walks it one way from the respawn point).
@@ -4175,7 +4175,7 @@ def cr_card_save(r):
 def cr_card_dialog(r, what="save", slot=0, answers=()):
     """(paths9; main menu, cursor on CAREER) OPTIONS > SAVE & LOAD > SAVE (or LOAD), card slot SLOT (0 or 1), then each of
     ANSWERS (a step: buttons joined by +, e.g. DOWN+CROSS) pressed in turn with 150 vsyncs after it: the dialogs a card
-    that is unformatted, missing or failing puts up (the runner's PS2X_MC_SLOT1/2, PS2X_MC_FAIL); back to the main menu."""
+    that is unformatted, missing or failing puts up (the runner's ZX_MC_SLOT1/2, ZX_MC_FAIL); back to the main menu."""
     top = r.u32(PANEL)
     for _ in range(5):
         r.press("RIGHT", gap=30)
@@ -4262,13 +4262,13 @@ def start(name, extra):
     for sub in ("home", "support", "logs", "shots"):
         os.makedirs(os.path.join(base, sub))
     os.makedirs(os.path.join(base, "mc0"))
-    # PS2X_ROUTES_CARD=DIR: a copy of a ready-made card (recomp/run/mc-sweep-park, ...) in slot 1
+    # ZX_ROUTES_CARD=DIR: a copy of a ready-made card (recomp/run/mc-sweep-park, ...) in slot 1
     for kv in extra:
-        if kv.startswith("PS2X_ROUTES_CARD="):
+        if kv.startswith("ZX_ROUTES_CARD="):
             shutil.copytree(os.path.expanduser(kv.split("=", 1)[1]), os.path.join(base, "mc0"), dirs_exist_ok=True)
-    env = ["HOME=%s/home" % base, "PS2X_MC_ROOT=%s/mc0" % base, "PS2X_APP_SUPPORT_DIR=%s/support" % base,
-           "PS2X_APP_LOG_DIR=%s/logs" % base, "PS2X_SCREENSHOT_DIR=%s/shots" % base,
-           "PS2X_CONTROLS_INI=%s/home/controls.ini" % base] + extra
+    env = ["HOME=%s/home" % base, "ZX_MC_ROOT=%s/mc0" % base, "ZX_APP_SUPPORT_DIR=%s/support" % base,
+           "ZX_APP_LOG_DIR=%s/logs" % base, "ZX_SCREENSHOT_DIR=%s/shots" % base,
+           "ZX_CONTROLS_INI=%s/home/controls.ini" % base] + extra
     nctl.start(name, env)
 
 

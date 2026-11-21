@@ -5,8 +5,8 @@ and the toolchain that built it. Two things here are used by the rest of the too
 
 - the assembly listing (`asm/cod/*.s`, made by `configure.py`): `tooling/checks/readable_frame_stores.py` reads it,
   and a readable function the drafter does not finish is written from it (docs/READABLE.md);
-- the original assembler and binutils (`tools/binutils`, fetched by `tools/setup.sh`): the PCSX2 reference runs'
-  pad hooks are assembled with them (`tooling/ai/tools/build_hook.py`, `tooling/dm2/tools/dm2_build_hook.py`).
+- the PS2 binutils (decompals' `binutils-mips-ps2-decompals`, `tools/binutils`, fetched by `tools/setup.sh`): the PCSX2
+  reference runs' pad hooks are assembled with them (`tooling/ai/tools/build_hook.py`, `tooling/dm2/tools/dm2_build_hook.py`).
 
 The build reassembles and links the split and reproduces both the flat load image and the full retail ELF byte for
 byte (`ninja` checks both SHA1s), which proves the listing is the whole program.
@@ -74,7 +74,8 @@ tools/setup.sh            # or: tools/setup.sh --all  (also the comparison compi
 ```
 
 `tools/setup.sh` installs (about 150 MB in `tools/` plus the 120 MB image):
-- `.venv`: splat64 0.50.1, spimdisasm 1.42.4, rabbitizer 1.16.2 (R5900 mode is selected by splat's `platform: ps2`)
+- `.venv` (`requirements.txt`): splat64 0.50.1, spimdisasm 1.42.4, rabbitizer 1.16.2 (R5900 mode is selected by splat's
+  `platform: ps2`), pyelftools 0.33, capstone 5.0.9
 - decompals `binutils-mips-ps2-decompals` v0.10 (macOS arm64): as/ld/objcopy for the split asm and the link
 - decomp.me compiler packages: `ee-gcc2.9-991111` (Linux i386, the matching toolchain) and `ee-gcc2.9-991111b-r4` (Windows, same cc1 codegen)
 - `wibo` 1.2.0 macOS build: runs the Windows compiler builds natively; the build does not need it.

@@ -119,7 +119,7 @@ namespace ps2_game_overrides
         for (ShutdownFn fn : hooks)
             fn(runtime);
         // Then the game's own (its module saving progress).
-        ps2x::session::runShutdownHooks(runtime);
+        zx::session::runShutdownHooks(runtime);
     }
 
     void addAfterApplyHook(AfterApplyFn fn)

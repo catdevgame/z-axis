@@ -1,7 +1,7 @@
 #pragma once
 
 // GS input trace ("GS dump") format, written by GS::startRecording and read
-// by ps2xGsReplay. Everything is little endian.
+// by zx-gsreplay. Everything is little endian.
 //
 // Header:
 //   char[8]  magic "PS2XGSR1"

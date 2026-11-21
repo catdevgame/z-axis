@@ -5,7 +5,7 @@
 #include "runtime/ps2_zip_archive.h"
 #include "test_iso_builder.h"
 #include "test_zip_builder.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 
 #include <chrono>
 #include <filesystem>
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-using namespace ps2x::game_files;
+using namespace zx::game_files;
 
 namespace
 {
@@ -23,7 +23,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = std::filesystem::temp_directory_path() / ("ps2x-gamefiles-" + std::to_string(now));
+            path = std::filesystem::temp_directory_path() / ("zx-gamefiles-" + std::to_string(now));
             std::filesystem::create_directories(path);
         }
         ~TempDir()
@@ -128,7 +128,7 @@ void register_ps2_game_files_tests()
             TempDir dir;
             const std::filesystem::path iso = dir.path / "disc.iso";
             test_iso::write(iso, {{"SYSTEM.CNF", test_iso::bytesOf("BOOT2")}, {"ASSETS/LEVEL.BIN", test_iso::bytesOf("level data")}});
-            auto image = std::make_shared<ps2x::iop::Iso9660Image>();
+            auto image = std::make_shared<zx::disc::Iso9660Image>();
             t.IsTrue(image->open(iso), "image opens");
             GameFileSystem files({{}, image, {}});
             auto file = files.open("assets\\level.bin");
@@ -143,8 +143,8 @@ void register_ps2_game_files_tests()
             TempDir dir;
             put(dir.path / "disc" / "ASSETS" / "UILIB.ZAL", "menu");
             put(dir.path / "mods" / "ASSETS" / "UILIB.ZAL", "mod menu");
-            ps2x::disc_patch::clearPatches();
-            ps2x::disc_patch::registerPatch("UILIB.ZAL", [](std::vector<uint8_t> &bytes)
+            zx::disc_patch::clearPatches();
+            zx::disc_patch::registerPatch("UILIB.ZAL", [](std::vector<uint8_t> &bytes)
             {
                 const std::string extra = " + settings";
                 bytes.insert(bytes.end(), extra.begin(), extra.end());
@@ -155,20 +155,20 @@ void register_ps2_game_files_tests()
             t.IsTrue(file && file->origin() == GameFile::Origin::Patched, "patched");
             if (file)
                 t.Equals(contents(*file), std::string("mod menu + settings"), "patch applied to the mod's file");
-            ps2x::disc_patch::clearPatches();
+            zx::disc_patch::clearPatches();
         });
 
         tc.Run("two patches for one file run in order", [](TestCase &t)
         {
             TempDir dir;
             put(dir.path / "disc" / "ASSETS" / "UILIB.ZAL", "menu");
-            ps2x::disc_patch::clearPatches();
-            ps2x::disc_patch::registerPatch("UILIB.ZAL", [](std::vector<uint8_t> &bytes)
+            zx::disc_patch::clearPatches();
+            zx::disc_patch::registerPatch("UILIB.ZAL", [](std::vector<uint8_t> &bytes)
             {
                 bytes.push_back('1');
                 return true;
             });
-            ps2x::disc_patch::registerPatch("uilib.zal", [](std::vector<uint8_t> &bytes)
+            zx::disc_patch::registerPatch("uilib.zal", [](std::vector<uint8_t> &bytes)
             {
                 bytes.push_back('2');
                 return true;
@@ -178,7 +178,7 @@ void register_ps2_game_files_tests()
             t.IsTrue(file != nullptr, "opened");
             if (file)
                 t.Equals(contents(*file), std::string("menu12"), "first patch, then the second");
-            ps2x::disc_patch::clearPatches();
+            zx::disc_patch::clearPatches();
         });
 
         tc.Run("a zip mod is read in place, over the folders before it", [](TestCase &t)
@@ -281,6 +281,41 @@ void register_ps2_game_files_tests()
             clearProviders();
         });
 
+        tc.Run("heads: a new head served over the file found, the rest read through, made once", [](TestCase &t)
+        {
+            TempDir dir;
+            put(dir.path / "disc" / "ASSETS" / "AUDIO" / "MUSIC.ZSD", "HEADbody-of-the-bank");
+            put(dir.path / "disc" / "ASSETS" / "OTHER.ZSD", "HEADother");
+            int made = 0;
+            registerHead("assets/audio/music.zsd", [&made](GameFile &file) -> std::shared_ptr<const std::vector<uint8_t>>
+            {
+                ++made;
+                char first[4];
+                if (file.read(0, first, 4) != 4 || std::string(first, 4) != "HEAD")
+                    return nullptr;
+                const std::string head = "NEWHEAD!";
+                return std::make_shared<const std::vector<uint8_t>>(head.begin(), head.end());
+            }, "test");
+            GameFileSystem files({dir.path / "disc", nullptr, {}});
+            auto bank = files.open("ASSETS/AUDIO/MUSIC.ZSD");
+            t.IsTrue(bank && bank->origin() == GameFile::Origin::Patched, "the head makes it a patched file");
+            if (bank)
+            {
+                t.Equals(contents(*bank), std::string("NEWHEAD!-of-the-bank"), "the head over the first bytes, the rest the file's");
+                t.Equals(bank->size(), uint64_t(20), "its size the file's");
+                char middle[6] = {};
+                t.IsTrue(bank->read(5, middle, 5) == 5 && std::string(middle, 5) == "AD!-o", "a read across the head's end");
+            }
+            files.open("assets\\audio\\music.zsd;1");
+            t.Equals(made, 1, "made once for the file found");
+            auto other = files.open("ASSETS/OTHER.ZSD");
+            t.IsTrue(other && other->origin() == GameFile::Origin::Disc && contents(*other) == "HEADother", "another path as it is");
+            removeHeads("test");
+            GameFileSystem again({dir.path / "disc", nullptr, {}});
+            auto plain = again.open("ASSETS/AUDIO/MUSIC.ZSD");
+            t.IsTrue(plain && contents(*plain) == "HEADbody-of-the-bank", "removed: the file as it is");
+        });
+
         tc.Run("memory folders: none registered reads as before; one is read over the mods", [](TestCase &t)
         {
             TempDir dir;
@@ -360,8 +395,8 @@ void register_ps2_game_files_tests()
                 return std::make_shared<const std::vector<uint8_t>>(text.begin(), text.end());
             };
             {
-                ps2x::boot::Scope first(ps2x::BootConfig{});
-                ps2x::disc_patch::registerPatch("UILIB.ZAL", mark);
+                zx::boot::Scope first(zx::BootConfig{});
+                zx::disc_patch::registerPatch("UILIB.ZAL", mark);
                 registerProvider("assets/levels/zoo", made, "test");
                 GameFileSystem files({dir.path / "disc", nullptr, {}});
                 auto ui = files.open("ASSETS/UILIB.ZAL");
@@ -369,8 +404,8 @@ void register_ps2_game_files_tests()
                 auto txr = files.open("ASSETS/LEVELS/ZOO/ZOO.TXR");
                 t.IsTrue(txr && txr->origin() == GameFile::Origin::Provided, "the first boot's provider");
             }
-            ps2x::boot::Scope second(ps2x::BootConfig{});
-            t.IsTrue(!ps2x::disc_patch::hasPatch("UILIB.ZAL"), "no patch in the next boot");
+            zx::boot::Scope second(zx::BootConfig{});
+            t.IsTrue(!zx::disc_patch::hasPatch("UILIB.ZAL"), "no patch in the next boot");
             {
                 GameFileSystem files({dir.path / "disc", nullptr, {}});
                 auto ui = files.open("ASSETS/UILIB.ZAL");
@@ -382,12 +417,12 @@ void register_ps2_game_files_tests()
             }
             // The same install again: one patch, not the first boot's chained
             // with this one's.
-            ps2x::disc_patch::registerPatch("UILIB.ZAL", mark);
+            zx::disc_patch::registerPatch("UILIB.ZAL", mark);
             GameFileSystem files({dir.path / "disc", nullptr, {}});
             auto ui = files.open("ASSETS/UILIB.ZAL");
             if (ui)
                 t.Equals(contents(*ui), std::string("menu!"), "patched once");
-            ps2x::disc_patch::clearPatches();
+            zx::disc_patch::clearPatches();
         });
     });
 }

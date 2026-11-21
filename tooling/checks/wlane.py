@@ -10,16 +10,16 @@ the readable code leaves different, which the gate sees as RAM words differing).
       SOURCE  after=PC LANE   the lane as instruction PC leaves it (PC in the function's code)
               entry=PC LANE   the lane as the function at PC is called
               ret=PC LANE     the lane as the call at site PC returns
-              LANE: vf6.w  a3.hi  a3.2  f22  (as PS2X_LANE_POKE's, runtime/lane_watch.h)
-  wlane.py readers --game G WATCH            the lane watch's report (PS2X_LANE_WATCH_OUT): each load of a watched
+              LANE: vf6.w  a3.hi  a3.2  f22  (as ZX_LANE_POKE's, runtime/lane_watch.h)
+  wlane.py readers --game G WATCH            the lane watch's report (ZX_LANE_WATCH_OUT): each load of a watched
                                              word followed from its destination lane; each store and readable access listed
   wlane.py poke --game G --input I --to T --runner R --dir D --poke SPEC[,SPEC] --name NAME [--clock K] [--spec S]
-                                             two runs with PS2X_LANE_POKE forcing the lane to two values, compared
+                                             two runs with ZX_LANE_POKE forcing the lane to two values, compared
                                              (career_ab.py), the moved words watched in a third run and their readers
                                              followed: the verdict and the words, into D/NAME.lanes.txt
-  wlane.py poke ... --diff                   the differential instead of the static follow's verdict (a ZAXIS_LANE_WATCH
+  wlane.py poke ... --diff                   the differential instead of the static follow's verdict (a ZX_LANE_WATCH_BUILD
                                              build whose generated code is wlane_branches.py's copy): the lane at
-                                             DIFF_VALUES and the first value again, PS2X_LANE_DIFF in every run; DEAD on
+                                             DIFF_VALUES and the first value again, ZX_LANE_DIFF in every run; DEAD on
                                              the input when every run has the same control flow (each branch's
                                              directions, each register jump's targets), the same load and store
                                              addresses and the same calls as the first, nothing observable differs and
@@ -176,7 +176,7 @@ class Code:
                     break
 
     def add_callers(self, path):
-        """The lane runtime's call graph (PS2X_LANE_CALLERS_OUT: `C callee=0x.. from=0x.. n=..`): the callers no jal names."""
+        """The lane runtime's call graph (ZX_LANE_CALLERS_OUT: `C callee=0x.. from=0x.. n=..`): the callers no jal names."""
         added = 0
         for line in open(path):
             m = re.match(r'^C callee=0x([0-9a-f]+) from=0x([0-9a-f]+)', line)
@@ -1854,7 +1854,7 @@ def observable_differences(compare_text):
             registers.append(p)
         elif p.startswith('vif1 stream') or p.startswith('vif0 stream'):
             # the lane reaches a VIF stream in words the probe's kDeadWords do not cover: the VU1 side's question
-            # (ps2xVu1Check --chain --poke); not observable by itself, not proven here either
+            # (zx-vu1check --chain --poke); not observable by itself, not proven here either
             streams.append(p)
         else:
             observable.append(p)
@@ -1862,7 +1862,7 @@ def observable_differences(compare_text):
 
 
 def read_diff(path):
-    """A PS2X_LANE_DIFF report: {(kind, pc): (n, a, v)} (kind C: a callee, its call sites)."""
+    """A ZX_LANE_DIFF report: {(kind, pc): (n, a, v)} (kind C: a callee, its call sites)."""
     out = {}
     for line in open(path):
         m = DIFF_LINE.match(line.strip())
@@ -1887,15 +1887,15 @@ def cmd_diff(args, code, pokes, out):
         names.append(name)
         diff_out = os.path.join(args.dir, name + '.diff')
         if not os.path.exists(diff_out + '.t%d' % ticks[-1]) or args.rerun:
-            out.append('run %s: PS2X_LANE_POKE=%s, PS2X_LANE_DIFF at %s' % (name, spec, ','.join(map(str, ticks))))
-            rc = run_side(args, name, {'PS2X_LANE_POKE': spec, 'PS2X_LANE_DIFF': diff_out,
-                                       'PS2X_LANE_DIFF_AT': ','.join(map(str, ticks))})
+            out.append('run %s: ZX_LANE_POKE=%s, ZX_LANE_DIFF at %s' % (name, spec, ','.join(map(str, ticks))))
+            rc = run_side(args, name, {'ZX_LANE_POKE': spec, 'ZX_LANE_DIFF': diff_out,
+                                       'ZX_LANE_DIFF_AT': ','.join(map(str, ticks))})
             applied = ''
             for log in glob.glob(os.path.join(args.dir, name, '*.log')):
                 applied += ''.join(l for l in open(log, errors='replace') if '[lane-poke]' in l or '[lane-diff]' in l)
             out.append('  exit %d; %s' % (rc, applied.strip().replace('\n', '; ') or 'no [lane-poke] line in the run log'))
         if not os.path.exists(diff_out + '.t%d' % ticks[-1]):
-            return 'NOT PROVEN: run %s left no differential at tick %d (a ZAXIS_LANE_WATCH build is needed)' % (name, ticks[-1]), {}, []
+            return 'NOT PROVEN: run %s left no differential at tick %d (a ZX_LANE_WATCH_BUILD build is needed)' % (name, ticks[-1]), {}, []
     # RAM and everything observable, each run against the first
     words = collections.defaultdict(dict)
     observable_all = []
@@ -1961,8 +1961,8 @@ def cmd_poke(args):
         name = '%s-p%d' % (args.name, k)
         names.append(name)
         if not os.path.exists(os.path.join(args.dir, name, 'run.txt')) or args.rerun:
-            out.append('run %s: PS2X_LANE_POKE=%s' % (name, spec))
-            rc = run_side(args, name, {'PS2X_LANE_POKE': spec})
+            out.append('run %s: ZX_LANE_POKE=%s' % (name, spec))
+            rc = run_side(args, name, {'ZX_LANE_POKE': spec})
             applied = ''
             for log in glob.glob(os.path.join(args.dir, name, '*.log')):
                 applied += ''.join(l for l in open(log, errors='replace') if '[lane-poke]' in l)
@@ -1981,7 +1981,7 @@ def cmd_poke(args):
     if observable:
         verdict = 'LIVE: observable differences between the two values: %s' % '; '.join(observable)
     elif streams:
-        out.append('the lane reaches a VIF stream in words outside the probe\'s kDeadWords (%s): the VU1 side decides those (ps2xVu1Check --chain --poke)' % '; '.join(streams))
+        out.append('the lane reaches a VIF stream in words outside the probe\'s kDeadWords (%s): the VU1 side decides those (zx-vu1check --chain --poke)' % '; '.join(streams))
     # the watch runs over the moved words: the original code (off) and the readable set the gate runs (on)
     readers_ok = True
     if moved and not observable:
@@ -1991,11 +1991,11 @@ def cmd_poke(args):
             name = '%s-watch-%s' % (args.name, side)
             watch_out = os.path.join(args.dir, '%s.watch-%s.txt' % (args.name, side))
             if not os.path.exists(watch_out) or args.rerun:
-                out.append('run %s: PS2X_LANE_WATCH over %d words, readable %s' % (name, len(moved), side_spec or 'defaults'))
+                out.append('run %s: ZX_LANE_WATCH over %d words, readable %s' % (name, len(moved), side_spec or 'defaults'))
                 saved = args.spec
                 args.spec = side_spec
-                rc = run_side(args, name, {'PS2X_LANE_POKE': spec_poke, 'PS2X_LANE_WATCH': chunks, 'PS2X_LANE_WATCH_OUT': watch_out,
-                                           'PS2X_LANE_CALLERS': '1', 'PS2X_LANE_CALLERS_OUT': os.path.join(args.dir, '%s.callers-%s.txt' % (args.name, side))})
+                rc = run_side(args, name, {'ZX_LANE_POKE': spec_poke, 'ZX_LANE_WATCH': chunks, 'ZX_LANE_WATCH_OUT': watch_out,
+                                           'ZX_LANE_CALLERS': '1', 'ZX_LANE_CALLERS_OUT': os.path.join(args.dir, '%s.callers-%s.txt' % (args.name, side))})
                 args.spec = saved
                 out.append('  exit %d' % rc)
             callers_path = os.path.join(args.dir, '%s.callers-%s.txt' % (args.name, side))
@@ -2011,7 +2011,7 @@ def cmd_poke(args):
             if not all_dead:
                 verdict = verdict or 'NOT PROVEN: a reader of a moved word uses its lane (readable %s, above)' % side
     if verdict is None and streams:
-        verdict = 'NOT PROVEN HERE: nothing the probe counts observable differs and every RAM reader is followed, but the lane reaches %s: the VU1 side (ps2xVu1Check) must prove those words' % '; '.join(streams)
+        verdict = 'NOT PROVEN HERE: nothing the probe counts observable differs and every RAM reader is followed, but the lane reaches %s: the VU1 side (zx-vu1check) must prove those words' % '; '.join(streams)
     if verdict is None:
         if moved:
             verdict = 'DEAD on %s: the two values move %d RAM words and nothing observable; every load of them is followed to a discard%s' % (
@@ -2119,7 +2119,7 @@ def main():
     sub = parser.add_subparsers(dest='cmd', required=True)
     p = sub.add_parser('trace')
     p.add_argument('--game', required=True)
-    p.add_argument('--callers', action='append', help="a run's call graph (PS2X_LANE_CALLERS_OUT), for the callers no jal names")
+    p.add_argument('--callers', action='append', help="a run's call graph (ZX_LANE_CALLERS_OUT), for the callers no jal names")
     p.add_argument('source', nargs='+')
     p.add_argument('--depth', type=int, default=16)
     p.add_argument('--fanout', type=int, default=200)
@@ -2129,7 +2129,7 @@ def main():
     p.set_defaults(func=cmd_trace)
     p = sub.add_parser('readers')
     p.add_argument('--game', required=True)
-    p.add_argument('--callers', action='append', help="a run's call graph (PS2X_LANE_CALLERS_OUT), for the callers no jal names")
+    p.add_argument('--callers', action='append', help="a run's call graph (ZX_LANE_CALLERS_OUT), for the callers no jal names")
     p.add_argument('watch')
     p.add_argument('--depth', type=int, default=16)
     p.add_argument('--fanout', type=int, default=200)
@@ -2137,12 +2137,12 @@ def main():
     p.set_defaults(func=cmd_readers)
     p = sub.add_parser('poke')
     p.add_argument('--game', required=True)
-    p.add_argument('--callers', action='append', help="a run's call graph (PS2X_LANE_CALLERS_OUT), for the callers no jal names")
+    p.add_argument('--callers', action='append', help="a run's call graph (ZX_LANE_CALLERS_OUT), for the callers no jal names")
     p.add_argument('--input', required=True)
     p.add_argument('--to', type=int, required=True)
     p.add_argument('--runner', required=True)
     p.add_argument('--dir', required=True)
-    p.add_argument('--poke', required=True, help="PS2X_LANE_POKE items with VALUE for the value, ',' between items")
+    p.add_argument('--poke', required=True, help="ZX_LANE_POKE items with VALUE for the value, ',' between items")
     p.add_argument('--name', required=True)
     p.add_argument('--clock', type=int, default=4096)
     p.add_argument('--spec', default='off', help='the readable set of the two poked runs (off: the original code, where the leftover is)')

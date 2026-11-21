@@ -252,7 +252,7 @@ _INCLUDE = re.compile(r'^#include "sym/[^"]*"[ \t]*\n', re.M)
 
 # The bind tables literal_view reads a game folder's registrations of AI's names with (<dir>/<game>.tsv, with
 # game/<game>/bound.tsv): None is this tree's own (BIND), '' none; readable_digest.py --bind-dir sets the build's
-# (PS2X_BIND_DIR, which game.cmake makes this tree's).
+# (ZX_BIND_DIR, which game.cmake makes this tree's).
 BIND = os.path.join(HERE, 'bind')
 BIND_DIR = None
 _binds = {}
@@ -1502,7 +1502,7 @@ def conditional_lines(text):
 
 def conditional_includes(text):
     """A source's own table included under #if: every other platform has no symbols. (A layout
-    header under PS2X_GAME_INSTANCE is not one: it is that game's build's, on purpose.)"""
+    header under ZX_GAME_INSTANCE is not one: it is that game's build's, on purpose.)"""
     held = conditional_lines(text)
     found = []
     for n, line in enumerate(text.split('\n')):

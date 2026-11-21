@@ -70,7 +70,7 @@ namespace
         }
     }
 
-    // The link of this process (PS2X_SPOT_FORK: a forked child's own, relink()).
+    // The link of this process (ZX_SPOT_FORK: a forked child's own, relink()).
     bool g_checked = false, g_on = false;
     Link &state()
     {
@@ -85,7 +85,7 @@ namespace
         if (g_opened)
             return l;
         g_opened = true;
-        const char *dir = std::getenv("PS2X_PLAY_LINK");
+        const char *dir = std::getenv("ZX_PLAY_LINK");
         if (!dir || !dir[0])
             return l;
         // The player opens up for reading and down for writing first.
@@ -151,7 +151,7 @@ bool enabled()
     if (!g_checked)
     {
         g_checked = true;
-        const char *dir = std::getenv("PS2X_PLAY_LINK");
+        const char *dir = std::getenv("ZX_PLAY_LINK");
         g_on = dir && dir[0];
     }
     return g_on;

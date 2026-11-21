@@ -3,7 +3,7 @@
 
 // VU1 run corpus: every microprogram run (MSCAL / MSCNT) with its complete
 // inputs and outputs, so runs can be replayed offline and compared bit for bit
-// (ps2xVu1Check, tooling/checks/VU1_CORPUS.md).
+// (zx-vu1check, tooling/checks/VU1_CORPUS.md).
 //
 // File layout: "PS2XVU1R" magic, u32 version, then records of
 // {u32 type, u32 payload size, payload}:
@@ -75,7 +75,7 @@ namespace ps2vu1rec
         std::vector<std::vector<uint8_t>> packets; // PATH1 packets, in order
     };
 
-    // Recorder used by the runtime (PS2X_VU1_RECORD=<file>).
+    // Recorder used by the runtime (ZX_VU1_RECORD=<file>).
     class Recorder
     {
     public:

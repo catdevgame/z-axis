@@ -104,7 +104,7 @@ namespace zge_host::prompts
 
     // A picture of the game's own art of one device's button: a whole
     // texture of a library (`file` its artist's source file, lower case, as
-    // ps2x::zaxis::sourceFileName gives it: "xbox_btn_a.tga"; character 0)
+    // zx::zaxis::sourceFileName gives it: "xbox_btn_a.tga"; character 0)
     // or a character of a font (`file` the font's: "xbox_btn.zfn"). `button`
     // is the physical button it shows by position (PadButton numbering: the
     // Xbox A is Cross, a Nintendo A, on the right, Circle), or kDPadArt. The
@@ -187,8 +187,8 @@ namespace zge_host::prompts
     bool padArtShown(Device device);
 
     // The label font (empty until captured).
-    ps2x::glyphs::Font labelFont();
+    zx::glyphs::Font labelFont();
     // A font of the UI library by its atlas texture name
     // ("fnt_ovr_small_t0.zmp"); false if it has none.
-    bool atlasFont(const std::string &atlas, ps2x::zaxis::LibraryFont &font);
+    bool atlasFont(const std::string &atlas, zx::zaxis::LibraryFont &font);
 }

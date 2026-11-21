@@ -241,9 +241,9 @@ struct FSUniforms
 // cfg0.x
 #define F_TME 1u
 #define F_FGE 2u
-#define F_TINT 4u // diagnostics: replacement pictures tinted red (PS2X_GS_REPL_TINT=1)
-#define F_TINT2 8u // and indexed textures without one blue (PS2X_GS_REPL_TINT=2)
-#define F_NATIVE_TINT 16u // diagnostics: native draws tinted green (PS2X_NATIVE_TINT=1)
+#define F_TINT 4u // diagnostics: replacement pictures tinted red (ZX_GS_REPL_TINT=1)
+#define F_TINT2 8u // and indexed textures without one blue (ZX_GS_REPL_TINT=2)
+#define F_NATIVE_TINT 16u // diagnostics: native draws tinted green (ZX_NATIVE_TINT=1)
 #define F_PERSP_COLOR 32u // native draw: colour / Q is the vertex colour in perspective
 // A constant colour (flat shading, or the same at every vertex) feeding a
 // counter: rounded, not truncated, so the interpolation's float error

@@ -30,13 +30,20 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::texture_replace
+namespace zx::texture_replace
 {
+    // Block formats are 4 x 4 texels a block; a level smaller than a block
+    // takes one whole block.
     enum class Format : uint8_t
     {
         BC2 = 1,   // DXT3: 16 bytes per 4x4 block, explicit 4-bit alpha
         RGBA8 = 2, // 4 bytes per texel, R G B A
+        BC1 = 3,   // DXT1: 8 bytes per 4x4 block, 1-bit alpha
+        BC3 = 4,   // DXT5: 16 bytes per 4x4 block, interpolated alpha
+        BC7 = 5,   // BPTC: 16 bytes per 4x4 block
     };
+    // BC1, BC2, BC3 or BC7.
+    bool isBlockFormat(Format format);
 
     struct Picture
     {

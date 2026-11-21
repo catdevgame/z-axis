@@ -22,13 +22,13 @@ public:
     // Whether a pad is plugged into the port, as the game should see it:
     // port 0 always (keyboard and mouse, the first gamepad); port 1 while
     // player 2's own gamepad is connected (hi::routePort), else it is
-    // empty, as on a PS2 with one controller (PS2X_PAD_PORT1=mirror: always,
+    // empty, as on a PS2 with one controller (ZX_PAD_PORT1=mirror: always,
     // a copy of port 0). Any thread.
     static bool portConnected(int port);
 
-    // Emulated vsync counter used by PS2X_PAD_SCRIPT_CLOCK=vsync.
+    // Emulated vsync counter used by ZX_PAD_SCRIPT_CLOCK=vsync.
     void setVsyncSource(const std::atomic<uint64_t> *vsyncTick) { m_vsyncTick = vsyncTick; }
-    // EE RAM for PS2X_PAD_SCRIPT SYNC anchors.
+    // EE RAM for ZX_PAD_SCRIPT SYNC anchors.
     void setGuestMemory(const uint8_t *rdram) { m_rdram = rdram; }
 
     // Per-user folder name for controls.ini (runtime/ps2_host_input.h,
@@ -37,7 +37,7 @@ public:
     // The game whose controls these are (ps2_host_input::gameControls:
     // "ai", "dm2", "bmx"): its default controls.ini and the names of its
     // actions on the Controls rows; the config folder is named after it
-    // (as setAppName) unless PS2X_CONTROLS_INI names the file. A game
+    // (as setAppName) unless ZX_CONTROLS_INI names the file. A game
     // override calls it before the first pollHost(); default "ai".
     static void setGame(const std::string &id);
 
@@ -62,7 +62,7 @@ public:
     // mouse, or the gamepad (by its face-button labels). A key, mouse
     // button or clear mouse motion picks the keyboard; a gamepad button or
     // a stick pushed past half picks the gamepad. At start: the gamepad if
-    // one is connected. PS2X_PROMPTS=keyboard|playstation|xbox fixes it.
+    // one is connected. ZX_PROMPTS=keyboard|playstation|xbox fixes it.
     enum class InputDevice
     {
         Keyboard,
@@ -71,7 +71,7 @@ public:
         Nintendo
     };
     static InputDevice activeDevice();
-    // Fixes the device as PS2X_PROMPTS does ("keyboard", "playstation",
+    // Fixes the device as ZX_PROMPTS does ("keyboard", "playstation",
     // "xbox", "nintendo"; "auto" follows the input again). False if unknown.
     static bool forcePromptDevice(const std::string &name);
     // Changes whenever activeDevice() or the bindings change.
@@ -102,7 +102,7 @@ public:
 
     // [hotkeys] (ps2_host_input::Hotkey): how often the shortcut was
     // pressed so far; a game override acts when the count changes.
-    // triggerHotkey counts a press as if made (PS2X_CONTROL, tests).
+    // triggerHotkey counts a press as if made (ZX_CONTROL, tests).
     static uint32_t hotkeyPresses(int hotkey);
     static void triggerHotkey(int hotkey);
     // The keys bound to a shortcut (controls.ini [hotkeys]).
@@ -122,7 +122,7 @@ public:
         float wheel = 0.0f; // wheel steps since the last take (away from the user positive)
         bool focused = true;
         // The pad as the game would have read it on port 0: the gamepad
-        // (buttons by position), PS2X_PAD_SCRIPT and PS2X_CONTROL.
+        // (buttons by position), ZX_PAD_SCRIPT and ZX_CONTROL.
         uint16_t padButtons = 0u; // held at the last read, bit = PadButton
         uint16_t padPressed = 0u; // went down since the last take
         std::array<float, 4> sticks{}; // RX, RY, LX, LY in -1..1 (right/down positive), last read
@@ -131,8 +131,8 @@ public:
     static bool freeInput();
     // A game override's own presses (developer automation, e.g. a start
     // straight into a level): PadScript button masks ORed into port 0's
-    // buttons at full pressure, as PS2X_CONTROL's (every port with
-    // PS2X_PAD_PORT1=mirror); 0 releases them.
+    // buttons at full pressure, as ZX_CONTROL's (every port with
+    // ZX_PAD_PORT1=mirror); 0 releases them.
     static void setOverrideButtons(uint16_t mask);
     static FreeInput takeFreeInput();
 

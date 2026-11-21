@@ -27,7 +27,7 @@ The recompiler works by:
 * Translating those instructions to equivalent C++ code
 * Generating a runtime that can execute the recompiled code
 
-The translated code is very literal, with each MIPS instruction mapping to a C++ operation. For example, `addiu $r4, $r4, 0x20` becomes `ctx->r4 = ADD32(ctx->r4, 0X20);`.
+The translated code is very literal, with each MIPS instruction mapping to a C++ operation. For example, `addiu $a0, $a0, 0x20` becomes `SET_GPR_S32(ctx, 4, (int32_t)ADD32(GPR_U32(ctx, 4), 32));`.
 
 ## Current Behavior
 
@@ -36,7 +36,7 @@ The translated code is very literal, with each MIPS instruction mapping to a C++
 * Address bindings also support generic return handlers for triage: `ret0`, `ret1`, `reta0`.
 * The recompiler tries relocation-symbol auto-binding at callsites (`J/JAL`) before raw address dispatch; when relocation symbol is known (for example `sceCdRead`), it can call runtime handlers without manual address mapping.
 * Recompiler discovers additional internal static entry targets and emits `entry_...` wrappers for those addresses.
-* For unresolved static `J/JAL` sites, generated code falls back to `runtime->lookupFunction(0x...)`.
+* For unresolved static `J/JAL` sites, generated code falls back to `runtime->dispatchGuestBranch(...)` (the runtime's function table by address).
 * `skip` entries are not recompiled and generate explicit `ps2_stubs::TODO_NAMED(...)` wrappers.
 * Recompiled `SYSCALL` calls `runtime->handleSyscall(...)` with the encoded syscall immediate.
 * Runtime syscall dispatch tries encoded syscall ID first, then falls back to `$v1`.
@@ -62,7 +62,8 @@ Fallback workflow for quick local experiments or ELFs with debug symbols:
 ```
 
 See the [Ghidra workflow](../ps2xAnalyzer/Readme.md#4-ghidra-integration) for Ghidra instructions. For the three
-games, `tooling/recompile.sh` makes each game's config (`recomp/tools/make-config.py`) and runs the recompiler.
+games, `tooling/recompile.sh` makes each game's config (`recomp/tools/make-config.py`; BMX XXX's
+`tooling/bmx/recomp/recompile.py`) and runs the recompiler.
 
 Then build generated output and link with the runtime (`runtime/`).
 

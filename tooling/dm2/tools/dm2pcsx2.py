@@ -16,7 +16,7 @@ Examples
   dm2pcsx2.py hold CROSS 10                # hold 10 frames
   dm2pcsx2.py stick L 0 -1 30              # left stick full up for 30 frames
   dm2pcsx2.py release
-  dm2pcsx2.py script "40:START,50:CROSS"   # PS2X_PAD_SCRIPT syntax ("<t>v:" = vsyncs)
+  dm2pcsx2.py script "40:START,50:CROSS"   # ZX_PAD_SCRIPT syntax ("<t>v:" = vsyncs)
   dm2pcsx2.py run scripts/dm2-boot-to-level.txt
   dm2pcsx2.py peek 0x260494 32 ; poke 0x... 0 4
   dm2pcsx2.py dump 0 0x2000000 ram.bin
@@ -133,7 +133,7 @@ class Pad:
         self.p = Pine(slot)
         self.verbose = verbose
         # DM2PCSX2_RECORD=FILE appends every input change with its vsync, so a
-        # run can be turned into a PS2X_PAD_SCRIPT afterwards (`padscript`).
+        # run can be turned into a ZX_PAD_SCRIPT afterwards (`padscript`).
         self.record = os.environ.get("DM2PCSX2_RECORD")
         self._last_rec = None
 
@@ -432,7 +432,7 @@ def _script_time(s):
 
 
 def parse_native_script(text):
-    """PS2X_PAD_SCRIPT syntax (runtime/include/runtime/ps2_pad_script.h):
+    """ZX_PAD_SCRIPT syntax (runtime/include/runtime/ps2_pad_script.h):
     "<t>:<BUTTON>[:<dur>]" (default dur 0.25 s) and "<t>:LX=<v>[:<dur>]"
     (LX LY RX RY, v in -1..1); times in seconds or vsyncs ("123v").
     SYNC=/WAIT= anchors only matter natively (PCSX2 is the reference) and
@@ -511,7 +511,7 @@ def run_native_script(pad, text, origin="firstpoll", fps=FPS, verbose=True):
 
 
 def record_to_native(path, v_from=None, v_to=None, fps=FPS):
-    """Turn a DM2PCSX2_RECORD log into a PS2X_PAD_SCRIPT string: one
+    """Turn a DM2PCSX2_RECORD log into a ZX_PAD_SCRIPT string: one
     "<sec>:<BUTTON>:<dur>" per press, seconds counted from the game's first
     pad poll (the native runtime's origin). Returns (script, stick_notes)."""
     first, events = None, []
@@ -940,7 +940,7 @@ def main():
     ap.add_argument("command", nargs=argparse.REMAINDER,
                     help="launch | quit | status | press BTN[+BTN] [frames] | hold BTN N | down BTN | up BTN | "
                          "stick L|R x y [frames] | release | wait N | waitsec S | waitmem ADDR VAL [size] [timeout] | "
-                         "script '<PS2X_PAD_SCRIPT>'|@file | run FILE | peek ADDR [N] | poke ADDR VAL [size] | "
+                         "script '<ZX_PAD_SCRIPT>'|@file | run FILE | peek ADDR [N] | poke ADDR VAL [size] | "
                          "dump ADDR LEN FILE | savestate N | loadstate N | screenshot FILE | frame | "
                          "waitval ADDR TYPE OP VAL | pressuntil BTN ADDR TYPE OP VAL | "
                          "waitnear ADDR X Z R | peekf ADDR [N] | checkpoint SLOT NAME | "
@@ -965,7 +965,7 @@ def main():
         return
     if verb == "padscript":
         # padscript SEENLOG [DELAY_VSYNCS]: the seen log (`seenlog`) as a
-        # PS2X_PAD_SCRIPT in vsync units from the first pad read.
+        # ZX_PAD_SCRIPT in vsync units from the first pad read.
         rest = args.command[1:]
         print(seen_to_native(rest[0], int(rest[1]) if len(rest) > 1 else 0))
         return

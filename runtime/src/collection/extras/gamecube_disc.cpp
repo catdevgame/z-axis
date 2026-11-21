@@ -1,7 +1,7 @@
 // A GameCube disc image's FST (collection/extras/gamecube_disc.h).
 #include "collection/extras/gamecube_disc.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {

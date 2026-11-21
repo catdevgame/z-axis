@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::session
+namespace zx::session
 {
     namespace
     {

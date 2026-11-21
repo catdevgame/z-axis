@@ -42,7 +42,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::zaxis::xbox
+namespace zx::zaxis::xbox
 {
     struct Picture
     {

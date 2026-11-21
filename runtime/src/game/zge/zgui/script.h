@@ -159,7 +159,7 @@ namespace zge::zgui
         ee::Ptr<VariableType> next; // +0x00 the next type
         ee::Ptr<VariableType> previous; // +0x04 (the list's links)
         char name[0x20];            // +0x08 "Sint32", "ZFloat", "String" ...
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // ZGE2's type (0x40 bytes; DM2's 11 static tables, String's first):
         // no name hash, and five methods, those of ZGE3's with the same names
         // (DM2's tables hold the counterparts of AI's methods in these slots).
@@ -203,7 +203,7 @@ namespace zge::zgui
         ee::Callback<void(Variable)> expand;            // +0x60 fills in a value that has children (a path through it)
 #endif
     };
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     static_assert(offsetof(VariableType, set) == 0x28 && offsetof(VariableType, copyOut) == 0x2C);
     static_assert(offsetof(VariableType, setText) == 0x30 && offsetof(VariableType, toText) == 0x34);
     static_assert(offsetof(VariableType, destroy) == 0x38 && offsetof(VariableType, hash) == 0x40);
@@ -522,7 +522,7 @@ namespace zge::zgui
         uint32_t unused;       // +0x08 no function of either game writes or reads it
         char name[0x20];       // +0x0C
         uint32_t bytes;        // +0x2C
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t unused2;      // +0x30 no function writes or reads it (ZGE2's row has no word here)
 #endif
         ee::Callback<void(ee::Ptr<Animation>, ee::Address, ee::Ptr<Node>)> create; // +0x34, ZGE2 +0x30 (node, name, parent)
@@ -721,7 +721,7 @@ namespace zge::zgui
     {
         zge::SearchTreeNode links; // +0x00 in the host functions' tree
         uint32_t hash;             // +0x08 its key
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Callback<void(ee::Ptr<ee::Ptr<Node>>)> function; // +0x0C the argument nodes
         // ZGE4's entry ends here (kHostFunctionBytes): it keeps nothing of
         // the name but its hash. ZGE3's copy of the name, for ZGE3's body:

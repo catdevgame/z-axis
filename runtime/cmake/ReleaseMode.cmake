@@ -1,6 +1,6 @@
 include(CheckIPOSupported)
 
-option(PS2X_ENABLE_LTO "Link-time optimization for Release builds" ON)
+option(ZX_ENABLE_LTO "Link-time optimization for Release builds" ON)
 
 check_ipo_supported(RESULT IPO_SUPPORTED OUTPUT IPO_ERROR)
 
@@ -48,20 +48,20 @@ function(EnableFastReleaseMode TargetName)
             # a sweep's thousands of small drafts include many with the same
             # machine code; full ICF gave such pairs one address.
             if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-                set(_ps2x_icf /OPT:SAFEICF)
+                set(_zx_icf /OPT:SAFEICF)
             else()
-                set(_ps2x_icf /OPT:ICF)
+                set(_zx_icf /OPT:ICF)
             endif()
             target_link_options(${TargetName} PRIVATE
                 $<$<CONFIG:Release>:
                     /OPT:REF # remove unreferenced
-                    ${_ps2x_icf} # fold identical COMDATs (see above)
+                    ${_zx_icf} # fold identical COMDATs (see above)
                 >
             )
         endif()
     endif()
 
-    if(NOT PS2X_ENABLE_LTO)
+    if(NOT ZX_ENABLE_LTO)
         return()
     endif()
     if(IPO_SUPPORTED)

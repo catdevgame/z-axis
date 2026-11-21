@@ -4,7 +4,7 @@
 #include "games_database.h"
 #include "runtime/ps2_boot_sequence.h"
 #include "runtime/ps2_front_end.h"
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
 #include "ps2_debug_panel.h"
 #endif
 
@@ -29,7 +29,7 @@
 #include <cstring>
 #endif
 
-#if defined(PS2X_PGO_GENERATE)
+#if defined(ZX_PGO_GENERATE)
 // Instrumented builds (clang -fprofile-instr-generate): write the profile
 // before std::_Exit, which skips the runtime's own atexit writer.
 extern "C" int __llvm_profile_write_file(void);
@@ -85,7 +85,7 @@ namespace
                                              {
                                                  line[len - 1] = '\0';
                                              }
-                                             __android_log_write(ANDROID_LOG_INFO, "ps2x", line);
+                                             __android_log_write(ANDROID_LOG_INFO, "zx", line);
                                          }
                                          fclose(reader);
                                          g_logcatPipeFds[0] = -1;
@@ -154,11 +154,11 @@ namespace
 
     // Optional host path overrides, applied after loadELF() (which derives every
     // root from the ELF directory):
-    //   PS2X_CD_IMAGE  raw 2048-byte/sector disc image (.iso) used for LBN reads
-    //   PS2X_CD_ROOT   directory that backs cdrom0: file paths
-    //   PS2X_HOST_ROOT directory that backs host0:
-    //   PS2X_MC_ROOT   memory card directory
-    //   PS2X_CD_FROM_IMAGE=1  cdrom0: files from the image, no CD root folder
+    //   ZX_CD_IMAGE  raw 2048-byte/sector disc image (.iso) used for LBN reads
+    //   ZX_CD_ROOT   directory that backs cdrom0: file paths
+    //   ZX_HOST_ROOT directory that backs host0:
+    //   ZX_MC_ROOT   memory card directory
+    //   ZX_CD_FROM_IMAGE=1  cdrom0: files from the image, no CD root folder
     void applyIoPathEnvironmentOverrides()
     {
 #if !defined(__ANDROID__)
@@ -174,16 +174,16 @@ namespace
                 changed = true;
             }
         };
-        apply("PS2X_CD_IMAGE", paths.cdImage);
-        apply("PS2X_CD_ROOT", paths.cdRoot);
-        apply("PS2X_HOST_ROOT", paths.hostRoot);
-        apply("PS2X_MC_ROOT", paths.mcRoot);
-        // PS2X_CD_FROM_IMAGE=1: cdrom0: files come from PS2X_CD_IMAGE (ISO9660)
+        apply("ZX_CD_IMAGE", paths.cdImage);
+        apply("ZX_CD_ROOT", paths.cdRoot);
+        apply("ZX_HOST_ROOT", paths.hostRoot);
+        apply("ZX_MC_ROOT", paths.mcRoot);
+        // ZX_CD_FROM_IMAGE=1: cdrom0: files come from ZX_CD_IMAGE (ISO9660)
         // rather than a CD root folder.
-        if (const char *value = std::getenv("PS2X_CD_FROM_IMAGE"); value && value[0] == '1')
+        if (const char *value = std::getenv("ZX_CD_FROM_IMAGE"); value && value[0] == '1')
         {
             paths.cdFromImage = true;
-            std::cout << "[io] PS2X_CD_FROM_IMAGE=1" << std::endl;
+            std::cout << "[io] ZX_CD_FROM_IMAGE=1" << std::endl;
             changed = true;
         }
         if (changed)
@@ -200,16 +200,16 @@ namespace
             std::cout << "Using argv boot path" << std::endl;
             return std::filesystem::path(argv[1]);
         }
-#if defined(PS2X_DEFAULT_BOOT_ELF)
+#if defined(ZX_DEFAULT_BOOT_ELF)
         std::cout << "Using default boot file" << std::endl;
-        const std::filesystem::path configuredPath = std::filesystem::path(PS2X_DEFAULT_BOOT_ELF);
+        const std::filesystem::path configuredPath = std::filesystem::path(ZX_DEFAULT_BOOT_ELF);
         if (configuredPath.is_absolute())
         {
             return configuredPath;
         }
         return (std::filesystem::current_path() / configuredPath).lexically_normal();
 #else
-        throw std::runtime_error("Unable to determine executable path. Pass the guest ELF as argv[1] or define PS2X_DEFAULT_BOOT_ELF.");
+        throw std::runtime_error("Unable to determine executable path. Pass the guest ELF as argv[1] or define ZX_DEFAULT_BOOT_ELF.");
 #endif
     }
 }
@@ -221,12 +221,12 @@ int main(int argc, char *argv[])
 #endif
     // A front end built in (runtime/ps2_front_end.h): Android's preparation,
     // the packaged app.
-    if (const ps2x::front_end::Prepare prepare = ps2x::front_end::prepare())
+    if (const zx::front_end::Prepare prepare = zx::front_end::prepare())
         prepare(argc, argv);
     setupTerminateLogger();
 
     // The packaged app: no ELF argument (a double-click) or a .iso.
-    if (const ps2x::front_end::App &app = ps2x::front_end::app(); app.startedAsApp && app.startedAsApp(argc, argv))
+    if (const zx::front_end::App &app = zx::front_end::app(); app.startedAsApp && app.startedAsApp(argc, argv))
     {
         try
         {
@@ -247,16 +247,16 @@ int main(int argc, char *argv[])
         int status = 1;
         try
         {
-            std::vector<ps2x::sequence::Step> steps;
+            std::vector<zx::sequence::Step> steps;
             std::string error;
-            if (!ps2x::sequence::parseArgument(argv[2], steps, &error))
+            if (!zx::sequence::parseArgument(argv[2], steps, &error))
             {
                 std::cerr << "[seq] " << error << std::endl;
                 status = 2;
             }
             else
             {
-                const auto outcomes = ps2x::sequence::run(steps, "Z-Axis Collection | sequence",
+                const auto outcomes = zx::sequence::run(steps, "Z-Axis Collection | sequence",
                                                           [](PS2Runtime &) { applyIoPathEnvironmentOverrides(); });
                 status = outcomes.size() == steps.size() && outcomes.back().booted ? 0 : 3;
             }
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
         }
         std::cout.flush();
         std::cerr.flush();
-#if defined(PS2X_PGO_GENERATE)
+#if defined(ZX_PGO_GENERATE)
         __llvm_profile_write_file();
 #endif
         std::_Exit(status);
@@ -295,11 +295,11 @@ int main(int argc, char *argv[])
         }
 
         PS2Runtime runtime;
-#if defined(PS2X_ENABLE_DEBUG_UI)
+#if defined(ZX_ENABLE_DEBUG_UI)
         // This hook is to prevent leak imgui deps to recompiler etc
         PS2DebugPanel debugPanel;
-        // PS2X_DEBUG_UI=0 starts with the debugger hidden (F1 still toggles it).
-        if (const char *debugUi = std::getenv("PS2X_DEBUG_UI"); debugUi && debugUi[0] == '0')
+        // ZX_DEBUG_UI=0 starts with the debugger hidden (F1 still toggles it).
+        if (const char *debugUi = std::getenv("ZX_DEBUG_UI"); debugUi && debugUi[0] == '0')
         {
             debugPanel.setVisible(false);
         }
@@ -345,7 +345,7 @@ int main(int argc, char *argv[])
 #endif
         std::cout.flush();
         std::cerr.flush();
-#if defined(PS2X_PGO_GENERATE)
+#if defined(ZX_PGO_GENERATE)
         __llvm_profile_write_file();
 #endif
         std::_Exit(0);

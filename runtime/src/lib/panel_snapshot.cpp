@@ -12,6 +12,9 @@ namespace panel
         GameCapture g_gameCapture = nullptr;
         std::mutex g_gameFilesMutex;
         std::string g_gameFiles;
+        std::string g_gameFilesFallback;
+        std::string g_servedLevelName;                               // setServedLevelFile's
+        std::shared_ptr<const std::vector<uint8_t>> g_servedLevelFile;
     }
 
     void setGameCapture(GameCapture capture)
@@ -19,16 +22,36 @@ namespace panel
         g_gameCapture = capture;
     }
 
-    void setGameFiles(const std::string &folder)
+    void setGameFiles(const std::string &folder, const std::string &fallback)
     {
         std::lock_guard<std::mutex> lock(g_gameFilesMutex);
         g_gameFiles = folder;
+        g_gameFilesFallback = fallback;
     }
 
     std::string gameFiles()
     {
         std::lock_guard<std::mutex> lock(g_gameFilesMutex);
         return g_gameFiles;
+    }
+
+    std::string gameFilesFallback()
+    {
+        std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+        return g_gameFilesFallback;
+    }
+
+    void setServedLevelFile(const std::string &name, std::shared_ptr<const std::vector<uint8_t>> bytes)
+    {
+        std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+        g_servedLevelName = bytes ? name : std::string();
+        g_servedLevelFile = name.empty() ? nullptr : std::move(bytes);
+    }
+
+    std::shared_ptr<const std::vector<uint8_t>> servedLevelFile(const std::string &name)
+    {
+        std::lock_guard<std::mutex> lock(g_gameFilesMutex);
+        return !name.empty() && name == g_servedLevelName ? g_servedLevelFile : nullptr;
     }
 
     void captureSnapshot(const uint8_t *guestRam, size_t ramBytes, Snapshot &out)

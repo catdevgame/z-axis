@@ -34,7 +34,7 @@ Dumps: car01/car02 and car05..car16 at their script time; car03 (loading)
 and car04 (fly-thru, level frame 200) on the level frame counter, because
 native loading is ~1240 vsyncs shorter.
 
-`run` uses the memory card path (PS2X_SAVES=card), as the reference does.
+`run` uses the memory card path (ZX_SAVES=card), as the reference does.
 `nativerun` is the same replay with native save files (the default
 otherwise): there is no save dialog, so the three presses inside it (slot 1,
 UP, YES) are dropped and the save is written at once; the clock anchor at
@@ -60,9 +60,9 @@ PCSX2 replaying the same inputs (tools/pcsx2replay.py, own data dir):
       --watch $(careercheck.py pxwatch)
   careercheck.py pxcompare OUT.log NAME
 
-Environment: RUNNER, PS2X_MC_ROOT (default: a new empty recomp/run/mc-NAME;
-nativerun: also a new empty recomp/run/saves-NAME as PS2X_SAVES_DIR), extra
-PS2X_* vars pass through. CAREERCHECK_TO=<checkpoint> stops the script there.
+Environment: RUNNER, ZX_MC_ROOT (default: a new empty recomp/run/mc-NAME;
+nativerun: also a new empty recomp/run/saves-NAME as ZX_SAVES_DIR), extra
+ZX_* vars pass through. CAREERCHECK_TO=<checkpoint> stops the script there.
 """
 import math
 import os
@@ -235,33 +235,33 @@ def saves_dir(name):
 def run(name, secs, native_saves=False):
     os.makedirs(NATIVE_RAM, exist_ok=True)
     env = dict(os.environ)
-    env.setdefault("PS2X_GS_NULL", "1")
-    env.setdefault("PS2X_GS_BACKEND", "cpu")  # pictures from the reference renderer
-    if "PS2X_MC_ROOT" not in env:
+    env.setdefault("ZX_GS_NULL", "1")
+    env.setdefault("ZX_GS_BACKEND", "cpu")  # pictures from the reference renderer
+    if "ZX_MC_ROOT" not in env:
         # The reference starts with no Aggressive Inline save on the card (a
         # save would be autoloaded and skip the name entry): a fresh, empty
         # card folder per run, which keeps the save this run writes.
-        env["PS2X_MC_ROOT"] = fresh_dir(os.path.join(ROOT, "recomp", "run", "mc-" + name))
+        env["ZX_MC_ROOT"] = fresh_dir(os.path.join(ROOT, "recomp", "run", "mc-" + name))
     if native_saves:
         # Native save files, starting from none (nothing to import either).
-        env["PS2X_SAVES"] = "native"
-        env.setdefault("PS2X_SAVES_DIR", fresh_dir(saves_dir(name)))
+        env["ZX_SAVES"] = "native"
+        env.setdefault("ZX_SAVES_DIR", fresh_dir(saves_dir(name)))
         # The file savecheck reads is the pause menu's save, not an autosave
         # on the way out.
-        env.setdefault("PS2X_AUTOSAVE", "0")
-        open(native_marker(name), "w").write(env["PS2X_SAVES_DIR"] + "\n")
+        env.setdefault("ZX_AUTOSAVE", "0")
+        open(native_marker(name), "w").write(env["ZX_SAVES_DIR"] + "\n")
     else:
-        env["PS2X_SAVES"] = "card"   # the reference's card dialogs and timing
+        env["ZX_SAVES"] = "card"   # the reference's card dialogs and timing
         if os.path.exists(native_marker(name)):
             os.remove(native_marker(name))
-    env["PS2X_PAD_SCRIPT_CLOCK"] = "vsync"
-    env["PS2X_PAD_SCRIPT"] = native_script(native_saves)
-    env["PS2X_DUMP_WHEN"] = dump_spec()
-    env["PS2X_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
-    env.setdefault("PS2X_STATE_LOG", ",".join("0x%X" % a for a in (
+    env["ZX_PAD_SCRIPT_CLOCK"] = "vsync"
+    env["ZX_PAD_SCRIPT"] = native_script(native_saves)
+    env["ZX_DUMP_WHEN"] = dump_spec()
+    env["ZX_DUMP_PREFIX"] = os.path.join(NATIVE_RAM, name)
+    env.setdefault("ZX_STATE_LOG", ",".join("0x%X" % a for a in (
         MODE, PANEL, SECTION, LEVEL, PLAYER, FRAME, POS, POS + 4, POS + 8)))
-    # At every pad read, for pxcompare (needs a runtime with PS2X_PAD_LOG).
-    env.setdefault("PS2X_PAD_LOG", ",".join("0x%X:%d" % (a, n) for a, n in PX_WATCH_NATIVE))
+    # At every pad read, for pxcompare (needs a runtime with ZX_PAD_LOG).
+    env.setdefault("ZX_PAD_LOG", ",".join("0x%X:%d" % (a, n) for a, n in PX_WATCH_NATIVE))
     subprocess.call([os.path.join(ROOT, "recomp", "run.sh"), str(secs), name], env=env)
 
 
@@ -451,7 +451,7 @@ def fmt(v):
 
 
 def pxcompare(pxlog, name):
-    """Native PS2X_PAD_LOG records against a PCSX2 replay of the same inputs
+    """Native ZX_PAD_LOG records against a PCSX2 replay of the same inputs
     (tools/pcsx2replay.py, --watch from `careercheck.py pxwatch`), matched on
     the level clock: every in-level clock value both have is compared
     word for word. Frame pacing differs (the game's adaptive frame limiter
@@ -470,7 +470,7 @@ def pxcompare(pxlog, name):
             if all(k in d for k in keys):
                 nat.append((int(line.split()[1].split("=")[1]), [int(d[k], 16) for k in keys]))
     if not nat:
-        raise SystemExit("no [pad-state] records in %s.log (runtime without PS2X_PAD_LOG?)" % name)
+        raise SystemExit("no [pad-state] records in %s.log (runtime without ZX_PAD_LOG?)" % name)
 
     def level(rows):
         # From the last time the clock restarted (loading MOVIE LOT) on.

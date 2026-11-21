@@ -138,7 +138,7 @@ namespace game::dm2
     void riderViewCamera(PlayerCamera *camera, rider::Rider *rider);
     // The level-point camera's point (0 to 4) of the level being played:
     // the executable's row of five for the session level. With the level
-    // camera points option (PS2X_DM2_LEVEL_CAMERA_POINTS=1), a level whose
+    // camera points option (ZX_DM2_LEVEL_CAMERA_POINTS=1), a level whose
     // scene has "CameraPos" points named "idle" (numbered from 1, as BMX
     // XXX's idle cameras) takes them in the row's place: point k is the
     // level's k mod N + 1, its position read as the table's (the camera

@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <system_error>
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     struct ZipArchive::Reader
     {

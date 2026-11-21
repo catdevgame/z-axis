@@ -17,13 +17,13 @@ namespace aggressive_inline::converted
     namespace
     {
         namespace fs = std::filesystem;
-        namespace tr = ps2x::texture_replace;
+        namespace tr = zx::texture_replace;
 
         const fs::path &folder()
         {
-            static ps2x::boot::PerBoot<fs::path> path([]() -> fs::path
+            static zx::boot::PerBoot<fs::path> path([]() -> fs::path
             {
-                const char *env = ps2x::boot::text("PS2X_XBOX_CONVERTED");
+                const char *env = zx::boot::text("ZX_XBOX_CONVERTED");
                 std::error_code ec;
                 if (env && env[0] && fs::is_directory(env, ec))
                     return env;
@@ -56,7 +56,7 @@ namespace aggressive_inline::converted
     {
         if (available())
             return folder().string();
-        return "no files made from the Xbox release (PS2X_XBOX_CONVERTED; the app: Resources/xbox-converted)";
+        return "no files made from the Xbox release (ZX_XBOX_CONVERTED; the app: Resources/xbox-converted)";
     }
 
     bool exists(const std::string &gamePath)
@@ -102,7 +102,7 @@ namespace aggressive_inline::converted
             std::cerr << "[xbox-converted] " << gamePath << ".xtp: " << error << std::endl;
             return result;
         }
-        SharedPictures &shared = ps2x::session::state<SharedPictures>();
+        SharedPictures &shared = zx::session::state<SharedPictures>();
         std::lock_guard<std::mutex> lock(shared.mutex);
         std::map<std::string, tr::PicturePtr> &alike = shared.alike;
         std::set<const tr::Picture *> fresh;

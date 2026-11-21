@@ -35,9 +35,9 @@
 //    per material), its world matrix times the view's screen matrix, and the
 //    materials' GS blocks. The mesh is made from the GEO data the readable
 //    loader read the part from (src/game/zge/native/geo_meshes.h: the same
-//    triangles, checked vertex for vertex with PS2X_NATIVE_MESHES_CHECK);
+//    triangles, checked vertex for vertex with ZX_NATIVE_MESHES_CHECK);
 //    a part with no file origin, or rebuilt from changed streams, is decoded
-//    from its packet (runtime/ps2_zaxis_mesh.h). PS2X_NATIVE_MESHES=packet:
+//    from its packet (runtime/ps2_zaxis_mesh.h). ZX_NATIVE_MESHES=packet:
 //    always decoded.
 // 3. Substitute (PS2Memory::setVif1Substitute): where the VIF1 DMA reaches
 //    the node's CALL tag, its microprogram runs are not started; in place of
@@ -114,8 +114,8 @@
 // chunk the readable loader read it from; null for a part with no file origin.
 namespace zge::native
 {
-    std::shared_ptr<const ps2x::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress,
-                                                                        ps2x::zaxis::PacketKind kind);
+    std::shared_ptr<const zx::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress,
+                                                                        zx::zaxis::PacketKind kind);
     uint64_t geoParseNanos();
     uint64_t geoStreamsParsed();
 }
@@ -124,7 +124,6 @@ namespace aggressive_inline
 {
     namespace native_draw
     {
-        namespace zx = ps2x::zaxis;
 
         // ---- the game's renderer, as read here ---------------------------
         constexpr uint32_t kPerViewGlobals = 0x00109EB0u;  // FUN_00109EB0(camera)
@@ -206,7 +205,7 @@ namespace aggressive_inline
         struct CachedPart
         {
             uint32_t entries = 0, firstPacket = 0; // the drawn packet's material entries
-            std::shared_ptr<const zx::RigidMesh> mesh; // null: not drawn natively
+            std::shared_ptr<const zx::zaxis::RigidMesh> mesh; // null: not drawn natively
             uint64_t lastUse = 0;
         };
 
@@ -219,21 +218,21 @@ namespace aggressive_inline
             PS2Runtime::RecompiledFunction origDrawSkinned = nullptr;
             PS2Runtime::RecompiledFunction origFogPlanes = nullptr;
             uint64_t fogNotes = 0;
-            bool rigid = true, terrain = true, sky = true, skinned = true; // PS2X_NATIVE_CLASSES
+            bool rigid = true, terrain = true, sky = true, skinned = true; // ZX_NATIVE_CLASSES
             std::atomic<int> mode{static_cast<int>(Mode::Auto)};
             View view;
             std::unordered_map<uint32_t, CachedPart> parts;
             uint64_t clock = 0; // views drawn (FUN_00109EB0 calls)
             uint64_t nextSweep = 0;
             int trace = 0;
-            bool zooOnly = false;      // PS2X_NATIVE_LEVELS=zoo
-            bool linearColour = false; // debugging: PS2X_NATIVE_LINEAR_COLOUR=1
-            bool skipClipped = false; // debugging: PS2X_NATIVE_CLIPPED=0 leaves nodes the clipper draws on VU1
-            // Counters (PS2X_TRACE_NATIVE).
+            bool zooOnly = false;      // ZX_NATIVE_LEVELS=zoo
+            bool linearColour = false; // debugging: ZX_NATIVE_LINEAR_COLOUR=1
+            bool skipClipped = false; // debugging: ZX_NATIVE_CLIPPED=0 leaves nodes the clipper draws on VU1
+            // Counters (ZX_TRACE_NATIVE).
             uint64_t nodes = 0, registered = 0, undecodable = 0, otherClass = 0, noView = 0, badTag = 0;
             uint64_t skies = 0, sphereMapped = 0, skinnedNodes = 0, badUpload = 0;
             uint64_t lastReport = 0;
-            // Meshes from the GEO data (PS2X_NATIVE_MESHES=packet: always the
+            // Meshes from the GEO data (ZX_NATIVE_MESHES=packet: always the
             // packets). A part whose packet was rebuilt from changed streams
             // (FUN_00109178 with a1 = 0) is decoded from then on.
             bool fileMeshes = true;
@@ -245,16 +244,16 @@ namespace aggressive_inline
             uint64_t notFromRecords = 0;
         };
 
-        // The boot's (ps2x::session): a game booted again hooks its renderer
+        // The boot's (zx::session): a game booted again hooks its renderer
         // again, with its caches empty.
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
-        zx::GuestMemory guest(uint8_t *rdram)
+        zx::zaxis::GuestMemory guest(uint8_t *rdram)
         {
-            return zx::GuestMemory{rdram};
+            return zx::zaxis::GuestMemory{rdram};
         }
 
-        bool readMatrix(const zx::GuestMemory &m, uint32_t address, float out[4][4])
+        bool readMatrix(const zx::zaxis::GuestMemory &m, uint32_t address, float out[4][4])
         {
             const uint8_t *p = m.bytes(address, 64);
             if (!p)
@@ -293,7 +292,7 @@ namespace aggressive_inline
             state().origViewGlobals(rdram, ctx, runtime);
             State &s = state();
             ++s.clock;
-            const zx::GuestMemory m = guest(rdram);
+            const zx::zaxis::GuestMemory m = guest(rdram);
             uint32_t screen = 0, clip = 0, view = 0;
             s.view.valid = m.u32(kScreenMatrix, screen) && readMatrix(m, screen, s.view.screen) &&
                            m.u32(kClipMatrix, clip) && readMatrix(m, clip, s.view.clip) && m.u32(kViewMatrix, view) &&
@@ -318,8 +317,8 @@ namespace aggressive_inline
 
         // The part's mesh (of the packet `entries` it is drawn with), decoded
         // now if new or changed.
-        std::shared_ptr<const zx::RigidMesh> meshOf(const zx::GuestMemory &m, uint32_t part, uint32_t entries,
-                                                    zx::PacketKind kind)
+        std::shared_ptr<const zx::zaxis::RigidMesh> meshOf(const zx::zaxis::GuestMemory &m, uint32_t part, uint32_t entries,
+                                                    zx::zaxis::PacketKind kind)
         {
             State &s = state();
             CachedPart now;
@@ -332,7 +331,7 @@ namespace aggressive_inline
                 it->second.lastUse = s.clock;
                 return it->second.mesh;
             }
-            const bool skinned = kind == zx::PacketKind::Skinned || kind == zx::PacketKind::SkinnedPrelit;
+            const bool skinned = kind == zx::zaxis::PacketKind::Skinned || kind == zx::zaxis::PacketKind::SkinnedPrelit;
             const auto started = std::chrono::steady_clock::now();
             auto nanosSince = [&]
             {
@@ -341,10 +340,10 @@ namespace aggressive_inline
                                                  .count());
             };
             // The mesh made from the GEO data, while the part's streams are
-            // the file's (the same triangles: PS2X_NATIVE_MESHES_CHECK); the
+            // the file's (the same triangles: ZX_NATIVE_MESHES_CHECK); the
             // packet's decode otherwise.
             uint8_t bones = 0;
-            if (s.fileMeshes && !s.rebuilt.count(part) && m.u8(part + zx::part::kBoneCount, bones) &&
+            if (s.fileMeshes && !s.rebuilt.count(part) && m.u8(part + zx::zaxis::part::kBoneCount, bones) &&
                 (skinned || bones == 0))
                 now.mesh = zge::native::fileMeshForPacketKind(part, kind);
             if (now.mesh)
@@ -354,10 +353,10 @@ namespace aggressive_inline
             }
             else
             {
-                auto mesh = std::make_shared<zx::RigidMesh>();
+                auto mesh = std::make_shared<zx::zaxis::RigidMesh>();
                 std::string why;
-                if (skinned ? zx::decodeSkinnedPart(m, part, *mesh, &why, kind)
-                            : zx::decodeRigidPart(m, part, *mesh, &why, kind))
+                if (skinned ? zx::zaxis::decodeSkinnedPart(m, part, *mesh, &why, kind)
+                            : zx::zaxis::decodeRigidPart(m, part, *mesh, &why, kind))
                     now.mesh = mesh;
                 else if (s.trace)
                     std::cout << "[native] part 0x" << std::hex << part << std::dec << " stays on VU1: " << why
@@ -481,7 +480,7 @@ namespace aggressive_inline
 
         // The GS register block of a material: its first GIF packet (A+D),
         // which is what the microprogram kicks.
-        bool gsBlockBytes(const zx::GuestMemory &m, uint32_t block, uint32_t limitQwords, std::vector<uint8_t> &out)
+        bool gsBlockBytes(const zx::zaxis::GuestMemory &m, uint32_t block, uint32_t limitQwords, std::vector<uint8_t> &out)
         {
             uint64_t tag = 0;
             const uint8_t *t = m.bytes(block, 16);
@@ -503,7 +502,7 @@ namespace aggressive_inline
 
         // A terrain material's command list: what the microprogram runs for
         // each of its chunks. False for a routine not drawn here.
-        bool readCommands(const zx::GuestMemory &m, uint32_t mat, float distance, Item &it)
+        bool readCommands(const zx::zaxis::GuestMemory &m, uint32_t mat, float distance, Item &it)
         {
             uint32_t ncmd = 0;
             if (!m.u32(mat + material::kCommandCount, ncmd) || ncmd > 32u)
@@ -562,7 +561,7 @@ namespace aggressive_inline
             const uint32_t nodeAddr = getRegU32(ctx, 4);
             const uint32_t cull = getRegU32(ctx, 5);
             const uint32_t packet = getRegU32(ctx, 6);
-            const zx::GuestMemory m = guest(rdram);
+            const zx::zaxis::GuestMemory m = guest(rdram);
             uint32_t cursor = 0;
             m.u32(packet, cursor);
             // FUN_00210D78 pads the packet to a qword and opens the CALL tag there.
@@ -588,7 +587,7 @@ namespace aggressive_inline
             const bool skinnedRenderer = renderer == Renderer::Skinned;
             if (terrain ? !s.terrain : skinnedRenderer && !s.skinned)
                 return;
-            // Every level (PS2X_NATIVE_LEVELS=zoo: the Zoo only).
+            // Every level (ZX_NATIVE_LEVELS=zoo: the Zoo only).
             uint32_t level = 0;
             if (s.zooOnly && (!m.u32(kLevelIndex, level) || level != kZooIndex))
                 return;
@@ -597,17 +596,17 @@ namespace aggressive_inline
 
             uint32_t view = 0, part = 0, tableAddr = 0, typeWord = 0, buffers = 0;
             if (!m.u32(kViewIndex, view) || view > 3u || !m.u32(nodeAddr + node::kViewPart + view * node::kViewStride, part) ||
-                !m.u32(nodeAddr + node::kMaterialTable, tableAddr) || !m.u32(part + zx::part::kRenderType, typeWord) ||
-                !m.u32(part + zx::part::kBuffers, buffers))
+                !m.u32(nodeAddr + node::kMaterialTable, tableAddr) || !m.u32(part + zx::zaxis::part::kRenderType, typeWord) ||
+                !m.u32(part + zx::zaxis::part::kBuffers, buffers))
                 return;
             const uint32_t type = typeWord >> 26;
             // FUN_0010CE30 draws rigid parts and the sky (VU1 0x18 / 0x1A).
-            const bool sky = renderer == Renderer::RigidPrelit && type == static_cast<uint32_t>(zx::RenderType::Sky);
-            const bool skinnedType = type == static_cast<uint32_t>(zx::RenderType::Skinned) ||
-                                     type == static_cast<uint32_t>(zx::RenderType::SkinnedPrelit);
-            const bool expected = terrain          ? type == static_cast<uint32_t>(zx::RenderType::Lit)
+            const bool sky = renderer == Renderer::RigidPrelit && type == static_cast<uint32_t>(zx::zaxis::RenderType::Sky);
+            const bool skinnedType = type == static_cast<uint32_t>(zx::zaxis::RenderType::Skinned) ||
+                                     type == static_cast<uint32_t>(zx::zaxis::RenderType::SkinnedPrelit);
+            const bool expected = terrain          ? type == static_cast<uint32_t>(zx::zaxis::RenderType::Lit)
                                   : skinnedRenderer ? skinnedType
-                                                    : type == static_cast<uint32_t>(zx::RenderType::RigidPrelit) || sky;
+                                                    : type == static_cast<uint32_t>(zx::zaxis::RenderType::RigidPrelit) || sky;
             if (!expected)
             {
                 ++s.otherClass;
@@ -627,7 +626,7 @@ namespace aggressive_inline
             if (!m.u32(tableAddr + table::kChains + drawn * 4u, chain) || !m.u32(tagAddress, tagLo) ||
                 !m.u32(tagAddress + 4u, tagHi) || ((tagLo >> 28) & 7u) != 5u || (tagHi & 0x7FFFFFFFu) != (chain & 0x7FFFFFFFu) ||
                 !m.u16(tableAddr + table::kCount, count) ||
-                !m.u32(part + zx::part::kPacketEntries + drawn * 4u, entries))
+                !m.u32(part + zx::zaxis::part::kPacketEntries + drawn * 4u, entries))
             {
                 ++s.badTag;
                 return;
@@ -637,21 +636,21 @@ namespace aggressive_inline
             // VIF1 reaches the node (begin below): the recompiled renderer
             // may come back here before its bone loop is done (a yield),
             // with the rest of the payload written later.
-            zx::PacketKind kind = terrain ? zx::PacketKind::Terrain : zx::PacketKind::RigidPrelit;
-            const bool lit = type == static_cast<uint32_t>(zx::RenderType::Skinned);
+            zx::zaxis::PacketKind kind = terrain ? zx::zaxis::PacketKind::Terrain : zx::zaxis::PacketKind::RigidPrelit;
+            const bool lit = type == static_cast<uint32_t>(zx::zaxis::RenderType::Skinned);
             if (skinnedRenderer)
             {
                 uint32_t normals = 0;
-                if (!m.u32(part + zx::part::kNormals, normals))
+                if (!m.u32(part + zx::zaxis::part::kNormals, normals))
                     return;
-                kind = normals ? zx::PacketKind::Skinned : zx::PacketKind::SkinnedPrelit;
-                if (lit != (kind == zx::PacketKind::Skinned))
+                kind = normals ? zx::zaxis::PacketKind::Skinned : zx::zaxis::PacketKind::SkinnedPrelit;
+                if (lit != (kind == zx::zaxis::PacketKind::Skinned))
                 {
                     ++s.badUpload;
                     return;
                 }
             }
-            std::shared_ptr<const zx::RigidMesh> mesh = meshOf(m, part, entries, kind);
+            std::shared_ptr<const zx::zaxis::RigidMesh> mesh = meshOf(m, part, entries, kind);
             if (!mesh)
             {
                 ++s.undecodable;
@@ -670,7 +669,7 @@ namespace aggressive_inline
             for (uint32_t i = 0; i < count; ++i)
             {
                 uint32_t meshPacket = 0, mat = 0;
-                if (!m.u32(entries + i * zx::kPacketEntryBytes, meshPacket))
+                if (!m.u32(entries + i * zx::zaxis::kPacketEntryBytes, meshPacket))
                     return;
                 if (meshPacket == 0u)
                     continue;
@@ -775,14 +774,14 @@ namespace aggressive_inline
                 // EE thread, where VIF1 reaches the node: the GS blocks and
                 // UV matrices as the DMA reads them (TEX0 patched by the
                 // texture handler).
-                const zx::GuestMemory m{runtime->memory().getRDRAM()};
+                const zx::zaxis::GuestMemory m{runtime->memory().getRDRAM()};
                 if (skinnedProgram)
                 {
                     // The node's upload, complete now: the CALL tag's
                     // payload up to its first microprogram run.
-                    auto upload = std::make_unique<zx::SkinnedNodeUpload>();
+                    auto upload = std::make_unique<zx::zaxis::SkinnedNodeUpload>();
                     std::string why;
-                    if (!zx::readSkinnedUpload(m, tagAddress + 8u, tagAddress + 8u + 0x2000u, *upload, &why) ||
+                    if (!zx::zaxis::readSkinnedUpload(m, tagAddress + 8u, tagAddress + 8u + 0x2000u, *upload, &why) ||
                         upload->program != skinnedProgram)
                     {
                         State &s = state();
@@ -804,8 +803,8 @@ namespace aggressive_inline
                     std::memcpy(base.clipTransform, upload->clip, sizeof(base.clipTransform));
                     // Character Lighting: Xbox (the GPU renderer's option; the
                     // CPU renderer's primitives keep VU1's lights).
-                    if (lit && ps2x::gs_quality::xboxLighting() && runtime->gs().nativeDrawsOnBackend())
-                        zx::xboxCharacterLights(*skin);
+                    if (lit && zx::gs_quality::xboxLighting() && runtime->gs().nativeDrawsOnBackend())
+                        zx::zaxis::xboxCharacterLights(*skin);
                     base.skin = std::move(skin);
                 }
                 struct Step
@@ -895,9 +894,9 @@ namespace aggressive_inline
             State &s = state();
             GSFogPlanes planes;
             bool drawn = false;
-            if (active(runtime) && (ps2x::gs_quality::smoothFog() || ps2x::gs_quality::fxaa()))
+            if (active(runtime) && (zx::gs_quality::smoothFog() || zx::gs_quality::fxaa()))
             {
-                const zx::GuestMemory m = guest(rdram);
+                const zx::zaxis::GuestMemory m = guest(rdram);
                 uint32_t cam = 0, on = 0, off = 0, projection = 0;
                 float start = 0.0f, end = 0.0f, far = 0.0f;
                 float p[4][4];
@@ -964,23 +963,23 @@ namespace aggressive_inline
     void installNativeDraw(PS2Runtime &runtime)
     {
         State &s = state();
-        s.booted = modeFromText(ps2x::boot::text("PS2X_RENDER_PATH"));
+        s.booted = modeFromText(zx::boot::text("ZX_RENDER_PATH"));
         s.mode.store(static_cast<int>(s.booted));
         // The rigid clipping program's form: VU1 0x06 at 0xF70; the skinned builder sends the stream's four bones
         // and puts a submesh's strips at its own material entry; the Xbox release's character lights replace the
         // default ones with Character Lighting: Xbox.
         game::host::native_draws::attach(runtime, s.booted == Mode::Records, {.clipped = GSNativeClip::NearSplit},
                                          {.xboxLights = true});
-        ps2x::gs_shots::install(runtime); // (PS2X_GS_SHOT_VSYNC, developers)
-        if (const char *v = std::getenv("PS2X_NATIVE_MESHES"))
+        zx::gs_shots::install(runtime); // (ZX_GS_SHOT_VSYNC, developers)
+        if (const char *v = std::getenv("ZX_NATIVE_MESHES"))
             s.fileMeshes = std::strcmp(v, "packet") != 0;
-        if (const char *v = std::getenv("PS2X_TRACE_NATIVE"))
+        if (const char *v = std::getenv("ZX_TRACE_NATIVE"))
             s.trace = std::atoi(v);
-        if (const char *v = std::getenv("PS2X_NATIVE_LEVELS"))
+        if (const char *v = std::getenv("ZX_NATIVE_LEVELS"))
             s.zooOnly = std::strcmp(v, "zoo") == 0;
-        if (const char *v = std::getenv("PS2X_NATIVE_LINEAR_COLOUR"))
+        if (const char *v = std::getenv("ZX_NATIVE_LINEAR_COLOUR"))
             s.linearColour = v[0] == '1';
-        if (const char *v = std::getenv("PS2X_NATIVE_CLIPPED"))
+        if (const char *v = std::getenv("ZX_NATIVE_CLIPPED"))
             s.skipClipped = v[0] == '0';
         s.origViewGlobals = runtime.lookupFunction(kPerViewGlobals);
         s.origDrawRigid = runtime.lookupFunction(kDrawRigid);
@@ -988,7 +987,7 @@ namespace aggressive_inline
         s.origDrawTerrain = runtime.lookupFunction(kDrawTerrain);
         s.origDrawSkinned = runtime.lookupFunction(kDrawSkinned);
         s.origFogPlanes = runtime.lookupFunction(kFogPlanes);
-        if (const char *v = std::getenv("PS2X_NATIVE_CLASSES"))
+        if (const char *v = std::getenv("ZX_NATIVE_CLASSES"))
         {
             // "4", "0x20", "4,0x20" (render types), "none".
             const std::string list = std::string(",") + v + ",";
@@ -1011,13 +1010,13 @@ namespace aggressive_inline
             return;
         }
         // The app adds the row with settings.ini behind it; the developer
-        // runner gets one without (PS2X_CONTROL "set display.native_meshes 0").
-        if (!ps2x::settings::has("display.native_meshes"))
-            ps2x::session::addSetting(nativeDrawSetting(nullptr));
+        // runner gets one without (ZX_CONTROL "set display.native_meshes 0").
+        if (!zx::settings::has("display.native_meshes"))
+            zx::session::addSetting(nativeDrawSetting(nullptr));
         // The picture quality options (runtime/gs/gs_quality.h): the
         // environment over settings.ini; rows for the developer runner.
-        ps2x::gs_quality::applyEnvironment();
-        ps2x::gs_quality::addSettings(nullptr);
+        zx::gs_quality::applyEnvironment();
+        zx::gs_quality::addSettings(nullptr);
         const Mode mode = static_cast<Mode>(s.mode.load());
         std::cout << "[native] render path "
                   << (mode == Mode::Strict    ? "strict"
@@ -1027,16 +1026,16 @@ namespace aggressive_inline
                   << std::endl;
     }
 
-    ps2x::settings::Setting nativeDrawSetting(std::function<void(bool)> save)
+    zx::settings::Setting nativeDrawSetting(std::function<void(bool)> save)
     {
-        ps2x::settings::Setting setting;
+        zx::settings::Setting setting;
         setting.key = "display.native_meshes";
         setting.label = "Native Meshes";
         setting.help = "Levels drawn by the GPU.";
-        if (std::getenv("PS2X_NATIVE_DEBUG"))
+        if (std::getenv("ZX_NATIVE_DEBUG"))
         {
             // 2: native meshes as GS primitives (GS::drawNative's own path).
-            setting.kind = ps2x::settings::Kind::Choice;
+            setting.kind = zx::settings::Kind::Choice;
             setting.choices = {"Off", "On", "As GS Primitives"};
             setting.maxValue = 2;
         }

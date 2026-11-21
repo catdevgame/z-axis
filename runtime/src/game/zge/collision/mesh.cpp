@@ -19,7 +19,7 @@ namespace zge
 {
     namespace
     {
-        // PS2X_NATIVE_COLLISION (on by default; outside ps2xFnCheck): the part as the
+        // ZX_NATIVE_COLLISION (on by default; outside zx-fncheck): the part as the
         // host made it from its GEO file, if it has it.
         ee::Ptr<ZgeStream> streamOf(ee::Ptr<uint8_t> field) { return field.cast<ZgeStream>(); }
 

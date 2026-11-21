@@ -20,7 +20,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::app::extras::dm2
+namespace zx::app::extras::dm2
 {
     // A DM2 file that does not read as the converter expects (a chunk past
     // its parent, a texture with no DDS, a level with no start point).

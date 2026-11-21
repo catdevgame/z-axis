@@ -20,7 +20,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     class SourceFiles
     {
@@ -78,6 +78,22 @@ namespace ps2x::app::extras
     private:
         DiscFiles *m_disc = nullptr;
         std::map<std::string, const DiscFile *> m_entries;
+    };
+
+    // Another source's files with some of them, or more, given in memory
+    // over it (a custom map's files over the game's disc: panel_maps.h
+    // makeMapPanelFile). A path given here (any case) is read from here.
+    class LayeredFiles final : public SourceFiles
+    {
+    public:
+        // `base` stays the caller's and outlives this.
+        LayeredFiles(const SourceFiles &base, std::map<std::string, Bytes> over);
+        bool read(const std::string &path, Bytes &out) const override;
+        uint64_t size(const std::string &path) const override;
+
+    private:
+        const SourceFiles &m_base;
+        std::map<std::string, Bytes> m_over; // by lower-case path
     };
 
     // os.walk's order with sorted names: by folder, a folder's files (by

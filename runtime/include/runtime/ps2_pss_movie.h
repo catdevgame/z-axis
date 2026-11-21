@@ -24,13 +24,13 @@
 #include <thread>
 #include <vector>
 
-namespace ps2x::movie
+namespace zx::movie
 {
     // The payloads of one stream, in file order.
     class PssPackets
     {
     public:
-        PssPackets(std::shared_ptr<ps2x::game_files::GameFile> file, uint8_t streamId);
+        PssPackets(std::shared_ptr<zx::game_files::GameFile> file, uint8_t streamId);
         // The next payload of the stream (private stream 1: without its
         // 4-byte sub-stream header); false at the program end or the end of
         // the file.
@@ -40,7 +40,7 @@ namespace ps2x::movie
     private:
         const uint8_t *at(uint64_t position, size_t size);
 
-        std::shared_ptr<ps2x::game_files::GameFile> m_file;
+        std::shared_ptr<zx::game_files::GameFile> m_file;
         uint8_t m_streamId = 0u;
         uint64_t m_position = 0u;
         uint64_t m_bufferStart = 0u;
@@ -121,7 +121,7 @@ namespace ps2x::movie
     public:
         // `decode` false: black pictures counted from the headers
         // (PssPictureCount), as a build without an MPEG-2 decoder always gives.
-        explicit PssVideo(std::shared_ptr<ps2x::game_files::GameFile> file, bool decode = true);
+        explicit PssVideo(std::shared_ptr<zx::game_files::GameFile> file, bool decode = true);
         ~PssVideo() override;
         PssVideo(const PssVideo &) = delete;
         PssVideo &operator=(const PssVideo &) = delete;
@@ -209,7 +209,7 @@ namespace ps2x::movie
     public:
         static constexpr uint32_t kOutputRate = 48000u;
 
-        explicit PssAudio(std::shared_ptr<ps2x::game_files::GameFile> file);
+        explicit PssAudio(std::shared_ptr<zx::game_files::GameFile> file);
 
         // The stream has an "SShd" PCM header this reader understands.
         [[nodiscard]] bool hasSound();

@@ -18,7 +18,7 @@
 #include <memory>
 #include <span>
 
-namespace ps2x::iop::detail
+namespace zx
 {
     namespace spu2
     {
@@ -55,7 +55,7 @@ namespace ps2x::iop::detail
         // first bring the SPU2 up to this time, as PCSX2 does with TimeUpdate().
         void setClock(const uint64_t *iopCycles);
         void setOutput(OutputCallback output);
-        // Event trace sink; PS2X_TRACE_SPU2=<n> enables the first n events
+        // Event trace sink; ZX_TRACE_SPU2=<n> enables the first n events
         // (register writes, DMA starts/completions, IRQs).
         void setTrace(std::function<void(const char *)> trace);
 

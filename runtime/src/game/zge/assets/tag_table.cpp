@@ -6,7 +6,7 @@
 // game reads and writes the records through these accessors, byte and
 // word at a time (the word ones through memcpy: records are not aligned).
 //
-// With PS2X_NATIVE_COLLISION (on by default; outside ps2xFnCheck) a part's face tags and
+// With ZX_NATIVE_COLLISION (on by default; outside zx-fncheck) a part's face tags and
 // edges are read from the host's mirror of the table
 // (zge/native/collision_data.h TagMirror: the host part's table, made from
 // the GEO file with the level setup's words) wherever an access falls in
@@ -72,7 +72,7 @@ namespace zge
         }
 
         // The mirror of a table, or of the one holding a field
-        // (PS2X_NATIVE_COLLISION on, not under the checker).
+        // (ZX_NATIVE_COLLISION on, not under the checker).
         native::TagMirror *mirrorOf(ee::Ptr<TagTableHeader> table)
         {
             if (!native::hostExtrasOn() || !native::nativeCollisionEnabled())

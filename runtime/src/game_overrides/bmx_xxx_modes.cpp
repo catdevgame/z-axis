@@ -1,5 +1,5 @@
 // BMX XXX (SLUS-20415): every multiplayer mode whose rules work, in the
-// multiplayer SELECT GAME menu (PS2X_BMX_ALL_MP_MODES=1, [extras]
+// multiplayer SELECT GAME menu (ZX_BMX_ALL_MP_MODES=1, [extras]
 // all_mp_modes; off by default).
 //
 // The game has 20 modes (g_gameModes: rounds, turn time, scoring; names and
@@ -75,7 +75,7 @@ namespace bmx_xxx::mp_modes
     {
         PS2Runtime::RecompiledFunction handler = nullptr; // the game's mpGameSelectScreenMessage
     };
-    State &state() { return ps2x::session::state<State>(); }
+    State &state() { return zx::session::state<State>(); }
 
     std::string itemsText()
     {
@@ -190,7 +190,7 @@ namespace bmx_xxx
     bool installAllMultiplayerModes(PS2Runtime &runtime)
     {
         using namespace mp_modes;
-        const char *on = ps2x::boot::text("PS2X_BMX_ALL_MP_MODES");
+        const char *on = zx::boot::text("ZX_BMX_ALL_MP_MODES");
         if (!on || on[0] != '1')
             return false;
         State &st = state();

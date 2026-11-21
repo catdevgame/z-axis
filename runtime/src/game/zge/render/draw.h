@@ -174,7 +174,7 @@ namespace zge
     // A bucket of queued draws. ZGE2's (DM2's initDrawBuckets, freeDrawBuckets and drawQueuedNodes) is four words with the
     // end before the limit and one hook, the draw; ZGE3 added the reset and add hooks (bucket 2's sorted add) and put the
     // limit before the end.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     struct DrawBucket
     {
         ee::Ptr<BucketDraw> begin, end, limit;
@@ -226,14 +226,14 @@ namespace zge
     template <typename World>
     inline void keepCameraAreaInWorld([[maybe_unused]] World &world, [[maybe_unused]] uint32_t area)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         world.area = area;
 #endif
     }
     template <typename World>
     inline uint32_t cameraAreaInWorld([[maybe_unused]] const World &world)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         return world.area;
 #else
         return 0;

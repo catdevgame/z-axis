@@ -7,7 +7,7 @@
 
 #include <algorithm>
 
-namespace ps2x::iop::detail::spu2
+namespace zx::spu2
 {
     static constexpr s32 ADSR_MAX_VOL = 0x7fff;
 

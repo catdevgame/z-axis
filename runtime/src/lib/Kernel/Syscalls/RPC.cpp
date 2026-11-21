@@ -21,13 +21,13 @@ namespace ps2_syscalls
             return event;
         }
 
-        // PS2X_TRACE_RPC=1 prints every SIF RPC debug event to stderr (the same
+        // ZX_TRACE_RPC=1 prints every SIF RPC debug event to stderr (the same
         // events the debugger's "RPC History" tab shows).
         bool rpcTraceEnabled()
         {
             static const bool enabled = []()
             {
-                const char *value = std::getenv("PS2X_TRACE_RPC");
+                const char *value = std::getenv("ZX_TRACE_RPC");
                 return value && value[0] != '\0' && value[0] != '0';
             }();
             return enabled;

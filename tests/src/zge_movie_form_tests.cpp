@@ -13,7 +13,7 @@ void register_zge_movie_form_tests()
         {
             const zge_host::MovieForm form = zge_host::movieFormFor(false, false);
             t.IsTrue(form == zge_host::MovieForm::Ps2, "the PS2 form when the host form is not installed");
-            t.IsTrue(zge_host::soundOnIop(nullptr, form), "ZAUDIO on the IOP, with PS2X_SOUND unset");
+            t.IsTrue(zge_host::soundOnIop(nullptr, form), "ZAUDIO on the IOP, with ZX_SOUND unset");
         });
 
         tc.Run("the host form keeps the native sound driver", [](TestCase &t)
@@ -21,10 +21,10 @@ void register_zge_movie_form_tests()
             const zge_host::MovieForm form = zge_host::movieFormFor(false, true);
             t.IsTrue(form == zge_host::MovieForm::Host, "the host form when installed");
             t.IsFalse(zge_host::soundOnIop(nullptr, form), "the native driver");
-            t.IsTrue(zge_host::soundOnIop("spu2", form), "unless PS2X_SOUND=spu2");
+            t.IsTrue(zge_host::soundOnIop("spu2", form), "unless ZX_SOUND=spu2");
         });
 
-        tc.Run("PS2X_MOVIES=hle runs the PS2 form, with the sound on the IOP", [](TestCase &t)
+        tc.Run("ZX_MOVIES=hle runs the PS2 form, with the sound on the IOP", [](TestCase &t)
         {
             const zge_host::MovieForm form = zge_host::movieFormFor(true, true);
             t.IsTrue(form == zge_host::MovieForm::Ps2, "the PS2 form");

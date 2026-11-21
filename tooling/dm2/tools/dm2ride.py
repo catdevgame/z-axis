@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """DM2 ride 10 for ridercov (ride 9 plus patterns 23-28: the air trick's spin kinds 1 and 5 and every
-tap sequence (with PS2X_DEV_UNLOCK_ALL=1 every trick is open), the wall ride's crouch and hop off
+tap sequence (with ZX_DEV_UNLOCK_ALL=1 every trick is open), the wall ride's crouch and hop off
 (airEnter from a wall ride), long manuals (groundMove's sliding back wheel)):
  23  speed, a hop, one quick stick tap down in the air (backflip, kind 1), then SQUARE or CIRCLE
  24  speed, a hop, a tap left / right / up then down (the backflip combinations, kind 1), a trick
@@ -15,7 +15,7 @@ ride 8 for rider5b (ride 7 aimed at wall rides and grinds off: patterns 15, 16, 
 ride 6 for rider5's recordings (round 5: action states, grinds, stalls, lips, wall rides,
 bails) on any level: dm2logic's reference input to the level select, MENU presses of RIGHT there
 (the menu value: 0 Woodward Camp = level 2, 1 = level 1, 2 = level 0, 3 = 3, 4 = 6, 5 = 5, 6 = 4,
-7 = 7; the others need PS2X_DEV_UNLOCK_ALL=1 or PS2X_DM2_OPEN_LEVELS=1), then CYCLES x 300 vsyncs,
+7 = 7; the others need ZX_DEV_UNLOCK_ALL=1 or ZX_DM2_OPEN_LEVELS=1), then CYCLES x 300 vsyncs,
 each heading another way, of patterns picked by a seeded generator:
   0  a hop with nothing held, CROSS in the air (stall / lip ask with no taps)
   1  speed, a hop, trick buttons over and over with a direction until landing (bails)

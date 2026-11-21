@@ -2,7 +2,7 @@
 // ai_xbox_files.h).
 #include "collection/extras/ai_xbox_files.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     const std::vector<std::string> &aiXboxFilePatterns()
     {

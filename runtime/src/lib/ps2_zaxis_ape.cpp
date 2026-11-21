@@ -3,7 +3,7 @@
 #include <cstring>
 #include <string_view>
 
-namespace ps2x::zaxis::ape
+namespace zx::zaxis::ape
 {
     size_t recolour(std::vector<uint8_t> &zit)
     {

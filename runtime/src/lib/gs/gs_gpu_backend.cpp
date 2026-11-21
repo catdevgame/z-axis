@@ -13,13 +13,14 @@
 #include "runtime/gs/ps2_gs_memory.h"
 #include "gs_cpu_shared.h"
 #include "gs_gpu_shaders_msl.h"
-#if defined(PS2X_GS_GPU_DXIL)
+#if defined(ZX_GS_GPU_DXIL)
 #include "gs_gpu_shaders_dxil.h" // generated from gs_gpu_shaders.hlsl
 #endif
-#if defined(PS2X_GS_GPU_SPIRV)
+#if defined(ZX_GS_GPU_SPIRV)
 #include "gs_gpu_shaders_spirv.h" // generated from gs_gpu_shaders.hlsl
 #endif
 #include "ps2_host_sdl.h"
+#include "runtime/ps2_texture_dds.h"
 #include "runtime/ps2_texture_pack.h"
 #include "runtime/ps2_texture_replace.h"
 
@@ -36,6 +37,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -49,7 +51,7 @@
 #include <vector>
 
 using namespace GSCpuShared;
-namespace texcheck = ps2x::gpu_texture_check;
+namespace texcheck = zx::gpu_texture_check;
 
 namespace
 {
@@ -254,7 +256,7 @@ namespace
 
     static bool envFlag(const char *name)
     {
-        const char *value = ps2x::boot::text(name); // the environment's, or the boot's (runtime/ps2_boot_config.h)
+        const char *value = zx::boot::text(name); // the environment's, or the boot's (runtime/ps2_boot_config.h)
         return value && value[0] && value[0] != '0';
     }
 
@@ -397,7 +399,7 @@ struct GSGpuBackend::Impl
         // Replacement (runtime/ps2_texture_replace.h), indexed textures only.
         uint64_t indexHash = 0;       // of the decoded indices
         uint64_t replGen = 0;         // registry generation replPic was looked up at
-        ps2x::texture_replace::PicturePtr replPic;
+        zx::texture_replace::PicturePtr replPic;
         uint64_t replPalette = 0;     // the palette first drawn with it
         bool replOff = false;         // drawn with another palette since: not replaced
         bool replRegionLogged = false;
@@ -416,19 +418,19 @@ struct GSGpuBackend::Impl
         uint64_t packShape = 0;  // the CLAMP and TEXA they are for
         struct PackNames
         {
-            std::array<ps2x::texture_pack::Candidate, 8> names;
-            std::array<ps2x::texture_pack::Level, 7> levels;
+            std::array<zx::texture_pack::Candidate, 8> names;
+            std::array<zx::texture_pack::Level, 7> levels;
         };
         std::shared_ptr<PackNames> packNames;
         uint32_t packCount = 0, packChosen = 0;
         uint64_t packClut = 0, packGen = 0;
-        ps2x::texture_replace::PicturePtr packPic;
+        zx::texture_replace::PicturePtr packPic;
     };
 
     // A replacement picture on the GPU.
     struct ReplTex
     {
-        std::weak_ptr<const ps2x::texture_replace::Picture> pic;
+        std::weak_ptr<const zx::texture_replace::Picture> pic;
         SDL_GPUTexture *tex = nullptr;
         size_t bytes = 0;
         uint64_t passSerial = 0;
@@ -453,7 +455,7 @@ struct GSGpuBackend::Impl
         uint32_t level = 0; // mipmap level
         std::vector<uint8_t> data;
         // Or a range of a replacement picture (not copied).
-        ps2x::texture_replace::PicturePtr src;
+        zx::texture_replace::PicturePtr src;
         size_t srcOffset = 0, srcSize = 0;
         size_t bytes() const { return src ? srcSize : data.size(); }
         const uint8_t *bytesPtr() const { return src ? src->data.data() + srcOffset : data.data(); }
@@ -550,6 +552,19 @@ struct GSGpuBackend::Impl
             return v;
         }
 
+        // Each field in the range a pipeline is made with: the flags 0 or 1, a native draw's kind 0 to 2, the
+        // blend factors, blend ops and depth compare SDL_GPU's (0: none, a field unused). A key read from the pipeline
+        // file is made only when it is one (a line cut off, or two joined, can read as any 64 bits).
+        bool valid() const
+        {
+            const auto flag = [](uint8_t v) { return v <= 1u; };
+            const auto factor = [](uint8_t v) { return v <= SDL_GPU_BLENDFACTOR_SRC_ALPHA_SATURATE; };
+            const auto op = [](uint8_t v) { return v <= SDL_GPU_BLENDOP_MAX; };
+            return flag(depth16) && flag(slow) && flag(depthOut) && flag(lines) && flag(hasDepth) &&
+                   depthOp <= SDL_GPU_COMPAREOP_ALWAYS && flag(depthWrite) && flag(blend) && factor(srcColor) &&
+                   factor(dstColor) && op(colorOp) && factor(srcAlpha) && factor(dstAlpha) && op(alphaOp) && native <= 2u;
+        }
+
         // pack()'s inverse (a key from the pipeline file).
         static PipeKey unpack(uint64_t v)
         {
@@ -589,8 +604,8 @@ struct GSGpuBackend::Impl
     int hostDeviceHook = 0; // ps2_host::addGpuDeviceReleaseHook id
     bool ok = false;
     bool statsEnabled = false;
-    bool trace = false; // PS2X_GS_GPU_TRACE=1: log target loads and write-backs
-    bool deferWriteBacks = true; // PS2X_GS_GPU_DEFER=0: every write-back waits (see OwedWriteBack)
+    bool trace = false; // ZX_GS_GPU_TRACE=1: log target loads and write-backs
+    bool deferWriteBacks = true; // ZX_GS_GPU_DEFER=0: every write-back waits (see OwedWriteBack)
 
     GSCpuBackend cpu;
     uint8_t *vram = nullptr;
@@ -604,8 +619,8 @@ struct GSGpuBackend::Impl
     std::unordered_map<uint64_t, SDL_GPUGraphicsPipeline *> pipelines; // by PipeKey::pack(), under pipelineMutex
     SDL_GPUGraphicsPipeline *depthLoadPipe = nullptr, *depthStorePipe = nullptr, *presentPipe = nullptr;
     SDL_GPUGraphicsPipeline *depthLoadPipe16 = nullptr; // for D16 Z targets (hwDepth16)
-    // The Depth Test setting's Fast (gs_quality.h, PS2X_GS_DEPTH16), in a game
-    // whose override allows it (PS2X_GS_D16_TARGETS, bmx_xxx.cpp): 16-bit Z
+    // The Depth Test setting's Fast (gs_quality.h, ZX_GS_DEPTH16), in a game
+    // whose override allows it (ZX_GS_D16_TARGETS, bmx_xxx.cpp): 16-bit Z
     // buffers are D16 targets. Their Z is stored as Z / 65535, the format's
     // own steps, so the GPU rounds depth to the GS's 16-bit Z itself and the
     // fragment shader writes none: a shader that writes depth turns the
@@ -620,7 +635,7 @@ struct GSGpuBackend::Impl
     {
         if (depth16 < 0)
         {
-            depth16 = fastDepth && depthLoadPipe16 && envFlag("PS2X_GS_D16_TARGETS") ? 1 : 0;
+            depth16 = fastDepth && depthLoadPipe16 && envFlag("ZX_GS_D16_TARGETS") ? 1 : 0;
             if (depth16)
                 std::cerr << "[gs-gpu] depth test: fast (16-bit Z buffers as D16 targets)" << std::endl;
         }
@@ -645,10 +660,14 @@ struct GSGpuBackend::Impl
     // [0 trilinear, 1..4 trilinear with 2x..16x anisotropic][u clamp][v clamp].
     SDL_GPUSampler *filterSampler[5][2][2]{};
     bool replBc2 = false; // the device samples BC2
-    std::unordered_map<const ps2x::texture_replace::Picture *, ReplTex> replTextures;
+    // The block formats a texture pack's DDS pictures come in (BC1, BC2,
+    // BC3, BC7) that the device samples; a picture in one it does not is
+    // decoded to RGBA8 when uploaded.
+    bool replBlockFormat[4]{};
+    std::unordered_map<const zx::texture_replace::Picture *, ReplTex> replTextures;
     // replacementTexture's last entry (pointers into an unordered_map stay
     // valid until that element is erased).
-    const ps2x::texture_replace::Picture *lastReplPic = nullptr;
+    const zx::texture_replace::Picture *lastReplPic = nullptr;
     ReplTex *lastRepl = nullptr;
     uint64_t replSweepGen = 0;
     size_t replUploadedThisFrame = 0;
@@ -656,13 +675,13 @@ struct GSGpuBackend::Impl
     static constexpr uint32_t kMagNearestFlag = 0x10000u;
     // cfg0.x of a native draw's picture: clamps by mip level (F_MIP_INSET).
     static constexpr uint32_t kMipInsetFlag = 0x20000u;
-    bool mipInset = true; // PS2X_GS_MIP_INSET=0: half a level 0 texel at every level (diagnostics)
+    bool mipInset = true; // ZX_GS_MIP_INSET=0: half a level 0 texel at every level (diagnostics)
     size_t replGpuBytes = 0;
     static constexpr size_t kReplUploadPerFrame = size_t(24) << 20;
     // Texture pack pictures uploaded per presented frame (of the above):
     // a level's first frames take its pictures a few at a time, the PS2
     // textures drawn until theirs are up, instead of all in one long frame.
-    // PS2X_TEXTURE_PACK_UPLOAD_MB.
+    // ZX_TEXTURE_PACK_UPLOAD_MB.
     size_t packUploadPerFrame = size_t(6) << 20;
     size_t packUploadedThisFrame = 0;
 
@@ -712,8 +731,8 @@ struct GSGpuBackend::Impl
     size_t nativeGpuBytes = 0;
     size_t nativeUploadedThisFrame = 0;
     static constexpr size_t kNativeUploadPerFrame = size_t(48) << 20;
-    bool nativeTint = false; // PS2X_NATIVE_TINT=1: native draws tinted green
-    bool nativeOff = false;  // PS2X_NATIVE_GPU=0: native draws as primitives (GS::drawNative's own)
+    bool nativeTint = false; // ZX_NATIVE_TINT=1: native draws tinted green
+    bool nativeOff = false;  // ZX_NATIVE_GPU=0: native draws as primitives (GS::drawNative's own)
 
     // A game's fog planes (GSFogPlanes, NoteFogPlanes): the notes in stream
     // order, and the plane triangles held back while a set comes in (drawn
@@ -761,8 +780,8 @@ struct GSGpuBackend::Impl
     static constexpr size_t kTexturePoolBytesMax = size_t(64) << 20;
     static constexpr uint64_t kTexturePoolIdleFrames = 1800; // given back for good after 30 s unused
     uint64_t poolHits = 0, poolMisses = 0;
-    bool noTexturePool = false; // PS2X_GS_NO_TEXTURE_POOL=1: textures given back are released (as before)
-    bool meshBufferEach = false; // PS2X_GS_MESH_BUFFER_EACH=1: a buffer per native mesh (as before)
+    bool noTexturePool = false; // ZX_GS_NO_TEXTURE_POOL=1: textures given back are released (as before)
+    bool meshBufferEach = false; // ZX_GS_MESH_BUFFER_EACH=1: a buffer per native mesh (as before)
     // Textures made ahead, per shape (poolKey), on a thread of their own:
     // the first texture of a shape is made where it is asked for and the
     // shape's stock then kept topped up (more after each miss), so a new
@@ -895,49 +914,49 @@ struct GSGpuBackend::Impl
         scaleX = std::clamp<uint32_t>(o.scale, 1u, 8u);
         scaleY = o.fullHeight ? scaleX * 2u : scaleX;
 #if defined(__ANDROID__)
-        // PS2X_GS_SCALE=<x>x<y>: each on its own.
-        if (const char *v = ps2x::boot::text("PS2X_GS_SCALE"); v && std::strchr(v, 'x'))
+        // ZX_GS_SCALE=<x>x<y>: each on its own.
+        if (const char *v = zx::boot::text("ZX_GS_SCALE"); v && std::strchr(v, 'x'))
             scaleY = std::clamp<uint32_t>(static_cast<uint32_t>(std::atoi(std::strchr(v, 'x') + 1)), 1u, 16u);
 #endif
-        statsEnabled = envFlag("PS2X_GS_STATS");
-        replTint = envFlag("PS2X_GS_REPL_TINT");
-        if (const char *v = std::getenv("PS2X_GS_REPL_TINT"))
+        statsEnabled = envFlag("ZX_GS_STATS");
+        replTint = envFlag("ZX_GS_REPL_TINT");
+        if (const char *v = std::getenv("ZX_GS_REPL_TINT"))
             replTint2 = std::atoi(v) >= 2;
-        if (const char *v = std::getenv("PS2X_TRACE_TEXTURE_REPLACE"))
+        if (const char *v = std::getenv("ZX_TRACE_TEXTURE_REPLACE"))
             traceReplace = std::atoi(v);
-        contentKeys = envFlag("PS2X_TEXTURE_REPLACE_CONTENT");
-        if (const char *mb = std::getenv("PS2X_TEXTURE_PACK_UPLOAD_MB"); mb && *mb)
+        contentKeys = envFlag("ZX_TEXTURE_REPLACE_CONTENT");
+        if (const char *mb = std::getenv("ZX_TEXTURE_PACK_UPLOAD_MB"); mb && *mb)
             packUploadPerFrame = static_cast<size_t>(std::max(1l, std::strtol(mb, nullptr, 10))) << 20;
-        trace = envFlag("PS2X_GS_GPU_TRACE");
-        if (const char *v = ps2x::boot::text("PS2X_GS_DRAW_MEMO"); v && v[0] == '0')
+        trace = envFlag("ZX_GS_GPU_TRACE");
+        if (const char *v = zx::boot::text("ZX_GS_DRAW_MEMO"); v && v[0] == '0')
             drawMemoOn = false;
-        drawMemoCheck = envFlag("PS2X_GS_DRAW_MEMO_CHECK");
-        if (const char *v = ps2x::boot::text("PS2X_GS_SHADER_DEPTH"); v && v[0] == '0')
+        drawMemoCheck = envFlag("ZX_GS_DRAW_MEMO_CHECK");
+        if (const char *v = zx::boot::text("ZX_GS_SHADER_DEPTH"); v && v[0] == '0')
             shaderDepth = false;
-        // The Depth Test setting (gs_quality; PS2X_GS_DEPTH16 over it), where the game allows D16 targets
-        // (PS2X_GS_D16_TARGETS: a game with no native draws, set by its override), read once: targets keep
+        // The Depth Test setting (gs_quality; ZX_GS_DEPTH16 over it), where the game allows D16 targets
+        // (ZX_GS_D16_TARGETS: a game with no native draws, set by its override), read once: targets keep
         // their format, so a change applies from the next game start.
-        fastDepth = ps2x::gs_quality::fastDepth();
+        fastDepth = zx::gs_quality::fastDepth();
         int depthTest = 0;
-        if (const char *v = ps2x::boot::text("PS2X_GS_DEPTH16");
-            v && v[0] && ps2x::gs_quality::parseValue(ps2x::gs_quality::Option::DepthTest, v, depthTest))
+        if (const char *v = zx::boot::text("ZX_GS_DEPTH16");
+            v && v[0] && zx::gs_quality::parseValue(zx::gs_quality::Option::DepthTest, v, depthTest))
             fastDepth = depthTest == 1;
         // (D16 targets where the game allows them: decided at the first Z target, hwDepth16)
-        nativeTint = envFlag("PS2X_NATIVE_TINT");
-        interp.timing = envFlag("PS2X_INTERP_TIMING");
-        interp.force = envFlag("PS2X_INTERP_FORCE");
-        interp.mathAtOne = envFlag("PS2X_INTERP_MATH_AT_ONE");
-        // PS2X_INTERP_LEAVE=letters (measuring what a picture between costs): c the start copies, p the passes,
+        nativeTint = envFlag("ZX_NATIVE_TINT");
+        interp.timing = envFlag("ZX_INTERP_TIMING");
+        interp.force = envFlag("ZX_INTERP_FORCE");
+        interp.mathAtOne = envFlag("ZX_INTERP_MATH_AT_ONE");
+        // ZX_INTERP_LEAVE=letters (measuring what a picture between costs): c the start copies, p the passes,
         // f the fog and FXAA passes, r the presentation left out (the picture is then wrong).
-        if (const char *leave = std::getenv("PS2X_INTERP_LEAVE"))
+        if (const char *leave = std::getenv("ZX_INTERP_LEAVE"))
             interp.leave = leave;
-        if (const char *v = std::getenv("PS2X_NATIVE_GPU"); v && v[0] == '0')
+        if (const char *v = std::getenv("ZX_NATIVE_GPU"); v && v[0] == '0')
             nativeOff = true;
-        if (const char *v = std::getenv("PS2X_GS_GPU_DEFER"); v && v[0] == '0')
+        if (const char *v = std::getenv("ZX_GS_GPU_DEFER"); v && v[0] == '0')
             deferWriteBacks = false;
-        if (const char *v = std::getenv("PS2X_GS_MIP_INSET"); v && v[0] == '0')
+        if (const char *v = std::getenv("ZX_GS_MIP_INSET"); v && v[0] == '0')
             mipInset = false;
-        if (const char *v = std::getenv("PS2X_GS_MIP_BUDGET"))
+        if (const char *v = std::getenv("ZX_GS_MIP_BUDGET"))
             mipTexelsPerFrame = static_cast<size_t>(std::strtoull(v, nullptr, 10));
         cpu.SetDeferred(false);
         if (!o.hostDevice)
@@ -959,10 +978,10 @@ struct GSGpuBackend::Impl
     static SDL_GPUShaderFormat builtShaderFormats()
     {
         SDL_GPUShaderFormat formats = SDL_GPU_SHADERFORMAT_MSL;
-#if defined(PS2X_GS_GPU_DXIL)
+#if defined(ZX_GS_GPU_DXIL)
         formats |= SDL_GPU_SHADERFORMAT_DXIL;
 #endif
-#if defined(PS2X_GS_GPU_SPIRV)
+#if defined(ZX_GS_GPU_SPIRV)
         formats |= SDL_GPU_SHADERFORMAT_SPIRV;
 #endif
         return formats;
@@ -986,7 +1005,7 @@ struct GSGpuBackend::Impl
             info.code_size = source.size();
             info.format = SDL_GPU_SHADERFORMAT_MSL;
         }
-#if defined(PS2X_GS_GPU_DXIL)
+#if defined(ZX_GS_GPU_DXIL)
         else if (shaderFormat == SDL_GPU_SHADERFORMAT_DXIL)
         {
             for (const gs_gpu_dxil::Shader &s : gs_gpu_dxil::kShaders)
@@ -998,7 +1017,7 @@ struct GSGpuBackend::Impl
             info.format = SDL_GPU_SHADERFORMAT_DXIL;
         }
 #endif
-#if defined(PS2X_GS_GPU_SPIRV)
+#if defined(ZX_GS_GPU_SPIRV)
         else if (shaderFormat == SDL_GPU_SHADERFORMAT_SPIRV)
         {
             for (const gs_gpu_spirv::Shader &s : gs_gpu_spirv::kShaders)
@@ -1063,7 +1082,7 @@ struct GSGpuBackend::Impl
             shaderFormat = SDL_GPU_SHADERFORMAT_MSL;
         else if (formats & SDL_GPU_SHADERFORMAT_DXIL)
             shaderFormat = SDL_GPU_SHADERFORMAT_DXIL;
-#if defined(PS2X_GS_GPU_SPIRV)
+#if defined(ZX_GS_GPU_SPIRV)
         else if (formats & SDL_GPU_SHADERFORMAT_SPIRV)
             shaderFormat = SDL_GPU_SHADERFORMAT_SPIRV;
 #endif
@@ -1076,7 +1095,7 @@ struct GSGpuBackend::Impl
         // SDL_GPU wants a command buffer used only on the thread that
         // acquired it; Metal does not mind (see the command buffer section).
         threadOwnedCommands = std::strcmp(SDL_GetGPUDeviceDriver(dev), "metal") != 0;
-        if (const char *v = std::getenv("PS2X_GS_GPU_THREAD_OWNED"); v && v[0])
+        if (const char *v = std::getenv("ZX_GS_GPU_THREAD_OWNED"); v && v[0])
             threadOwnedCommands = v[0] == '1';
         vs = makeShader("gs_vs", SDL_GPU_SHADERSTAGE_VERTEX, 0, 1, 0, 0);
         nativeVs = makeShader("gs_native_vs", SDL_GPU_SHADERSTAGE_VERTEX, 0, 1, 0, 0);
@@ -1118,10 +1137,10 @@ struct GSGpuBackend::Impl
                 ri.address_mode_u = cu ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
                 ri.address_mode_v = cv ? SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE : SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
                 ri.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-                ri.max_lod = envFlag("PS2X_GS_REPL_NO_MIPS") ? 0.0f : 1000.0f;
-                if (const char *bias = std::getenv("PS2X_GS_REPL_LOD_BIAS"))
+                ri.max_lod = envFlag("ZX_GS_REPL_NO_MIPS") ? 0.0f : 1000.0f;
+                if (const char *bias = std::getenv("ZX_GS_REPL_LOD_BIAS"))
                     ri.mip_lod_bias = static_cast<float>(std::atof(bias));
-                ri.enable_anisotropy = !envFlag("PS2X_GS_REPL_NO_ANISO");
+                ri.enable_anisotropy = !envFlag("ZX_GS_REPL_NO_ANISO");
                 ri.max_anisotropy = 8.0f;
                 replSampler[cu][cv] = SDL_CreateGPUSampler(dev, &ri);
                 for (int a = 0; a < 5; ++a)
@@ -1135,12 +1154,20 @@ struct GSGpuBackend::Impl
                                                SDL_GPU_TEXTUREUSAGE_SAMPLER);
         if (!replBc2)
             std::cerr << "[gs-gpu] the device has no BC2 textures: no replacement textures" << std::endl;
+        for (zx::texture_replace::Format f : {zx::texture_replace::Format::BC1, zx::texture_replace::Format::BC2,
+                                                zx::texture_replace::Format::BC3, zx::texture_replace::Format::BC7})
+            replBlockFormat[blockFormatSlot(f)] =
+                SDL_GPUTextureSupportsFormat(dev, gpuFormatOf(f), SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER);
+        // ZX_GS_DECODE_PACK_BLOCKS=1: block pictures decoded as on a device without the formats.
+        if (envFlag("ZX_GS_DECODE_PACK_BLOCKS"))
+            for (bool &supported : replBlockFormat)
+                supported = false;
 
         dummyRgba = createTexture(1, 1, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, SDL_GPU_TEXTUREUSAGE_SAMPLER);
         dummyIndex = createTexture(1, 1, SDL_GPU_TEXTUREFORMAT_R8_UINT, SDL_GPU_TEXTUREUSAGE_SAMPLER);
-        noTexturePool = envFlag("PS2X_GS_NO_TEXTURE_POOL");
-        meshBufferEach = envFlag("PS2X_GS_MESH_BUFFER_EACH");
-        if (!envFlag("PS2X_GS_NO_TEXTURE_STOCK"))
+        noTexturePool = envFlag("ZX_GS_NO_TEXTURE_POOL");
+        meshBufferEach = envFlag("ZX_GS_MESH_BUFFER_EACH");
+        if (!envFlag("ZX_GS_NO_TEXTURE_STOCK"))
             startStock();
 
         // Fixed pipelines.
@@ -1346,6 +1373,7 @@ struct GSGpuBackend::Impl
             texcheck::releaseTexture(dev, kv.second);
         stopStock();
         releasePool();
+        releaseInterpolation();
         for (SDL_GPUTexture *t : releaseAfterSubmit)
             texcheck::releaseTexture(dev, t);
         stopPipelinesAhead();
@@ -1424,7 +1452,7 @@ struct GSGpuBackend::Impl
     SDL_GPUTexture *createTexture(uint32_t w, uint32_t h, SDL_GPUTextureFormat format, SDL_GPUTextureUsageFlags usage,
                                   uint32_t levels = 1, uint16_t site = kSiteOther)
     {
-        ps2x::ftrace::Scope traceCreate(ps2x::ftrace::kUser5, ps2x::ftrace::kUser5 + 100, site);
+        zx::ftrace::Scope traceCreate(zx::ftrace::kUser5, zx::ftrace::kUser5 + 100, site);
         SDL_GPUTextureCreateInfo ti{};
         ti.type = SDL_GPU_TEXTURETYPE_2D;
         ti.format = format;
@@ -1712,43 +1740,76 @@ struct GSGpuBackend::Impl
     std::mutex pipelineMutex;
     std::condition_variable pipelineCv;    // the made-ahead thread finished a key
     uint64_t pipelineMaking = UINT64_MAX;  // the key it makes now (under pipelineMutex)
-    std::vector<uint64_t> pipelinesAhead;  // the file's keys
+    std::vector<uint64_t> pipelinesAhead;  // the file's keys (the made-ahead thread's)
+    std::vector<uint64_t> pipelinesInFile; // the file's keys and those filed since, in first-use order
+    std::mutex pipelineFileMutex;          // pipelinesFiled and pipelinesInFile, once the made-ahead thread runs
     std::unordered_set<uint64_t> pipelinesFiled;
     std::thread pipelineThread;
     std::atomic<bool> pipelineStop{false};
 
-    // Reads the file's keys (a file of another layout, or none: a new file).
+    // Reads the file's keys (a file of another layout, or none: a new file). A line is the 16 hex digits of a key
+    // whose every field is in its range (PipeKey::valid); any other line is passed over and said, never made.
     void loadPipelineFile()
     {
         pipelinesAhead.clear();
+        pipelinesInFile.clear();
         pipelinesFiled.clear();
         std::ifstream in(options.pipelineFile);
         std::string line;
-        if (in && std::getline(in, line) && line == kPipelineFileHeader)
-        {
-            while (std::getline(in, line))
-            {
-                char *end = nullptr;
-                const uint64_t key = std::strtoull(line.c_str(), &end, 16);
-                if (end != line.c_str() && PipeKey::unpack(key).pack() == key && pipelinesFiled.insert(key).second)
-                    pipelinesAhead.push_back(key);
-            }
+        if (!(in && std::getline(in, line) && line == kPipelineFileHeader))
             return;
+        size_t refused = 0;
+        while (std::getline(in, line))
+        {
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            const bool hex = line.size() == 16 && std::all_of(line.begin(), line.end(), [](char c)
+                                                              { return std::isxdigit(static_cast<unsigned char>(c)) != 0; });
+            const uint64_t key = hex ? std::strtoull(line.c_str(), nullptr, 16) : 0;
+            if (!hex || !PipeKey::unpack(key).valid())
+            {
+                ++refused;
+                continue;
+            }
+            if (pipelinesFiled.insert(key).second)
+                pipelinesAhead.push_back(key);
         }
-        in.close();
-        std::ofstream out(options.pipelineFile, std::ios::trunc);
-        out << kPipelineFileHeader << '\n';
+        pipelinesInFile = pipelinesAhead;
+        if (refused)
+            std::cerr << "[gs-gpu] pipeline file " << options.pipelineFile << ": " << refused
+                      << " line(s) not a pipeline's key, passed over" << std::endl;
     }
 
-    // A pipeline made for the first time: its key goes to the file.
+    // A pipeline made for the first time: its key goes to the file, which is written whole beside it and put in its
+    // place (a write cut off leaves the file there was).
     void filePipeline(uint64_t key)
     {
-        if (options.pipelineFile.empty() || !pipelinesFiled.insert(key).second)
+        if (options.pipelineFile.empty())
             return;
-        std::ofstream out(options.pipelineFile, std::ios::app);
-        char text[24];
-        std::snprintf(text, sizeof(text), "%016llx\n", static_cast<unsigned long long>(key));
-        out << text;
+        // (the GS worker's draws and the window thread's presentation both make pipelines)
+        std::lock_guard<std::mutex> lock(pipelineFileMutex);
+        if (!pipelinesFiled.insert(key).second)
+            return;
+        pipelinesInFile.push_back(key);
+        std::string text = std::string(kPipelineFileHeader) + "\n";
+        for (const uint64_t filed : pipelinesInFile)
+        {
+            char hex[24];
+            std::snprintf(hex, sizeof(hex), "%016llx\n", static_cast<unsigned long long>(filed));
+            text += hex;
+        }
+        const std::string partial = options.pipelineFile + ".partial";
+        bool written = false;
+        if (FILE *out = std::fopen(partial.c_str(), "wb"))
+        {
+            written = std::fwrite(text.data(), 1, text.size(), out) == text.size();
+            written = std::fclose(out) == 0 && written;
+        }
+        std::error_code ec;
+        if (written)
+            std::filesystem::rename(partial, options.pipelineFile, ec);
+        if (!written || ec)
+            std::filesystem::remove(partial, ec);
     }
 
     void startPipelinesAhead()
@@ -1904,7 +1965,7 @@ struct GSGpuBackend::Impl
         pi.target_info.num_color_targets = 1;
         SDL_GPUGraphicsPipeline *p = nullptr;
         {
-            ps2x::ftrace::Scope traceCreate(ps2x::ftrace::kPipelineCreate, ps2x::ftrace::kPipelineCreate + 100, k.native);
+            zx::ftrace::Scope traceCreate(zx::ftrace::kPipelineCreate, zx::ftrace::kPipelineCreate + 100, k.native);
             p = SDL_CreateGPUGraphicsPipeline(dev, &pi);
         }
         if (!p)
@@ -1918,7 +1979,7 @@ struct GSGpuBackend::Impl
     {
         if (!cmd)
         {
-            ps2x::ftrace::Scope traceAcquire(ps2x::ftrace::kUser3, ps2x::ftrace::kUser3 + 100);
+            zx::ftrace::Scope traceAcquire(zx::ftrace::kUser3, zx::ftrace::kUser3 + 100);
             cmd = SDL_AcquireGPUCommandBuffer(dev);
             cmdThread = SDL_GetCurrentThreadID();
         }
@@ -1950,7 +2011,7 @@ struct GSGpuBackend::Impl
         if (cmdThread == me)
             return;
         ++cmdWaiters;
-        ps2x::ftrace::Scope traceClaim(ps2x::ftrace::kGpuClaimBegin, ps2x::ftrace::kGpuClaimEnd);
+        zx::ftrace::Scope traceClaim(zx::ftrace::kGpuClaimBegin, zx::ftrace::kGpuClaimEnd);
         cmdCv.wait_for(lock, std::chrono::milliseconds(20), [&]()
                        { return !cmd || cmdThread == me; });
         --cmdWaiters;
@@ -2003,7 +2064,7 @@ struct GSGpuBackend::Impl
             }
             if (!lock.try_lock())
             {
-                ps2x::ftrace::Scope traceLock(ps2x::ftrace::kUser4, ps2x::ftrace::kUser4 + 100);
+                zx::ftrace::Scope traceLock(zx::ftrace::kUser4, zx::ftrace::kUser4 + 100);
                 if (!drawer)
                     im.otherWaiters.fetch_add(1, std::memory_order_acq_rel);
                 lock.lock();
@@ -2101,7 +2162,7 @@ struct GSGpuBackend::Impl
         SDL_GPUTransferBufferCreateInfo ti{};
         ti.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
         ti.size = upTbSize;
-        ps2x::ftrace::Scope traceCreate(ps2x::ftrace::kBufferCreate, ps2x::ftrace::kBufferCreate + 100, 1);
+        zx::ftrace::Scope traceCreate(zx::ftrace::kBufferCreate, zx::ftrace::kBufferCreate + 100, 1);
         upTb = SDL_CreateGPUTransferBuffer(dev, &ti);
     }
 
@@ -2138,7 +2199,7 @@ struct GSGpuBackend::Impl
             return 0;
         }
         ensureUploadBuffer(total);
-        ps2x::ftrace::Scope traceUpload(ps2x::ftrace::kUser6, ps2x::ftrace::kUser6 + 100);
+        zx::ftrace::Scope traceUpload(zx::ftrace::kUser6, zx::ftrace::kUser6 + 100);
         uint8_t *map = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(dev, upTb, true));
         uint32_t at = 0;
         if (vertexBytes)
@@ -2266,7 +2327,7 @@ struct GSGpuBackend::Impl
         bi.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
         bi.size = mc.size;
         {
-            ps2x::ftrace::Scope traceCreate(ps2x::ftrace::kBufferCreate, ps2x::ftrace::kBufferCreate + 100, 2);
+            zx::ftrace::Scope traceCreate(zx::ftrace::kBufferCreate, zx::ftrace::kBufferCreate + 100, 2);
             mc.buf = SDL_CreateGPUBuffer(dev, &bi);
         }
         if (!mc.buf)
@@ -2416,7 +2477,7 @@ struct GSGpuBackend::Impl
         const double zScale = std::ldexp(1.0, static_cast<int>(depthBits(ctx.zbuf.psm)));
         // Picture quality (gs_quality.h): colours in perspective on every
         // native mesh, and skinned textures too (the PS2 maps them affinely).
-        const bool perspective = ps2x::gs_quality::perspectiveCorrect();
+        const bool perspective = zx::gs_quality::perspectiveCorrect();
         const bool perspectiveColour = d.perspectiveColour || perspective;
         const bool affineUV = d.affineUV && !perspective;
         const uint32_t motion = holdMotion(d, state);
@@ -2652,10 +2713,10 @@ struct GSGpuBackend::Impl
                           << note.nearest << " every " << note.step << " (left as planes)" << std::endl;
             }
         }
-        if (!found || !(ps2x::gs_quality::smoothFog() && fogPass(held, note, zs)))
+        if (!found || !(zx::gs_quality::smoothFog() && fogPass(held, note, zs)))
             for (const GSPrimitiveBatch &b : held)
                 submitPrimitiveNow(b);
-        if (ps2x::gs_quality::fxaa())
+        if (zx::gs_quality::fxaa())
             fxaaPass(held.front());
     }
 
@@ -2942,7 +3003,7 @@ struct GSGpuBackend::Impl
             ++passSerial;
             return;
         }
-        ps2x::ftrace::Scope tracePass(ps2x::ftrace::kGpuPassBegin, ps2x::ftrace::kGpuPassEnd, static_cast<uint16_t>(std::min<size_t>(p.draws.size(), 65535u)));
+        zx::ftrace::Scope tracePass(zx::ftrace::kGpuPassBegin, zx::ftrace::kGpuPassEnd, static_cast<uint16_t>(std::min<size_t>(p.draws.size(), 65535u)));
         holdPassBegin(p);
         SDL_GPUCopyPass *copy = nullptr;
         const uint32_t vertexOffset = recordUploads(p.verts.data(), static_cast<uint32_t>(p.verts.size() * sizeof(GpuVertex)), &copy);
@@ -3098,7 +3159,7 @@ struct GSGpuBackend::Impl
         for (const RetiringTexture &r : retiringClutTextures)
             unfenced |= !r.fence;
         std::shared_ptr<FenceRef> fence;
-        ps2x::ftrace::Scope traceSubmit(ps2x::ftrace::kGpuSubmitBegin, ps2x::ftrace::kGpuSubmitEnd);
+        zx::ftrace::Scope traceSubmit(zx::ftrace::kGpuSubmitBegin, zx::ftrace::kGpuSubmitEnd);
         if (wantFence || unfenced)
         {
             fence = std::make_shared<FenceRef>();
@@ -3345,7 +3406,7 @@ struct GSGpuBackend::Impl
 
     void waitFence(SDL_GPUFence *fence)
     {
-        ps2x::ftrace::Scope traceFence(ps2x::ftrace::kUser2, ps2x::ftrace::kUser2 + 100);
+        zx::ftrace::Scope traceFence(zx::ftrace::kUser2, zx::ftrace::kUser2 + 100);
         SDL_WaitForGPUFences(dev, true, &fence, 1);
     }
 
@@ -3389,7 +3450,7 @@ struct GSGpuBackend::Impl
     // The oldest owed write-back: wait for it and store its pixels.
     void materializeFront()
     {
-        ps2x::ftrace::Scope traceMaterialize(ps2x::ftrace::kUser7, ps2x::ftrace::kUser7 + 100);
+        zx::ftrace::Scope traceMaterialize(zx::ftrace::kUser7, zx::ftrace::kUser7 + 100);
         OwedWriteBack &o = owed.front();
         materializing = true;
         if (!o.fence)
@@ -3448,7 +3509,7 @@ struct GSGpuBackend::Impl
     {
         if (t.dirty.empty())
             return;
-        ps2x::ftrace::Scope traceDownload(ps2x::ftrace::kTargetDownload, ps2x::ftrace::kTargetDownload + 100);
+        zx::ftrace::Scope traceDownload(zx::ftrace::kTargetDownload, zx::ftrace::kTargetDownload + 100);
         Rect r = t.dirty;
         r.x0 = std::max(r.x0, 0);
         r.y0 = std::max(r.y0, 0);
@@ -3669,7 +3730,7 @@ struct GSGpuBackend::Impl
     // Fills `out` (w x h) from target t through a coordinate texture.
     void recordGather(Target &t, SDL_GPUTexture *coords, SDL_GPUTexture *out, bool index)
     {
-        ps2x::ftrace::Scope traceGather(ps2x::ftrace::kUser8, ps2x::ftrace::kUser8 + 100);
+        zx::ftrace::Scope traceGather(zx::ftrace::kUser8, zx::ftrace::kUser8 + 100);
         closePass();
         flushUploads();
         heldTextureWritten(out);
@@ -4072,7 +4133,7 @@ struct GSGpuBackend::Impl
     // Loads a target's whole area from local memory.
     void load(Target &t)
     {
-        ps2x::ftrace::Scope traceLoad(ps2x::ftrace::kTargetLoad, ps2x::ftrace::kTargetLoad + 100);
+        zx::ftrace::Scope traceLoad(zx::ftrace::kTargetLoad, zx::ftrace::kTargetLoad + 100);
         // Anything else drawn over these pages goes to memory first.
         for (auto &o : targets)
             if (o.get() != &t && !o->dirty.empty() && o->dirtyPages.intersects(t.pages))
@@ -4194,7 +4255,7 @@ struct GSGpuBackend::Impl
         auto it = std::find_if(targets.begin(), targets.end(), [&](const std::unique_ptr<Target> &p) { return p.get() == t; });
         if (it != targets.end())
         {
-            // PS2X_GPU_TEXTURE_CHECK=1: the object is kept 2 s with a token
+            // ZX_GPU_TEXTURE_CHECK=1: the object is kept 2 s with a token
             // for its texture, so a stale Target pointer is reported when its
             // texture is used (instead of reading freed memory).
             if (SDL_GPUTexture *token = texcheck::ownerGone("GS target"))
@@ -4415,7 +4476,7 @@ struct GSGpuBackend::Impl
             return e;
 
         e.decodeSerial = ++decodeSerialClock;
-        ps2x::ftrace::Scope traceDecode(ps2x::ftrace::kTextureDecode, ps2x::ftrace::kTextureDecode + 100,
+        zx::ftrace::Scope traceDecode(zx::ftrace::kTextureDecode, zx::ftrace::kTextureDecode + 100,
                                         static_cast<uint16_t>(w / 8u));
         const bool indexed = isFourBitIndexedPsm(tex.psm) || isEightBitIndexedPsm(tex.psm);
         // A gathered texture of the same size takes the next gather in place
@@ -4491,7 +4552,7 @@ struct GSGpuBackend::Impl
                 for (uint32_t x = 0; x < w; ++x)
                     out[y * w + x] = static_cast<uint8_t>(read(vram, tex.tbp0, tbw, x, y));
             if (contentKeys || traceReplace > 1)
-                e.indexHash = ps2x::texture_replace::indexHash(out, up.data.size());
+                e.indexHash = zx::texture_replace::indexHash(out, up.data.size());
             if (traceReplace > 1)
                 std::cerr << "[gs-gpu] texture " << w << "x" << h << " psm " << unsigned(tex.psm) << " hash " << std::hex
                           << e.indexHash << std::dec << std::endl;
@@ -4509,9 +4570,9 @@ struct GSGpuBackend::Impl
                     out[y * w + x] = v;
                 }
             // Movie frames shown at a higher resolution are keyed by RGB.
-            if (ps2x::texture_replace::hasRgbEntries())
+            if (zx::texture_replace::hasRgbEntries())
             {
-                e.indexHash = ps2x::texture_replace::rgbHash(out, w, h);
+                e.indexHash = zx::texture_replace::rgbHash(out, w, h);
                 e.rgbHashed = true;
                 if (traceReplace > 1)
                     std::cerr << "[gs-gpu] rgb texture " << w << "x" << h << " psm " << unsigned(tex.psm) << " hash "
@@ -4548,16 +4609,16 @@ struct GSGpuBackend::Impl
             if (!inTarget)
                 break;
         }
-        // PS2X_GS_MIP_TARGET_LEVELS=memory: levels in a render target are
+        // ZX_GS_MIP_TARGET_LEVELS=memory: levels in a render target are
         // read as the GS reads them where the LOD reaches them, decoded from
         // local memory as it is (the target is not brought back; only levels
         // from `synced` on follow GS memory). Dave Mirra BMX 2 keeps level 0
         // of its level textures at TBP 0, in the frame buffer, and starting
         // at level 1 there showed noise (its override sets this for its boot).
         // Unset: the draw starts at the first level outside the targets.
-        static ps2x::boot::PerBoot<bool> targetLevelsFromMemory([]
+        static zx::boot::PerBoot<bool> targetLevelsFromMemory([]
         {
-            const char *v = ps2x::boot::text("PS2X_GS_MIP_TARGET_LEVELS");
+            const char *v = zx::boot::text("ZX_GS_MIP_TARGET_LEVELS");
             return v && std::string_view(v) == "memory";
         });
         const uint32_t synced = lowest;
@@ -4650,10 +4711,10 @@ struct GSGpuBackend::Impl
 
     // ---- replacement pictures (runtime/ps2_texture_replace.h) ------------
 
-    bool replTint = false;  // PS2X_GS_REPL_TINT=1: replacements drawn tinted red
-    bool replTint2 = false; // PS2X_GS_REPL_TINT=2: also indexed textures without one, blue
-    int traceReplace = 0; // PS2X_TRACE_TEXTURE_REPLACE=1: replacements found / turned off, 2: every indexed decode
-    // PS2X_TEXTURE_REPLACE_CONTENT=1: also find replacements by what GS
+    bool replTint = false;  // ZX_GS_REPL_TINT=1: replacements drawn tinted red
+    bool replTint2 = false; // ZX_GS_REPL_TINT=2: also indexed textures without one, blue
+    int traceReplace = 0; // ZX_TRACE_TEXTURE_REPLACE=1: replacements found / turned off, 2: every indexed decode
+    // ZX_TEXTURE_REPLACE_CONTENT=1: also find replacements by what GS
     // memory holds (the indices' hash at each decode), for textures no
     // override names. Off: only by identity (GSTextureObjectNote).
     bool contentKeys = false;
@@ -4670,7 +4731,7 @@ struct GSGpuBackend::Impl
     {
         GSTextureObjectNote note{};
         uint32_t last = 0; // last block
-        ps2x::texture_replace::PicturePtr pic;
+        zx::texture_replace::PicturePtr pic;
         uint64_t picGen = 0;    // registry generation pic was looked up at
         uint64_t palette = 0;   // the palette first drawn with it
         bool paletteOff = false; // drawn with another palette since: not replaced
@@ -4834,7 +4895,7 @@ struct GSGpuBackend::Impl
     {
         if (!replBc2 || t.note.keyHash == 0u)
             return nullptr;
-        const uint64_t gen = ps2x::texture_replace::generation();
+        const uint64_t gen = zx::texture_replace::generation();
         if (t.picGen != gen)
         {
             if (gen != replSweepGen)
@@ -4843,7 +4904,7 @@ struct GSGpuBackend::Impl
                 sweepReplacements();
             }
             t.picGen = gen;
-            t.pic = ps2x::texture_replace::find(t.note.keyWidth, t.note.keyHeight, t.note.keyHash);
+            t.pic = zx::texture_replace::find(t.note.keyWidth, t.note.keyHeight, t.note.keyHash);
             t.palette = 0;
             t.paletteOff = false;
             // The same indices in another texture (a flat one, the game's
@@ -4904,9 +4965,36 @@ struct GSGpuBackend::Impl
         }
     }
 
+    // A replacement picture's format on the GPU.
+    static SDL_GPUTextureFormat gpuFormatOf(zx::texture_replace::Format format)
+    {
+        switch (format)
+        {
+        case zx::texture_replace::Format::BC1: return SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM;
+        case zx::texture_replace::Format::BC2: return SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM;
+        case zx::texture_replace::Format::BC3: return SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
+        case zx::texture_replace::Format::BC7: return SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM;
+        default: return SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+        }
+    }
+    // A block format's place in replBlockFormat.
+    static uint32_t blockFormatSlot(zx::texture_replace::Format format)
+    {
+        switch (format)
+        {
+        case zx::texture_replace::Format::BC1: return 0;
+        case zx::texture_replace::Format::BC2: return 1;
+        case zx::texture_replace::Format::BC3: return 2;
+        default: return 3; // BC7
+        }
+    }
+
     // The GPU copy of a picture, uploaded on first use (null while this
     // frame's upload budget is spent: the PS2 texture is drawn meanwhile).
-    ReplTex *replacementTexture(const ps2x::texture_replace::PicturePtr &pic, bool fromPack = false)
+    // A picture in a block format the device does not sample is uploaded
+    // as RGBA8 (texture_dds::asRgba8; the replacement map is still keyed
+    // by the picture itself).
+    ReplTex *replacementTexture(const zx::texture_replace::PicturePtr &pic, bool fromPack = false)
     {
         if (lastRepl && lastReplPic == pic.get() && lastRepl->pic.lock() == pic)
             return lastRepl;
@@ -4927,31 +5015,36 @@ struct GSGpuBackend::Impl
             replGpuBytes -= std::min(replGpuBytes, it->second.bytes);
             replTextures.erase(it);
         }
-        const size_t size = pic->levelOffset(pic->mips);
+        const bool decode = zx::texture_replace::isBlockFormat(pic->format) && !replBlockFormat[blockFormatSlot(pic->format)];
+        zx::texture_replace::Picture shape; // the levels as uploaded (no texels)
+        shape.width = pic->width;
+        shape.height = pic->height;
+        shape.mips = pic->mips;
+        shape.format = decode ? zx::texture_replace::Format::RGBA8 : pic->format;
+        const size_t size = shape.levelOffset(shape.mips);
         if (replUploadedThisFrame > 0u && replUploadedThisFrame + size > kReplUploadPerFrame)
             return nullptr;
         if (fromPack && packUploadedThisFrame > 0u && packUploadedThisFrame + size > packUploadPerFrame)
             return nullptr;
         if (fromPack)
             packUploadedThisFrame += size;
-        ps2x::ftrace::Scope traceRepl(ps2x::ftrace::kReplacementUpload, ps2x::ftrace::kReplacementUpload + 100,
+        zx::ftrace::Scope traceRepl(zx::ftrace::kReplacementUpload, zx::ftrace::kReplacementUpload + 100,
                                       static_cast<uint16_t>(std::min<size_t>(size >> 16, 65535u)));
-        const SDL_GPUTextureFormat format = pic->format == ps2x::texture_replace::Format::BC2
-                                                ? SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM
-                                                : SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-        SDL_GPUTexture *t = pooledTexture(pic->width, pic->height, format, SDL_GPU_TEXTUREUSAGE_SAMPLER, pic->mips, kSiteReplacement);
+        const zx::texture_replace::PicturePtr texels = decode ? zx::texture_dds::asRgba8(pic) : pic;
+        SDL_GPUTexture *t = pooledTexture(texels->width, texels->height, gpuFormatOf(texels->format), SDL_GPU_TEXTUREUSAGE_SAMPLER,
+                                          texels->mips, kSiteReplacement);
         if (!t)
             return nullptr;
-        for (uint32_t level = 0; level < pic->mips; ++level)
+        for (uint32_t level = 0; level < texels->mips; ++level)
         {
             PendingUpload up;
             up.tex = t;
-            up.width = pic->levelWidth(level);
-            up.height = pic->levelHeight(level);
+            up.width = texels->levelWidth(level);
+            up.height = texels->levelHeight(level);
             up.level = level;
-            up.src = pic;
-            up.srcOffset = pic->levelOffset(level);
-            up.srcSize = pic->levelSize(level);
+            up.src = texels;
+            up.srcOffset = texels->levelOffset(level);
+            up.srcSize = texels->levelSize(level);
             uploads.push_back(std::move(up));
         }
         replUploadedThisFrame += size;
@@ -5014,7 +5107,7 @@ struct GSGpuBackend::Impl
     {
         if (!replBc2)
             return nullptr;
-        const uint64_t gen = ps2x::texture_replace::generation();
+        const uint64_t gen = zx::texture_replace::generation();
         if (!e.rgbHashed && !contentKeys)
             return nullptr;
         // Indices read from a target on the GPU (gatherTexture) have no key:
@@ -5029,7 +5122,7 @@ struct GSGpuBackend::Impl
                 sweepReplacements();
             }
             e.replGen = gen;
-            e.replPic = ps2x::texture_replace::find(e.width, e.height, e.indexHash, e.rgbHashed);
+            e.replPic = zx::texture_replace::find(e.width, e.height, e.indexHash, e.rgbHashed);
             e.replPalette = 0;
             e.replOff = false;
             if (e.replPic && traceReplace)
@@ -5081,7 +5174,7 @@ struct GSGpuBackend::Impl
         std::array<uint32_t, 256> entries{};
     } packClutCache;
     // Names dump mode has written (or a pack has): not read out again.
-    std::unordered_set<ps2x::texture_pack::Name, ps2x::texture_pack::NameHash> packDumped;
+    std::unordered_set<zx::texture_pack::Name, zx::texture_pack::NameHash> packDumped;
     uint64_t packSweepGen = 0; // texture_pack::generation() at the last sweep
 
     const PackClut *packClutFor(const GSTex0Reg &tex, const GSTexaReg &texa)
@@ -5097,8 +5190,8 @@ struct GSGpuBackend::Impl
             c.contentEpoch = clutContentEpoch;
             c.select = select;
             c.texa = texaKey;
-            c.count = ps2x::texture_pack::readClut(clut.data(), tex.psm, tex.cpsm, tex.csa, texa, c.entries.data());
-            c.hash = ps2x::texture_pack::clutHash(c.entries.data(), c.count);
+            c.count = zx::texture_pack::readClut(clut.data(), tex.psm, tex.cpsm, tex.csa, texa, c.entries.data());
+            c.hash = zx::texture_pack::clutHash(c.entries.data(), c.count);
         }
         return &c;
     }
@@ -5107,9 +5200,9 @@ struct GSGpuBackend::Impl
     // not read yet, or a form a picture cannot follow). region: the part of
     // the texture the picture covers, in level 0's texels.
     ReplTex *packReplacement(TexEntry &e, const GSTex0Reg &tex, const GSDrawState &st, bool mipmapped,
-                             ps2x::texture_pack::Region &region)
+                             zx::texture_pack::Region &region)
     {
-        namespace tp = ps2x::texture_pack;
+        namespace tp = zx::texture_pack;
         // Texels read from a target on the GPU are not what local memory holds.
         if (e.gathered)
             return nullptr;
@@ -5185,7 +5278,7 @@ struct GSGpuBackend::Impl
             ++stats.packLookups;
             e.packGen = gen;
             e.packClut = clutHash;
-            const ps2x::texture_replace::PicturePtr before = e.packPic;
+            const zx::texture_replace::PicturePtr before = e.packPic;
             e.packPic.reset();
             bool anyKnown = false;
             for (uint32_t i = 0; i < e.packCount && !anyKnown; ++i)
@@ -5268,7 +5361,7 @@ struct GSGpuBackend::Impl
     // texels built (about 3.5 ns each on an M5 Pro: half a million, under
     // 2 ms; a level's first frames make a hundred copies, 1.3 M texels in
     // the Movie Lot): over it, a texture is drawn as the GS does until a
-    // later frame. PS2X_GS_MIP_BUDGET=<texels>, 0 no limit.
+    // later frame. ZX_GS_MIP_BUDGET=<texels>, 0 no limit.
     size_t mipTexelsPerFrame = size_t(512) << 10;
     static constexpr size_t kMipCopyBytesMax = size_t(256) << 20;
     static constexpr uint64_t kMipCopyIdleFrames = 1800; // dropped unused this long (30 s)
@@ -5292,7 +5385,7 @@ struct GSGpuBackend::Impl
     {
         const auto &ctx = st.context;
         const uint32_t texW = st.textureWidth, texH = st.textureHeight;
-        const int level = std::clamp(ps2x::gs_quality::get(ps2x::gs_quality::Option::Anisotropy), 0, 4);
+        const int level = std::clamp(zx::gs_quality::get(zx::gs_quality::Option::Anisotropy), 0, 4);
         if (texKind == 3u)
         {
             sampler0 = filterSamplerFor(ctx.clamp, texW, texH, level);
@@ -5322,7 +5415,7 @@ struct GSGpuBackend::Impl
     // frame's budget spent).
     MipCopy *mipCopyFor(TexEntry &e, const GSDrawState &st, uint32_t lowest, uint32_t texaClass)
     {
-        namespace gm = ps2x::gs_mips;
+        namespace gm = zx::gs_mips;
         const GSTex0Reg &tex = st.context.tex0;
         const bool indexed = e.indexed;
         const uint32_t *palColors = nullptr;
@@ -5355,7 +5448,7 @@ struct GSGpuBackend::Impl
             mipCopyKeys.erase(fit);
         }
 
-        ps2x::ftrace::Scope traceMip(ps2x::ftrace::kMipCopy, ps2x::ftrace::kMipCopy + 100);
+        zx::ftrace::Scope traceMip(zx::ftrace::kMipCopy, zx::ftrace::kMipCopy + 100);
         // The GS's levels: the first outside a render target .. MXL of a
         // mipmapped texture, else 0. A level in a render target is not the
         // texture's texels: DM2's distant models (trees, signs, vehicles)
@@ -5363,7 +5456,7 @@ struct GSGpuBackend::Impl
         // up uploaded. The GS's LOD (K) never reaches it; this copy's LOD
         // comes from the screen, at the internal resolution, and would.
         // `lowest` is 0 there when such levels are read from GS memory
-        // (PS2X_GS_MIP_TARGET_LEVELS=memory, DM2's boot), so the copy starts
+        // (ZX_GS_MIP_TARGET_LEVELS=memory, DM2's boot), so the copy starts
         // at the entry's first level outside the targets (mipSynced).
         const bool mipmapped = st.mip.maxLevel != 0u;
         const uint32_t first = mipmapped ? std::max(lowest, e.mipSynced) : 0u;
@@ -5623,7 +5716,7 @@ struct GSGpuBackend::Impl
     static bool exactFlatColour(const GSPrimitiveBatch &batch)
     {
         const GSDrawState &st = batch.state;
-        if (!st.prim.abe || (st.colclamp & 1u) != 0u || !ps2x::gs_quality::nativeShadows())
+        if (!st.prim.abe || (st.colclamp & 1u) != 0u || !zx::gs_quality::nativeShadows())
             return false;
         const uint8_t type = st.prim.type;
         if (type == GS_PRIM_SPRITE || type == GS_PRIM_POINT || !st.prim.iip)
@@ -5874,7 +5967,7 @@ struct GSGpuBackend::Impl
     void drawOnCpu(const GSPrimitiveBatch &batch)
     {
         ++drawMemoSerial;
-        ps2x::ftrace::Scope traceCpu(ps2x::ftrace::kCpuDraw, ps2x::ftrace::kCpuDraw + 100);
+        zx::ftrace::Scope traceCpu(zx::ftrace::kCpuDraw, zx::ftrace::kCpuDraw + 100);
         ++stats.cpuPrimitives;
         notReplayable("cpu raster");
         syncAll();
@@ -5906,7 +5999,7 @@ struct GSGpuBackend::Impl
     // colours read by the blend setup, no dirty rectangle growing.
     // Anything else (any other call into the backend, a waiter let in, a
     // pass closed, a target destroyed or grown, a texture decoded) ends it.
-    // PS2X_GS_DRAW_MEMO=0 turns it off; PS2X_GS_DRAW_MEMO_CHECK=1 draws every
+    // ZX_GS_DRAW_MEMO=0 turns it off; ZX_GS_DRAW_MEMO_CHECK=1 draws every
     // primitive through drawPrepared and counts those whose draws differ
     // from the memo's (the proof run must say 0).
     struct DrawMemo
@@ -5944,7 +6037,7 @@ struct GSGpuBackend::Impl
     } memoCandidate;
     uint64_t drawMemoSerial = 1; // moved by every call into the backend but a primitive in a packet
     bool drawMemoOn = true;
-    bool shaderDepth = true; // PS2X_GS_SHADER_DEPTH=0: see drawPrepared
+    bool shaderDepth = true; // ZX_GS_SHADER_DEPTH=0: see drawPrepared
     bool drawMemoCheck = false;
     uint64_t memoHits = 0;
     uint64_t memoChecked = 0, memoDiffer = 0;
@@ -6504,8 +6597,8 @@ struct GSGpuBackend::Impl
         uint32_t mipLowest = 0;
         // A texture pack's picture (texture_pack::Region: the part it covers).
         bool packPicture = false;
-        ps2x::texture_pack::Region packRegion;
-        const bool packs = st.prim.tme && ps2x::texture_pack::active();
+        zx::texture_pack::Region packRegion;
+        const bool packs = st.prim.tme && zx::texture_pack::active();
         const auto usePack = [&](ReplTex *r)
         {
             replTex = r;
@@ -6758,7 +6851,7 @@ struct GSGpuBackend::Impl
         if (native && texKind == 3u && mipInset)
         {
             u.cfg0[0] |= kMipInsetFlag;
-            u.f1[0] = static_cast<float>(ps2x::gs_quality::anisotropy());
+            u.f1[0] = static_cast<float>(zx::gs_quality::anisotropy());
         }
         std::memcpy(dc.tex, texBind, sizeof(texBind));
         dc.sampler0 = sampler0;
@@ -6794,9 +6887,9 @@ struct GSGpuBackend::Impl
             // GPU's own depth, z'/w' / 2^bits in float, not rounded to the
             // GS's integer steps (one step is 49 units at 2000 with a 16-bit
             // Z buffer), so far surfaces sort among themselves.
-            if (native && ps2x::gs_quality::preciseDepth())
+            if (native && zx::gs_quality::preciseDepth())
                 k.depthOut = 0;
-            // PS2X_GS_SHADER_DEPTH=0 (a measurement): the GPU's own interpolated depth for GS-path draws too, not
+            // ZX_GS_SHADER_DEPTH=0 (a measurement): the GPU's own interpolated depth for GS-path draws too, not
             // rounded to the Z buffer's integer steps in the shader (which turns off early depth tests).
             if (!shaderDepth || k.depth16)
                 k.depthOut = 0; // (D16: the GPU rounds to the Z steps itself)
@@ -7007,7 +7100,7 @@ struct GSGpuBackend::Impl
         pu.out[1] = static_cast<int>(outH);
         pu.out[2] = static_cast<int>(scaleY);
 
-        picture.mips = picture.levels > 1u && ps2x::gs_quality::fxaa();
+        picture.mips = picture.levels > 1u && zx::gs_quality::fxaa();
         if (HeldFrame *held = holding(); held && request.frame != 0u)
         {
             PresentStep &st = held->present;
@@ -7032,7 +7125,7 @@ struct GSGpuBackend::Impl
             st.pu = pu;
             st.w = outW;
             st.h = outH;
-            st.mips = ps2x::gs_quality::fxaa();
+            st.mips = zx::gs_quality::fxaa();
             copyHeldSnapshots(*held);
         }
         recordPresentPass(out, valid1 ? s1.t->tex : s2.t->tex, valid2 ? s2.t->tex : s1.t->tex, pu, picture.mips);
@@ -7254,6 +7347,11 @@ struct GSGpuBackend::Impl
     struct Interp
     {
         bool on = false;
+        // A frame of the frame queue has been presented (a GSPresentationRequest::frame): only those are held, so
+        // until one comes nothing is (zx-gsreplay's pictures without --between, ZX_FRAME_QUEUE=0: every
+        // present a latched picture, frame 0, which ends no held frame; the frame being held then gathered every
+        // later frame's draws: zx-gsreplay with interpolation on grew at every frame).
+        bool queued = false;
         std::unique_ptr<HeldFrame> building;
         std::deque<std::unique_ptr<HeldFrame>> made; // newest last
         // Textures of the replay's own and of the held frames' start copies, by shape (formats, size, use).
@@ -7264,15 +7362,15 @@ struct GSGpuBackend::Impl
         // The last two pictures between's submits: one may still be on the GPU when the next is asked for (the
         // GPU a refresh behind), not two.
         std::shared_ptr<FenceRef> lastFence, olderFence;
-        bool timing = false;                 // PS2X_INTERP_TIMING=1: each picture between timed alone
-        bool force = false;                  // PS2X_INTERP_FORCE=1: made at a cut or with nothing moved too
-        bool mathAtOne = false;              // PS2X_INTERP_MATH_AT_ONE=1: at t = 1 the matrices worked out too
-        std::string leave;                   // PS2X_INTERP_LEAVE (measuring)
+        bool timing = false;                 // ZX_INTERP_TIMING=1: each picture between timed alone
+        bool force = false;                  // ZX_INTERP_FORCE=1: made at a cut or with nothing moved too
+        bool mathAtOne = false;              // ZX_INTERP_MATH_AT_ONE=1: at t = 1 the matrices worked out too
+        std::string leave;                   // ZX_INTERP_LEAVE (measuring)
         double lastGpuMs = 0.0;
-        uint64_t skips[static_cast<size_t>(ps2x::gs_interpolate::Skip::kCount)]{};
-        uint64_t draws[static_cast<size_t>(ps2x::gs_interpolate::Draw::kCount)]{};
+        uint64_t skips[static_cast<size_t>(zx::gs_interpolate::Skip::kCount)]{};
+        uint64_t draws[static_cast<size_t>(zx::gs_interpolate::Draw::kCount)]{};
         uint64_t pictures_ = 0;
-        double gpuMsSum = 0.0, gpuMsMax = 0.0; // submit to the fence (PS2X_INTERP_TIMING)
+        double gpuMsSum = 0.0, gpuMsMax = 0.0; // submit to the fence (ZX_INTERP_TIMING)
         double cpuMsSum = 0.0, cpuMsMax = 0.0; // recording the picture's commands
         uint64_t gpuTimed = 0;
         uint64_t unreplayable[8]{};
@@ -7333,7 +7431,7 @@ struct GSGpuBackend::Impl
     // The frame being drawn, when interpolation keeps it.
     HeldFrame *holding()
     {
-        if (!interp.on)
+        if (!interp.on || !interp.queued)
             return nullptr;
         if (!interp.building)
         {
@@ -7520,6 +7618,32 @@ struct GSGpuBackend::Impl
         interp.deferredRelease.swap(keep);
     }
 
+    // Everything frame interpolation holds on the device, given back while it is there (shutdown): its held frames,
+    // the replay's spare textures, its pictures and its fences (their release names the device: left to Interp's
+    // destructor they were released after SDL_DestroyGPUDevice, and zx-gsreplay --between crashed at its exit).
+    void releaseInterpolation()
+    {
+        dropHeld(interp.building);
+        for (auto &f : interp.made)
+            dropHeld(f);
+        interp.made.clear();
+        for (auto &[shape, list] : interp.free)
+            for (SDL_GPUTexture *t : list)
+                texcheck::releaseTexture(dev, t);
+        interp.free.clear();
+        for (SDL_GPUTexture *t : interp.deferredRelease)
+            releaseAfterSubmit.push_back(t);
+        interp.deferredRelease.clear();
+        for (PresentPicture &p : interp.pictures)
+        {
+            if (p.tex)
+                texcheck::releaseTexture(dev, p.tex);
+            p = PresentPicture{};
+        }
+        interp.lastFence.reset();
+        interp.olderFence.reset();
+    }
+
     // Interpolation switched (at a Present): off, everything held goes.
     void setInterpolation(bool on)
     {
@@ -7562,7 +7686,7 @@ struct GSGpuBackend::Impl
 
     static bool cameraOfMotion(const Motion &m, ViewCamera &c)
     {
-        namespace gi = ps2x::gs_interpolate;
+        namespace gi = zx::gs_interpolate;
         float wi[4][4], vi[4][4];
         if (!gi::invert(m.world, wi) || !gi::invert(m.camera, vi))
             return false;
@@ -7597,7 +7721,7 @@ struct GSGpuBackend::Impl
                               const float (&worldB)[4][4], const float (&cameraB)[4][4], const float (&mB)[4][4],
                               const float (&worldT)[4][4], const float (&cameraT)[4][4], float t, float (&out)[4][4])
     {
-        namespace gi = ps2x::gs_interpolate;
+        namespace gi = zx::gs_interpolate;
         float wa[4][4], wb[4][4], ca[4][4], cb[4][4], ra[4][4], rb[4][4], x[4][4];
         if (!gi::invert(worldA, wa) || !gi::invert(worldB, wb) || !gi::invert(cameraA, ca) || !gi::invert(cameraB, cb))
             return false;
@@ -7615,7 +7739,7 @@ struct GSGpuBackend::Impl
     // A skinned draw's bone palette at t (each bone's rows: rotation, translation).
     static void paletteBetween(const GSNativeSkinning &a, const GSNativeSkinning &b, float t, float (&out)[GSNativeSkinning::kPaletteRows][4])
     {
-        namespace gi = ps2x::gs_interpolate;
+        namespace gi = zx::gs_interpolate;
         std::memcpy(out, b.palette, sizeof(out));
         for (int bone = 0; bone + 3 < GSNativeSkinning::kPaletteRows; bone += 4)
         {
@@ -7637,16 +7761,16 @@ struct GSGpuBackend::Impl
         }
     }
 
-    using Skip = ps2x::gs_interpolate::Skip;
+    using Skip = zx::gs_interpolate::Skip;
 
     void countSkip(Skip s) { ++interp.skips[static_cast<size_t>(s)]; }
-    void countDraw(ps2x::gs_interpolate::Draw d) { ++interp.draws[static_cast<size_t>(d)]; }
+    void countDraw(zx::gs_interpolate::Draw d) { ++interp.draws[static_cast<size_t>(d)]; }
 
     // The picture at t between frames `from` and `to` (both made, `to` replayed) into one of the replay's own
     // picture textures; Skip::kCount when made, else why not.
     Skip presentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out)
     {
-        namespace gi = ps2x::gs_interpolate;
+        namespace gi = zx::gs_interpolate;
         using gi::Draw;
         if (!interp.on)
             return Skip::NoPair;
@@ -7948,9 +8072,11 @@ struct GSGpuBackend::Impl
         for (const auto &[tex, shape] : copies)
             interp.free[shape].push_back(tex);
         ++interp.pictures_;
+        // The picture's size in texels, as PresentedGpuPicture gives a frame's (the frame's size times the scale):
+        // the window shows that much of the texture (the frame's own size showed only its top-left part, magnified).
         out.texture = pic;
-        out.width = ps.w;
-        out.height = ps.h;
+        out.width = picture.w;
+        out.height = picture.h;
         out.scale = scaleX;
         out.levels = picture.mips ? picture.levels : 1u;
         return Skip::kCount;
@@ -8308,19 +8434,21 @@ PresentationFrame GSGpuBackend::Present(const GSPresentationRequest &request)
     }
     m_impl->mipCopiesFrame();
     m_impl->sweepNativeMeshes();
-    // Frame interpolation follows the setting from one presented frame to the next.
-    m_impl->setInterpolation(ps2x::gs_interpolate::enabled());
+    // Frame interpolation follows the setting from one presented frame to the next; it holds frames once the frame
+    // queue makes them (Interp::queued).
+    m_impl->setInterpolation(zx::gs_interpolate::enabled());
+    m_impl->interp.queued = m_impl->interp.queued || request.frame != 0u;
     return m_impl->present(request);
 }
 
-ps2x::gs_interpolate::Skip GSGpuBackend::PresentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out)
+zx::gs_interpolate::Skip GSGpuBackend::PresentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out)
 {
     Impl::CallScope scope(*m_impl);
     m_impl->settleFog();
     if (!m_impl->ok)
-        return ps2x::gs_interpolate::Skip::NoPair;
-    const ps2x::gs_interpolate::Skip why = m_impl->presentBetween(from, to, t, out);
-    if (why != ps2x::gs_interpolate::Skip::kCount)
+        return zx::gs_interpolate::Skip::NoPair;
+    const zx::gs_interpolate::Skip why = m_impl->presentBetween(from, to, t, out);
+    if (why != zx::gs_interpolate::Skip::kCount)
         m_impl->countSkip(why);
     return why;
 }
@@ -8335,7 +8463,7 @@ bool GSGpuBackend::ReadBetweenPicture(std::vector<uint8_t> &rgba, uint32_t &widt
 
 std::string GSGpuBackend::InterpolationReport()
 {
-    namespace gi = ps2x::gs_interpolate;
+    namespace gi = zx::gs_interpolate;
     Impl::CallScope scope(*m_impl);
     Impl::Interp &in = m_impl->interp;
     std::string line = "pictures=" + std::to_string(in.pictures_);
@@ -8524,17 +8652,17 @@ GSGpuBackend::Stats GSGpuBackend::TakeStats()
 
 std::unique_ptr<GSRasterBackend> createGpuRasterBackendFromEnvironment()
 {
-    const char *backend = ps2x::boot::text("PS2X_GS_BACKEND");
+    const char *backend = zx::boot::text("ZX_GS_BACKEND");
     if (!backend || std::strcmp(backend, "gpu") != 0)
         return nullptr;
     GSGpuBackendOptions options;
     // The game window's device: its picture goes to the window as it is.
     options.hostDevice = true;
-    if (const char *s = ps2x::boot::text("PS2X_GS_SCALE"))
+    if (const char *s = zx::boot::text("ZX_GS_SCALE"))
         options.scale = static_cast<uint32_t>(std::max(1L, std::strtol(s, nullptr, 0)));
-    options.fullHeight = envFlag("PS2X_GS_FULL_HEIGHT");
-    options.debug = envFlag("PS2X_GS_GPU_DEBUG");
-    if (const char *file = ps2x::boot::text("PS2X_GS_PIPELINE_CACHE"))
+    options.fullHeight = envFlag("ZX_GS_FULL_HEIGHT");
+    options.debug = envFlag("ZX_GS_GPU_DEBUG");
+    if (const char *file = zx::boot::text("ZX_GS_PIPELINE_CACHE"))
         options.pipelineFile = file;
     return std::make_unique<GSGpuBackend>(options);
 }

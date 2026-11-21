@@ -10,28 +10,28 @@
 // snapshot is one consistent guest moment (like a PCSX2 savestate, which is
 // also taken at a vsync boundary).
 //
-// PS2X_DUMP_WHEN="<label>:<cond>[&<cond>...],..." dumps EE RAM to
-//   <PS2X_DUMP_PREFIX or ps2x-dump>-<label>.ram when all conditions hold.
+// ZX_DUMP_WHEN="<label>:<cond>[&<cond>...],..." dumps EE RAM to
+//   <ZX_DUMP_PREFIX or zx-dump>-<label>.ram when all conditions hold.
 //   Entries fire once each and in order: an entry is only armed after the
 //   previous one fired, so e.g. a level frame counter that also counted in
 //   the front end can be used for in-level moments. A condition is
 //   <addr><op><value> on the guest u32 at addr, op one of == != >= <= > <,
 //   tick<op><value> on the runtime vsync tick, or script<op><value> on the
-//   PS2X_PAD_SCRIPT clock in vsyncs (runtime/ps2_pad_script.h; -1 before
+//   ZX_PAD_SCRIPT clock in vsyncs (runtime/ps2_pad_script.h; -1 before
 //   the first pad read), which follows the recorded run once SYNC anchors
 //   line it up.
-// PS2X_STATE_LOG="<addr>[,<addr>...]" prints one "[state]" line with the
+// ZX_STATE_LOG="<addr>[,<addr>...]" prints one "[state]" line with the
 //   vsync tick and every listed u32 whenever any of them changed. An entry
 //   <addr>:<n> lists n consecutive words. No line means nothing changed, so
 //   a compare carries the last line forward (tooling/checks/career_ab.py).
-//   PS2X_STATE_LOG_FILE=<path> also writes the lines there, where no other
+//   ZX_STATE_LOG_FILE=<path> also writes the lines there, where no other
 //   thread's log text can splice into them.
-// PS2X_PAD_DUMP / PS2X_PAD_LOG: the same, evaluated at every port-0 slot-0
+// ZX_PAD_DUMP / ZX_PAD_LOG: the same, evaluated at every port-0 slot-0
 //   scePadRead (after the pad data is written) instead of at VBlank: the
 //   point where tools/pcsx2replay_hook.s records in PCSX2, so per-frame logs
-//   of both line up. PS2X_PAD_LOG prints a "[pad-state]" line on every read,
+//   of both line up. ZX_PAD_LOG prints a "[pad-state]" line on every read,
 //   not only on changes.
-// PS2X_PACKET_LOG=<file> (abdiff2): what rendering is handed, per vsync, for an
+// ZX_PACKET_LOG=<file> (abdiff2): what rendering is handed, per vsync, for an
 //   A/B of two runs (tooling/checks/career_ab.py): a line
 //       P <tick> <vif1 bytes> <hash> <gif bytes> <hash> <vif0 bytes> <hash> <gs bytes> <hash> <vf hash> <vu0 rest hash> <vif1 live hash>
 //   with a hash of every byte the DMAC handed VIF1 (the stream as the game built
@@ -42,11 +42,11 @@
 //   from those streams, so comparing the streams covers them; the VU0 hashes are
 //   taken wherever the vsync lands, which can be inside a function. The vif1 live
 //   hash leaves out the words no microprogram reads (ps2_state_probe.cpp, kDeadWords).
-//   PS2X_PACKET_DUMP=<from>:<to> also writes the raw streams of those ticks to
+//   ZX_PACKET_DUMP=<from>:<to> also writes the raw streams of those ticks to
 //   <file>.t<tick>.<stream>.
 struct R5900Context;
 
-namespace ps2x::packets
+namespace zx::packets
 {
     enum Stream : int
     {
@@ -102,7 +102,7 @@ public:
     bool parseDumpSpec(const std::string &spec, std::string *error = nullptr);
     bool parseLogSpec(const std::string &spec, std::string *error = nullptr);
     void configureFromEnvironment();
-    // PS2X_PAD_DUMP / PS2X_PAD_LOG instead of the VBlank variables.
+    // ZX_PAD_DUMP / ZX_PAD_LOG instead of the VBlank variables.
     void configurePadReadFromEnvironment();
 
     // Called at every VBlank start. Fires at most one dump trigger per call.
@@ -110,7 +110,7 @@ public:
     // Called at every port-0 pad read: logs every call, dumps like onVsync.
     void onPadRead(const uint8_t *rdram, uint64_t tick, const DumpWriter &writeDump);
 
-    // Writes all of EE RAM to <PS2X_DUMP_PREFIX or ps2x-dump>-<label>.ram.
+    // Writes all of EE RAM to <ZX_DUMP_PREFIX or zx-dump>-<label>.ram.
     static void writeRamDump(const uint8_t *rdram, const std::string &label, uint64_t tick);
     // Next to a dump: <prefix>-<label>.sp, the guest threads' stacks and sp at that moment.
     static void writeThreadStacks(const std::string &label, const std::string &text);

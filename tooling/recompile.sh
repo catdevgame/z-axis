@@ -3,14 +3,14 @@
 # first app build (README "Building"). For each game given (default: each whose image is where make-app.sh
 # looks for it, under paths.env's GAME_DISCS):
 #   1. its boot ELF taken from the disc image (any game in any format: an ISO, a BIN/CUE dump by its CUE or BIN, a
-#      CHD, a CSO or a ZSO, read by the app's own reader, ps2x_disc) into its workspace's extracted/ (tooling/ai,
+#      CHD, a CSO or a ZSO, read by the app's own reader, zx-disc) into its workspace's extracted/ (tooling/ai,
 #      tooling/dm2), and checked to be the USA release the code is for;
 #   2. its recompiler config made (recomp/tools/make-config.py) and the recompiler run: recomp/generated (AI),
 #      recomp/generated-ns (DM2, the collection's namespaced code), and its VU1 micro memory image into
 #      recomp/generated-vu1 (the tree's runtime/tools/vu1_image.py). Seconds a game.
 #   BMX XXX's is its workspace's one step, bmx/recomp/recompile.py: its ELF from the disc, the configs, the
 #   namespaced code, its VU0 upload and VU1 micro memory image (both read from the ELF), into paths.env's BMX_RECOMP.
-# ps2_recomp and ps2x_disc are built first when BUILD (default <checkout>/out/build-recomp) has them not: CMake,
+# ps2_recomp and zx-disc are built first when BUILD (default <checkout>/out/build-recomp) has them not: CMake,
 # Ninja, the compiler (README), network once for the fetched sources. NINJA_JOBS (default 6).
 emulate -L zsh
 setopt err_return pipe_fail
@@ -46,13 +46,13 @@ CFG=(ai config.game.toml dm2 config.ns.toml)
 
 BUILD=${BUILD:-$ZAXIS/out/build-recomp}
 RECOMP=$BUILD/recompiler/ps2xRecomp/ps2_recomp
-DISC=$BUILD/ps2xIOP/ps2x_disc
+DISC=$BUILD/iop/zx-disc
 if [[ ! -x $RECOMP || ! -x $DISC ]]; then
   say "building the recompiler and the disc reader in $BUILD (the first time fetches their sources)"
   mkdir -p ${BUILD:h}
-  cmake -S $ZAXIS -B $BUILD -G Ninja -DCMAKE_BUILD_TYPE=Release -DPS2X_BUILD_RUNTIME=OFF -DPS2X_BUILD_TEST=OFF >$BUILD.log 2>&1 \
+  cmake -S $ZAXIS -B $BUILD -G Ninja -DCMAKE_BUILD_TYPE=Release -DZX_BUILD_RUNTIME=OFF -DZX_BUILD_TEST=OFF >$BUILD.log 2>&1 \
     || die "configure failed: $BUILD.log"
-  ninja -C $BUILD -j${NINJA_JOBS:-6} ps2_recomp ps2x_disc >>$BUILD.log 2>&1 || die "the recompiler did not build: $BUILD.log"
+  ninja -C $BUILD -j${NINJA_JOBS:-6} ps2_recomp zx-disc >>$BUILD.log 2>&1 || die "the recompiler did not build: $BUILD.log"
 fi
 
 for game in ai dm2 bmx; do
@@ -60,7 +60,7 @@ for game in ai dm2 bmx; do
   [[ -n $image ]] || continue
   if [[ $game == bmx ]]; then
     [[ -f $image ]] || die "bmx: no disc image $image"
-    # (its ELF through ps2x_disc, as the others', so any format reads, into BMX_RECOMP's extracted/, where
+    # (its ELF through zx-disc, as the others', so any format reads, into BMX_RECOMP's extracted/, where
     # make-app.sh looks for it; recompile.py checks its SHA-256)
     elf=${ELF[bmx]} ex=${BMX_RECOMP:h}/extracted
     mkdir -p $ex && rm -f $ex/$elf

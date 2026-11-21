@@ -3,7 +3,7 @@
 // card's jobs (zge/platform/memory_card/save_jobs.cpp, the PS2 form: the slot asked
 // for, the card checked, the console's dialogs, libmc's commands). The
 // native saves, the default, install these over the PS2 forms
-// (ee/host_form.h); PS2X_SAVES=card runs the PS2 forms on the emulated memory
+// (ee/host_form.h); ZX_SAVES=card runs the PS2 forms on the emulated memory
 // card, as on the console.
 //
 // They keep the jobs' contract as the save system and its client see it:

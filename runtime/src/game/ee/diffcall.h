@@ -1,8 +1,8 @@
 #pragma once
 
-// PS2X_DIFFCALL (ee/diffcall.cpp): generated calls of functions no recording
+// ZX_DIFFCALL (ee/diffcall.cpp): generated calls of functions no recording
 // reaches, each from a forked copy of the running game, recorded for
-// ps2xFnCheck. Off unless set; the game itself never runs a case.
+// zx-fncheck. Off unless set; the game itself never runs a case.
 
 #include "game_id.h"
 
@@ -30,7 +30,7 @@ namespace game::diffcall
     void noteCall(uint32_t returnAddress, uint32_t target);
     void noteCallReturn(R5900Context *ctx, uint32_t returnAddress, uint32_t target);
 
-    // Reads PS2X_DIFFCALL and hooks its function (after the readable functions
+    // Reads ZX_DIFFCALL and hooks its function (after the readable functions
     // and the recorder are installed); nothing when it is unset.
     void install(PS2Runtime &runtime, game::Game game);
 }

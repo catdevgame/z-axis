@@ -96,7 +96,7 @@ namespace zge
         uint16_t references;     // +0x00
         uint16_t bits;           // +0x02 bits 0-3 the parts' count (kGeoObjectPartCount), kGeoObjectCopy
         uint32_t parts;          // +0x04 a PointerArray of CollisionFrames, 0 before the first
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4 keeps the tag table at +0x0C and moves id, name and nameHash 4 bytes down (loadGeoHeaderChunk,
         // copyGeoObject, findGeometryById, releaseGeoObject, setGeometryTags); the record is still 0x60 bytes.
         uint8_t _08[0x04];
@@ -149,7 +149,7 @@ namespace zge
         ee::Ptr<ZgePart> part;                // +0x18 TGPH
         ee::Ptr<MaterialTable> materials;     // +0x1C TMTB, while its MATIs load
         uint32_t materialIndex;               // +0x20 next slot in it (storeMaterial)
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // ZGE2's context is 0x30 bytes: no indexed streams, the buffer streams' counts at +0x24 (loadBufferStreamChunk;
         // loadGeometry clears 0x30 bytes).
         uint32_t faceEdgeBytes;               // DM2 +0x24

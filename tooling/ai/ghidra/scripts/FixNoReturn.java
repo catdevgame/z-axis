@@ -4,7 +4,7 @@
 // that were created behind those calls (no CALL references, reachable from the caller by
 // plain flow) are removed so the caller's body is recomputed in one piece.
 // Args: [dry]
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;

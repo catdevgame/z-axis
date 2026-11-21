@@ -3,7 +3,7 @@
 
 #include <cstring>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     namespace
     {
@@ -117,7 +117,7 @@ namespace ps2x::collection
                     const uint8_t *w = d + waves + wave * kWaveBytes;
                     const size_t offset = u32(w), bytes = u32(w + 4);
                     if (offset <= size && bytes <= size - offset)
-                        sound.wave = ps2x::spu::decodeSample(d + offset, bytes);
+                        sound.wave = zx::spu::decodeSample(d + offset, bytes);
                 }
             }
             out.push_back(std::move(sound));

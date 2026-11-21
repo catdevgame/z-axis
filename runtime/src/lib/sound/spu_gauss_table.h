@@ -11,7 +11,7 @@
 #include <array>
 #include <cstdint>
 
-namespace ps2x::spu
+namespace zx::spu
 {
 static constexpr std::array<std::array<int16_t, 4>, 256> kGaussTable = {{
 	{0x12C7, 0x59B3, 0x1307, -0x0001},

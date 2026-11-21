@@ -53,8 +53,8 @@ namespace aggressive_inline::photo
     namespace
     {
         namespace hi = ps2_host_input;
-        namespace ph = ps2x::photo;
-        namespace st = ps2x::settings;
+        namespace ph = zx::photo;
+        namespace st = zx::settings;
 
         constexpr uint32_t kInputMode = 0x00276FE4u; // 1 front end, 2 play, 3 menus
         constexpr uint32_t kInputPlay = 2u;
@@ -113,7 +113,7 @@ namespace aggressive_inline::photo
             std::array<uint8_t, kNodePoseSize> savedNodePose{};
             zge_host::photo::FreeLook look;
         };
-        Photo &photo() { return ps2x::session::state<Photo>(); }
+        Photo &photo() { return zx::session::state<Photo>(); }
 
         // ---- memory ---------------------------------------------------------
 
@@ -357,7 +357,7 @@ namespace aggressive_inline::photo
         }
         photo().hotkeySeen = PSPadBackend::hotkeyPresses(hi::kHotkeyPhotoMode);
         runtime.addVSyncHook(&onVsync);
-        // For tests and the app menu: `set photo.mode 1` on PS2X_CONTROL.
+        // For tests and the app menu: `set photo.mode 1` on ZX_CONTROL.
         st::Setting open;
         open.key = "photo.mode";
         open.label = "Photo Mode";
@@ -367,7 +367,7 @@ namespace aggressive_inline::photo
             if ((value != 0) != (photo().state.load() == State::Active))
                 PSPadBackend::triggerHotkey(hi::kHotkeyPhotoMode);
         };
-        ps2x::session::addSetting(open);
+        zx::session::addSetting(open);
         std::cout << "[photo] photo mode: the pause menu item and the photo_mode key" << std::endl;
     }
 

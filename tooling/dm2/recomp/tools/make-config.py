@@ -107,7 +107,7 @@ recompile = 'recompile = [\n' + ''.join('  "%s*",\n' % p for p in UNSTUB_PREFIXE
 out = header + text[:start] + recompile + 'stubs = [\n' + '\n'.join(kept) + '\n' + text[end:]
 open(dst, 'w').write(out)
 # The same code namespaced, for one executable with other games (PS2Recomp
-# [general] namespace; CMake PS2X_RUNNER_EXTRA_GENERATED_DIRS): config.ns.toml,
+# [general] namespace; CMake ZX_RUNNER_EXTRA_GENERATED_DIRS): config.ns.toml,
 # output recomp/generated-ns.
 # (output: ".../generated", or "generated" beside the config, as ps2_recomp reads a relative path)
 ns = re.sub(r'^output = "(.*/)?generated"$', lambda m: 'output = "%sgenerated-ns"' % (m.group(1) or ''), out, count=1, flags=re.M)

@@ -32,7 +32,7 @@
 // pcPadPictureClose, and while it is open two actions call
 // pcPadPictureTick in turn (a device picked up meanwhile).
 //
-// With the app's settings (PS2X_GAME_SETTINGS_MENUS=1), as the Settings
+// With the app's settings (ZX_GAME_SETTINGS_MENUS=1), as the Settings
 // page: the redrawn atlas is the game's RAM, the Controller screen's script
 // functions move its heap.
 
@@ -128,7 +128,7 @@ namespace dave_mirra::prompts
             int ticks = 0;
             int shown = -1; // 1: the Xbox release's captions, 0: the PS2's
         };
-        ControllerScreen &screen() { return ps2x::session::state<ControllerScreen>(); }
+        ControllerScreen &screen() { return zx::session::state<ControllerScreen>(); }
 
         void runOnRoot(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime, const std::vector<std::string> &lines)
         {
@@ -213,21 +213,20 @@ ACTION "Interpolate" "PadTickB"
         // the script left alone) if an anchor is missing.
         bool patchControllerFrame(std::string &text)
         {
-            namespace zx = ps2x::zaxis;
             std::string edited = text;
-            zx::Span frame = zx::findObject(edited, "MainMenu/ControllerFrame");
-            zx::Span image = zx::findObject(edited, "MainMenu/ControllerFrame/Image");
+            zx::zaxis::Span frame = zx::zaxis::findObject(edited, "MainMenu/ControllerFrame");
+            zx::zaxis::Span image = zx::zaxis::findObject(edited, "MainMenu/ControllerFrame/Image");
             if (!frame.found() || !image.found())
                 return false;
             // The ticks before the Image (the frame's actions end there).
-            edited.insert(image.begin, zx::indentBlock(kTicks, zx::indentAt(edited, image.begin)));
-            frame = zx::findObject(edited, "MainMenu/ControllerFrame");
+            edited.insert(image.begin, zx::zaxis::indentBlock(kTicks, zx::zaxis::indentAt(edited, image.begin)));
+            frame = zx::zaxis::findObject(edited, "MainMenu/ControllerFrame");
             const bool ok =
-                zx::replaceIn(edited, frame, R"(LOADLIB Controller UILIB:ps2Ctrl.zif LoadComplete\nGOTO End\n:End")",
+                zx::zaxis::replaceIn(edited, frame, R"(LOADLIB Controller UILIB:ps2Ctrl.zif LoadComplete\nGOTO End\n:End")",
                               R"(LOADLIB Controller UILIB:ps2Ctrl.zif LoadComplete\nGOTO End\n:End\nCALL pcPadPicture")") &&
-                zx::replaceIn(edited, frame, R"(PLAY Ps2Config\nGOTO End\n:End\n")",
+                zx::zaxis::replaceIn(edited, frame, R"(PLAY Ps2Config\nGOTO End\n:End\n")",
                               R"(PLAY Ps2Config\nGOTO End\n:End\nCALL pcPadPicture\n")") &&
-                zx::replaceIn(edited, frame, R"(PLAY Root.CommonUI.LockUser\nSET Image.Visible {0}")",
+                zx::zaxis::replaceIn(edited, frame, R"(PLAY Root.CommonUI.LockUser\nSET Image.Visible {0}")",
                               R"(PLAY Root.CommonUI.LockUser\nSET Image.Visible {0}\nCALL pcPadPictureClose")");
             if (!ok)
                 return false;
@@ -237,13 +236,12 @@ ACTION "Interpolate" "PadTickB"
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            namespace zx = ps2x::zaxis;
-            std::vector<zx::ArchiveEntry> entries;
-            if (!zx::readArchive(bytes, entries))
+            std::vector<zx::zaxis::ArchiveEntry> entries;
+            if (!zx::zaxis::readArchive(bytes, entries))
                 return false;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) != "MainMenu")
+                if (zx::zaxis::scriptName(entry) != "MainMenu")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 if (!patchControllerFrame(text))
@@ -254,7 +252,7 @@ ACTION "Interpolate" "PadTickB"
                     return false;
                 }
                 entry.data.assign(text.begin(), text.end());
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
                 return true;
             }
             return false;
@@ -266,7 +264,7 @@ namespace dave_mirra
 {
     void installPrompts(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         if (!zge_host::prompts::install(runtime, prompts::kGame))
             return;
@@ -275,6 +273,6 @@ namespace dave_mirra
                                        {"pcPadPictureClose", &prompts::padPictureCloseFunction}})
             if (!zge_host::addScriptFunction(runtime, scriptFunctions(), name, fn))
                 return;
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &prompts::patchUiLibrary);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &prompts::patchUiLibrary);
     }
 }

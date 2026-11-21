@@ -36,8 +36,8 @@ were redrawn (a real flag, a grate), drawn at the same place by the Xbox
 game. Xbox pictures with opaque magenta texels (the PS2 colour key left in,
 pink fringes) are left out.
 
-The .xtp format is ps2x::texture_replace::parsePack's (PS2Recomp
-runtime/include/runtime/ps2_texture_replace.h). The key is what the GS
+The .xtp format is zx::texture_replace::parsePack's
+(runtime/include/runtime/ps2_texture_replace.h). The key is what the GS
 holds once the game has uploaded the texture: its size and the FNV-1a 64 of
 its indices, one byte per texel, rows top down (the BMP's bottom-up rows
 reversed, as the game loads them), 4-bit indices unpacked (first texel in

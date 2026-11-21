@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""How much of PS2Recomp's readable C++ carries over to DM2 and BMX XXX.
+"""How much of AI's readable C++ carries over to DM2 and BMX XXX.
 
     python3 -I tools/readable_carry.py <match3.json> <ai.elf> <ai.csv> <dm2.elf> <dm2.csv> \
         <bmx.elf> <bmx.csv> <z-axis>/runtime/src/game <out.json> [--list]
@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from fmatch import Prog, LOADSTORE
 from fmatch3 import opclass
 
-# Sources name their addresses (PS2Recomp tools/readable_symbols.py): read with the literals written back.
+# Sources name their addresses (runtime/tools/readable_symbols.py): read with the literals written back.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'checks'))
 import zlayout  # noqa: E402  (the tree's folders, old or new)
 _ZAXIS = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))

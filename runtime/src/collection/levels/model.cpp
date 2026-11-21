@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     namespace
     {

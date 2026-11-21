@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace ps2x::app
+namespace zx::app
 {
     // (defined in settings.cpp)
     // The environment's value of name through the app's lookup, "" when unset or empty.

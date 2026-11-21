@@ -11,41 +11,42 @@ or SPIR-V at build time).
 It draws the three games on the GPU and the window shows the upscaled picture
 straight from it (no read-back), with widescreen, movies and the front end. It
 is the app's default (GPU at 3x, 2x on Android; `settings.ini` without a
-`renderer` line) and a Display setting (CPU, or GPU at 1x-4x, switched while
-running). It is not bit-exact: that stays the CPU renderer's job, and the
-developer runner and the test tools keep using it unless
-`PS2X_GS_BACKEND=gpu`.
+`renderer` line) and two Display settings (Renderer CPU or GPU, Resolution
+Native to 4x, switched while running). It is not bit-exact: that stays the
+CPU renderer's job, and the developer runner and the test tools keep using it
+unless `ZX_GS_BACKEND=gpu`.
 
 ## Build and use
 
-SDL3 is the host layer's pinned dependency (`runtime/cmake/ps2x_sdl3.cmake`,
-3.4.18, static). `-DPS2X_GS_GPU=OFF` builds without the GPU backend. The backend is the library
-`ps2_gs_gpu`, linked into `ps2xGsReplay` and `ps2EntryRunner` only.
+SDL3 is the host layer's pinned dependency (`runtime/cmake/zx_sdl3.cmake`,
+3.4.18, static). `-DZX_GS_GPU=OFF` builds without the GPU backend. The backend is the library
+`zx_gs_gpu`, linked into `zx-gsreplay`, `zx-runner` and the unit tests (`zx-tests`) only.
 
 ```sh
 # offline, headless (no window): PNGs at the internal resolution
-ps2xGsReplay trace.gsr out/prefix --gpu --scale 3
+zx-gsreplay trace.gsr out/prefix --gpu --scale 3
 # against the CPU renderer: mean / max per-channel error per frame and
 # out/prefix-<n>-cmp.png = CPU | GPU | difference x4
-ps2xGsReplay trace.gsr out/prefix --gpu --compare [--scale n]
+zx-gsreplay trace.gsr out/prefix --gpu --compare [--scale n]
 # in the game (opt-in)
-PS2X_GS_BACKEND=gpu PS2X_GS_SCALE=3 ps2EntryRunner ...
+ZX_GS_BACKEND=gpu ZX_GS_SCALE=3 zx-runner ...
 ```
 
 | Variable | Effect |
 |---|---|
-| `PS2X_GS_BACKEND=gpu` | runner: GPU renderer (falls back to the CPU one if no device); the app sets it from `settings.ini` `[graphics] renderer` (default `gpu`) unless it is set; `cpu` pins the CPU renderer |
-| `PS2X_GS_SCALE=n` | runner: internal resolution multiplier (default 1; the app: `internal_resolution`, 1-4, default 3) |
-| `PS2X_GS_FULL_HEIGHT=1` | twice that multiplier vertically (see "Full height"; the app: `full_height`, default on) |
-| `PS2X_GS_PIPELINE_CACHE=<file>` | the game's pipeline file (see "GPU objects made off the GS worker"; the app gives each game `games/<id>/gpu_pipelines.txt`) |
-| `PS2X_GS_DEPTH16=fast` (or `exact`, `1`, `0`) | the Depth Test setting (`[graphics] depth_test`, a Display row; Fast by default on Android, Exact elsewhere; read at the renderer's start). Fast, in a game whose override allows it (`PS2X_GS_D16_TARGETS=1`: BMX XXX): 16-bit Z buffers as D16 targets (Z stored as Z / 65535): the GPU rounds depth to the GS's steps and the fragment shader writes none, which keeps the GPU's early depth test (a shader that writes depth shades every layer of overdraw: BMX XXX at 2x full height on the test handheld 20 game fps, 46 without). Not exact: the GPU compares and rounds the interpolated depth itself, and at near-equal surfaces a few edge pixels resolve otherwise than with the shader's rounding (Bronx dump, 120 frames: 334 of 13.8 M pixels at 1x, 1,379 of 55 M at 2x full height; the CPU renderer nearer the shader path at 186 of the 334, D16 at 123). not for games with native draws (declined on a D16 target: their precise depth is a float one) |
-| `PS2X_GS_DRAW_MEMO=0` | every primitive through drawPrepared (the draw memo off: consecutive primitives of one draw state in a GIF packet take the last one's draws and bookkeeping); `PS2X_GS_DRAW_MEMO_CHECK=1` draws through drawPrepared and counts primitives whose draws differ from the memo's (`[gs-gpu] draw memo check: N primitives checked, 0 differ`) |
-| `PS2X_GS_SHADER_DEPTH=0` | measurement: no depth written by the fragment shader for GS-path draws (the GPU's interpolated depth, not rounded to the Z buffer's steps) |
-| `PS2X_GS_STATS=1` | per presented frame: primitives, draw calls, render passes, shader-blended primitives, CPU-drawn primitives, texture uploads, target write-backs / loads, submits |
-| `PS2X_GS_GPU_TRACE=1` | logs every target load, write-back and shrink with its cause |
-| `PS2X_GS_GPU_DEBUG=1` | SDL_GPU validation (private device only) |
-| `PS2X_GS_NO_TEXTURE_POOL=1`, `PS2X_GS_NO_TEXTURE_STOCK=1`, `PS2X_GS_MESH_BUFFER_EACH=1` | measurements against the old behaviour (see "GPU objects made off the GS worker"): textures given back are released, no textures made ahead, a buffer per native mesh |
-| `PS2X_GPU_TEXTURE_CHECK=1` | texture handle check (runtime/gs/gs_gpu_texture_check.h, the GS renderer's and the window's textures): released handles kept 2 s, a destroyed target's handle replaced by a token kept 2 s, and any bind, blit, copy, upload, download or target use of either (or of a null or never-made handle) reported on stderr as `[gpu-check] ...` with the stacks of the use and of the release; a count when the device goes. Off by default (then the plain SDL calls) |
+| `ZX_GS_BACKEND=gpu` | runner: GPU renderer (falls back to the CPU one if no device); the app sets it from `settings.ini` `[graphics] renderer` (default `gpu`) unless it is set; `cpu` pins the CPU renderer |
+| `ZX_GS_SCALE=n` | runner: internal resolution multiplier (default 1; the app: `internal_resolution`, 1-4, default 3, 2 on Android) |
+| `ZX_GS_FULL_HEIGHT=1` | twice that multiplier vertically (see "Full height"; the app: `full_height`, default on) |
+| `ZX_GS_PIPELINE_CACHE=<file>` | the game's pipeline file (see "GPU objects made off the GS worker"; the app gives each game `games/<id>/gpu_pipelines.txt`) |
+| `ZX_GS_DEPTH16=fast` (or `exact`, `1`, `0`) | the Depth Test setting (`[graphics] depth_test`, a Display row; Fast by default on Android, Exact elsewhere; read at the renderer's start). Fast, in a game whose override allows it (`ZX_GS_D16_TARGETS=1`: BMX XXX): 16-bit Z buffers as D16 targets (Z stored as Z / 65535): the GPU rounds depth to the GS's steps and the fragment shader writes none, which keeps the GPU's early depth test (a shader that writes depth shades every layer of overdraw: BMX XXX at 2x full height on the test handheld 20 game fps, 46 without). Not exact: the GPU compares and rounds the interpolated depth itself, and at near-equal surfaces a few edge pixels resolve otherwise than with the shader's rounding (Bronx dump, 120 frames: 334 of 13.8 M pixels at 1x, 1,379 of 55 M at 2x full height; the CPU renderer nearer the shader path at 186 of the 334, D16 at 123). Not for games with native draws (declined on a D16 target: their precise depth is a float one) |
+| `ZX_GS_DRAW_MEMO=0` | every primitive through drawPrepared (the draw memo off: consecutive primitives of one draw state in a GIF packet take the last one's draws and bookkeeping); `ZX_GS_DRAW_MEMO_CHECK=1` draws through drawPrepared and counts primitives whose draws differ from the memo's (`[gs-gpu] draw memo check: N primitives checked, 0 differ`) |
+| `ZX_GS_SHADER_DEPTH=0` | measurement: no depth written by the fragment shader for GS-path draws (the GPU's interpolated depth, not rounded to the Z buffer's steps) |
+| `ZX_GS_STATS=1` | per presented frame: primitives, draw calls, render passes, shader-blended primitives, CPU-drawn primitives, texture uploads, target write-backs / loads, submits |
+| `ZX_GS_GPU_TRACE=1` | logs every target load, write-back and shrink with its cause |
+| `ZX_GS_GPU_DEBUG=1` | SDL_GPU validation (private device only) |
+| `ZX_GS_DECODE_PACK_BLOCKS=1` | replacement pictures in BC1, BC2, BC3 and BC7 (texture packs' DDS pictures, the Xbox pictures' BC2) decoded to RGBA8 when uploaded, as on a device that samples none of those formats |
+| `ZX_GS_NO_TEXTURE_POOL=1`, `ZX_GS_NO_TEXTURE_STOCK=1`, `ZX_GS_MESH_BUFFER_EACH=1` | measurements against the old behaviour (see "GPU objects made off the GS worker"): textures given back are released, no textures made ahead, a buffer per native mesh |
+| `ZX_GPU_TEXTURE_CHECK=1` | texture handle check (runtime/gs/gs_gpu_texture_check.h, the GS renderer's and the window's textures): released handles kept 2 s, a destroyed target's handle replaced by a token kept 2 s, and any bind, blit, copy, upload, download or target use of either (or of a null or never-made handle) reported on stderr as `[gpu-check] ...` with the stacks of the use and of the release; a count when the device goes. Off by default (then the plain SDL calls) |
 
 ## Design
 
@@ -124,7 +125,9 @@ Rules:
   AEM) for 24- and 16-bit texels and CLUT entries; TCC and the four TFX
   functions; fog. Texture coordinates follow the CPU renderer: STQ
   interpolated linearly then divided per pixel, UV truncated to 1/16 for
-  triangles, sprite UV rounded to 1/16.
+  triangles, sprite UV rounded to 1/16. The GS's own mipmapping (MXL, the
+  MIPTBP1/2 levels, LCM, L and K) is chosen per pixel as the CPU renderer
+  chooses it (`gsMipSelect`, runtime/gs/gs_types.h).
 - Upscaled and bilinear, coordinates are clamped to the texel range of the
   primitive (half a texel in), so quads do not filter in texels from their
   neighbours (the seams PCSX2 users know).
@@ -157,7 +160,7 @@ CLUTs stay as they are, the GPU renderer only draws another picture.
   so the game's texture cache can move, flush and refill textures (fast
   turns flush it every frame) without a picture landing on the wrong
   surface.
-- **Content keys (fallback):** with `PS2X_TEXTURE_REPLACE_CONTENT=1` an
+- **Content keys (fallback):** with `ZX_TEXTURE_REPLACE_CONTENT=1` an
   indexed texture no note names is also keyed by its decoded indices'
   FNV-1a 64 at each decode. RGB textures (only while some source has rgb
   entries: movie frames) are always keyed by the FNV-1a of the R, G, B
@@ -170,7 +173,9 @@ CLUTs stay as they are, the GPU renderer only draws another picture.
   REPEAT; over a 2^k cell at a FIX on a cell boundary, how this game
   repeats one picture of an atlas, the shader wraps in the cell). Render
   targets used as textures are never replaced.
-- **Upload:** BC2 (DXT3) with its mip chain, or RGBA8, uploaded on first
+- **Upload:** BC2 (DXT3) with its mip chain, or RGBA8 (a texture pack's
+  DDS pictures also BC1, BC3 and BC7 with the levels the file has, decoded
+  to RGBA8 on a device that does not sample that format), uploaded on first
   use (one GPU texture per picture; a texture and its PS2 mip levels share
   one), at most 24 MB per presented frame (the PS2 texture is drawn until
   its turn). Given back when the registry drops the picture.
@@ -184,14 +189,14 @@ CLUTs stay as they are, the GPU renderer only draws another picture.
   texture. Alpha 1.0 is the PS2 palette's largest alpha (0x7F in this
   game, which keeps the skater shadow's counter in the frame buffer's
   alpha; 0x80 for movie frames).
-- **Diagnostics:** `PS2X_TRACE_TEXTURE_REPLACE=1` (pictures found, turned
+- **Diagnostics:** `ZX_TRACE_TEXTURE_REPLACE=1` (pictures found, turned
   off by a second palette or a region repeat; 2: every indexed and RGB
-  decode with its hash; 3: palettes), `PS2X_GS_REPL_TINT=1` (replaced
+  decode with its hash; 3: palettes), `ZX_GS_REPL_TINT=1` (replaced
   surfaces red; 2: indexed textures without a picture blue),
-  `PS2X_GS_REPL_NO_MIPS=1`, `PS2X_GS_REPL_LOD_BIAS=<f>`,
-  `PS2X_GS_REPL_NO_ANISO=1`; `PS2X_GS_STATS=1` adds replaced primitives,
+  `ZX_GS_REPL_NO_MIPS=1`, `ZX_GS_REPL_LOD_BIAS=<f>`,
+  `ZX_GS_REPL_NO_ANISO=1`; `ZX_GS_STATS=1` adds replaced primitives,
   bytes uploaded, the pictures held on the GPU, the draws found by a note
-  and the notes held. `PS2X_TRACE_TEXTURE_REPLACE=3` also logs each note.
+  and the notes held. `ZX_TRACE_TEXTURE_REPLACE=3` also logs each note.
 - **Texture packs** (`runtime/ps2_texture_pack.h`, SETTINGS.md "Texture packs"): a draw's
   texture is named as PCSX2 names it (XXH3-64 of its GS memory blocks or of its texels read
   out, of its palette as 32-bit entries, PSM/TW/TH/TEXA, a region from CLAMP; a mipmapped one
@@ -203,8 +208,8 @@ CLUTs stay as they are, the GPU renderer only draws another picture.
   0 at block 0, DM2's level textures', which is skipped), palettes held on the GPU. With no
   pack and no dump folder nothing is hashed; with one, a name is hashed only when some pack has
   a picture of its shape (bits and region), nearest base first. Pack pictures upload at most
-  6 MB per presented frame (`PS2X_TEXTURE_PACK_UPLOAD_MB`), so a level's first frames take
-  them a few at a time. `PS2X_GS_STATS=1` adds `pack=lookups/hashes` and their time.
+  6 MB per presented frame (`ZX_TEXTURE_PACK_UPLOAD_MB`), so a level's first frames take
+  them a few at a time. `ZX_GS_STATS=1` adds `pack=lookups/hashes` and their time.
   Measured (Metal, scale 3, 60-frame level traces, full 4x packs of every texture a level
   drew: AI 138 pictures 152 MB, DM2 84 / 98 MB, BMX XXX 101 / 91 MB): naming and lookups
   0.38 / 0.19 / 0.51 ms a frame (0.15 / 0.05 / 0.12 with a pack that has none of them);
@@ -345,7 +350,7 @@ game's own GS registers, as for a primitive.
   clamped per vertex, as the PS2's picture has them; the sky at Z 1). The CPU renderer always gets
   that. GS traces record native draws as such (`kNativeMesh` once per mesh,
   `kNativeDraw`; runtime/gs/gs_record.h), not those packets, so
-  `ps2xGsReplay` draws them natively or through its backend's fallback.
+  `zx-gsreplay` draws them natively or through its backend's fallback.
 - **Shadows** (gs_quality `Shadows`, `display.shadows`; sharp by default):
   the skater shadow stays on the GS path, drawn by the game's own VU1 0x1C
   volumes into its CT16S counter at the internal resolution and composited
@@ -364,8 +369,8 @@ game's own GS registers, as for a primitive.
   needed for the look: GS trace replays of the Movie Lot spawn give the
   counter of a float model of the same triangles exactly, and the CPU
   renderer's to a few edge pixels.
-- Diagnostics: `PS2X_NATIVE_TINT=1` tints native draws green,
-  `PS2X_NATIVE_GPU=0` sends them all through the CPU way; `PS2X_GS_STATS=1`
+- Diagnostics: `ZX_NATIVE_TINT=1` tints native draws green,
+  `ZX_NATIVE_GPU=0` sends them all through the CPU way; `ZX_GS_STATS=1`
   adds native draws / vertices, declined draws, mesh bytes uploaded and the
   meshes held.
 
@@ -398,7 +403,7 @@ textures in a frame (8-10 ms). So:
   pipeline's first use compiles it on the thread that records the pass (the
   GS worker, or the window thread when a presentation closes it): 110-130 ms
   frames on an Android handheld's Vulkan driver, 0.2 ms at most on the Mac's Metal with
-  its own shader cache warm. With a pipeline file (`PS2X_GS_PIPELINE_CACHE`)
+  its own shader cache warm. With a pipeline file (`ZX_GS_PIPELINE_CACHE`)
   the key of every pipeline a game makes is added to it (in first-use
   order), and at the next start a thread of its own makes those pipelines
   again while the game boots; a draw that needs one being made waits for
@@ -409,9 +414,9 @@ textures in a frame (8-10 ms). So:
   copy into it comes after the draws recorded from it, on the same queue).
   Draws bind the chunk at the mesh's offset.
 
-`PS2X_GS_STATS=1` counts the textures reused, taken from the stock and
+`ZX_GS_STATS=1` counts the textures reused, taken from the stock and
 made, and the mesh chunks. A GS input trace replayed with and without the
-three (ps2xGsReplay --gpu --picture-hash, 300 frames of the Museum: 592
+three (zx-gsreplay --gpu --picture-hash, 300 frames of the Museum: 592
 native draws a frame, 60 textures reused, 398 from the stock) gives the
 same picture hash in every frame.
 
@@ -421,18 +426,18 @@ same picture hash in every frame.
 console could do, each a setting (settings.ini `[graphics]`, a Display row,
 an environment variable for the runner and the tests; read per draw, so they
 apply at once). The CPU renderer ignores them and the strict render path
-(`PS2X_RENDER_PATH=strict`) draws as the console whatever they are; the
+(`ZX_RENDER_PATH=strict`) draws as the console whatever they are; the
 game's memory and timing never depend on them.
 
 | Option | settings.ini | Environment | Default | What it does |
 |---|---|---|---|---|
-| Anti-Aliasing | `anti_aliasing = off \| fxaa` | `PS2X_GS_AA` | fxaa | FXAA 3.11 (quality) over each view's 3D picture where the game's fog planes come (after the view's meshes, shadows and particles, before the HUD); a window much smaller than the picture is filled from a box-filtered mipmap level of it |
-| Texture Filtering | `texture_filtering = off \| 2x \| 4x \| 8x \| 16x` | `PS2X_GS_ANISO` | 16x | anisotropic filtering of native draws' textures |
-| Fog | `fog = original \| smooth` | `PS2X_NATIVE_FOG` | smooth | per-pixel fog from the Z buffer in place of the game's eight fog planes |
-| Shadows | `shadows = original \| sharp` | `PS2X_NATIVE_SHADOWS` | sharp | the skater's shadow volumes drawn natively |
-| Depth Precision | `depth_precision = original \| high` | `PS2X_GS_PRECISE_DEPTH` | high | native meshes keep the GPU's float depth (z'/w' / 2^bits) instead of the GS's 16-bit steps |
-| Perspective Correction | `perspective_correct = false \| true` | `PS2X_NATIVE_PERSPECTIVE` | true | native meshes' vertex colours interpolated in perspective (the GS interpolates on screen) and skinned models' textures mapped in perspective (their programs give Q = 1.0, affine) |
-| Character Lighting | `character_lighting = ps2 \| xbox` | `PS2X_NATIVE_LIGHTING` | xbox | lit skinned models (skaters, riders, people) with the Xbox release's lights instead of the PS2's, in a game whose Xbox release has them (Aggressive Inline, BMX XXX: `SkinnedDrawForm::xboxLights`) |
+| Anti-Aliasing | `anti_aliasing = off \| fxaa` | `ZX_GS_AA` | fxaa | FXAA 3.11 (quality) over each view's 3D picture where the game's fog planes come (after the view's meshes, shadows and particles, before the HUD); a window much smaller than the picture is filled from a box-filtered mipmap level of it |
+| Texture Filtering | `texture_filtering = off \| 2x \| 4x \| 8x \| 16x` | `ZX_GS_ANISO` | 16x | anisotropic filtering of native draws' textures |
+| Fog | `fog = original \| smooth` | `ZX_NATIVE_FOG` | smooth | per-pixel fog from the Z buffer in place of the game's eight fog planes |
+| Shadows | `shadows = original \| sharp` | `ZX_NATIVE_SHADOWS` | sharp | one-colour primitives that add into a wrapping sum (the skater's shadow volumes) get their colour exactly (`F_EXACT_COLOR`, see "Shadows" under Native draws) |
+| Depth Precision | `depth_precision = original \| high` | `ZX_GS_PRECISE_DEPTH` | high | native meshes keep the GPU's float depth (z'/w' / 2^bits) instead of the GS's 16-bit steps |
+| Perspective Correction | `perspective_correct = false \| true` | `ZX_NATIVE_PERSPECTIVE` | true | native meshes' vertex colours interpolated in perspective (the GS interpolates on screen) and skinned models' textures mapped in perspective (their programs give Q = 1.0, affine) |
+| Character Lighting | `character_lighting = ps2 \| xbox` | `ZX_NATIVE_LIGHTING` | xbox | lit skinned models (skaters, riders, people) with the Xbox release's lights instead of the PS2's, in a game whose Xbox release has them (Aggressive Inline, BMX XXX: `SkinnedDrawForm::xboxLights`) |
 
 - **Fog planes.** Aggressive Inline draws a view's fog as eight flat
   full-viewport planes of the fog colour (FUN_001110C0, in the 2D packet):
@@ -461,18 +466,18 @@ game's memory and timing never depend on them.
   through the draw's palette on the CPU with TEXA applied per texel, the
   GS's own levels kept from the first one outside a render target (DM2's
   distant models keep level 0 at TBP 0, in the frame buffer: the GS's LOD
-  never reads it, the copy's would, with PS2X_GS_MIP_TARGET_LEVELS=memory
+  never reads it, the copy's would, with ZX_GS_MIP_TARGET_LEVELS=memory
   too), the rest box-filtered (colour weighted by alpha
   where TCC uses it, so cut-out edges do not darken), keyed by content
   (texels, palette, TEXA, size) so a texture the game's cache flushes and
   uploads again finds its copy; at most half a million texels read or built
-  per presented frame (`PS2X_GS_MIP_BUDGET`), the texture drawn as the GS
+  per presented frame (`ZX_GS_MIP_BUDGET`), the texture drawn as the GS
   does until its turn. Textures the game magnifies NEAREST keep the nearest
   texel where a pixel covers at most one. For every native picture the
   clamps follow the mip level the filter reads (half a texel of that level
   in from the primitive's range, REGION_CLAMP and REGION_REPEAT cells), so
   lower levels no longer mix in atlas neighbours: the seams down palm
-  fronds and sign edges at a distance (`PS2X_GS_MIP_INSET=0` for the old
+  fronds and sign edges at a distance (`ZX_GS_MIP_INSET=0` for the old
   half a level 0 texel).
 - **Character lighting.** VU1 0x08 lights a skinned vertex with three
   directional lights and an ambient (`GSNativeSkinning`). Both releases
@@ -533,13 +538,13 @@ Where the picture goes from there:
   to the swapchain with the same rules as a CPU frame (4:3, or 16:9 while
   the widescreen override marks frames; integer or smooth scaling; Retina
   pixels). No read-back and no GPU wait per frame. Screenshots
-  (`PS2X_SHOT_AT`, PS2X_CONTROL `shot`) read the texture back
+  (`ZX_SHOT_AT`, ZX_CONTROL `shot`) read the texture back
   (`ReadPresentedGpuPicture`) and are written at 640x480 (854x480 wide)
   times the scale. The host layer runs `addGpuDeviceReleaseHook` hooks
   before it destroys the device; the backend gives everything back there.
   Without a window it takes a private device with read-back; without any
   device the CPU renderer inside the backend draws.
-- Offline (`ps2xGsReplay --gpu`, `readback = true`): the picture is read
+- Offline (`zx-gsreplay --gpu`, `readback = true`): the picture is read
   back; `LastPresentedScaled()` gives it at the internal resolution and
   `Present()` returns the usual 640-wide frame at native resolution
   (centre sample of each GS pixel).
@@ -547,7 +552,7 @@ Where the picture goes from there:
 ### Frame interpolation
 
 The Display setting Frame Interpolation (`[display] frame_interpolation`,
-`ZAXIS_INTERPOLATION=on`; off by default) shows pictures between the game's
+`ZX_INTERPOLATION=on`; off by default) shows pictures between the game's
 frames on a display faster than the game (120, 144 Hz, ProMotion), drawn by
 this renderer alone: the game's logic, RAM, GS stream and timing are as
 without it. The arithmetic is `runtime/gs/gs_interpolate.h` (unit tests
@@ -590,13 +595,13 @@ without it. The arithmetic is `runtime/gs/gs_interpolate.h` (unit tests
   picture between before the last still on the GPU (budget: one may be in flight), the next
   frame not made in time, no frame before. A draw without a match in A or
   whose node moved more than 7 units is drawn where B has it.
-- **Checks.** `ps2xGsReplay TRACE OUT --between 0.5,1` replays a trace as
+- **Checks.** `zx-gsreplay TRACE OUT --gpu --between 0.5,1` replays a trace as
   the frame queue makes it and after each frame the pictures between it and
   the one before: at 1 the replay of the frame's own steps must give the
-  frame's picture exactly (`PS2X_INTERP_FORCE=1` makes them at cuts and
-  still frames too; `PS2X_INTERP_MATH_AT_ONE=1` runs the matrices at 1 as
-  well). `PS2X_INTERP_TIMING=1` times each picture between alone on the GPU
-  (the queue idle first). The runner's `PS2X_PERF_LOG` prints `[interp]`
+  frame's picture exactly (`ZX_INTERP_FORCE=1` makes them at cuts and
+  still frames too; `ZX_INTERP_MATH_AT_ONE=1` runs the matrices at 1 as
+  well). `ZX_INTERP_TIMING=1` times each picture between alone on the GPU
+  (the queue idle first). The runner's `ZX_PERF_LOG` prints `[interp]`
   lines: pictures between, the reasons, refresh intervals and how long after
   a frame was made it was first seen and seen whole.
 
@@ -620,13 +625,13 @@ shadow) and presentation take the two scales. Targets that are already
 they need, harmless. The cost was not measurable in the speed sweep (split
 screen, 3x: GS thread 3.7 ms per vsync with or without it). The shaders
 carry the vertical scale in `FSUniforms.f1.z`, `BlitUniforms.f.y` and
-`PresentUniforms.out.z`; the HLSL versions need the same three fields.
+`PresentUniforms.out.z`; the HLSL has the same three (`outSize.z` there).
 
 ### Write-backs, threads and locks
 
 - Write-backs: a write-back records the download and does its bookkeeping
   at once, but local memory gets the pixels only when the GPU is done
-  (`OwedWriteBack`; `PS2X_GS_GPU_DEFER=0` waits at once); until then those
+  (`OwedWriteBack`; `ZX_GS_GPU_DEFER=0` waits at once); until then those
   pages are owed and whatever reads or writes them on the CPU waits for them
   first. CLUT loads and 4- and 8-bit textures over owed pages are read from
   the target on the GPU instead (gather passes, PCSX2's
@@ -637,7 +642,7 @@ carry the vertical scale in `FSUniforms.f1.z`, `BlitUniforms.f.y` and
 - Threading: SDL_GPU uses a command buffer only on the thread that
   acquired it. On Metal (which does not mind) the GS worker and the window
   thread share the backend's command buffer under the mutex. On other
-  drivers (`threadOwnedCommands`, `PS2X_GS_GPU_THREAD_OWNED=0/1` to force)
+  drivers (`threadOwnedCommands`, `ZX_GS_GPU_THREAD_OWNED=0/1` to force)
   every public call runs in a `CallScope`: on entry it waits (up to 20 ms)
   until no other thread holds an open command buffer; the owner submits at
   the end of its current call when someone waits, a thread other than the
@@ -645,7 +650,7 @@ carry the vertical scale in `FSUniforms.f1.z`, `BlitUniforms.f.y` and
   worker submits when its queue runs dry (`GSRasterBackend::WorkerIdle` from
   the `Ps2AsyncStage` idle hook). After the 20 ms the waiter takes the
   buffer over and says so once in the log (only expected with the GS on the
-  game thread, `PS2X_VU1_ASYNC=0`).
+  game thread, `ZX_VU1_ASYNC=0`).
 - Locks: the GS worker holds the frontend's state lock for each GIF packet
   and the backend's for the same packet (`GSRasterBackend::BeginPacket` /
   `EndPacket`: one `CallScope` over the packet, so a primitive takes no
@@ -665,8 +670,8 @@ carry the vertical scale in `FSUniforms.f1.z`, `BlitUniforms.f.y` and
 ### Switching while running
 
 `PS2Runtime::requestRasterBackendReload()` (the Renderer setting,
-PS2X_CONTROL `renderer cpu|gpu [n]`) makes the backend again from
-`PS2X_GS_BACKEND` / `PS2X_GS_SCALE` between two host frames.
+ZX_CONTROL `renderer cpu|gpu [n]`) makes the backend again from
+`ZX_GS_BACKEND` / `ZX_GS_SCALE` between two host frames.
 `GS::switchRasterBackend` waits until no host-to-local transfer is half
 done (at most 60 host frames), writes the old backend's targets back
 (`setRasterBackend`: Sync, SnapshotVram), and carries the CLUT buffer over;
@@ -755,8 +760,7 @@ time per frame at 3x.
 
 ## Out of scope (not implemented)
 
-Bit-exactness with the CPU renderer; PS2 mipmapping (the CPU renderer has
-none either; replacement pictures have their own mips); dithering (DTHE); SCANMSK; AA1 antialiasing; wide or upscaled
+Bit-exactness with the CPU renderer; dithering (DTHE); SCANMSK; AA1 antialiasing; wide or upscaled
 lines (lines are one pixel at the internal resolution); textures read with
 a different layout than the target holds them in (8/4-bit reads of 32-bit
 targets, 16-bit reads of 32-bit targets, depth as colour) other than through

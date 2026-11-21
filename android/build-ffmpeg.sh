@@ -1,7 +1,7 @@
 #!/bin/sh
 # The minimal static FFmpeg of tools/build-ffmpeg.sh (main repo), same version
 # and the same configure line, for Android arm64 with the NDK. Pass the prefix
-# to CMake as -DPS2X_ENABLE_FFMPEG=ON -DPS2X_FFMPEG_PREFIX=<prefix>.
+# to CMake as -DZX_ENABLE_FFMPEG=ON -DZX_FFMPEG_PREFIX=<prefix>.
 #
 #   android/build-ffmpeg.sh <ffmpeg-9.0.2.tar.xz> <work dir> <prefix>
 #
@@ -30,9 +30,10 @@ cd "$WORK"/ffmpeg-*
     --enable-decoder=mpeg2video \
     --enable-parser=mpegvideo \
     --enable-protocol=file \
-    --enable-demuxer=ogg,flac,mp3,bink,xmv \
+    --enable-demuxer=ogg,flac,mp3,bink,xmv,asf \
     --enable-decoder=vorbis,flac,mp3,mp3float \
     --enable-decoder=bink,binkaudio_dct,binkaudio_rdft,wmv2 \
+    --enable-decoder=adpcm_ima_xbox,wmav2 \
     --enable-parser=vorbis,flac,mpegaudio \
     --enable-static --disable-shared --enable-pic >"$WORK/configure.log" 2>&1
 grep -q '^License: LGPL' "$WORK/configure.log"

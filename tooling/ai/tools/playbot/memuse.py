@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The game's own memory counters during a run, read through the play link: the malloc arena (newlib's malloc,
 runtime/src/game/sce/libc_malloc.cpp: the arena reserveMallocArena takes at boot, its top chunk, its chunks in use)
-and, from the run's log, the GS texture memory audit's lines (PS2X_GSMEM_AUDIT=1: AI, DM2 and BMX XXX) and the
-runtime heap's own counters per level (PS2X_TRACE_HEAP=1, set for a park run with PARK_MEMORY: heap()).
+and, from the run's log, the GS texture memory audit's lines (ZX_GSMEM_AUDIT=1: AI, DM2 and BMX XXX) and the
+runtime heap's own counters per level (ZX_TRACE_HEAP=1, set for a park run with PARK_MEMORY: heap()).
 
     sample = memuse.Arena(run, game).sample()     dict(program_end, high_water, heap_reached, zero_gap)
 
@@ -135,7 +135,7 @@ HEAP = re.compile(r'\[heap\] (.*?) \((ended|so far)\): 32 MB heap peak (\d+) byt
 
 
 def heap(log_path):
-    """The runtime's own heap counters per level from a run's log (PS2X_TRACE_HEAP=1, runtime/heap_trace.h: the guest
+    """The runtime's own heap counters per level from a run's log (ZX_TRACE_HEAP=1, runtime/heap_trace.h: the guest
     heap's bytes in use and its high-water mark, in the 32 MB and in extended memory, each level's stretch logged when
     it ends and every 600 vsyncs while it runs): {level: dict(main_peak, main_in_use, extended_peak, extended_in_use,
     ended, ticks, stretches)}, the peaks the highest of the level's stretches (a level played twice), the rest its

@@ -61,7 +61,7 @@ namespace aggressive_inline::settings_open
         {
             PS2Runtime::RecompiledFunction checkPauseButtons = nullptr;
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         void checkPauseButtonsHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {

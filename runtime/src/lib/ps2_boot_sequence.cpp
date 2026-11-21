@@ -17,7 +17,7 @@
 #include <unistd.h>
 #endif
 
-namespace ps2x::sequence
+namespace zx::sequence
 {
     namespace
     {

@@ -35,7 +35,7 @@ namespace zge::native
             // The positions streams the game wrote into, each with a host part of its own (notePartPosition).
             std::unordered_map<uint32_t, std::shared_ptr<HostCollisionPart>> own;
         };
-        // The boot's (ps2x::boot::PerBoot): `made` is keyed by the file
+        // The boot's (zx::boot::PerBoot): `made` is keyed by the file
         // parts' host addresses, and the next boot's file parts
         // (geo_meshes.cpp's registry, per boot too) are made once the last
         // boot's are freed, often at the same addresses: a cache kept from
@@ -43,7 +43,7 @@ namespace zge::native
         // game booted again in one process drew and collided with them).
         Cache &cache()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<Cache>> ofBoot([] { return std::make_unique<Cache>(); });
+            static zx::boot::PerBoot<std::unique_ptr<Cache>> ofBoot([] { return std::make_unique<Cache>(); });
             return *ofBoot.get();
         }
 
@@ -70,7 +70,7 @@ namespace zge::native
         // made.
         LevelSetupStep &levelSetupStep()
         {
-            static ps2x::boot::PerBoot<LevelSetupStep> ofBoot([]() -> LevelSetupStep { return nullptr; });
+            static zx::boot::PerBoot<LevelSetupStep> ofBoot([]() -> LevelSetupStep { return nullptr; });
             return ofBoot.get();
         }
     }
@@ -150,7 +150,7 @@ namespace zge::native
             }
         }
         c.parts[partAddress] = made;
-        if (!made && std::getenv("PS2X_NATIVE_COLLISION_DEBUG"))
+        if (!made && std::getenv("ZX_NATIVE_COLLISION_DEBUG"))
         {
             std::string path;
             uint64_t offset = 0;
@@ -268,10 +268,10 @@ namespace zge::native
             static const int mode = []
             {
                 const int byDefault = game::readable::runningGame() == game::Game::Bmx ? 0 : 1;
-                const char *e = std::getenv("PS2X_NATIVE_COLLISION");
+                const char *e = std::getenv("ZX_NATIVE_COLLISION");
                 const int v = !e || !*e ? byDefault : !std::strcmp(e, "verify") ? 2 : std::atoi(e) != 0 ? 1 : 0;
                 if (e && *e)
-                    std::cout << "[native-collision] PS2X_NATIVE_COLLISION=" << e
+                    std::cout << "[native-collision] ZX_NATIVE_COLLISION=" << e
                               << (v ? ": the readable collision code reads the collision data made on the host"
                                     : ": the readable collision code reads the game's RAM copy")
                               << (v == 2 ? ", each read compared with RAM" : "") << std::endl;
@@ -336,7 +336,7 @@ namespace zge::native
         // part's tags for whatever lies there now).
         TagTables &tagTables()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<TagTables>> ofBoot([] { return std::make_unique<TagTables>(); });
+            static zx::boot::PerBoot<std::unique_ptr<TagTables>> ofBoot([] { return std::make_unique<TagTables>(); });
             return *ofBoot.get();
         }
 
@@ -351,7 +351,7 @@ namespace zge::native
             const HostTagTable &t = entry.kind == TagTableKind::FaceTags ? part->faceTags : part->faceEdges;
             if (!t.present || t.body.size() != entry.end - (table + 0x10u))
             {
-                if (std::getenv("PS2X_NATIVE_COLLISION_DEBUG"))
+                if (std::getenv("ZX_NATIVE_COLLISION_DEBUG"))
                     std::cout << "[native-collision] tag table 0x" << std::hex << table << " of part 0x" << entry.part
                               << std::dec << ": the host part's table " << (t.present ? "differs in size" : "is missing")
                               << std::endl;
@@ -429,10 +429,10 @@ namespace zge::native
     {
         static const bool on = []
         {
-            const char *e = std::getenv("PS2X_NATIVE_COLLISION_POISON");
+            const char *e = std::getenv("ZX_NATIVE_COLLISION_POISON");
             const bool v = e && *e && std::atoi(e) != 0 && nativeCollisionEnabled();
             if (v)
-                std::cout << "[native-collision] PS2X_NATIVE_COLLISION_POISON=1: the RAM copy of what the host serves "
+                std::cout << "[native-collision] ZX_NATIVE_COLLISION_POISON=1: the RAM copy of what the host serves "
                              "is overwritten once a part is read from the host"
                           << std::endl;
             return v;

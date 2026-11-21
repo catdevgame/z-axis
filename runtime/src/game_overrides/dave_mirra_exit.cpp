@@ -28,7 +28,6 @@
 
 namespace dave_mirra::exit_menu
 {
-    namespace zx = ps2x::zaxis;
 
     constexpr zge_host::ScriptFunctions kScriptFunctions{
         "dave-mirra",
@@ -52,23 +51,23 @@ namespace dave_mirra::exit_menu
     bool patchMainMenu(std::string &text)
     {
         std::string edited = text;
-        zx::Span frame = zx::findObject(edited, "MainMenu/MainMenuFrame");
-        zx::Span menu = zx::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
+        zx::zaxis::Span frame = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame");
+        zx::zaxis::Span menu = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
         if (!frame.found() || !menu.found())
             return false;
         // Later positions first: the menu's end (its new action), its
         // Items, then the frame's actions and size, which come before it.
-        edited.insert(zx::objectEnd(edited, menu), zx::indentBlock(kAction, zx::indentAt(edited, menu.begin) + 1));
-        menu = zx::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
+        edited.insert(zx::zaxis::objectEnd(edited, menu), zx::zaxis::indentBlock(kAction, zx::zaxis::indentAt(edited, menu.begin) + 1));
+        menu = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
         const std::string line = std::string("\\n") + kItem;
-        bool ok = zx::replaceIn(edited, menu, "\\nMultiplayer\"\r\n", "\\nMultiplayer" + line + "\"\r\n") &&
-                  zx::replaceIn(edited, menu, "\tPosition\t175.000000 40.000000 0.000000\r\n",
+        bool ok = zx::zaxis::replaceIn(edited, menu, "\\nMultiplayer\"\r\n", "\\nMultiplayer" + line + "\"\r\n") &&
+                  zx::zaxis::replaceIn(edited, menu, "\tPosition\t175.000000 40.000000 0.000000\r\n",
                                 "\tPosition\t215.000000 40.000000 0.000000\r\n");
-        frame = zx::findObject(edited, "MainMenu/MainMenuFrame");
-        ok = ok && zx::replaceIn(edited, frame, "\\n!Multiplayer\\\"}", "\\n!Multiplayer" + line + "\\\"}") &&
-             zx::replaceIn(edited, frame, "\\nCool Stuff\\nMultiplayer\\\"}", "\\nCool Stuff\\nMultiplayer" + line + "\\\"}") &&
-             zx::replaceIn(edited, frame, "\tWidth\t340\r\n", "\tWidth\t430\r\n") &&
-             zx::replaceIn(edited, frame, "\tHeight\t270\r\n", "\tHeight\t300\r\n");
+        frame = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame");
+        ok = ok && zx::zaxis::replaceIn(edited, frame, "\\n!Multiplayer\\\"}", "\\n!Multiplayer" + line + "\\\"}") &&
+             zx::zaxis::replaceIn(edited, frame, "\\nCool Stuff\\nMultiplayer\\\"}", "\\nCool Stuff\\nMultiplayer" + line + "\\\"}") &&
+             zx::zaxis::replaceIn(edited, frame, "\tWidth\t340\r\n", "\tWidth\t430\r\n") &&
+             zx::zaxis::replaceIn(edited, frame, "\tHeight\t270\r\n", "\tHeight\t300\r\n");
         if (!ok)
             return false;
         text = std::move(edited);
@@ -77,13 +76,13 @@ namespace dave_mirra::exit_menu
 
     bool patchUiLibrary(std::vector<uint8_t> &bytes)
     {
-        std::vector<zx::ArchiveEntry> entries;
-        if (!zx::readArchive(bytes, entries))
+        std::vector<zx::zaxis::ArchiveEntry> entries;
+        if (!zx::zaxis::readArchive(bytes, entries))
             return false;
         bool changed = false;
-        for (zx::ArchiveEntry &entry : entries)
+        for (zx::zaxis::ArchiveEntry &entry : entries)
         {
-            if (zx::scriptName(entry) != "MainMenu")
+            if (zx::zaxis::scriptName(entry) != "MainMenu")
                 continue;
             std::string text(entry.data.begin(), entry.data.end());
             if (patchMainMenu(text))
@@ -99,7 +98,7 @@ namespace dave_mirra::exit_menu
             }
         }
         if (changed)
-            bytes = zx::writeArchive(entries);
+            bytes = zx::zaxis::writeArchive(entries);
         return changed;
     }
 }
@@ -114,7 +113,7 @@ namespace dave_mirra
             return false;
         if (!zge_host::installExitFunction(runtime, exit_menu::kScriptFunctions))
             return false;
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &exit_menu::patchUiLibrary);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &exit_menu::patchUiLibrary);
         return true;
     }
 }

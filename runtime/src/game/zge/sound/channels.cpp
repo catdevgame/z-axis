@@ -224,7 +224,7 @@ namespace zge
     }
 
     // bindSoundRpc: the driver's RPC bound, as soon as the IOP has it. A game
-    // override hooks it (PS2X_MOVIES=hle: this one runs). Returns the server,
+    // override hooks it (ZX_MOVIES=hle: this one runs). Returns the server,
     // or the bind's failure.
     int32_t bindSoundRpc()
     {

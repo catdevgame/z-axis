@@ -15,7 +15,7 @@
 
 namespace zge_host::gameplay
 {
-    namespace st = ps2x::settings;
+    namespace st = zx::settings;
 
     void Options::define(const OptionInfo *options, int count, std::string header)
     {

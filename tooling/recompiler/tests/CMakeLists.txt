@@ -10,7 +10,7 @@ add_executable(recompiler_tests
     src/ps2_runtime_expansion_tests.cpp
     src/ps2_float_semantics_tests.cpp
     src/ps2_branch64_tests.cpp
-    $<TARGET_OBJECTS:ps2_test_function_table>
+    $<TARGET_OBJECTS:zx_test_function_table>
 )
 target_include_directories(recompiler_tests PRIVATE
     ${ZAXIS_TESTS_DIR}/include
@@ -19,7 +19,7 @@ target_include_directories(recompiler_tests PRIVATE
     ${ZAXIS_RUNTIME_DIR}/include
     ${ZAXIS_RUNTIME_DIR}/src/lib
 )
-target_link_libraries(recompiler_tests PRIVATE ps2_recomp_lib ps2_analyzer_lib ps2_runtime ps2_iop)
+target_link_libraries(recompiler_tests PRIVATE ps2_recomp_lib ps2_analyzer_lib zx_runtime ps2_iop)
 if(MSVC)
     target_link_options(recompiler_tests PRIVATE "/STACK:8388608")
 elseif(MINGW)

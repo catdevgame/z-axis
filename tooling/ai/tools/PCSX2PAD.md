@@ -18,7 +18,7 @@ RAM for differential debugging against the native recompiled build.
 | `build_hook.py` | assembles the hook with `../decomp/tools/binutils` and writes the pnach |
 | `pcsx2pad.pnach` | generated pnach (same content as the installed copy) |
 | `scripts/boot-to-main-menu.txt` | command script: fresh boot to main menu, with savestates and screenshots |
-| `scripts/boot-to-main-menu.padscript` | the same in `PS2X_PAD_SCRIPT` syntax (`7:START,11:START,15:START`) |
+| `scripts/boot-to-main-menu.padscript` | the same in `ZX_PAD_SCRIPT` syntax (`7:START,11:START,15:START`) |
 | `scripts/tutorial-*.txt`, `scripts/native/` | Tutorial reference run and its native pad scripts (`REFERENCE-RUN.md`) |
 | `pcsx2-test-data/` | private copy of `baseline/pcsx2-data` (a link into the data folder, `tooling/data-links.txt`; never committed) |
 
@@ -146,7 +146,7 @@ pcsx2pad.py frame                     # print vsync + poll counters
 Scripts:
 
 ```sh
-# PS2X_PAD_SCRIPT syntax, as in runtime/src/lib/ps2_pad.cpp:
+# ZX_PAD_SCRIPT syntax, as in runtime/src/lib/ps2_pad_script.cpp:
 # "<sec>:<BUTTON>[:<dur sec, default 0.25>],..." (unknown buttons skipped)
 pcsx2pad.py script "7:START,11:START,15:START"
 pcsx2pad.py script @scripts/boot-to-main-menu.padscript
@@ -160,7 +160,7 @@ The native runtime measures script time in wall seconds from its first pad
 read. Here `--origin firstpoll` (the default) uses the vsync count that the hook
 recorded at the game's first `scePadRead` (+0x14), and converts seconds to
 frames at 59.94 fps. So the same string means "N seconds of game time after
-the pad first came up" in both builds, and `PS2X_PAD_SCRIPT="7:START,11:START,15:START"`
+the pad first came up" in both builds, and `ZX_PAD_SCRIPT="7:START,11:START,15:START"`
 reaches the main menu in both. Because origin and timing are deterministic,
 the script works even if you start it late, as long as the events haven't
 passed yet.
@@ -191,7 +191,7 @@ pcsx2pad.py tips                                # dismiss tutorial message boxes
 pcsx2pad.py goto -12.3 8.37 1.5 900 SHARP       # skate to (x, z) with the D-pad, closed loop
 pcsx2pad.py checkpoint 33 ref04-talk-go         # savestate + atomic EE RAM + frame thumbnail
 PCSX2PAD_RECORD=/tmp/run.log pcsx2pad.py run scripts/tutorial-all.txt
-pcsx2pad.py padscript /tmp/run.log              # the recorded inputs as a PS2X_PAD_SCRIPT
+pcsx2pad.py padscript /tmp/run.log              # the recorded inputs as a ZX_PAD_SCRIPT
 ```
 
 ## Verified

@@ -23,7 +23,7 @@ namespace game::host::disc
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
 
         struct OpenFile
         {
@@ -42,7 +42,7 @@ namespace game::host::disc
             bool callbackSeen = false;
             std::vector<uint8_t> readBuffer; // a read's bytes on their way to the guest
         };
-        Disc &disc() { return ps2x::session::state<Disc>(); }
+        Disc &disc() { return zx::session::state<Disc>(); }
 
         gf::GameFileSystem &files()
         {
@@ -55,7 +55,7 @@ namespace game::host::disc
                     roots.disc = paths.cdRoot;
                 if (roots.disc.empty())
                     roots.image = PS2Runtime::cdImageFileSystem();
-                if (const char *mods = ps2x::boot::text("PS2X_MODS_DIR"); mods && *mods)
+                if (const char *mods = zx::boot::text("ZX_MODS_DIR"); mods && *mods)
                     roots.mods = gf::modsRoots(mods);
                 std::cout << "[disc] files from " << (roots.disc.empty() ? (roots.image ? roots.image->path().string() : std::string("(none)")) : roots.disc.string())
                           << (roots.mods.empty() ? std::string() : ", mods from " + gf::modsText(roots.mods)) << std::endl;
@@ -106,7 +106,7 @@ namespace game::host::disc
     uint32_t open(const std::string &path)
     {
         Disc &d = disc();
-        ps2x::ftrace::Scope traceOpen(ps2x::ftrace::kDiscOpen, ps2x::ftrace::kDiscOpen + 100);
+        zx::ftrace::Scope traceOpen(zx::ftrace::kDiscOpen, zx::ftrace::kDiscOpen + 100);
         std::shared_ptr<gf::GameFile> file = files().open(path);
         if (d.additions.fileOpened)
             d.additions.fileOpened(path);
@@ -140,7 +140,7 @@ namespace game::host::disc
         size_t got = 0u;
         if (count != 0u)
         {
-            ps2x::ftrace::Scope traceRead(ps2x::ftrace::kDiscRead, ps2x::ftrace::kDiscRead + 100,
+            zx::ftrace::Scope traceRead(zx::ftrace::kDiscRead, zx::ftrace::kDiscRead + 100,
                                           static_cast<uint16_t>(std::min<size_t>(count >> 14, 65535u)));
             std::vector<uint8_t> &buffer = disc().readBuffer;
             buffer.resize(count);

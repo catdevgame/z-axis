@@ -27,12 +27,12 @@
 
 class PS2Runtime;
 
-namespace ps2x::audio_file
+namespace zx::audio_file
 {
     class Reader;
 }
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     class GameFile;
 }
@@ -75,7 +75,7 @@ namespace zge_host::sound
     struct StreamSource
     {
         Bus bus = Effects;
-        std::shared_ptr<ps2x::game_files::GameFile> file;
+        std::shared_ptr<zx::game_files::GameFile> file;
         uint64_t start = 0; // the source's first byte in the file
         bool stereo = false;
     };
@@ -83,7 +83,7 @@ namespace zge_host::sound
     // What plays instead of a stream's source (no reader: the disc's).
     struct Replacement
     {
-        std::unique_ptr<ps2x::audio_file::Reader> reader;
+        std::unique_ptr<zx::audio_file::Reader> reader;
         // At the reader's own rate (a song of the player's), or at the
         // stream's pitch (a line from another release, made at the same rate).
         bool ownRate = false;
@@ -139,14 +139,14 @@ namespace zge_host::sound
         Replacement (*resolve)(const StreamSource &source) = nullptr;
     };
 
-    // The native driver, unless PS2X_SOUND=spu2 or PS2X_MOVIES=hle (then
-    // ZAUDIO runs on the IOP with the emulated SPU2, and PS2X_SOUND_LOG still
+    // The native driver, unless ZX_SOUND=spu2 or ZX_MOVIES=hle (then
+    // ZAUDIO runs on the IOP with the emulated SPU2, and ZX_SOUND_LOG still
     // logs its commands). True when installed: ZAUDIO.IRX and LIBSD.IRX are
     // then not needed.
     //
-    // PS2X_SOUND_LOG=<file>: every command and the channel status bytes when
-    // they change, with the vsync tick, in either mode. PS2X_SOUND_MEMDUMP=
-    // <file>: the sample memory. PS2X_TRACE_SOUND=1: banks, streams, status
-    // switches; 2: every command. PS2X_SOUND_BUS_GAIN=e,m,s: debug gains.
+    // ZX_SOUND_LOG=<file>: every command and the channel status bytes when
+    // they change, with the vsync tick, in either mode. ZX_SOUND_MEMDUMP=
+    // <file>: the sample memory. ZX_TRACE_SOUND=1: banks, streams, status
+    // switches; 2: every command. ZX_SOUND_BUS_GAIN=e,m,s: debug gains.
     bool install(PS2Runtime &runtime, const Game &game);
 }

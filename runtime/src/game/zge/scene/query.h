@@ -40,7 +40,7 @@ namespace zge
     // (a sphere and a box around it) are tested against the scene's nodes;
     // every node hit gets a QueryHit, sorted by how far along the segment it
     // is.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     // ZGE2's query (0x40 bytes on collisionQuery's stack; read in DM2's collisionQuery, queryTestShape and
     // sphereQueryTestNode): the same first seven words, the hit and the stamp right after, and no centre, radius
     // or doubled box (ZGE2's queryOverlapsBox works the bounds out from the shape in scratch words of its own).
@@ -160,7 +160,7 @@ namespace zge
     // reportWorldCells).
     struct Sector
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint32_t cleared[4];     // DM2 +0x00 the four words buildWorldGrid zeroes [what they hold: no DM2 function read so far]
         uint8_t box[0x20];       // DM2 +0x10 (runQuery and reportWorldCells hand it on)
         Vec4 sphere;             // DM2 +0x30 (sectorInView)

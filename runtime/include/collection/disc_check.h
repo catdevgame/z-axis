@@ -11,7 +11,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::app
+namespace zx::app
 {
     std::string sha256Hex(const uint8_t *data, size_t size);
 

@@ -5,7 +5,7 @@
 // runtime/toolchain/llvm.lock) build that into a game module (runtime/game_module.h), and the module is kept in the
 // support folder until the app or the disc changes. Nothing of the game comes with the app.
 //
-// The app's tools for it, one folder (the packaging's game-code-tools, runtime/toolchain/stage-game-code-tools.sh):
+// The app's tools for it, one folder (the packaging's game-code-tools, runtime/toolchain/stage_game_code_tools.py):
 //   bin/            the compiler and linker (clang++, ld64.lld | lld-link | ld.lld: the one llvm program's names;
 //                   another platform's modules through the host's linker with -flavor)
 //                   and the recompiler (ps2_recomp)
@@ -31,7 +31,7 @@
 #include <functional>
 #include <string>
 
-namespace ps2x::app
+namespace zx::app
 {
     struct GameCodeTools
     {

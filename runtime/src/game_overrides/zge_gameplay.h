@@ -2,7 +2,7 @@
 
 // The gameplay pages' host side, shared by the games built on the Z-Axis
 // engine: their Camera, Assists and Cheats options kept in gameplay.ini
-// (PS2X_GAMEPLAY_INI; the app: the game's support folder), the settings rows
+// (ZX_GAMEPLAY_INI; the app: the game's support folder), the settings rows
 // made from them, the shortcut keys pressed since the last VBlank, and the
 // game values an option changes (written while the option wants another
 // value, put back once when it no longer does). Each game's override says
@@ -40,7 +40,7 @@ namespace zge_host::gameplay
         // The options (by index, in the file's order) and the file's first
         // lines (each starting with "; ").
         void define(const OptionInfo *options, int count, std::string header);
-        // The file, from PS2X_GAMEPLAY_INI (none: nothing is saved).
+        // The file, from ZX_GAMEPLAY_INI (none: nothing is saved).
         void setFile(std::filesystem::path file) { file_ = std::move(file); }
         const std::filesystem::path &file() const { return file_; }
 
@@ -59,10 +59,10 @@ namespace zge_host::gameplay
 
         // A settings row for an option: its apply sets the value and saves
         // the file.
-        ps2x::settings::Setting row(int option, const char *label, const char *help);
-        ps2x::settings::Setting rangeRow(int option, const char *label, int lo, int hi, int step, const char *unit,
+        zx::settings::Setting row(int option, const char *label, const char *help);
+        zx::settings::Setting rangeRow(int option, const char *label, int lo, int hi, int step, const char *unit,
                                          const char *help);
-        ps2x::settings::Setting choiceRow(int option, const char *label, std::vector<std::string> choices,
+        zx::settings::Setting choiceRow(int option, const char *label, std::vector<std::string> choices,
                                           const char *help);
 
     private:

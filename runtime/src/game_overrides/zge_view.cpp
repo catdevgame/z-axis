@@ -6,6 +6,8 @@
 
 #include "ps2_runtime.h"
 #include "runtime/ps2_session.h"
+#include "runtime/ee_time.h"
+#include "runtime/ps2_game_pose.h"
 
 #include <algorithm>
 #include <array>
@@ -38,10 +40,10 @@ namespace zge_host::view
         {
             PS2Runtime::RecompiledFunction drawBlur = nullptr;
             const char *game = "";
-            bool trace = false; // PS2X_TRACE_MOTION_BLUR=1: the bytes each level's draws add, every 120 draws
+            bool trace = false; // ZX_TRACE_MOTION_BLUR=1: the bytes each level's draws add, every 120 draws
             uint64_t draws[3] = {}, bytes[3] = {};
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         uint32_t packetAt(const uint8_t *rdram, uint32_t packet)
         {
@@ -99,10 +101,10 @@ namespace zge_host::view
     {
         state().drawBlur = runtime.lookupFunction(blur.drawBlur);
         state().game = blur.game;
-        const char *trace = std::getenv("PS2X_TRACE_MOTION_BLUR");
+        const char *trace = std::getenv("ZX_TRACE_MOTION_BLUR");
         state().trace = trace && trace[0] == '1';
         // For checks in the runner (the app sets it from its settings): 0, 1 or 2.
-        if (const char *level = std::getenv("PS2X_MOTION_BLUR"); level && level[0] >= '0' && level[0] <= '2')
+        if (const char *level = std::getenv("ZX_MOTION_BLUR"); level && level[0] >= '0' && level[0] <= '2')
             runtime.setMotionBlur(level[0] - '0');
         if (!state().drawBlur || !runtime.replaceFunction(blur.drawBlur, &drawBlur))
         {
@@ -273,6 +275,18 @@ namespace zge_host::view
             uint32_t sp = 0; // the stack pointer the element's call was made with
         };
 
+        // A ZGE3 or ZGE4 widget's move (Node::position, its x) kept while its
+        // draw has not returned: a call that came back unfinished (as
+        // HudScope's) is undone once a draw of the same caller, or of one
+        // further out, is entered, or at the next camera frame; until then
+        // the rest of its draw, and its children's, sees the widget moved.
+        struct HeldMove
+        {
+            uint32_t widget = 0;
+            float shift = 0.0f;
+            uint32_t sp = 0; // the stack pointer the widget's draw was called with
+        };
+
         struct Wide
         {
             Widescreen table{};
@@ -286,10 +300,12 @@ namespace zge_host::view
             bool wideFrame = false;       // the camera being set up is drawn for widescreen
             bool levelFrame = false;      // the camera being set up is a level's
             bool used = false;            // turned on at least once this run
-            bool trace = false;           // PS2X_TRACE_WIDESCREEN=1
+            bool trace = false;           // ZX_TRACE_WIDESCREEN=1
             // While a ZGE2 widget or a side draw runs: the side its 2D
             // primitives are moved to (HudScope).
             HudScope hud;
+            // ZGE3's and ZGE4's widget moves whose draws came back unfinished.
+            std::vector<HeldMove> heldMoves;
             PS2Runtime::RecompiledFunction sideDraws[kMaxSideDraws] = {};
             uint32_t traceLastMode = ~0u, traceCalls = 0; // the trace's game mode and camera frames
             uint64_t traceSqueezed = 0, traceMoved = 0;     // 2D primitives squeezed, HUD widgets moved
@@ -303,7 +319,7 @@ namespace zge_host::view
             float wideXScale = 0.75f;
             std::vector<float> writtenXScales;
         };
-        Wide &wide() { return ps2x::session::state<Wide>(); }
+        Wide &wide() { return zx::session::state<Wide>(); }
 
         float wideXScale(PS2Runtime *runtime)
         {
@@ -325,10 +341,13 @@ namespace zge_host::view
             }
         }
 
+        void endHeldMoves(uint8_t *rdram, uint32_t sp);
+
         void projectionHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
             Wide &w = wide();
             w.hud = HudScope{}; // (an element left unfinished is drawn by now)
+            endHeldMoves(rdram, ~0u);
             uint32_t mode = 0;
             const bool wideNow = play_recording::read(play_recording::Channel::Widescreen, runtime->widescreen()) && w.table.inLevel(rdram, mode);
             w.wideFrame = wideNow;
@@ -536,7 +555,7 @@ namespace zge_host::view
             return address;
         }
 
-        // PS2X_TRACE_WIDESCREEN=1: each HUD widget moved, named once.
+        // ZX_TRACE_WIDESCREEN=1: each HUD widget moved, named once.
         void traceMovedWidget(const uint8_t *rdram, uint32_t widget, uint32_t parent, float moved)
         {
             Wide &w = wide();
@@ -683,22 +702,53 @@ namespace zge_host::view
         }
         constexpr auto kSideDrawHooks = sideDrawHooks(std::make_index_sequence<kMaxSideDraws>{});
 
-        void drawWidgetHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+        // Moves a ZGE3 or ZGE4 widget's x by `shift` (undone as a move, not
+        // a restore, in case its draw moved it too).
+        void moveWidget(uint8_t *rdram, uint32_t widget, float shift)
         {
-            const uint32_t widget = getRegU32(ctx, kRegA0);
-            const float shift = wide2D(rdram, runtime) ? hudAnchorShift(rdram, widget) : 0.0f;
             float position[1];
-            if (shift != 0.0f && readFloats(rdram, widget + kWidgetPosition, position))
+            if (readFloats(rdram, widget + kWidgetPosition, position))
             {
                 position[0] += shift;
                 writeFloats(rdram, widget + kWidgetPosition, position);
             }
-            wide().drawWidget(rdram, ctx, runtime);
-            // Undone as a move, not a restore, in case the draw moved it too.
-            if (shift != 0.0f && readFloats(rdram, widget + kWidgetPosition, position))
+        }
+
+        // The held moves whose draws are over by a call entered with stack
+        // pointer sp (~0u: all of them, at a camera frame) undone.
+        void endHeldMoves(uint8_t *rdram, uint32_t sp)
+        {
+            std::vector<HeldMove> &held = wide().heldMoves;
+            for (size_t i = held.size(); i-- > 0;)
+                if (sp >= held[i].sp)
+                {
+                    moveWidget(rdram, held[i].widget, -held[i].shift);
+                    held.erase(held.begin() + static_cast<std::ptrdiff_t>(i));
+                }
+        }
+
+        // ZGE3's and ZGE4's widget draw: a side-anchored widget moved while
+        // it, and its children, are drawn, then put back; one that comes
+        // back unfinished stays moved until it is over (HeldMove).
+        void drawWidgetHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
+        {
+            Wide &w = wide();
+            const uint32_t widget = getRegU32(ctx, kRegA0), sp = getRegU32(ctx, kRegSp);
+            endHeldMoves(rdram, sp);
+            const float shift = wide2D(rdram, runtime) ? hudAnchorShift(rdram, widget) : 0.0f;
+            if (shift != 0.0f)
+                moveWidget(rdram, widget, shift);
+            w.drawWidget(rdram, ctx, runtime);
+            if (shift == 0.0f)
+                return;
+            // Returned: the stack pointer is the call's again (one that left
+            // before its return is at its callee's, below).
+            if (getRegU32(ctx, kRegSp) == sp)
+                moveWidget(rdram, widget, -shift);
+            else
             {
-                position[0] -= shift;
-                writeFloats(rdram, widget + kWidgetPosition, position);
+                w.heldMoves.push_back({widget, shift, sp});
+                ++w.traceUnfinished;
             }
         }
     }
@@ -723,7 +773,7 @@ namespace zge_host::view
         w.frustum = runtime.lookupFunction(table.updateFrustum);
         w.closeUnpack = runtime.lookupFunction(table.closeUnpack);
         w.drawWidget = runtime.lookupFunction(table.drawWidget);
-        const char *trace = std::getenv("PS2X_TRACE_WIDESCREEN");
+        const char *trace = std::getenv("ZX_TRACE_WIDESCREEN");
         w.trace = trace && trace[0] == '1';
         const PS2Runtime::RecompiledFunction drawWidget =
             table.widgets == WidgetTree::Nodes ? &drawWidgetHook : &drawWidgetObjectHook;
@@ -783,8 +833,8 @@ namespace zge_host::view
 // setLodTable gives a node its table and all again when the ratio changes
 // (the far clips the game sets, back to 1 at the game's own). A function whose far clips copy one set already (BMX XXX's 2D pass
 // gives the 2D camera the first view camera's) is wrapped, and its calls are
-// passed as they are. PS2X_LOD_DISTANCE=0 (developers, A/B) keeps the PS2's ends;
-// PS2X_TRACE_DRAW_DISTANCE=1 logs the cameras' changes.
+// passed as they are. ZX_LOD_DISTANCE=0 (developers, A/B) keeps the PS2's ends;
+// ZX_TRACE_DRAW_DISTANCE=1 logs the cameras' changes.
 namespace zge_host::view
 {
     namespace
@@ -856,7 +906,7 @@ namespace zge_host::view
             uint64_t lodTick = 0;
             bool trace = false;
         };
-        Distance &distance() { return ps2x::session::state<Distance>(); }
+        Distance &distance() { return zx::session::state<Distance>(); }
 
         CameraFog &cameraFog(uint32_t camera)
         {
@@ -1116,10 +1166,156 @@ namespace zge_host::view
             std::cerr << "[" << table.game << "] draw distance hooks not installed" << std::endl;
             ok = false;
         }
-        const char *trace = std::getenv("PS2X_TRACE_DRAW_DISTANCE");
+        const char *trace = std::getenv("ZX_TRACE_DRAW_DISTANCE");
         d.trace = trace && trace[0] == '1';
-        const char *lodDistance = std::getenv("PS2X_LOD_DISTANCE");
+        const char *lodDistance = std::getenv("ZX_LOD_DISTANCE");
         d.lodFollow = !(lodDistance && lodDistance[0] == '0');
         return ok;
+    }
+}
+
+// ---- a camera's hidden twin (zge_view.h CameraTwin) -------------------------
+namespace zge_host::view
+{
+    namespace
+    {
+        constexpr uint32_t kTwinStackBytes = 0x4000; // below the caller's sp
+        constexpr uint32_t kRecordFromWorld = 0x70, kRecordToWorld = 0xB0;
+
+        bool copyOut(const uint8_t *rdram, uint32_t address, uint32_t size, std::vector<uint8_t> &out)
+        {
+            const uint8_t *p = getConstMemPtr(rdram, address);
+            if (!p || size == 0u || getConstMemPtr(rdram, address + size - 1u) != p + size - 1u)
+                return false;
+            out.assign(p, p + size);
+            return true;
+        }
+        void copyIn(uint8_t *rdram, uint32_t address, const std::vector<uint8_t> &in)
+        {
+            if (uint8_t *p = getMemPtr(rdram, address))
+                std::memcpy(p, in.data(), in.size());
+        }
+    }
+
+    bool CameraTwin::track(const uint8_t *rdram, const std::vector<std::pair<uint32_t, uint32_t>> &blocks)
+    {
+        bool same = m_valid && m_blocks.size() == blocks.size();
+        for (size_t i = 0; same && i < blocks.size(); ++i)
+            same = m_blocks[i].address == blocks[i].first && m_blocks[i].size == blocks[i].second;
+        std::vector<uint8_t> now;
+        if (!same)
+        {
+            m_blocks.assign(blocks.size(), Block{});
+            for (size_t i = 0; i < blocks.size(); ++i)
+            {
+                Block &b = m_blocks[i];
+                b.address = blocks[i].first, b.size = blocks[i].second;
+                if (!copyOut(rdram, b.address, b.size, b.hidden))
+                {
+                    reset();
+                    return false;
+                }
+                b.playerAfter = b.hidden;
+            }
+            m_valid = true;
+            return true;
+        }
+        for (Block &b : m_blocks)
+        {
+            if (!copyOut(rdram, b.address, b.size, now))
+                continue;
+            for (size_t i = 0; i < now.size(); ++i)
+                if (now[i] != b.playerAfter[i])
+                    b.hidden[i] = now[i];
+        }
+        return false;
+    }
+
+    void CameraTwin::run(uint8_t *rdram, R5900Context *ctx, const std::function<void()> &update)
+    {
+        if (!m_valid)
+            return;
+        std::vector<std::vector<uint8_t>> player(m_blocks.size());
+        for (size_t i = 0; i < m_blocks.size(); ++i)
+            if (!copyOut(rdram, m_blocks[i].address, m_blocks[i].size, player[i]))
+                return;
+        const R5900Context keptContext = *ctx;
+        const uint32_t sp = getRegU32(ctx, kRegSp);
+        std::vector<uint8_t> keptStack;
+        const bool stackKept = copyOut(rdram, sp - kTwinStackBytes, kTwinStackBytes, keptStack);
+        for (const Block &b : m_blocks)
+            copyIn(rdram, b.address, b.hidden);
+        {
+            ee_time::Held held;
+            update();
+        }
+        for (Block &b : m_blocks)
+            copyOut(rdram, b.address, b.size, b.hidden);
+        for (size_t i = 0; i < m_blocks.size(); ++i)
+            copyIn(rdram, m_blocks[i].address, player[i]);
+        if (stackKept)
+            copyIn(rdram, sp - kTwinStackBytes, keptStack);
+        *ctx = keptContext;
+    }
+
+    void CameraTwin::notePlayer(const uint8_t *rdram)
+    {
+        for (Block &b : m_blocks)
+            copyOut(rdram, b.address, b.size, b.playerAfter);
+    }
+
+    void CameraTwin::notePlayerWrites(const uint8_t *rdram, uint32_t address, const std::vector<uint8_t> &before)
+    {
+        for (Block &b : m_blocks)
+        {
+            std::vector<uint8_t> now;
+            if (b.address != address || before.size() != b.size || !copyOut(rdram, b.address, b.size, now))
+                continue;
+            for (size_t i = 0; i < now.size(); ++i)
+                if (now[i] != before[i])
+                    b.playerAfter[i] = now[i];
+        }
+    }
+
+    std::vector<uint8_t> CameraTwin::bytesNow(const uint8_t *rdram, uint32_t address) const
+    {
+        std::vector<uint8_t> now;
+        for (const Block &b : m_blocks)
+            if (b.address == address && copyOut(rdram, b.address, b.size, now))
+                return now;
+        return {};
+    }
+
+    const CameraTwin::Block *CameraTwin::blockAt(uint32_t address) const
+    {
+        for (const Block &b : m_blocks)
+            if (b.address == address)
+                return &b;
+        return nullptr;
+    }
+
+    void keepTwinPose(uint32_t cameraRecord, const std::vector<uint8_t> &record)
+    {
+        zx::game_pose::Pose pose{};
+        if (record.size() < kRecordToWorld + sizeof(pose.toWorld))
+            return;
+        std::memcpy(&pose.toWorld, record.data() + kRecordToWorld, sizeof(pose.toWorld));
+        std::memcpy(&pose.fromWorld, record.data() + kRecordFromWorld, sizeof(pose.fromWorld));
+        zx::game_pose::keep(cameraRecord, pose);
+    }
+
+    void noteTwinPlayer(const uint8_t *rdram, uint32_t cameraRecord, uint32_t cameraObject)
+    {
+        float place[2][4];
+        const uint8_t *p = getConstMemPtr(rdram, cameraObject + 0x10u); // SceneObject position, then orientation
+        if (!p)
+            return;
+        std::memcpy(place, p, sizeof(place));
+        zx::game_pose::notePlayer(cameraRecord, place);
+    }
+
+    void dropTwinPose(uint32_t cameraRecord)
+    {
+        zx::game_pose::drop(cameraRecord);
     }
 }

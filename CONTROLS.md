@@ -2,8 +2,8 @@
 
 Keyboard and mouse are mapped onto the DualShock 2 each game expects, through a
 plain config file per game. A gamepad keeps working alongside (see below). All of this
-is host-side (z-axis `runtime/src/lib/ps2_host_input.cpp`); the game
-code is unchanged, except for one hook on the camera's stick reads that
+is host-side (z-axis `runtime/src/lib/ps2_host_input.cpp`, `ps2_pad.cpp`); the game
+code is unchanged, except for one hook per game on its follow camera that
 does mouse-look (below). On Android the app expects a gamepad (the handheld's own or a connected one); touches go
 to the bottom screen (the collection menu's there, or the game's panel).
 
@@ -28,7 +28,7 @@ Aggressive Inline's; Dave Mirra BMX 2's and BMX XXX's are the same layout under 
 | Pause (Start) | Escape, Enter |
 | Challenges (Select) | Tab |
 | D-pad (menus; in a level same as the left stick) | arrow keys |
-| Restart (PC shortcut: the level again, or the Timed Run) | Backspace; gamepad: L3+R3 (both sticks pressed in) |
+| Restart (PC shortcut: the challenge, lesson, level or run again) | Backspace; gamepad: L3+R3 (both sticks pressed in) |
 | Hide HUD (PC shortcut, on and off) | F9 |
 | Screenshot (PC shortcut, PNG to Pictures/Z-Axis Collection/<game>) | F12 |
 | Photo mode (PC shortcut: the game stops, a free camera; again to leave) | P |
@@ -69,7 +69,7 @@ picture of the button that presses each game button). While the game is not in p
 pause menu, tip and message boxes) the mouse wheel presses up/down, a left
 click presses Cross (select) and the right button is Triangle (back) as
 usual. Enter on the main menu selects; Escape there asks "Quit to
-Desktop?" (in the collection: "Exit to Collection?"). `PS2X_PROMPTS=keyboard|playstation|xbox|nintendo` fixes the
+Desktop?" (in the collection: "Exit to Collection?"). `ZX_PROMPTS=keyboard|playstation|xbox|nintendo` fixes the
 prompts (testing). Settings > Controls > Button Prompts (`[gamepad]
 prompts = auto|keyboard|xbox|playstation|nintendo`) shows one style always,
 whatever is used: for Steam Input, which presents every controller as an
@@ -91,9 +91,9 @@ No is preselected, Triangle (right click) goes back.
 
 ## Photo mode
 
-Photo Mode in the pause menu (Career, Freeskate, Timed Run, the
-Tutorial's lesson list, split screen; in split screen it moves player 1's
-view), or the photo
+Photo Mode in the pause menu (Aggressive Inline's Career, Freeskate, Timed Run, the
+Tutorial's lesson list and split screen, where it moves player 1's view; the
+PHOTO MODE line in Dave Mirra BMX 2's and BMX XXX's), or the photo
 key (P) anywhere in a level, stops the game (it stays paused) and hides
 everything on screen but the level; a free camera takes over and the help
 shows top left (not in the picture). Leaving puts the game back as it was
@@ -123,18 +123,34 @@ item). F1 shows the debug panel on Mac and Windows (with Settings > Game > Devel
 opens the game's own debug menu too). Do not bind these to game buttons. Android has none of these: the app is
 always full screen.
 
+## Watching a recording
+
+Settings > Recordings plays one of your recordings back (SETTINGS.md). The game plays exactly as you did, so
+its own menus do not take your input while it runs; the app's do:
+
+| | Keyboard | Gamepad | Second screen (Thor) |
+|---|---|---|---|
+| Pause | Space, Escape | Start | Pause, at the foot of the bottom screen |
+| While paused: go on | Space, Enter | Start, Cross | Resume |
+| While paused: leave | Escape | Circle | Leave |
+| Leave at any time | F8 (Switch Game) | | Leave |
+
+The line at the top left shows where it is ("Playback 1:23 / 5:00") for a few seconds after it starts or
+resumes, and all the time while paused; the Thor's strip shows it always. At its end, or when you
+leave, the Recordings page is back, on the recording you watched.
+
 ## The config file
 
 Each game has its own controls.ini, with its own defaults (its keys on
 that game's actions, named as the game names them) and its own action
-names on the Controls rows (src/lib/ps2_game_controls.cpp): rebinding one
+names on the Controls rows (`runtime/src/lib/ps2_game_controls.cpp`): rebinding one
 game leaves the others alone. The defaults keep one layout for the whole
 collection (Cross on Space, Square and Triangle on the mouse buttons, WASD
 on the left stick); Dave Mirra BMX 2 and BMX XXX get their Normal /
 Configuration A captions (Start / Jump, Trick, Grind / Stall, Modifier,
 Spin / Slide, ...) and the same PC shortcuts. Where they differ from Aggressive Inline's: Dave Mirra BMX 2's
 right stick has no keys and its d-pad is Pedal, Brake and Steer; BMX XXX's R3 is the middle mouse button and V
-(Camera), and its mouse-look is off by default (`mode = stick`, `motion = none`: Settings > Controls > Mouse Look >
+(Camera), it has no recentre key, and its mouse-look is off by default (`mode = stick`, `motion = none`: Settings > Controls > Mouse Look >
 Free Look turns it on).
 
 - The collection: `<support>/games/<id>/controls.ini` (`ai`, `dm2`, `bmx`);
@@ -144,8 +160,8 @@ Free Look turns it on).
 - The runner and a single-game app, macOS:
   `~/Library/Application Support/<game>/controls.ini` (Windows
   `%APPDATA%\<game>\controls.ini`), `<game>` the game's title.
-- `PS2X_CONTROLS_INI=<file>` overrides the path (automated runs use this, so
-  they never touch the real file); `PS2X_GAMEPAD_MAPPINGS=<file>` the
+- `ZX_CONTROLS_INI=<file>` overrides the path (automated runs use this, so
+  they never touch the real file); `ZX_GAMEPAD_MAPPINGS=<file>` the
   gamepad mappings'.
 
 It is written with the game's documented defaults on first run; the Settings
@@ -196,7 +212,7 @@ cross = SOUTH             # gamepad buttons per game button (default: each its o
 prompts = auto            # auto | keyboard | xbox | playstation | nintendo
 
 [hotkeys]                 # PC shortcuts, not game buttons
-restart    = BACKSPACE    # Career, Freeskate: the level again; Timed Run: the run again
+restart    = BACKSPACE    # Career: the challenge again; Tutorial: the lesson; Freeskate: the level; Timed Run: the run
 hide_hud   = F9
 screenshot = F12
 photo_mode = P

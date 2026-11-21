@@ -7,7 +7,7 @@
 // which file chunk each part it loads came from (notePart); a renderer can
 // then ask for a part's mesh by its address (fileMeshForPart).
 //
-// PS2X_NATIVE_MESHES_CHECK=1: the first time the readable submitNodeDraw
+// ZX_NATIVE_MESHES_CHECK=1: the first time the readable submitNodeDraw
 // draws a part, the mesh from the file is compared with the packet's,
 // vertex for vertex; a summary is logged every 64 parts and the
 // first differences are described.
@@ -32,18 +32,18 @@ namespace zge::native
 {
     // The packet kind a part's render type is drawn with (part +0x60 >> 26);
     // false for a type with no packet builder known.
-    bool packetKindOf(uint32_t renderType, ps2x::zaxis::PacketKind &kind);
+    bool packetKindOf(uint32_t renderType, zx::zaxis::PacketKind &kind);
 
     // The mesh a part's packet would decode to, made from the file's part
     // (skinned: as the game's builder sends the weights and fills the
     // material table, `form`). False (and why) for what is not modelled (a
     // stream missing).
-    bool buildFileMesh(const GeoFilePart &part, ps2x::zaxis::PacketKind kind, ps2x::zaxis::RigidMesh &out,
-                       std::string *why = nullptr, const ps2x::zaxis::SkinnedDrawForm &form = {});
+    bool buildFileMesh(const GeoFilePart &part, zx::zaxis::PacketKind kind, zx::zaxis::RigidMesh &out,
+                       std::string *why = nullptr, const zx::zaxis::SkinnedDrawForm &form = {});
 
     // A vertex's skin weights ({bone (1-based, 0 none), weight} x 4, the
     // stream's record) as the form's builder sends them.
-    void packetSkinWeights(ps2x::zaxis::SkinnedDrawForm::Weights form, uint8_t record[8]);
+    void packetSkinWeights(zx::zaxis::SkinnedDrawForm::Weights form, uint8_t record[8]);
 
     // The readable TGPT loader: the part at partAddress was loaded from the
     // TGPT chunk at chunkOffset of the file the game opened as gamePath. The
@@ -98,34 +98,34 @@ namespace zge::native
 
     // The mesh made from the file for a part (nullptr if none), for its
     // render type. Cached per part. Thread-safe.
-    std::shared_ptr<const ps2x::zaxis::RigidMesh> fileMeshForPart(uint32_t partAddress, uint32_t renderType);
+    std::shared_ptr<const zx::zaxis::RigidMesh> fileMeshForPart(uint32_t partAddress, uint32_t renderType);
     // The same for the packet kind the renderer draws the part with (the
     // native draw path, game_overrides/aggressive_inline_native.cpp, which
     // declares it itself).
-    std::shared_ptr<const ps2x::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress,
-                                                                        ps2x::zaxis::PacketKind kind);
+    std::shared_ptr<const zx::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress,
+                                                                        zx::zaxis::PacketKind kind);
     // The same with the game's skinned packet form (the records' host form, zge/host/class_draws.cpp).
-    std::shared_ptr<const ps2x::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress, ps2x::zaxis::PacketKind kind,
-                                                                        const ps2x::zaxis::SkinnedDrawForm &form);
+    std::shared_ptr<const zx::zaxis::RigidMesh> fileMeshForPacketKind(uint32_t partAddress, zx::zaxis::PacketKind kind,
+                                                                        const zx::zaxis::SkinnedDrawForm &form);
 
     // Time spent reading GEO data (streams copied and parsed at notePart),
     // and how many streams.
     uint64_t geoParseNanos();
     uint64_t geoStreamsParsed();
 
-    // PS2X_NATIVE_MESHES_CHECK: the readable submitNodeDraw, for each part
+    // ZX_NATIVE_MESHES_CHECK: the readable submitNodeDraw, for each part
     // it draws the first time (again once the part is noted anew).
     // The file's mesh is made as the part's packet is built (`kind`, for its render type: zge/host/class_draws.h
     // packetKindOf), with the game's skinned packet form.
     bool meshCheckEnabled();
-    void checkPartMesh(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, ps2x::zaxis::PacketKind kind,
-                       const ps2x::zaxis::SkinnedDrawForm &form = {});
-    void checkPartMeshOnce(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, ps2x::zaxis::PacketKind kind,
-                           const ps2x::zaxis::SkinnedDrawForm &form = {});
+    void checkPartMesh(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, zx::zaxis::PacketKind kind,
+                       const zx::zaxis::SkinnedDrawForm &form = {});
+    void checkPartMeshOnce(const uint8_t *rdram, uint32_t partAddress, uint32_t renderType, zx::zaxis::PacketKind kind,
+                           const zx::zaxis::SkinnedDrawForm &form = {});
 
     // The same two for the readable callers, which hold the parts as
     // pointers: the registry keys them by address.
     void checkPartMeshOnce(const uint8_t *rdram, ee::Ptr<zge::ZgePart> part, uint32_t renderType,
-                           ps2x::zaxis::PacketKind kind, const ps2x::zaxis::SkinnedDrawForm &form = {});
+                           zx::zaxis::PacketKind kind, const zx::zaxis::SkinnedDrawForm &form = {});
     void notePartClone(ee::Ptr<zge::ZgePart> clone, ee::Ptr<zge::ZgePart> source);
 }

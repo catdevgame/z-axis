@@ -146,7 +146,7 @@ namespace zge
         const ee::Ptr<ZgePart> previous = ctx->part;
         if (!enterChunk(reader))
             return 0;
-        // Host side (not under ps2xFnCheck, which has only the memory the
+        // Host side (not under zx-fncheck, which has only the memory the
         // original touched): where in the file this part comes from.
         const uint32_t chunkStart = native::hostExtrasOn() ? reader->frame->start : 0u;
         const int32_t ok = parseChildren(reader, ctx);
@@ -429,7 +429,7 @@ namespace zge
         if constexpr (game::readable::kIsBmx)
             tagDescriptorBytes(&table->descriptor); // (ZGE4 asks the table's size and drops it)
         readChunk(reader, table + 1, bodyBytes);
-        // PS2X_NATIVE_COLLISION: the host mirrors a part's face tags and
+        // ZX_NATIVE_COLLISION: the host mirrors a part's face tags and
         // edges (zge/native/collision_data.h); this is the table it mirrors.
         if ((kind == StreamKind::FaceTags || kind == StreamKind::FaceEdges) && native::hostExtrasOn() &&
             native::nativeCollisionEnabled())

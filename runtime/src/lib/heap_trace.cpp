@@ -1,4 +1,4 @@
-// The guest heap's high-water marks per level (PS2X_TRACE_HEAP=1, developers; runtime/heap_trace.h).
+// The guest heap's high-water marks per level (ZX_TRACE_HEAP=1, developers; runtime/heap_trace.h).
 #include "runtime/heap_trace.h"
 
 #include "ps2_runtime.h"
@@ -11,7 +11,7 @@
 #include <memory>
 #include <sstream>
 
-namespace ps2x::heap_trace
+namespace zx::heap_trace
 {
     namespace
     {
@@ -31,7 +31,7 @@ namespace ps2x::heap_trace
 
     bool enabled()
     {
-        const char *v = std::getenv("PS2X_TRACE_HEAP");
+        const char *v = std::getenv("ZX_TRACE_HEAP");
         return v && v[0] && !(v[0] == '0' && v[1] == '\0');
     }
 
@@ -50,7 +50,7 @@ namespace ps2x::heap_trace
             if (!line.empty())
                 std::cout << line << std::endl;
         });
-        std::cout << "[heap] the guest heap's peaks per level (PS2X_TRACE_HEAP)" << std::endl;
+        std::cout << "[heap] the guest heap's peaks per level (ZX_TRACE_HEAP)" << std::endl;
     }
 
     std::string Levels::note(const std::string &level, uint64_t tick, const GuestHeap::Usage &usage, bool &ended)

@@ -24,44 +24,44 @@ handleDlenChunk	no empty-table check
 handleOfstChunk	no empty-table check
 handleClenChunk	no empty-table check
 addMicroprogramCall	no dry run
-cameraNearClip	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-setCameraScales	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-sceneWorldMatrix	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-sceneRootNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-setSkyNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-addWorldObject	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-removeWorldObject	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-addWorldTexture	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-removeWorldTexture	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-skyNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-loadCollisionTreeChunk	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-nodeNameHash	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-nodeTags	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-objectClass	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-findInstanceById	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-rootNode	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-addGeometryChild	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-forEachChild	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-setLodTable	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-nodeCollisionFrame	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-setNodeMaterialSet	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-buildBodyHierarchy	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-readDconChunk	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-bodyFromBone	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-applyBodyToBone	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-applyBodyOrientation	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-resolveBodyContactList	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-bindDynamicsToBones	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-setDynamicsContactHandler	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
+cameraNearClip	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+setCameraScales	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+sceneWorldMatrix	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+sceneRootNode	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+setSkyNode	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+addWorldObject	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+removeWorldObject	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+addWorldTexture	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+removeWorldTexture	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+skyNode	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+loadCollisionTreeChunk	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+nodeNameHash	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+nodeTags	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+objectClass	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+findInstanceById	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+rootNode	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+addGeometryChild	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+forEachChild	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+setLodTable	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+nodeCollisionFrame	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+setNodeMaterialSet	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+buildBodyHierarchy	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+readDconChunk	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+bodyFromBone	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+applyBodyToBone	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+applyBodyOrientation	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+resolveBodyContactList	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+bindDynamicsToBones	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+setDynamicsContactHandler	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
 flipMeshPacket	a global's address only (bound)
 findObjects	globals' addresses only (bound)
 movieIsPlaying	the same global, gp-relative in DM2
 nodeName	the same words
 projectTriangleOnAxis	registers
-collisionWorldBounds	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-integrateBodyRotation	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-forEachConnectedBody	field offsets only: the struct's DM2 layout (PS2X_GAME_DM2)
-initUploadBuffers	a global's address and field offsets: the Renderer's DM2 layout (PS2X_GAME_DM2)
+collisionWorldBounds	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+integrateBodyRotation	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+forEachConnectedBody	field offsets only: the struct's DM2 layout (ZX_GAME_DM2)
+initUploadBuffers	a global's address and field offsets: the Renderer's DM2 layout (ZX_GAME_DM2)
 removeLevelObjects	kLevelObjects (DM2 0x100) and the table's address
 addPathRecord	kPaths (DM2 0x40) and the tables' addresses
 freeDynamicsBodies	field offsets of DM2's layouts (Dynamics, RigidBody)
@@ -72,7 +72,7 @@ clipSegmentToBox	registers, a data address
 vertexPosition	scheduling
 cameraMoved	AI's loop that does nothing
 ps2MovieTask	addresses; DM2's ps2MovieStop takes no argument (AI's 1 goes unread there)
-pairStillTouching	DM2's ignore list (RigidBody.ignored, #if PS2X_GAME_DM2)
+pairStillTouching	DM2's ignore list (RigidBody.ignored, #if ZX_GAME_DM2)
 setNodeTags	kIsDm2: DM2 releases the table it is given (bug kept)
 copyGeoObject	kIsDm2: DM2 releases the table it set even when shared
 cloneFrameCollision	kIsDm2: DM2 shares no source part
@@ -96,7 +96,7 @@ sweepHighDown	DM2's SweepEnd layout
 sweepLowUp	DM2's SweepEnd layout
 sweepLowDown	DM2's SweepEnd layout
 sweepUpdateBody	DM2's SweepEnd layout
-sweepPassLow	DM2's sweep has no ignore lists (#if PS2X_GAME_DM2), a data address, scheduling; a contact's boxes ordered by the ends' high flags and the slot squaring the first's kind (kIsDm2), ZGE3's by kind
+sweepPassLow	DM2's sweep has no ignore lists (#if ZX_GAME_DM2), a data address, scheduling; a contact's boxes ordered by the ends' high flags and the slot squaring the first's kind (kIsDm2), ZGE3's by kind
 setScenePosition	registers
 boneBindPosition	registers
 setEmitterObjectPosition	registers
@@ -115,14 +115,14 @@ measurePathPoints	scheduling (the control points' addresses)
 buildTextureUploadPacket	scheduling: the block width (at least 1) stored earlier
 setGsTextureFromImage	scheduling: the block width (at least 1) stored earlier
 boxesContact	scheduling, registers, data addresses
-registerMoboChunkHandler	sizeof(Scene): the struct's DM2 layout (PS2X_GAME_DM2)
-setSceneRootColour	field offsets only: the node's DM2 layout (PS2X_GAME_DM2)
-setNodeDrawCheck	field offsets only: the node's DM2 layout (PS2X_GAME_DM2)
+registerMoboChunkHandler	sizeof(Scene): the struct's DM2 layout (ZX_GAME_DM2)
+setSceneRootColour	field offsets only: the node's DM2 layout (ZX_GAME_DM2)
+setNodeDrawCheck	field offsets only: the node's DM2 layout (ZX_GAME_DM2)
 setSceneShadowViewTest	the node's DM2 layout: the shadow view test's own word (perGame)
 deliverObjectMessages	MessageTarget.messages
-driveBodyFromBone	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
-newBodyContactRecord	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
-removeBodyContact	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
+driveBodyFromBone	field offsets only: the rigid body's DM2 layout (ZX_GAME_DM2)
+newBodyContactRecord	field offsets only: the rigid body's DM2 layout (ZX_GAME_DM2)
+removeBodyContact	field offsets only: the rigid body's DM2 layout (ZX_GAME_DM2)
 newDmmRegion	DmmRegion's DM2 layout (dmm.h: no search hint)
 dmmCarveBlock	DmmRegion's DM2 layout (dmm.h: no search hint)
 dmmAllocate	DmmRegion's DM2 layout (dmm.h: no search hint), a data address
@@ -206,24 +206,24 @@ setNodeShownFlag	the shown bit in the flags' upper word (stateFlags)
 setNodeShown	the shown bit in the flags' upper word (stateFlags)
 setNodeCollidesFlag	the collides bit in the flags' upper word (stateFlags)
 startTerrainRenderTask	the newTask call's source line (kThisLine)
-findBodyContact	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
-readDynamicsBodyPair	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
-readDynamicsHinge	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
-addToSolvedForces	field offsets only: the rigid body's DM2 layout (PS2X_GAME_DM2)
-drawDynamicsObject	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
-placeBodiesAtBones	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
-pushBodiesFromPoint	field offsets only: the rigid body's, Dynamics' and BodyExtents' DM2 layouts (PS2X_GAME_DM2)
-resetDynamicsBones	field offsets only: the rigid body's and Dynamics' DM2 layouts (PS2X_GAME_DM2)
-setFrameTagTable	field offsets only: the frame's DM2 layout (PS2X_GAME_DM2)
-walkSweepAxisEnds	field offsets only: SweepEnd's DM2 layout (PS2X_GAME_DM2)
+findBodyContact	field offsets only: the rigid body's DM2 layout (ZX_GAME_DM2)
+readDynamicsBodyPair	field offsets only: the rigid body's and Dynamics' DM2 layouts (ZX_GAME_DM2)
+readDynamicsHinge	field offsets only: the rigid body's and Dynamics' DM2 layouts (ZX_GAME_DM2)
+addToSolvedForces	field offsets only: the rigid body's DM2 layout (ZX_GAME_DM2)
+drawDynamicsObject	field offsets only: the rigid body's and Dynamics' DM2 layouts (ZX_GAME_DM2)
+placeBodiesAtBones	field offsets only: the rigid body's and Dynamics' DM2 layouts (ZX_GAME_DM2)
+pushBodiesFromPoint	field offsets only: the rigid body's, Dynamics' and BodyExtents' DM2 layouts (ZX_GAME_DM2)
+resetDynamicsBones	field offsets only: the rigid body's and Dynamics' DM2 layouts (ZX_GAME_DM2)
+setFrameTagTable	field offsets only: the frame's DM2 layout (ZX_GAME_DM2)
+walkSweepAxisEnds	field offsets only: SweepEnd's DM2 layout (ZX_GAME_DM2)
 addBodyImpulseAt	registers
 sweepAddBody	kIsDm2: the box's record (three low ends, kSweepBoxBytes) made last, no end told of it; SweepEnd's DM2 layout
 newCollisionTable	the sweep's DM2 size (kSweepHandlerSlots: 3) and SweepEnd's
 projectBoxOnAxis	BodyExtents' DM2 layout; DM2 takes a magnitude by a compare and a negate where AI has it in one (the same but for -0); registers
 boxClosestPoint	BodyExtents' DM2 layout; the separating axes walked by a register where AI walks by address; registers
 setNodeCollides	the shown and collides bits in the flags' upper word (stateFlags); registers
-frameCollisionPart	field offsets only: ZGE2's 0x1C-byte frame (PS2X_GAME_DM2)
-frameTree	field offsets only: ZGE2's 0x1C-byte frame (PS2X_GAME_DM2)
+frameCollisionPart	field offsets only: ZGE2's 0x1C-byte frame (ZX_GAME_DM2)
+frameTree	field offsets only: ZGE2's 0x1C-byte frame (ZX_GAME_DM2)
 collideBodyPair	kIsDm2: bodies on each other's ignore lists do not collide (RigidBody::ignores), tested first
 invertSolverMatrix3	kIsDm2: the determinant's third term takes the second cofactor (ZGE2's slip; ZGE3 corrects it); registers
 resolveBodyContacts	kIsDm2: the damping multiplied as stored (ZGE2 keeps -0.1; ZGE3 negates 0.1); the rigid body's DM2 layout; g_contactDamping bound (bound.tsv)
@@ -470,7 +470,7 @@ partInView	kIsDm2: ZGE2 calls its point transform (transformPoint); the camera's
 partClipFlags	kIsDm2: ZGE2 calls its point transform (transformPoint); the camera's DM2 layout
 boneMatrix	kIsDm2: ZGE2 copies the bone's matrix out through copyRotationAndTranslation
 boneName	kIsDm2: ZGE2 looks the bone's name up by its id among the scene's bones (boneNameById, DM2 0x11EC30)
-animationDone	ZGE2's layouts: the channel record 0x40 bytes with its tracks at +0x38, a track's link at +0x38 (AnimationChannel, AnimationTrack under PS2X_GAME_DM2)
+animationDone	ZGE2's layouts: the channel record 0x40 bytes with its tracks at +0x38, a track's link at +0x38 (AnimationChannel, AnimationTrack under ZX_GAME_DM2)
 freeObjectAnimator	kIsDm2: ZGE2 takes the tracks off with unlinkTrack (DM2 0x130E68, singly linked, the one before handed in) and ends with heapFree as its tail call, leaving the object's animator word; the layouts as animationDone's
 registerGeometryChunkHandlers	kIsDm2: ZGE2 has none of the indexed meshes' chunks (TIVC .. TII6, TIFN)
 updatedNodeVisibleInView	kIsDm2: ZGE2 has the view test inline (no nodeVisibleInView)

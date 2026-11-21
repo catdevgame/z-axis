@@ -13,8 +13,8 @@
 // ended at its first frame, the first time each plays; the Extras menu's
 // Intro Movie later plays as ever.
 //
-// PS2X_MOVIES=hle: none of this (the MPEG/IPU HLE and the IOP sound path,
-// SDRDRV). PS2X_TRACE_MOVIES=1 logs movie starts, ends and dropped frames.
+// ZX_MOVIES=hle: none of this (the MPEG/IPU HLE and the IOP sound path,
+// SDRDRV). ZX_TRACE_MOVIES=1 logs movie starts, ends and dropped frames.
 #include "dave_mirra.h"
 #include "zge_host.h"
 

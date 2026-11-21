@@ -25,7 +25,7 @@ namespace aggressive_inline::npcs
             PS2Runtime::RecompiledFunction initNpcObject = nullptr;
             uint32_t object = 0; // the constructor's object while it runs, else 0
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         void initNpcObjectHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {

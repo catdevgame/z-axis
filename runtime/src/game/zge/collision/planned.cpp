@@ -1,4 +1,4 @@
-// Collision functions not ported yet, registered so PS2X_FNREC can record
+// Collision functions not ported yet, registered so ZX_FNREC can record
 // them (game/ee/readable.h READABLE_PLANNED).
 
 #include "ee/readable.h"

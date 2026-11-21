@@ -18,7 +18,7 @@
 //
 // A function whose callers read what it leaves in VU0 (a lane of a
 // register it wrote, Q) says what it leaves with ee::vu0::Leave and is
-// registered with READABLE_FUNCTION_VU0: ps2xFnCheck then compares its VU0
+// registered with READABLE_FUNCTION_VU0: zx-fncheck then compares its VU0
 // registers, Q and the MAC and status flags with the recorded ones.
 //
 // MicroLane does the same for a VU0 microprogram's arithmetic (a VCALLMS),
@@ -447,7 +447,7 @@ namespace ee::vu0
     inline V leftInVf9(const V &result) { return leftInVf(9, result); }
 
     // What a readable function leaves in VU0, written into the running
-    // context (the game's, or ps2xFnCheck's replay): registers, Q, and the
+    // context (the game's, or zx-fncheck's replay): registers, Q, and the
     // flags each of the original's FMAC instructions sets, in its order
     // (fmac: the result before the dest mask, dest as the xyzw field, x = 8;
     // ps2_vu0_fmac_flags). Outside a readable call (no context) nothing.

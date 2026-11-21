@@ -137,9 +137,9 @@ namespace aggressive_inline::restart
             PS2Runtime::RecompiledFunction postMessage = nullptr;
             PS2Runtime::RecompiledFunction setObjective = nullptr;
             PS2Runtime::RecompiledFunction findLocator = nullptr;
-            bool trace = false; // PS2X_TRACE_RESTART=1
+            bool trace = false; // ZX_TRACE_RESTART=1
         };
-        Hooks &hooks() { return ps2x::session::state<Hooks>(); }
+        Hooks &hooks() { return zx::session::state<Hooks>(); }
 
         uint32_t readWord(const uint8_t *rdram, uint32_t address)
         {
@@ -282,7 +282,7 @@ namespace aggressive_inline::restart
             bool respawnArmed = false; // the locator lookup answers kRetryLocator
             std::atomic<bool> retryable{false}; // challenge.valid, for other threads
         };
-        Retry &retry() { return ps2x::session::state<Retry>(); }
+        Retry &retry() { return zx::session::state<Retry>(); }
 
         void dropChallenge(const char *why)
         {
@@ -525,7 +525,7 @@ namespace aggressive_inline::restart
         {
             std::atomic<Request> pending{Request::None};
         };
-        Requests &requests() { return ps2x::session::state<Requests>(); }
+        Requests &requests() { return zx::session::state<Requests>(); }
 
         void prepareLevelLoad(uint8_t *rdram)
         {
@@ -631,7 +631,7 @@ namespace aggressive_inline::restart
 
     bool install(PS2Runtime &runtime)
     {
-        if (const char *trace = std::getenv("PS2X_TRACE_RESTART"); trace && trace[0] == '1')
+        if (const char *trace = std::getenv("ZX_TRACE_RESTART"); trace && trace[0] == '1')
             hooks().trace = true;
         hooks().switchState = runtime.lookupFunction(kSwitchState);
         hooks().playAgain = runtime.lookupFunction(kPlayAgain);

@@ -4,7 +4,7 @@
 #include <cstring>
 #include <unordered_map>
 
-namespace ps2x::zaxis_text
+namespace zx::zaxis_text
 {
     namespace
     {

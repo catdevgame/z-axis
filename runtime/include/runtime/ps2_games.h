@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::games
+namespace zx::games
 {
     struct Game
     {
@@ -21,7 +21,7 @@ namespace ps2x::games
         // game's own state (and BMX XXX's models' levels of detail with
         // them), so beyond Original the game runs otherwise than the
         // original. Such a game's draw distance is Original by default, is
-        // given at boot (PS2X_DRAW_DISTANCE in its BootConfig) and its row
+        // given at boot (ZX_DRAW_DISTANCE in its BootConfig) and its row
         // applies at the next start, and says so.
         bool drawDistanceChangesGame = false;
     };

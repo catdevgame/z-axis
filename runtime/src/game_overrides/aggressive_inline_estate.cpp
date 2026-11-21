@@ -12,14 +12,14 @@
 // types the PS2 game has. Its own motions.zal (doors, a trigger); no
 // MOVIE.bin.
 //
-// The build makes the files the game loads from it (ps2xGcConvert,
+// The build makes the files the game loads from it (zx-gc-convert,
 // runtime/ps2_zaxis_estate.h: the one 24-bit texture made 8-bit, the rest
 // as it is) and bundles them as Resources/estate (Windows: estate\ next to
-// disc\); the app sets PS2X_ESTATE_DIR to that folder, and PS2X_ESTATE from
+// disc\); the app sets ZX_ESTATE_DIR to that folder, and ZX_ESTATE from
 // Settings > Game > Estate Level (settings.ini [extras] estate, default
 // off). Nothing here reads a disc image or converts anything.
 //
-// With PS2X_ESTATE=1 and the folder:
+// With ZX_ESTATE=1 and the folder:
 //   - FrontEnd.zsc's free skate level select gains "Estate" before the
 //     Editor Level (after the Zoo when it is on),
 //     always unlocked, with its own icon (ICONS.UFNT, made at build time
@@ -49,7 +49,7 @@
 //     Estate's own lessons ("the lesson list");
 //   - its lesson givers answer Circle (the NPC constructor's free skate
 //     hiding skipped in Estate: "the lesson givers").
-// PS2X_ESTATE=1 without the folder: off, with a message.
+// ZX_ESTATE=1 without the folder: off, with a message.
 
 #include "aggressive_inline_estate.h"
 #include "aggressive_inline_npcs.h"
@@ -92,8 +92,7 @@ namespace aggressive_inline::estate
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
-        namespace zx = ps2x::zaxis;
+        namespace gf = zx::game_files;
         namespace fs = std::filesystem;
 
         const char kLevelFolder[] = "ASSETS/LEVELS/TUT/";
@@ -129,7 +128,7 @@ namespace aggressive_inline::estate
             std::set<std::string> scriptTexts; // Estate's scripts' strings (kept in English)
             int trace = 0;
         };
-        Estate &estate() { return ps2x::session::state<Estate>(); }
+        Estate &estate() { return zx::session::state<Estate>(); }
 
         std::shared_ptr<const std::vector<uint8_t>> readHostFile(const fs::path &path)
         {
@@ -186,7 +185,7 @@ namespace aggressive_inline::estate
         // records and the file Estate's. Estate never played starts from
         // the row a new game has (level 7's as the boot first fills it,
         // before a save is loaded; the file is written once it changes).
-        // PS2X_ESTATE_RECORDS=0 keeps the shared row.
+        // ZX_ESTATE_RECORDS=0 keeps the shared row.
         constexpr uint32_t kRecordRows = 0x0024CBDCu;
         constexpr uint32_t kRecordRowBytes = 0x118u;
         constexpr uint32_t kTutorialRow = kRecordRows + kTutorialIndex * kRecordRowBytes;
@@ -210,7 +209,7 @@ namespace aggressive_inline::estate
             std::atomic<uint64_t> recordsSaved{0};
             std::atomic<uint64_t> savesFiltered{0};
         };
-        Records &records() { return ps2x::session::state<Records>(); }
+        Records &records() { return zx::session::state<Records>(); }
 
         uint32_t readU32(const uint8_t *rdram, uint32_t address);
 
@@ -236,8 +235,8 @@ namespace aggressive_inline::estate
         void readRecords()
         {
             records().recordsRead = true;
-            const ps2x::saves::ReadResult read = ps2x::saves::readWithBackup(
-                recordsFile(), [](const ps2x::saves::Bytes &d)
+            const zx::saves::ReadResult read = zx::saves::readWithBackup(
+                recordsFile(), [](const zx::saves::Bytes &d)
                 { return d.size() == 8u + kRecordRowBytes && std::memcmp(d.data(), "ESTR", 4) == 0; });
             if (!read.ok())
                 return;
@@ -250,10 +249,10 @@ namespace aggressive_inline::estate
         {
             if (records().estateRow.size() != kRecordRowBytes)
                 return;
-            ps2x::saves::Bytes d{'E', 'S', 'T', 'R', 1, 0, 0, 0};
+            zx::saves::Bytes d{'E', 'S', 'T', 'R', 1, 0, 0, 0};
             d.insert(d.end(), records().estateRow.begin(), records().estateRow.end());
             std::string error;
-            if (!ps2x::saves::writeFileAtomic(recordsFile(), d.data(), d.size(), &error))
+            if (!zx::saves::writeFileAtomic(recordsFile(), d.data(), d.size(), &error))
                 std::cerr << "[estate] records not written: " << error << std::endl;
             else
                 ++records().recordsSaved;
@@ -436,7 +435,7 @@ namespace aggressive_inline::estate
             std::set<int> lessonsDone; // lessons (1..25) whose object reached complete (the lesson list)
             bool jumping = false; // the lesson list's jump is changing states
         };
-        LessonNine &lessonNine() { return ps2x::session::state<LessonNine>(); }
+        LessonNine &lessonNine() { return zx::session::state<LessonNine>(); }
         constexpr uint32_t hashOf(const char *text)
         {
             uint32_t h = 0;
@@ -485,7 +484,7 @@ namespace aggressive_inline::estate
             PS2Runtime::RecompiledFunction showObject = nullptr;
             std::atomic<uint64_t> giversKeptShown{0};
         };
-        Givers &givers() { return ps2x::session::state<Givers>(); }
+        Givers &givers() { return zx::session::state<Givers>(); }
         void showObjectHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
             if (active() && (readU32(rdram, kLevelIndex) & 0xFFu) == kTutorialIndex &&
@@ -515,12 +514,12 @@ namespace aggressive_inline::estate
         // collision, keep 1).
         struct ShowHide
         {
-            std::multimap<std::pair<uint32_t, uint32_t>, ps2x::zaxis::estate::VisibilityRule> visibility;
+            std::multimap<std::pair<uint32_t, uint32_t>, zx::zaxis::estate::VisibilityRule> visibility;
             std::atomic<uint64_t> visibilityApplied{0};
             PS2Runtime::RecompiledFunction startObjects = nullptr;
             PS2Runtime::RecompiledFunction messageHandler = nullptr;
         };
-        ShowHide &showHide() { return ps2x::session::state<ShowHide>(); }
+        ShowHide &showHide() { return zx::session::state<ShowHide>(); }
         constexpr uint32_t kFindObjectsCall = 0x001646B8u; // (hash*, n) -> the objects, in 0x29D278
         constexpr uint32_t kObjectListWords = 0x0029D278u;
         constexpr uint32_t kObjectNode = 0x001645F0u;      // (object) -> its scene node
@@ -556,7 +555,7 @@ namespace aggressive_inline::estate
             const uint32_t sp = (getRegU32(ctx, 29) - 0x600u) & ~15u;
             for (auto it = first; it != last; ++it)
             {
-                const ps2x::zaxis::estate::VisibilityRule &r = it->second;
+                const zx::zaxis::estate::VisibilityRule &r = it->second;
                 const uint32_t node = nodeNamed(rdram, ctx, runtime, r.target, sp);
                 if (!node)
                     continue;
@@ -703,7 +702,7 @@ namespace aggressive_inline::estate
             std::vector<uint32_t> initialVariables; // the script's variables at its start
             PS2Runtime::RecompiledFunction retailJump = nullptr;
         };
-        LessonList &lessonList() { return ps2x::session::state<LessonList>(); }
+        LessonList &lessonList() { return zx::session::state<LessonList>(); }
         const char *const kNumberNames[25] = {
             "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen",
             "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty", "TwentyOne", "TwentyTwo",
@@ -848,7 +847,7 @@ namespace aggressive_inline::estate
             return true;
         }
 
-        // Without the PC pause items (PS2X_GAME_SETTINGS_MENUS unset: the
+        // Without the PC pause items (ZX_GAME_SETTINGS_MENUS unset: the
         // runner; the app has them) the lesson items call the game's own
         // inlinePauseJumpToTutorial (0x1BA398: "GoToLesson" + letter of its
         // argument less one, the Resume item); in Estate the jump above.
@@ -872,7 +871,7 @@ namespace aggressive_inline::estate
 
         // ---- developer probes (measurements, off by default) ----------------
         //
-        // PS2X_ESTATE_PROBE=<points>:<out>: AI's own collision under each
+        // ZX_ESTATE_PROBE=<points>:<out>: AI's own collision under each
         // "x z" of <points> (ai_level.py ground --level TUT on a folder with
         // Estate's files: the reference), the topmost surface the skater's
         // swept query (FUN_00125BE0, as moveSkater calls it: kind 1, flags
@@ -880,7 +879,7 @@ namespace aggressive_inline::estate
         // segment from y -500 to 500 (+y is down), bisected to 1e-3; "x z y"
         // or "x z none" lines (ai_level.py compare reads them), once the
         // level has run 300 frames.
-        // PS2X_ESTATE_GRINDS=<edges>:<out>: for each "ax ay az bx by bz kind"
+        // ZX_ESTATE_GRINDS=<edges>:<out>: for each "ax ay az bx by bz kind"
         // of <edges> (ai_level.py edges), the game's rail search
         // (searchRails, FUN_00188AA8, as findGrindRail calls it) about the
         // edge's middle, radius 0.25, the edge's kind as the tag: "found"
@@ -927,10 +926,10 @@ namespace aggressive_inline::estate
             PS2Runtime::RecompiledFunction sendTo = nullptr;
             int inNearest = 0;
             int nearestAsked = 0;
-            uint32_t talkersProbedAt = 0; // PS2X_ESTATE_ACTION's probe: the level frame it ran at
-            bool propsShown = false;      // PS2X_ESTATE_VISIBLE's dump: made
+            uint32_t talkersProbedAt = 0; // ZX_ESTATE_ACTION's probe: the level frame it ran at
+            bool propsShown = false;      // ZX_ESTATE_VISIBLE's dump: made
         };
-        Probes &probes() { return ps2x::session::state<Probes>(); }
+        Probes &probes() { return zx::session::state<Probes>(); }
 
         uint32_t readU32(const uint8_t *rdram, uint32_t address)
         {
@@ -983,7 +982,7 @@ namespace aggressive_inline::estate
             std::string from, to;
             if (!splitPair(spec, from, to))
             {
-                std::cerr << "[estate] PS2X_ESTATE_PROBE=<points>:<out>, not " << spec << std::endl;
+                std::cerr << "[estate] ZX_ESTATE_PROBE=<points>:<out>, not " << spec << std::endl;
                 return;
             }
             std::ifstream in(from);
@@ -1038,7 +1037,7 @@ namespace aggressive_inline::estate
             std::string from, to;
             if (!splitPair(spec, from, to))
             {
-                std::cerr << "[estate] PS2X_ESTATE_GRINDS=<edges>:<out>, not " << spec << std::endl;
+                std::cerr << "[estate] ZX_ESTATE_GRINDS=<edges>:<out>, not " << spec << std::endl;
                 return;
             }
             std::ifstream in(from);
@@ -1090,7 +1089,7 @@ namespace aggressive_inline::estate
                       << " s" << std::endl;
         }
 
-        // PS2X_ESTATE_VISIBLE=1 (developers): the lesson props (instances
+        // ZX_ESTATE_VISIBLE=1 (developers): the lesson props (instances
         // named *_L<n>) whose scene node is shown, by the node's visible bit
         // (what setObjectVisible sets), at frame 300 and with each lesson
         // driver line; and with it, the rigid and terrain renderers' calls
@@ -1127,7 +1126,7 @@ namespace aggressive_inline::estate
             return out;
         }
 
-        // PS2X_ESTATE_LESSONS=<out> (developers): the pause list's 23 lessons
+        // ZX_ESTATE_LESSONS=<out> (developers): the pause list's 23 lessons
         // played in turn as a player would start them: each started from
         // the pause list's jump (estateJumpToLessonItem: the lesson before
         // ended, the skater at its respawn point), then, for the 18 with a
@@ -1237,7 +1236,7 @@ namespace aggressive_inline::estate
             std::ofstream out;
             int given = 0, givers = 0, ranAlone = 0;
         };
-        LessonDriver &lessonDriver() { return ps2x::session::state<LessonDriver>(); }
+        LessonDriver &lessonDriver() { return zx::session::state<LessonDriver>(); }
         // Player one put at a point the way the game respawns it at a
         // locator (0x193EB0 with a name only the wrapped locator lookup
         // 0x187800 answers, as aggressive_inline_restart's retry does): its
@@ -1473,7 +1472,7 @@ namespace aggressive_inline::estate
             }
         }
 
-        // PS2X_ESTATE_ACTION=1 (developers): the Action move's target search
+        // ZX_ESTATE_ACTION=1 (developers): the Action move's target search
         // (0x196BF8, the Ground and Air states' Action) traced: the
         // skater's place, the sphere query's finds, the ACTION messages
         // sent and the result.
@@ -1536,7 +1535,7 @@ namespace aggressive_inline::estate
                 if (name && name == probes().actionGiver)
                     ++probes().actionsToGiver;
                 ++probes().actionsSent;
-                if (probes().inAction && std::getenv("PS2X_ESTATE_ACTION"))
+                if (probes().inAction && std::getenv("ZX_ESTATE_ACTION"))
                     std::cout << "[estate]   ACTION to 0x" << std::hex << receiver << " (0x" << name << ")" << std::dec
                               << std::endl;
             }
@@ -1545,22 +1544,22 @@ namespace aggressive_inline::estate
 
         void drawRigidHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
-            // Any level (Estate, or another as a control: PS2X_ESTATE_PROBE_ANY=1).
-            const bool any = std::getenv("PS2X_ESTATE_PROBE_ANY") != nullptr;
+            // Any level (Estate, or another as a control: ZX_ESTATE_PROBE_ANY=1).
+            const bool any = std::getenv("ZX_ESTATE_PROBE_ANY") != nullptr;
             if ((any || (active() && (readU32(rdram, kLevelIndex) & 0xFFu) == kTutorialIndex)) && readU32(rdram, kLevelFrame) >= 300u)
             {
-                if (const char *spec = std::getenv("PS2X_ESTATE_PROBE"); spec && !probes().collisionProbed && probes().collisionWorld)
+                if (const char *spec = std::getenv("ZX_ESTATE_PROBE"); spec && !probes().collisionProbed && probes().collisionWorld)
                 {
                     probes().collisionProbed = true;
                     probeCollision(rdram, ctx, runtime, spec);
                 }
-                if (const char *spec = std::getenv("PS2X_ESTATE_GRINDS"); spec && !probes().grindsProbed)
+                if (const char *spec = std::getenv("ZX_ESTATE_GRINDS"); spec && !probes().grindsProbed)
                 {
                     probes().grindsProbed = true;
                     probeGrinds(rdram, ctx, runtime, spec);
                 }
             }
-            if (std::getenv("PS2X_ESTATE_ACTION") && active() && (readU32(rdram, kLevelIndex) & 0xFFu) == kTutorialIndex &&
+            if (std::getenv("ZX_ESTATE_ACTION") && active() && (readU32(rdram, kLevelIndex) & 0xFFu) == kTutorialIndex &&
                 probes().nearestTalker)
             {
                 const uint32_t frame = readU32(rdram, kLevelFrame);
@@ -1584,10 +1583,10 @@ namespace aggressive_inline::estate
                     }
                 }
             }
-            if (const char *lessons = std::getenv("PS2X_ESTATE_LESSONS");
+            if (const char *lessons = std::getenv("ZX_ESTATE_LESSONS");
                 lessons && active() && (readU32(rdram, kLevelIndex) & 0xFFu) == kTutorialIndex)
                 driveLessons(rdram, ctx, runtime, lessons);
-            if (std::getenv("PS2X_ESTATE_VISIBLE") && active() && (readU32(rdram, kLevelIndex) & 0xFFu) == kTutorialIndex)
+            if (std::getenv("ZX_ESTATE_VISIBLE") && active() && (readU32(rdram, kLevelIndex) & 0xFFu) == kTutorialIndex)
             {
                 const uint32_t frame = readU32(rdram, kLevelFrame);
                 if (frame >= 300u && !probes().propsShown)
@@ -1621,7 +1620,7 @@ namespace aggressive_inline::estate
 
         void drawTerrainHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
-            if (std::getenv("PS2X_ESTATE_VISIBLE"))
+            if (std::getenv("ZX_ESTATE_VISIBLE"))
                 ++probes().frameDraws;
             probes().drawTerrain(rdram, ctx, runtime);
         }
@@ -1660,7 +1659,7 @@ namespace aggressive_inline::estate
             return std::atoi(text.c_str() + i);
         }
 
-        // Its level-select icon (ICONS.UFNT, made by ps2xGcConvert from a
+        // Its level-select icon (ICONS.UFNT, made by zx-gc-convert from a
         // picture of the level: 'n' unselected, 'N' selected), appended to
         // the level font (FrontEndFonts' fnt_lvl_icons.zfn); without it the
         // Tutorial's cap ('a', 'A').
@@ -1673,7 +1672,7 @@ namespace aggressive_inline::estate
             std::shared_ptr<const std::vector<uint8_t>> still;
             std::string stillName = "still_bkg_01";
         };
-        Art &art() { return ps2x::session::state<Art>(); }
+        Art &art() { return zx::session::state<Art>(); }
         // Its still behind the entry (STILL.ULIB, the same picture at 512 x
         // 256 as an asset of the FrontEnd library's kind), added to the
         // FrontEnd library; without it the Editor Level's (still_bkg_01).
@@ -1685,15 +1684,15 @@ namespace aggressive_inline::estate
         // shown, centred).
         bool patchLevelSelect(std::string &text)
         {
-            zx::Span menu = zx::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
-            zx::Span script = zx::findObject(text, "FreeskateOnChange", menu);
+            zx::zaxis::Span menu = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
+            zx::zaxis::Span script = zx::zaxis::findObject(text, "FreeskateOnChange", menu);
             if (!menu.found() || !script.found())
             {
                 std::cerr << "[estate] FrontEnd.zsc: the free skate level select was not found" << std::endl;
                 return false;
             }
             std::string block = text.substr(script.begin, script.end - script.begin);
-            const int depth = zx::indentAt(text, script.begin) + 2;
+            const int depth = zx::zaxis::indentAt(text, script.begin) + 2;
             const std::string tabs(static_cast<size_t>(depth), '\t');
             const std::string editorLevel = tabs + "SET .SelectedLevel {\"PEMovieLot\"}\r\n";
             const std::string abortMovie = tabs + "ABORT StartFlythruMovie \r\n";
@@ -1761,26 +1760,26 @@ namespace aggressive_inline::estate
             // At most ten icons visible (64 pixels a step on a 640-wide
             // screen; the PS2's eight start at 64), the row centred; a
             // longer row scrolls.
-            menu = zx::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
-            const std::string menuTabs(static_cast<size_t>(zx::indentAt(text, menu.begin) + 1), '\t');
+            menu = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect/Menu");
+            const std::string menuTabs(static_cast<size_t>(zx::zaxis::indentAt(text, menu.begin) + 1), '\t');
             const std::string visibleKey = menuTabs + "VisibleCount\t";
             const size_t visibleAt = text.find(visibleKey, menu.begin);
             const int visible = visibleAt != std::string::npos && visibleAt < menu.end
                                     ? numberAfter(text, visibleAt, visibleKey.size())
                                     : -1;
             const int shown = std::min<int>(static_cast<int>(icons), 10);
-            if (visible < 0 || !zx::replaceIn(text, menu, visibleKey + std::to_string(visible) + "\r\n",
+            if (visible < 0 || !zx::zaxis::replaceIn(text, menu, visibleKey + std::to_string(visible) + "\r\n",
                                               visibleKey + std::to_string(shown) + "\r\n"))
                 std::cerr << "[estate] FrontEnd.zsc: the level select's VisibleCount was not found" << std::endl;
-            zx::Span levelSelect = zx::findObject(text, "FrontEnd/Background/LevelSelect");
-            zx::Span setup = zx::findObject(text, "SetupForFreeskate", levelSelect);
+            zx::zaxis::Span levelSelect = zx::zaxis::findObject(text, "FrontEnd/Background/LevelSelect");
+            zx::zaxis::Span setup = zx::zaxis::findObject(text, "SetupForFreeskate", levelSelect);
             const std::string positionKey = "SET Menu.Position.x {";
             const size_t positionAt = setup.found() ? text.find(positionKey, setup.begin) : std::string::npos;
             const int position = positionAt != std::string::npos && positionAt < setup.end
                                      ? numberAfter(text, positionAt, positionKey.size())
                                      : -1;
             const int x = std::max(0, (640 - 64 * shown) / 2);
-            if (position < 0 || !zx::replaceIn(text, setup, positionKey + std::to_string(position) + "}",
+            if (position < 0 || !zx::zaxis::replaceIn(text, setup, positionKey + std::to_string(position) + "}",
                                                positionKey + std::to_string(x) + "}"))
                 std::cerr << "[estate] FrontEnd.zsc: the free skate level row's position was not found" << std::endl;
             estate().entry = editorIndex;
@@ -1791,9 +1790,9 @@ namespace aggressive_inline::estate
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
+            std::vector<zx::zaxis::ArchiveEntry> entries;
             std::string error;
-            if (!zx::readArchive(bytes, entries, &error))
+            if (!zx::zaxis::readArchive(bytes, entries, &error))
             {
                 std::cerr << "[estate] UILIB.ZAL: " << error << std::endl;
                 return false;
@@ -1803,15 +1802,15 @@ namespace aggressive_inline::estate
             // letters only when it is there; else the Tutorial's cap).
             art().iconOff = 'a';
             art().iconOn = 'A';
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
                 if (!art().iconFont || art().iconOff != 'a' || entry.data.size() < 4u || std::memcmp(entry.data.data(), "ULIB", 4) != 0)
                     continue;
                 std::string why;
-                if (zx::appendFontPages(entry.data, kIconFontName, *art().iconFont, &why))
+                if (zx::zaxis::appendFontPages(entry.data, kIconFontName, *art().iconFont, &why))
                 {
-                    art().iconOff = ps2x::zaxis::estate::kIconUnselected;
-                    art().iconOn = ps2x::zaxis::estate::kIconSelected;
+                    art().iconOff = zx::zaxis::estate::kIconUnselected;
+                    art().iconOn = zx::zaxis::estate::kIconSelected;
                     changed = true;
                     std::cout << "[estate] its icon added to " << kIconFontName << std::endl;
                 }
@@ -1822,22 +1821,22 @@ namespace aggressive_inline::estate
                 std::cerr << "[estate] its icon: " << kIconFontName << " not changed, the Tutorial's cap" << std::endl;
             // Its still into the FrontEnd library (the one with still_bkg_01).
             art().stillName = "still_bkg_01";
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
                 if (!art().still || art().stillName != "still_bkg_01" || entry.data.size() < 4u ||
                     std::memcmp(entry.data.data(), "ULIB", 4) != 0 ||
                     std::search(entry.data.begin(), entry.data.end(), art().stillName.begin(), art().stillName.end()) == entry.data.end())
                     continue;
-                if (!zx::addAssets(entry.data, *art().still, {ps2x::zaxis::estate::kStillName}).empty())
+                if (!zx::zaxis::addAssets(entry.data, *art().still, {zx::zaxis::estate::kStillName}).empty())
                 {
-                    art().stillName = ps2x::zaxis::estate::kStillName;
+                    art().stillName = zx::zaxis::estate::kStillName;
                     changed = true;
                     std::cout << "[estate] its still added to the FrontEnd library" << std::endl;
                 }
             }
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) != "FrontEnd")
+                if (zx::zaxis::scriptName(entry) != "FrontEnd")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 // The FrontEnd the game loads (the other is an older one).
@@ -1850,24 +1849,24 @@ namespace aggressive_inline::estate
                 }
             }
             if (changed)
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
             return changed;
         }
     }
 
     void install(PS2Runtime &runtime)
     {
-        const char *on = ps2x::boot::text("PS2X_ESTATE");
-        const char *dir = ps2x::boot::text("PS2X_ESTATE_DIR");
+        const char *on = zx::boot::text("ZX_ESTATE");
+        const char *dir = zx::boot::text("ZX_ESTATE_DIR");
         if (!on || on[0] != '1')
         {
-            std::cout << "[estate] off (PS2X_ESTATE=1 and PS2X_ESTATE_DIR, made by ps2xGcConvert, add it to free skate)"
+            std::cout << "[estate] off (ZX_ESTATE=1 and ZX_ESTATE_DIR, made by zx-gc-convert, add it to free skate)"
                       << std::endl;
             return;
         }
         if (!dir || !*dir)
         {
-            std::cerr << "[estate] no PS2X_ESTATE_DIR (the files ps2xGcConvert made from the GameCube disc): off"
+            std::cerr << "[estate] no ZX_ESTATE_DIR (the files zx-gc-convert made from the GameCube disc): off"
                       << std::endl;
             return;
         }
@@ -1880,14 +1879,14 @@ namespace aggressive_inline::estate
                 return;
             }
         if (auto keys = readHostFile(estate().dir / "TEXTURES.TXT"))
-            for (const ps2x::zaxis::estate::TextureKey &k :
-                 ps2x::zaxis::estate::readTextureKeys(std::string(keys->begin(), keys->end())))
+            for (const zx::zaxis::estate::TextureKey &k :
+                 zx::zaxis::estate::readTextureKeys(std::string(keys->begin(), keys->end())))
                 estate().textureKeys.insert({k.width, k.height, k.indexHash});
         if (auto rules = readHostFile(estate().dir / "VISIBILITY.TXT"))
-            for (const ps2x::zaxis::estate::VisibilityRule &r :
-                 ps2x::zaxis::estate::readVisibilityRules(std::string(rules->begin(), rules->end())))
+            for (const zx::zaxis::estate::VisibilityRule &r :
+                 zx::zaxis::estate::readVisibilityRules(std::string(rules->begin(), rules->end())))
                 showHide().visibility.insert({{r.object, r.state}, r});
-        if (const char *trace = std::getenv("PS2X_TRACE_ESTATE"))
+        if (const char *trace = std::getenv("ZX_TRACE_ESTATE"))
             estate().trace = std::atoi(trace);
         if (!(estate().levelFromName = runtime.lookupFunction(kLevelFromName)) ||
             !runtime.replaceFunction(kLevelFromName, &levelFromNameHook))
@@ -1896,11 +1895,11 @@ namespace aggressive_inline::estate
             return;
         }
         gf::registerProvider(kLevelFolder, &provide, "estate");
-        ps2x::session::onEnd([]() { gf::removeProviders("estate"); });
-        if (const char *own = std::getenv("PS2X_ESTATE_RECORDS"); own && own[0] == '0')
+        zx::session::onEnd([]() { gf::removeProviders("estate"); });
+        if (const char *own = std::getenv("ZX_ESTATE_RECORDS"); own && own[0] == '0')
         {
             records().ownRecords = false;
-            std::cout << "[estate] records: the Tutorial's row shared (PS2X_ESTATE_RECORDS=0)" << std::endl;
+            std::cout << "[estate] records: the Tutorial's row shared (ZX_ESTATE_RECORDS=0)" << std::endl;
         }
         else
             addCareerBodyFilter(&filterCareerBody);
@@ -1918,37 +1917,37 @@ namespace aggressive_inline::estate
             std::cerr << "[estate] the script message handler was not wrapped: lessons 19, 23-25's props stay on" << std::endl;
         if (!(lessonNine().setState = runtime.lookupFunction(kSetState)) || !runtime.replaceFunction(kSetState, &setStateHook))
             std::cerr << "[estate] the script state change was not wrapped: the lessons stop at lesson 9" << std::endl;
-        if (std::getenv("PS2X_ESTATE_LESSONS") &&
+        if (std::getenv("ZX_ESTATE_LESSONS") &&
             !((probes().findLocator = runtime.lookupFunction(kFindLocator)) && runtime.replaceFunction(kFindLocator, &findLocatorHook) &&
               (probes().destroyBubble = runtime.lookupFunction(kDestroyBubble)) &&
               runtime.replaceFunction(kDestroyBubble, &destroyBubbleHook) &&
               (probes().overlayText = runtime.lookupFunction(kOverlayText)) && runtime.replaceFunction(kOverlayText, &overlayTextHook) &&
               (probes().createBubble = runtime.lookupFunction(kCreateBubble)) && runtime.replaceFunction(kCreateBubble, &createBubbleHook)))
             std::cerr << "[estate] the locator lookup was not wrapped (the lesson driver)" << std::endl;
-        if (std::getenv("PS2X_ESTATE_LESSONS") && !std::getenv("PS2X_ESTATE_ACTION") &&
+        if (std::getenv("ZX_ESTATE_LESSONS") && !std::getenv("ZX_ESTATE_ACTION") &&
             !((probes().postMessage = runtime.lookupFunction(kPostMessage)) && runtime.replaceFunction(kPostMessage, &postMessageHook)))
             std::cerr << "[estate] the ACTION count was not installed" << std::endl;
-        if (std::getenv("PS2X_ESTATE_ACTION") &&
+        if (std::getenv("ZX_ESTATE_ACTION") &&
             !((probes().actionTarget = runtime.lookupFunction(kActionTarget)) && runtime.replaceFunction(kActionTarget, &actionTargetHook) &&
               (probes().postMessage = runtime.lookupFunction(kPostMessage)) && runtime.replaceFunction(kPostMessage, &postMessageHook) &&
               (probes().nearestTalker = runtime.lookupFunction(kNearestTalker)) &&
               runtime.replaceFunction(kNearestTalker, &nearestTalkerHook) && (probes().sendTo = runtime.lookupFunction(kSendTo)) &&
               runtime.replaceFunction(kSendTo, &sendToHook)))
             std::cerr << "[estate] the action trace was not installed" << std::endl;
-        if (std::getenv("PS2X_ESTATE_VISIBLE"))
+        if (std::getenv("ZX_ESTATE_VISIBLE"))
         {
             readProps();
             if (!((probes().drawTerrain = runtime.lookupFunction(kDrawTerrain)) && runtime.replaceFunction(kDrawTerrain, &drawTerrainHook)))
                 std::cerr << "[estate] the terrain renderer was not wrapped" << std::endl;
         }
-        if ((std::getenv("PS2X_ESTATE_PROBE") || std::getenv("PS2X_ESTATE_GRINDS") || std::getenv("PS2X_ESTATE_LESSONS") ||
-             std::getenv("PS2X_ESTATE_VISIBLE")) &&
+        if ((std::getenv("ZX_ESTATE_PROBE") || std::getenv("ZX_ESTATE_GRINDS") || std::getenv("ZX_ESTATE_LESSONS") ||
+             std::getenv("ZX_ESTATE_VISIBLE")) &&
             !((probes().sweepQuery = runtime.lookupFunction(kSweepQuery)) && runtime.replaceFunction(kSweepQuery, &sweepQueryHook) &&
               (probes().drawRigid = runtime.lookupFunction(kDrawRigid)) && runtime.replaceFunction(kDrawRigid, &drawRigidHook)))
             std::cerr << "[estate] the probes' hooks were not installed" << std::endl;
         art().iconFont = readHostFile(estate().dir / "ICONS.UFNT");
         art().still = readHostFile(estate().dir / "STILL.ULIB");
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
         runtime.addVSyncHook([](uint8_t *rdram, uint64_t vsync) { vsyncHook(rdram, vsync); });
         // Its scripts' texts stay as they are in another language: the
         // translations come from the Xbox release's level scripts (the
@@ -1956,8 +1955,8 @@ namespace aggressive_inline::estate
         for (const char *script : {"TUT.BIN", "TUTT.BIN"})
             if (auto bytes = readHostFile(estate().dir / script))
             {
-                ps2x::zaxis_text::LevelText text;
-                if (ps2x::zaxis_text::readLevelText(*bytes, text))
+                zx::zaxis_text::LevelText text;
+                if (zx::zaxis_text::readLevelText(*bytes, text))
                     for (const auto &[offset, string] : text.strings)
                         if (!string.empty())
                             estate().scriptTexts.insert(string);

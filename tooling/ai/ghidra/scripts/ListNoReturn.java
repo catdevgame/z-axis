@@ -1,5 +1,5 @@
 // Debug helper: list functions marked non-returning, with call counts and their last instruction.
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Reference;

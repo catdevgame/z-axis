@@ -2,7 +2,7 @@
 """A register the original hands a callee and the readable call does not: every call site in
 hand-written and drafted code against what its callee reads.
 
-A replay cannot see this. ps2xFnCheck answers a call from the recording, so a callee that lost
+A replay cannot see this. zx-fncheck answers a call from the recording, so a callee that lost
 an argument still "returns" the recorded result, and a register the caller leaves in place is
 right in the replay's context whoever called the function. In the game a game::call reaches its
 callee as C++: the context holds what the last guest call left, not the arguments. Lost this way
@@ -12,7 +12,7 @@ freeLoadedFile's a0 (a level-load hang).
 
 Registers, a function's `needs`: what its code reads before setting it (a0-a3, t0-t3, f12-f19), on
 any path, its callees' and tail calls' reads of what it leaves included: fncheck_traced_gen.py's
-scan, the one ps2xFnCheck's args_left uses. An indirect call counts what its recorded callees
+scan, the one zx-fncheck's args_left uses. An indirect call counts what its recorded callees
 need (readable_indirect_calls.tsv: `readable_args.py indirect CORPUS` writes it from the
 recordings); a site no recording reached counts nothing and is listed (`unseen`). Reads that a
 person has read and found dead are taken out with their reason (readable_args_dead.tsv), for the
@@ -1089,7 +1089,7 @@ def sources(tree, build, which='ai'):
                 paths.append(os.path.join(root, name))
     drafts = []
     if build:
-        for root, dirs, files in os.walk(os.path.join(build, 'ps2xRuntime', 'readable_sweep')):
+        for root, dirs, files in os.walk(os.path.join(build, 'runtime', 'readable_sweep')):
             drafts += [os.path.join(root, n) for n in files if n.endswith('.cpp')]
     return game, sorted(paths), sorted(drafts)
 
@@ -2020,7 +2020,7 @@ def main():
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--tree', default=ztree.TREE)
     ap.add_argument('--build')
-    ap.add_argument('--generated', default=os.environ.get('PS2X_RUNNER_GENERATED_DIR', ''))
+    ap.add_argument('--generated', default=os.environ.get('ZX_RUNNER_GENERATED_DIR', ''))
     ap.add_argument('--game', default='ai', choices=('ai', 'dm2'), help='dm2: game/dm2 against --generated (generated-ns)')
     ap.add_argument('--generated-dm2', help='DM2\'s recompiled code, for a call of one of its own functions (default DM2_WORKSPACE/recomp/generated-ns)')
     ap.add_argument('--generated-bmx', help='BMX XXX\'s recompiled code, for a call of one of its own functions (default BMX_RECOMP/generated-ns)')

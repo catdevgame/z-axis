@@ -15,7 +15,7 @@ finishUiImageLoad	dm2	s3	DM2's (0x15DB48): the same word in the same register (i
 finishUiImageLoad	s3	the same word, an image's material (its ee::LeftByCaller)
 saveFloatRegisters	f20-f31	an interrupt's save of what the interrupted code left
 restoreFloatRegisters	f20-f31	its restore
-endSaveJob	ra	recording only (PS2X_JOB_RETURNS), a Draft
+endSaveJob	ra	recording only (ZX_JOB_RETURNS), a Draft
 sourceHeard	*	audio's stale reads: another round's
 readSoundSourceEvent	*	audio's stale reads: another round's
 playSoundSourceVoice	*	audio's stale reads: another round's

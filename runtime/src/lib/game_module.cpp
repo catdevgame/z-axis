@@ -25,7 +25,7 @@
 // The runtime's table for the modules linked into this program (a shared module has its own copy of the pointer).
 extern "C" const ZxRuntimeApi *zx_game_module_api = nullptr;
 
-namespace ps2x::game_module
+namespace zx::game_module
 {
     namespace
     {
@@ -255,10 +255,10 @@ namespace ps2x::game_module
 
         std::filesystem::path gameCodeFolder()
         {
-            if (const char *dir = std::getenv("PS2X_GAME_CODE_DIR"); dir && *dir)
+            if (const char *dir = std::getenv("ZX_GAME_CODE_DIR"); dir && *dir)
                 return dir;
-#if defined(PS2X_GAME_CODE_DIR)
-            return PS2X_GAME_CODE_DIR;
+#if defined(ZX_GAME_CODE_DIR)
+            return ZX_GAME_CODE_DIR;
 #else
             return {};
 #endif

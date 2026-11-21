@@ -389,7 +389,7 @@ public:
     void flushSnapshot();
 
 private:
-    // EE time passes: `cycles` charged (on PS2X_EE_SCALE's clock, but an idle jump to the next event, which
+    // EE time passes: `cycles` charged (on ZX_EE_SCALE's clock, but an idle jump to the next event, which
     // stays whole), with the timers and the IOP brought along; `caller` names the charge in the EE trace.
     void advanceCycles(uint32_t cycles, void *caller, bool idleJump) noexcept;
     // The scheduler's idle wait jumps to the next event (advanceCycles' idle jump).

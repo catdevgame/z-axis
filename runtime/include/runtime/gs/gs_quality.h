@@ -10,7 +10,7 @@
 // They only change how the GPU renderer draws (mostly its native draws,
 // runtime/gs/gs_native.h); the game's memory and timing never depend on
 // them, the CPU renderer ignores them (it stays the bit-exact reference),
-// and the strict render path (PS2X_RENDER_PATH=strict, the logic checks'
+// and the strict render path (ZX_RENDER_PATH=strict, the logic checks'
 // and PCSX2 comparisons' mode) draws as the console whatever they are.
 //
 // Values are plain integers read from any thread (atomics): the backend
@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::gs_quality
+namespace zx::gs_quality
 {
     enum class Option : int
     {
@@ -44,7 +44,7 @@ namespace ps2x::gs_quality
     struct OptionInfo
     {
         Option option;
-        const char *settingKey;  // ps2x::settings key ("display.anti_aliasing")
+        const char *settingKey;  // zx::settings key ("display.anti_aliasing")
         const char *iniKey;      // settings.ini [graphics] key
         const char *env;         // environment variable (a number or a value name)
         const char *label;       // the Display row
@@ -93,7 +93,7 @@ namespace ps2x::gs_quality
     // The Display rows. `save` (may be null) is called after a change with
     // the option and its new value (the app writes settings.ini). Rows whose
     // key is registered already are left alone. `sessionRows`: rows of the
-    // game's session (ps2x::session::addSetting), gone when the game is
+    // game's session (zx::session::addSetting), gone when the game is
     // left, so the next game's page gets them again in its own order (the
     // app; the developer runner's rows stay).
     void addSettings(std::function<void(Option, int)> save, bool sessionRows = false);

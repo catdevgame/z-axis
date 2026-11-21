@@ -7,10 +7,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <map>
 #include <set>
+#include <tuple>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     namespace
     {
@@ -48,7 +50,24 @@ namespace ps2x::app::levels
         // (#spawn=<role>): the starts, and the points a fallen player is put
         // back at (AI's "Respawn", DM2's "Player", BMX XXX's any but the
         // starts and paintball's). Empty: a name only a game's scripts or
-        // modes read (AI's lesson points, BMX XXX's sniper points), left out.
+        // modes read (AI's lesson points, BMX XXX's sniper points: namedPoints).
+        // The named points a game's scripts or modes read, carried by name
+        // (#spawn=<name>: the converters write each for its own game,
+        // convert.cpp scriptSpawnGame): AI's lesson points and wickedTree,
+        // BMX XXX's paintball points.
+        const std::map<uint32_t, std::string> &namedPoints()
+        {
+            static const std::map<uint32_t, std::string> points = []
+            {
+                std::map<uint32_t, std::string> out;
+                for (const ScriptSpawns &game : scriptSpawns())
+                    for (const std::string &name : game.names)
+                        out.emplace(nameHash(name), name);
+                return out;
+            }();
+            return points;
+        }
+
         std::string spawnRole(Engine engine, uint32_t name)
         {
             static const uint32_t respawn = nameHash("Respawn"), player = nameHash("Player");
@@ -283,7 +302,8 @@ namespace ps2x::app::levels
             std::map<uint32_t, std::optional<int>> m_textures;
             std::map<std::pair<std::optional<uint32_t>, Tags>, int> m_materials;
             // (grind word, sound) -> segments, in the model's axes
-            std::map<std::pair<std::string, std::string>, std::vector<std::pair<Vec3, Vec3>>> m_edges;
+            // the grind edges by (#grind word, sound, tag word)
+            std::map<std::tuple<std::string, std::string, uint32_t>, std::vector<std::pair<Vec3, Vec3>>> m_edges;
         };
 
         void Export::readTextures()
@@ -406,13 +426,12 @@ namespace ps2x::app::levels
             return index;
         }
 
-        Tags Export::surfaceTags(const std::optional<Bytes> &record)
+        // The converters' tags for a face's surface kind (none for ground).
+        Tags kindTags(Engine engine, const Bytes &record)
         {
-            if (!record)
-                return {};
-            if (m_form.engine == Engine::Zge3)
+            if (engine == Engine::Zge3)
             {
-                const FaceTag t = FaceTag::read(*record);
+                const FaceTag t = FaceTag::read(record);
                 const char *word = aiSurface(t.kind);
                 if (!word)
                     return {};
@@ -420,8 +439,8 @@ namespace ps2x::app::levels
                     return {"slope=" + formatG(roundTo(t.gravity, 4))};
                 return {word};
             }
-            const BikeFaceTag t = BikeFaceTag::read(*record);
-            const char *word = bikeSurface(m_form.engine, t.surfaceKind);
+            const BikeFaceTag t = BikeFaceTag::read(record);
+            const char *word = bikeSurface(engine, t.surfaceKind);
             if (!word)
                 return {};
             const std::string w = word;
@@ -430,6 +449,28 @@ namespace ps2x::app::levels
             if (w == "qp")
                 return {"qp", "launch=" + std::to_string(t.launch)};
             return {w};
+        }
+
+        // A tag word as the converters' #tag=0x... has it.
+        std::string tagWordText(uint32_t word)
+        {
+            char text[16];
+            std::snprintf(text, sizeof(text), "0x%08x", word);
+            return text;
+        }
+
+        // The converters' tags for a face's tag record: its surface kind,
+        // then its tag word (the word the level's goals and events find the
+        // face by) as #tag=0x...
+        Tags Export::surfaceTags(const std::optional<Bytes> &record)
+        {
+            if (!record)
+                return {};
+            Tags tags = kindTags(m_form.engine, *record);
+            const uint32_t word = m_form.engine == Engine::Zge3 ? FaceTag::read(*record).eventKind : BikeFaceTag::read(*record).tag;
+            if (word)
+                tags.push_back("tag=" + tagWordText(word));
+            return tags;
         }
 
         std::optional<int> Export::meshOf(const std::string &name, const Part &part, const std::optional<Chunk> &table,
@@ -559,13 +600,15 @@ namespace ps2x::app::levels
                     const Bytes &record = tags.records.at(static_cast<size_t>(tags.indices[at]));
                     std::string word;
                     std::optional<std::string> sound;
+                    uint32_t tagWord = 0; // the word the level's goals find the edge by
                     if (m_form.engine == Engine::Zge3)
                     {
                         const EdgeTag r = EdgeTag::read(record);
                         if (!(r.flags & EdgeTag::kGrindable) && r.kind != 3)
-                            continue;
+                            continue; // (a word on an edge not ground is left out)
                         word = aiGrind(r.kind);
                         sound = aiEdgeSound(r.material);
+                        tagWord = r.eventId;
                     }
                     else
                     {
@@ -575,10 +618,11 @@ namespace ps2x::app::levels
                         word = bikeGrind(r.linkKind);
                         sound = static_cast<size_t>(face.material()) < sounds.size() ? sounds[static_cast<size_t>(face.material())]
                                                                                     : std::nullopt;
+                        tagWord = r.tag;
                     }
                     const uint16_t a = face.vertices[k], b = face.vertices[(k + 1) % 3];
                     if (std::max(a, b) < world.size())
-                        m_edges[{word, sound.value_or("")}].emplace_back(world[a], world[b]);
+                        m_edges[{word, sound.value_or(""), tagWord}].emplace_back(world[a], world[b]);
                 }
             }
         }
@@ -735,7 +779,8 @@ namespace ps2x::app::levels
             // the grind edges, a line mesh per word and sound (sorted by both)
             for (const auto &[key, segments] : m_edges)
             {
-                const std::string &word = key.first, &sound = key.second;
+                const std::string &word = std::get<0>(key), &sound = std::get<1>(key);
+                const uint32_t tagWord = std::get<2>(key);
                 Primitive p;
                 std::map<Vec3, int> index;
                 for (const auto &[a, b] : segments)
@@ -754,19 +799,24 @@ namespace ps2x::app::levels
                     }
                     p.lines.push_back(ends);
                 }
-                const std::string meshName = "grind_" + word + (sound.empty() ? "" : "_" + sound);
+                // (a tag word: in the names as zge_level_gltf's export writes it, _<8 hex> and #tag=0x<8 hex>)
+                const std::string named = tagWord ? "_" + tagWordText(tagWord).substr(2) : std::string();
+                const std::string meshName = "grind_" + word + (sound.empty() ? "" : "_" + sound) + named;
                 std::vector<Primitive> prims;
                 prims.push_back(std::move(p));
                 const int mesh = m_builder.mesh(meshName, std::move(prims));
-                m_builder.node(meshName + "#grind=" + word + (sound.empty() ? "" : "#" + sound), mesh);
+                m_builder.node(meshName + "#grind=" + word + (sound.empty() ? "" : "#" + sound) + (tagWord ? "#tag=" + tagWordText(tagWord) : ""),
+                               mesh);
             }
             for (const ScenePoint &p : dat.points)
             {
                 if (p.kind != kSpawnPoint)
                     continue;
-                const std::string role = spawnRole(m_form.engine, p.name);
+                std::string role = spawnRole(m_form.engine, p.name);
+                if (const auto named = namedPoints().find(p.name); role.empty() && named != namedPoints().end())
+                    role = named->second; // a named point: carried by its name
                 if (role.empty())
-                    continue; // a name only the game's scripts or modes read
+                    continue; // a name no game's scripts are known to read
                 m_builder.node((role == "respawn" ? std::string("Respawn") : role) + "#spawn=" + role, std::nullopt, toModel(p.position),
                                quatToModel(p.orientation));
             }

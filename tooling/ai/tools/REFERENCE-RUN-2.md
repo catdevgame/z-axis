@@ -251,4 +251,4 @@ beyond the scripted-camera flag.
 As in run 1, all inputs are buttons, and the closed-loop parts (`goto`, `chase`,
 `balance`) are recorded as the buttons they pressed, so they replay exactly only
 if the native game state matches PCSX2 frame for frame. Use them with
-`PS2X_PAD_SCRIPT_CLOCK=vsync`.
+`ZX_PAD_SCRIPT_CLOCK=vsync`.

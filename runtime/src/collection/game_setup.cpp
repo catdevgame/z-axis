@@ -3,8 +3,8 @@
 #include "collection/disc_check.h"
 #include "strings.h"
 
-#include "ps2x/iop/cue_sheet.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/cue_sheet.h"
+#include "zx/disc/iso9660.h"
 
 #include <algorithm>
 #include <array>
@@ -16,7 +16,7 @@
 #include <sstream>
 #include <system_error>
 
-namespace ps2x::app
+namespace zx::app
 {
     namespace fs = std::filesystem;
 
@@ -108,7 +108,7 @@ namespace ps2x::app
         bool cueSheetText(std::vector<uint8_t> bytes, std::string *text)
         {
             std::string sheet(bytes.begin(), bytes.end());
-            if (!ps2x::iop::isCueSheet(sheet))
+            if (!zx::disc::isCueSheet(sheet))
                 return false;
             if (text)
                 *text = std::move(sheet);
@@ -229,11 +229,11 @@ namespace ps2x::app
             return files;
         }
 
-        void imageFiles(const ps2x::iop::Iso9660Image &image, const std::string &dir, int depth, std::vector<DiscSource::File> &out)
+        void imageFiles(const zx::disc::Iso9660Image &image, const std::string &dir, int depth, std::vector<DiscSource::File> &out)
         {
             if (depth > 32)
                 return;
-            for (const ps2x::iop::IsoEntry &entry : image.list(dir.empty() ? "/" : dir))
+            for (const zx::disc::IsoEntry &entry : image.list(dir.empty() ? "/" : dir))
             {
                 const std::string path = dir.empty() ? entry.name : dir + "/" + entry.name;
                 if (entry.directory)
@@ -408,7 +408,7 @@ namespace ps2x::app
                 *error = kCueUnreadable;
             return {};
         }
-        const std::string name = ps2x::iop::cueDataTrackFile(std::string(text.begin(), text.end()));
+        const std::string name = zx::disc::cueDataTrackFile(std::string(text.begin(), text.end()));
         if (name.empty())
         {
             if (error)
@@ -494,12 +494,12 @@ namespace ps2x::app
             if (imagePath.empty())
                 return fail(why);
         }
-        auto image = std::make_shared<ps2x::iop::Iso9660Image>();
+        auto image = std::make_shared<zx::disc::Iso9660Image>();
         std::string why;
         if (!image->open(imagePath, &why))
             return fail(notAnImage(path.filename().string(), otherImageKind(imagePath)));
         m_readFrom = imagePath;
-        m_kind = image->fileSectorSize() == ps2x::iop::Iso9660Image::kSectorSize ? Kind::IsoImage : Kind::RawImage;
+        m_kind = image->fileSectorSize() == zx::disc::Iso9660Image::kSectorSize ? Kind::IsoImage : Kind::RawImage;
         m_image = std::move(image);
         return true;
     }
@@ -555,7 +555,7 @@ namespace ps2x::app
             // none the app may read.
             if (!siblings)
                 return fail("Pick the BIN with the CUE, or the BIN alone.");
-            const std::string data = ps2x::iop::cueDataTrackFile(cue);
+            const std::string data = zx::disc::cueDataTrackFile(cue);
             if (data.empty())
                 return fail(kCueNamesNoData);
             const auto beside = std::find_if(siblings->begin(), siblings->end(), [&](const DocumentAccess::Entry &entry)
@@ -564,12 +564,12 @@ namespace ps2x::app
                 return fail(notBesideCue(data));
             image = *beside;
         }
-        auto opened = std::make_shared<ps2x::iop::Iso9660Image>();
+        auto opened = std::make_shared<zx::disc::Iso9660Image>();
         std::string why;
         if (!opened->open(documents.open(image.uri), pathFromUtf8(image.name), &why))
             return fail(notAnImage(document.name, otherDocumentKind(documents, image.uri)));
         m_readFrom = pathFromUtf8(image.uri);
-        m_kind = opened->fileSectorSize() == ps2x::iop::Iso9660Image::kSectorSize ? Kind::IsoImage : Kind::RawImage;
+        m_kind = opened->fileSectorSize() == zx::disc::Iso9660Image::kSectorSize ? Kind::IsoImage : Kind::RawImage;
         m_image = std::move(opened);
         return true;
     }
@@ -590,8 +590,8 @@ namespace ps2x::app
 
     std::string DiscSource::kindText() const
     {
-        if (m_image && m_image->format() != ps2x::iop::DiscImageFile::Format::Plain)
-            return std::string(ps2x::iop::discImageFormatName(m_image->format())) + " disc image";
+        if (m_image && m_image->format() != zx::disc::DiscImageFile::Format::Plain)
+            return std::string(zx::disc::discImageFormatName(m_image->format())) + " disc image";
         switch (m_kind)
         {
         case Kind::Folder:
@@ -633,7 +633,7 @@ namespace ps2x::app
             return readFileBytes(folderFile(m_readFrom, path), maxBytes, out);
         if (!m_image)
             return false;
-        const std::optional<ps2x::iop::IsoEntry> entry = m_image->find(path);
+        const std::optional<zx::disc::IsoEntry> entry = m_image->find(path);
         return entry && m_image->readFile(*entry, out, maxBytes);
     }
 
@@ -667,10 +667,10 @@ namespace ps2x::app
         }
         if (!m_image)
             return false;
-        const std::optional<ps2x::iop::IsoEntry> entry = m_image->find(path);
+        const std::optional<zx::disc::IsoEntry> entry = m_image->find(path);
         if (!entry || entry->directory)
             return false;
-        const uint64_t start = static_cast<uint64_t>(entry->lsn) * ps2x::iop::Iso9660Image::kSectorSize;
+        const uint64_t start = static_cast<uint64_t>(entry->lsn) * zx::disc::Iso9660Image::kSectorSize;
         for (uint64_t done = 0; done < entry->size;)
         {
             const size_t count = static_cast<size_t>(std::min<uint64_t>(buffer.size(), entry->size - done));

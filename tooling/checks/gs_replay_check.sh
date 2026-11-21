@@ -1,9 +1,9 @@
 #!/bin/sh
 # Bit-exact regression check for the GS renderer, using recorded GS traces
-# (PS2X_GS_DUMP, see ps2xGsReplay).
+# (ZX_GS_DUMP, see zx-gsreplay).
 #
-#   gs_replay_check.sh record <ps2xGsReplay> <trace-dir> <ref-dir>
-#   gs_replay_check.sh check  <ps2xGsReplay> <trace-dir> <ref-dir>
+#   gs_replay_check.sh record <zx-gsreplay> <trace-dir> <ref-dir>
+#   gs_replay_check.sh check  <zx-gsreplay> <trace-dir> <ref-dir>
 #
 # record: replays every <trace-dir>/*.gsr and stores, per trace, the hash of
 #         the full 4 MiB GS local memory and of the presented picture after

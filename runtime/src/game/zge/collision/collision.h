@@ -47,7 +47,7 @@ namespace zge
 
     // The world (newCollisionWorld: 0x70 bytes): a grid of cells,
     // each a Sector (zge/scene/query.h) with the nodes in it.
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
     struct CollisionWorld
     {
         Vec4 cellSize;           // +0x00
@@ -199,7 +199,7 @@ namespace zge
         // the levels of detail in use.
         uint16_t flags;
         uint16_t references;          // +0x02 nodes sharing it (1 when made)
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         ee::Ptr<PointerArray> levels; // DM2 +0x04 the levels of detail, in the order added (zge/container/array.h)
         uint32_t _08;                 // DM2 +0x08
 #else
@@ -213,7 +213,7 @@ namespace zge
             uint32_t meshWord;        // the same, as the word the skater code hands round
         };
         ee::Ptr<TagTableHeader> tags; // +0x14 (DM2 +0x18) its tag table (zge/assets/tag_table.h), 0: none
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // How many levels (asked of the array, a null one too, as the original), the part of one, one added after the
         // last (the array made four wide at the first; bits 4-7 then say how many), and the array freed with the frame.
         // The array's functions are frame.cpp's (frameLevelArrayCount and the others below).
@@ -270,7 +270,7 @@ namespace zge
     // Vertex index `corner` of a face, as faceVertices' callers read it at
     // the address it handed them (`handed`, the face's indices in the game's
     // RAM copy): from the host part when it has the face
-    // (PS2X_NATIVE_COLLISION; =verify compares with RAM), else at `handed`.
+    // (ZX_NATIVE_COLLISION; =verify compares with RAM), else at `handed`.
     // Readable callers read the indices through this instead of RAM.
     uint16_t faceVertexIndex(ee::Ptr<ZgePart> part, uint32_t face, ee::Ptr<uint16_t> handed, uint32_t corner);
 
@@ -478,7 +478,7 @@ namespace zge
     constexpr uint32_t kQueryStateHitNodes = 128; // ZGE2's HitNode array (ZGE3: 0x80 records a pool block)
     constexpr uint32_t kQueryStateFaceHits = 0x400; // ZGE2's FaceHit array (ZGE3: 0x200 a pool record)
     constexpr uint32_t kQueryWalkStackBytes = 0x1000; // ZGE2's tree walk stack: 64 entries of 0x40
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     struct QueryState
     {
         uint32_t ready;                      // DM2 +0x0000 1 from initQueries to shutdownCollisionQueries

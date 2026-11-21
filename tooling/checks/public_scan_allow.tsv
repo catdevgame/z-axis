@@ -8,6 +8,7 @@
 runtime/src/game/*	disc.readable	ok	the readable engine and games, written from the games' own code (user decision 2026-11-17: public)
 runtime/src/game_overrides/*	disc.readable	ok	the per-game overrides, written from the games' own code (user decision 2026-11-17: public)
 ai/decomp/*	disc.readable	ok	the matching decomp's tooling (user decision 2026-11-17: public)
+iop/include/zx/disc/*.h	disc.dump	ok	our disc reader's headers (zx::disc, iop/src's ISO 9660 and cue sheet reader): source code in a folder named disc, not a dump
 runtime/resources/app-icon.png	disc.*	ok	our own icon, drawn by app_icon.py
 runtime/resources/fonts/Michroma-Regular.ttf	disc.binary	ok	Michroma, a font under the SIL Open Font License 1.1 (Michroma-OFL.txt beside it, NOTICE 7)
 # Tables of the games' addresses with this project's names, which the build reads (public: the same decision).

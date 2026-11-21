@@ -14,7 +14,7 @@
 #include <functional>
 #include <string>
 
-namespace ps2x::app
+namespace zx::app
 {
     struct TransferResult
     {

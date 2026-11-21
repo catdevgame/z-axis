@@ -2,11 +2,11 @@
 #include "MPEG.h"
 #include "runtime/ee_scheduler.h"
 
-#if !defined(PS2X_HAS_FFMPEG)
-#define PS2X_HAS_FFMPEG 1
+#if !defined(ZX_HAS_FFMPEG)
+#define ZX_HAS_FFMPEG 1
 #endif
 
-#if PS2X_HAS_FFMPEG
+#if ZX_HAS_FFMPEG
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -35,7 +35,7 @@ namespace ps2_stubs
             std::vector<uint8_t> rgba;
         };
 
-#if PS2X_HAS_FFMPEG
+#if ZX_HAS_FFMPEG
         std::string ffmpegErrorString(int err)
         {
             std::array<char, AV_ERROR_MAX_STRING_SIZE> buffer{};
@@ -1489,15 +1489,15 @@ namespace ps2_stubs
             }
         }
 
-        // PS2X_TRACE_MOVIES=1: the HLE's stall lines ([MPEG:hold] a demux held
+        // ZX_TRACE_MOVIES=1: the HLE's stall lines ([MPEG:hold] a demux held
         // for backpressure, [MPEG:dry] one that takes nothing new, [MPEG:wait]
         // a picture wait), each the 1st, 2nd, 4th ... time (drafter23: the
-        // PS2X_MOVIES=hle intro stalls behind the game's audio ring).
+        // ZX_MOVIES=hle intro stalls behind the game's audio ring).
         bool traceMovieStalls()
         {
             static const bool on = []
             {
-                const char *v = std::getenv("PS2X_TRACE_MOVIES");
+                const char *v = std::getenv("ZX_TRACE_MOVIES");
                 return v && v[0] == '1';
             }();
             return on;

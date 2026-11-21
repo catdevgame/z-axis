@@ -15,7 +15,7 @@
 #include <map>
 #include <memory>
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     namespace
     {
@@ -419,6 +419,13 @@ namespace ps2x::app::extras::panel_maps
         constexpr uint32_t kGoalTables = sym::dm2::g_goalDefinitions, kGoalBytes = 0x160, kGameLevelBytes = 0x1B80;
         constexpr uint32_t kObjectiveAt = 0x20, kObjectiveBytes = 0x50;
         constexpr uint32_t kMenuGameLevels = sym::dm2::g_levelMenuGameLevels;
+        // The level's NPCs (game/dm2/game/npcs.h NpcDefinition, g_npcDefinitions:
+        // five a level of 0x14 bytes, four NPCs and the stand-in; the list
+        // ends at an empty name): +4 its name, +0x10 the challenge whose goals
+        // it gives, from which goal to which. CAREER.BIN keeps an Xbox
+        // level's in its pros block.
+        constexpr uint32_t kNpcTables = sym::dm2::g_npcDefinitions, kNpcLevelBytes = 0x64, kNpcBytes = 0x14, kNpcs = 4;
+        constexpr uint32_t kNpcName = 0x04, kNpcRange = 0x10;
         // The challenges' names in the goals' text keys ("KSTRSP_GOAL_LEV%02d_%s_%d";
         // the rookie challenge's one goal "KSTRSP_GOAL_LEV%02d_ROOKIE") and on
         // the objectives screen (KSTRSP_OBJCTV_<title>).
@@ -500,11 +507,11 @@ namespace ps2x::app::extras::panel_maps
             virtual std::optional<std::string> name(uint32_t offset) const = 0;
         };
 
-        // In the executable: names are pointers to texts.
-        class ElfGoals final : public GoalTable
+        // In the executable (a level's row of a table at `base`): names are pointers to texts.
+        class ElfTable final : public GoalTable
         {
         public:
-            ElfGoals(const Elf &elf, uint32_t gameLevel) : m_elf(elf), m_base(kGoalTables + gameLevel * kGameLevelBytes) {}
+            ElfTable(const Elf &elf, uint32_t base) : m_elf(elf), m_base(base) {}
             uint32_t word(uint32_t offset) const override { return m_elf.word(m_base + offset); }
             std::optional<std::string> name(uint32_t offset) const override
             {
@@ -588,8 +595,40 @@ namespace ps2x::app::extras::panel_maps
         struct GoalChunks
         {
             Bytes bytes;
-            int shown = 0, placed = 0, targets = 0;
+            int shown = 0, placed = 0, givers = 0, targets = 0;
         };
+
+        // A level's NPC as the goals' givers: its name, and the goals of one
+        // challenge it gives (npcWaitingFrame offers its range's first goal
+        // not done).
+        struct NpcGiver
+        {
+            std::string name;
+            uint32_t challenge = 0, firstGoal = 0, lastGoal = 0;
+        };
+
+        // The level's NPCs from its row of the definitions (setupNpcs: the
+        // four, up to the first with an empty name).
+        std::vector<NpcGiver> npcGivers(const GoalTable &npcs)
+        {
+            std::vector<NpcGiver> out;
+            for (uint32_t npc = 0; npc < kNpcs; ++npc)
+            {
+                const std::optional<std::string> name = npcs.name(npc * kNpcBytes + kNpcName);
+                if (!name || name->empty())
+                    break;
+                const uint32_t range = npcs.word(npc * kNpcBytes + kNpcRange);
+                out.push_back({*name, range & 0xFF, (range >> 8) & 0xFF, (range >> 16) & 0xFF});
+            }
+            return out;
+        }
+
+        // `format` with its one "%s" made `value`.
+        std::string withValue(const std::string &format, const std::string &value)
+        {
+            const size_t at = format.find("%s");
+            return at == std::string::npos ? format : format.substr(0, at) + value + format.substr(at + 2);
+        }
 
         // " ".join(text.split()) of a text with its line breaks made spaces.
         std::string oneLine(std::string text)
@@ -608,11 +647,18 @@ namespace ps2x::app::extras::panel_maps
         // challenge's run's points against the rider's score. Its title is the
         // goal's text, its text that again with its challenge and respect. Its
         // targets are its objectives' places, each done as its objective is
-        // met. `gameLevel`: the number in the texts' keys.
-        GoalChunks goalChunks(const GoalTable &goals, const Texts &names, int gameLevel, const GoalPlaces &places)
+        // met. A goal an NPC gives is owned by its giver record (GIVE), named
+        // by the goal's text key, as dave_mirra_panel.cpp names the NPC's
+        // rider it tracks while the goal can be started (the record's place
+        // is none: the rider rides); what starts it is the NPC screen's own
+        // sending on ("You should go talk to %s." and "I think I saw him
+        // %s." with the challenge's NPC location, the first of their
+        // wordings). `gameLevel`: the number in the texts' keys.
+        GoalChunks goalChunks(const GoalTable &goals, const Texts &names, int gameLevel, const GoalPlaces &places,
+                              const std::vector<NpcGiver> &givers)
         {
             TextTable text;
-            Bytes targets, data;
+            Bytes targets, data, give;
             int64_t targetCount = 0;
             GoalChunks out;
             for (int c = 0; c < 5; ++c)
@@ -677,6 +723,21 @@ namespace ps2x::app::extras::panel_maps
                         f.scoreKind = 1;
                         f.scoreTarget = int64_t(objectiveWords[0][1]) + 1;
                     }
+                    for (const NpcGiver &npc : givers)
+                    {
+                        if (npc.challenge != uint32_t(c) || uint32_t(g) < npc.firstGoal || uint32_t(g) > npc.lastGoal)
+                            continue;
+                        f.owner = dm2::nameHash(goalKey);
+                        putBubble(give, f.owner, std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), -1, 0);
+                        ++out.givers;
+                        const std::optional<std::string> talk = lookup(names, "KSTRSP_NPC_DISMISS_NPCNAME_0");
+                        const std::optional<std::string> where = lookup(names, "KSTRSP_NPC_DISMISS_LOCATION_0");
+                        const std::optional<std::string> place =
+                            c > 0 ? lookup(names, formatted("KSTRSP_NPC_LOCATION_LEV%02d_%d", gameLevel, c - 1)) : std::nullopt;
+                        if (talk && where && place)
+                            f.activate = text.add(pythonUpper(oneLine(withValue(*talk, npc.name) + " " + withValue(*where, *place))));
+                        break;
+                    }
                     putGoal(data, f);
                     ++out.shown;
                 }
@@ -689,9 +750,10 @@ namespace ps2x::app::extras::panel_maps
             putU32(targ, targetCount);
             putBytes(targ, targets);
             putBytes(out.bytes, chunk("TARG", targ));
-            Bytes give;
-            putU32(give, 0);
-            putBytes(out.bytes, chunk("GIVE", give));
+            Bytes giveChunk;
+            putU32(giveChunk, out.givers);
+            putBytes(giveChunk, give);
+            putBytes(out.bytes, chunk("GIVE", giveChunk));
             putBytes(out.bytes, chunk("TEXT", text.bytes));
             out.targets = int(targetCount);
             return out;
@@ -820,12 +882,20 @@ namespace ps2x::app::extras::panel_maps
             std::string folder;
             uint32_t level = 0;
             std::optional<std::pair<Bytes, std::vector<std::array<uint32_t, 3>>>> goals; // the first goals block
+            std::optional<std::pair<Bytes, std::vector<std::array<uint32_t, 3>>>> pros;  // the first pros block
         };
-        constexpr uint32_t kCareerGoalsBlock = 1;
+        // The blocks' kinds (dm2_xbox_career.cpp Kind): the goals, the local pros (the NPCs' definitions).
+        constexpr uint32_t kCareerGoalsBlock = 1, kCareerProsBlock = 6;
 
+        struct CareerLevelGoals
+        {
+            std::unique_ptr<CareerGoals> goals;
+            Texts texts;
+            std::vector<NpcGiver> givers;
+        };
         struct Career
         {
-            std::map<std::string, std::pair<std::unique_ptr<CareerGoals>, Texts>> levels;
+            std::map<std::string, CareerLevelGoals> levels;
         };
 
         Career readCareer(const Bytes &data)
@@ -858,6 +928,8 @@ namespace ps2x::app::extras::panel_maps
                     at += 12 * size_t(relocations);
                     if (kind == kCareerGoalsBlock && !level.goals)
                         level.goals = std::make_pair(std::move(body), std::move(rel));
+                    else if (kind == kCareerProsBlock && !level.pros)
+                        level.pros = std::make_pair(std::move(body), std::move(rel));
                 }
                 levels.push_back(std::move(level));
             }
@@ -907,8 +979,11 @@ namespace ps2x::app::extras::panel_maps
                 for (const Text &t : texts)
                     if (t.language == 0 && t.level == int32_t(level.level) && !t.text.empty())
                         english[dm2::nameHash(t.key)] = t.text;
+                std::vector<NpcGiver> givers;
+                if (level.pros)
+                    givers = npcGivers(CareerGoals(level.pros->first, level.pros->second, strings));
                 out.levels[level.folder] = {std::make_unique<CareerGoals>(level.goals->first, level.goals->second, strings),
-                                            std::move(english)};
+                                            std::move(english), std::move(givers)};
             }
             return out;
         }
@@ -927,12 +1002,13 @@ namespace ps2x::app::extras::panel_maps
             if (it != career.levels.end())
             {
                 Texts texts = names;
-                for (const auto &[key, text] : it->second.second)
+                for (const auto &[key, text] : it->second.texts)
                     texts[key] = text;
-                const GoalChunks made = goalChunks(*it->second.first, texts, kXboxSlot, dm2GoalPlaces(geo, ins));
+                const GoalChunks made = goalChunks(*it->second.goals, texts, kXboxSlot, dm2GoalPlaces(geo, ins), it->second.givers);
                 goals = made.bytes;
                 goalCount = made.shown;
-                log.push_back(formatted("%s: %d goals, %d placed, %d targets", folder.c_str(), made.shown, made.placed, made.targets));
+                log.push_back(formatted("%s: %d goals, %d placed, %d givers, %d targets", folder.c_str(), made.shown, made.placed,
+                                     made.givers, made.targets));
             }
             std::string line;
             writeMade(out / (folder + ".pmap"), dm2FormatLevelFile(geo, ins, folder, title, goals, goalCount, true, line));
@@ -954,6 +1030,17 @@ namespace ps2x::app::extras::panel_maps
         }
     }
 
+    Bytes daveMirraMapFile(const SourceFiles &files, const std::string &folder, const std::string &title, std::vector<std::string> &log)
+    {
+        // The map alone: a FREERIDE row runs no goals (ProQuest's are the
+        // executable's, for the row's own level).
+        const std::string path = "ASSETS/LEVELS/" + folder + "/" + folder + ".";
+        std::string line;
+        Bytes file = dm2FormatLevelFile(needFile(files, path + "GEO"), needFile(files, path + "INS"), folder, title, {}, 0, true, line);
+        log.push_back(line);
+        return file;
+    }
+
     void makeDaveMirraMaps(const SourceFiles &disc, const PanelExtras &extras, const std::filesystem::path &out,
                            std::vector<std::string> &log)
     {
@@ -971,8 +1058,10 @@ namespace ps2x::app::extras::panel_maps
             making("the level " + level, [&] {
                 const std::string path = "ASSETS/LEVELS/" + level + "/" + level + ".";
                 const Bytes geo = needFile(disc, path + "GEO"), ins = needFile(disc, path + "INS");
-                const GoalChunks goals = goalChunks(ElfGoals(elf, gameLevel), names, int(gameLevel), dm2GoalPlaces(geo, ins));
-                log.push_back(formatted("%s: %d goals, %d placed, %d targets", level.c_str(), goals.shown, goals.placed, goals.targets));
+                const GoalChunks goals = goalChunks(ElfTable(elf, kGoalTables + gameLevel * kGameLevelBytes), names, int(gameLevel),
+                                                    dm2GoalPlaces(geo, ins), npcGivers(ElfTable(elf, kNpcTables + gameLevel * kNpcLevelBytes)));
+                log.push_back(formatted("%s: %d goals, %d placed, %d givers, %d targets", level.c_str(), goals.shown, goals.placed,
+                                     goals.givers, goals.targets));
                 std::string line;
                 writeMade(out / (level + ".pmap"), dm2FormatLevelFile(geo, ins, level, title, goals.bytes, goals.shown, true, line));
                 log.push_back(line);

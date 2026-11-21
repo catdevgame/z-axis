@@ -6,12 +6,12 @@
 #include <string>
 #include <vector>
 
-// PS2X_PAD_SCRIPT="<t>:<BUTTON>[:<dur>],..." presses port-0 buttons at fixed
+// ZX_PAD_SCRIPT="<t>:<BUTTON>[:<dur>],..." presses port-0 buttons at fixed
 // script times (default duration 0.25 s), on top of real input.
 // "<t>:LX=<v>[:<dur>]" (also LY, RX, RY) holds a stick axis at v, from -1
 // (left/up) to 1 (right/down), overriding real input while active.
 // Times and durations are seconds, or vsyncs with a "v" suffix ("2397v").
-// PS2X_PAD_SCRIPT=@<file> reads the script from a file (a long one).
+// ZX_PAD_SCRIPT=@<file> reads the script from a file (a long one).
 //
 // "<t>:SYNC=<cond>[&<cond>]" anchors the script to the game: the condition
 // (StateProbe syntax, e.g. 0x276FE4==3) is the event that happened at script

@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::xbox_audio
+namespace zx::xbox_audio
 {
     struct Wave
     {

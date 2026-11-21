@@ -27,7 +27,7 @@ namespace zge
             uint8_t priority;     // +0x01 0: free
             uint8_t volume;       // +0x02 0 .. 127
             int8_t pan;           // +0x03
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             uint8_t state;        // BMX +0x04 kState*
             uint8_t stateFrames;  // BMX +0x05 frames left in a held state (soundTask counts them down)
             uint16_t pitch;       // BMX +0x06
@@ -53,7 +53,7 @@ namespace zge
         constexpr uint8_t kVoiceHeldFrames = 30;
         inline void holdVoiceState(Voice &voice)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             voice.stateFrames = kVoiceHeldFrames;
 #else
             (void)voice;
@@ -62,7 +62,7 @@ namespace zge
         // A frame of the hold gone; the frames left.
         inline uint8_t countDownVoiceState(Voice &voice)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             voice.stateFrames = static_cast<uint8_t>(voice.stateFrames - 1);
             return voice.stateFrames;
 #else

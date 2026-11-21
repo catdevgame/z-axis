@@ -16,7 +16,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::glyphs
+namespace zx::glyphs
 {
     constexpr uint32_t rgba(uint32_t r, uint32_t g, uint32_t b, uint32_t a = 255u)
     {

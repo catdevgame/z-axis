@@ -1,6 +1,6 @@
 // Sets program analysis options before auto-analysis. Args: "<option name>=<value>" ...
 // e.g. "Non-Returning Functions - Discovered=false"
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.script.GhidraScript;
 public class SetAnalyzerOption extends GhidraScript {
     @Override

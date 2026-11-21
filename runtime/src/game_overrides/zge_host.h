@@ -31,7 +31,7 @@
 class PS2Runtime;
 struct R5900Context;
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     class GameFile;
 }
@@ -58,17 +58,17 @@ namespace zge_host
     bool installNativeDisc(PS2Runtime &runtime, const DiscAdditions &additions);
 
     // A file as the native disc device serves it (Mods first).
-    std::shared_ptr<ps2x::game_files::GameFile> openGameFile(const std::string &path);
+    std::shared_ptr<zx::game_files::GameFile> openGameFile(const std::string &path);
 
-    // The engine's movie stream on the host, unless PS2X_MOVIES=hle (then the
+    // The engine's movie stream on the host, unless ZX_MOVIES=hle (then the
     // MPEG HLE and the IOP's SDRDRV for the sound): the host forms of
     // zge/host/movie_stream.cpp at the game's functions, with what the game
     // adds (game/host/movies.h: AI's Xbox movies, DM2's intro movies). True
     // when installed: the game then never talks to SDRDRV.IRX.
     bool installNativeMovies(PS2Runtime &runtime, game::Game id, const game::host::movies::Game &game);
-    // How the game's movies run (zge_movie_form.cpp): their host form, or their PS2 form (PS2X_MOVIES=hle, or
+    // How the game's movies run (zge_movie_form.cpp): their host form, or their PS2 form (ZX_MOVIES=hle, or
     // the host form not installed), whose sound goes through the IOP's SDRDRV into the SPU2 that ZAUDIO on the
-    // IOP sets up. installNativeMovies decides it (movieFormFor) and notes it; before it: what PS2X_MOVIES says.
+    // IOP sets up. installNativeMovies decides it (movieFormFor) and notes it; before it: what ZX_MOVIES says.
     enum class MovieForm
     {
         Host,
@@ -77,7 +77,7 @@ namespace zge_host
     MovieForm movieFormFor(bool hleRequested, bool hostFormInstalled);
     void setMovieForm(MovieForm form);
     MovieForm movieForm();
-    // Where the sound driver runs: ZAUDIO on the IOP (true) with PS2X_SOUND=spu2 (soundMode) or when the movies
+    // Where the sound driver runs: ZAUDIO on the IOP (true) with ZX_SOUND=spu2 (soundMode) or when the movies
     // run their PS2 form; else the native driver (zge_sound.cpp).
     bool soundOnIop(const char *soundMode, MovieForm movies);
 

@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     inline constexpr std::array<std::string_view, 3> kGameOrder = {"dm2", "ai", "bmx"};
 

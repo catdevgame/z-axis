@@ -14,13 +14,13 @@
 // origin, through the game's file layer), else from the GEO stream the
 // game read into RAM before parsing it (geo_meshes.h filePartFor).
 //
-// PS2X_NATIVE_COLLISION (on by default since round 9; =0 is the fallback,
+// ZX_NATIVE_COLLISION (on by default since round 9; =0 is the fallback,
 // the game's RAM copy as the recompiled code reads it): the readable face
 // tests read faces, positions, face normals and face trees from here
 // (zge/collision/faces.cpp), the part accessors face normals, positions and
 // face vertex counts (mesh.cpp), and the tag table accessors a part's face
 // tags and edges (zge/assets/tag_table.cpp, through the mirrors below).
-// =verify: the same, each read compared with RAM. PS2X_NATIVE_COLLISION_CHECK=1 compares every part the readable
+// =verify: the same, each read compared with RAM. ZX_NATIVE_COLLISION_CHECK=1 compares every part the readable
 // collision code tests with RAM, the setup's words included
 // (collision_check.h).
 
@@ -132,14 +132,14 @@ namespace zge::native
     // a copy of the one its part shared with the other parts made from its file part, with each written position
     // in it, so the face tests read what RAM holds; every part on that stream is served it. Kept while RAM holds
     // those positions, and until a part noted anew holds that stream (notePart; notePartClone: a clone's copied
-    // stream takes a copy of it). In the game only (never under ps2xFnCheck), with the switch on.
+    // stream takes a copy of it). In the game only (never under zx-fncheck), with the switch on.
     void notePartPosition(uint32_t partAddress, uint32_t index);
     void forgetOwnHostPart(uint32_t partAddress);
     void noteOwnHostPartClone(uint32_t cloneAddress, uint32_t sourceAddress);
 
-    // PS2X_NATIVE_COLLISION unset, =1 or =verify (=0: off).
+    // ZX_NATIVE_COLLISION unset, =1 or =verify (=0: off).
     bool nativeCollisionEnabled();
-    // PS2X_NATIVE_COLLISION=verify: as 1, and every value read from the host
+    // ZX_NATIVE_COLLISION=verify: as 1, and every value read from the host
     // part is compared with the game's RAM (noteVerifiedRead), the count of
     // reads and differences logged with the face tests'.
     bool nativeCollisionVerify();
@@ -155,7 +155,7 @@ namespace zge::native
     // table accessors (zge/assets/tag_table.cpp: tagElementRecord an element's
     // record, tagByte / tagWord a byte or word of it, and the
     // writes setTagByte / setTagWord), handing round record addresses in
-    // the RAM table. With PS2X_NATIVE_COLLISION on, a table the TGFT / TGFE
+    // the RAM table. With ZX_NATIVE_COLLISION on, a table the TGFT / TGFE
     // loader filled for a part (noteTagTable) gets a host mirror: the host
     // part's table (collision_data above, the level setup's words included),
     // made the first time the table is used, kept for that RAM table alone
@@ -192,7 +192,7 @@ namespace zge::native
 
     // The TGFT / TGFE loader (zge/assets/geo.cpp): `table` was filled with
     // `bodyBytes` from the file for `part`. Host only (never under
-    // ps2xFnCheck), with the switch on.
+    // zx-fncheck), with the switch on.
     void noteTagTable(uint32_t table, uint32_t part, TagTableKind kind, uint32_t bodyBytes);
     // The table's last reference went (releaseTagTable frees it).
     void forgetTagTable(uint32_t table);
@@ -202,13 +202,13 @@ namespace zge::native
     // The mirror of the table at `table` (its header's address), or of the
     // table whose body holds [address, address + bytes); nullptr: read RAM.
     // Made on first use; nullptr when the host has no such table for the part
-    // (its file part not found, or a different size). Outside ps2xFnCheck
+    // (its file part not found, or a different size). Outside zx-fncheck
     // and with the switch on only; the EE thread's.
     TagMirror *tagMirror(uint32_t table);
     TagMirror *tagMirror(ee::Address table);
     TagMirror *tagMirrorHolding(uint32_t address, uint32_t bytes);
     TagMirror *tagMirrorHolding(ee::Address address, uint32_t bytes);
-    // PS2X_NATIVE_COLLISION_POISON=1 (a check, with the switch on): when a
+    // ZX_NATIVE_COLLISION_POISON=1 (a check, with the switch on): when a
     // face test first reads a part from the host, the game's RAM copy of
     // what the host now serves is overwritten with 0x7F bytes: the part's
     // positions (as many as the file has), its face normals, the face tree

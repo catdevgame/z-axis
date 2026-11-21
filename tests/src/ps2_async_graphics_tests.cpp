@@ -438,7 +438,7 @@ void register_ps2_async_graphics_tests()
             }
         });
 
-        tc.Run("PS2X_VIF1_PREFETCH reads the whole VIF1 chain at the kick", [](TestCase &t)
+        tc.Run("ZX_VIF1_PREFETCH reads the whole VIF1 chain at the kick", [](TestCase &t)
         {
             PS2Memory::s_vif1PrefetchChain = true;
             RefetchResult r = runRefetch(true, [](PS2Memory &mem)

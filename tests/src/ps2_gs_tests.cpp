@@ -6,7 +6,7 @@
 #include "runtime/gs/gs_frontend.h"
 #include "runtime/gs/gs_cpu_backend.h"
 #include "runtime/gs/gs_quality.h"
-#if PS2X_HAS_GS_GPU
+#if ZX_HAS_GS_GPU
 #include "runtime/gs/gs_gpu_backend.h"
 #include "runtime/gs/ps2_gs_psmct16.h"
 #endif
@@ -1021,7 +1021,7 @@ void register_ps2_gs_tests()
                      "an unmatched back face should set the counter's top bit (128)");
         });
 
-#if PS2X_HAS_GS_GPU
+#if ZX_HAS_GS_GPU
         tc.Run("GPU renderer: a counter of long thin flat triangles is exact with Shadows sharp", [](TestCase &t)
         {
             // Aggressive Inline's skater shadow (FUN_0010F1E8, VU1 0x1C): a
@@ -1039,8 +1039,8 @@ void register_ps2_gs_tests()
                 return;
             }
             GSGpuBackend *gpu = backend.get();
-            const int previous = ps2x::gs_quality::get(ps2x::gs_quality::Option::Shadows);
-            ps2x::gs_quality::set(ps2x::gs_quality::Option::Shadows, 1);
+            const int previous = zx::gs_quality::get(zx::gs_quality::Option::Shadows);
+            zx::gs_quality::set(zx::gs_quality::Option::Shadows, 1);
             std::vector<uint8_t> vram(PS2_GS_VRAM_SIZE, 0u);
             GS gs;
             gs.init(vram.data(), static_cast<uint32_t>(vram.size()), nullptr);
@@ -1082,7 +1082,7 @@ void register_ps2_gs_tests()
             }
             std::vector<uint8_t> snapshot;
             gpu->SnapshotVram(snapshot);
-            ps2x::gs_quality::set(ps2x::gs_quality::Option::Shadows, previous);
+            zx::gs_quality::set(zx::gs_quality::Option::Shadows, previous);
             uint32_t wrong = 0u;
             for (uint32_t y = 0; y < 64u; ++y)
                 for (uint32_t x = 0; x < 64u; ++x)

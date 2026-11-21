@@ -35,7 +35,7 @@
 #include <map>
 #include <string>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     // A level's files by extension ("GEO", "INS", "DAT", "TXR", "ZIT").
     using LevelFiles = std::map<std::string, Bytes>;

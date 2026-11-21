@@ -11,7 +11,7 @@ For each function (address or name):
   2. A function already registered elsewhere (a Verified one being drafted
      again, a READABLE_PLANNED line) has that registration line turned into
      a comment for the build, so the draft is the one registered.
-  3. ps2xFnCheck is built (ninja -C DIR ps2xFnCheck; a reconfigure first
+  3. zx-fncheck is built (ninja -C DIR zx-fncheck; a reconfigure first
      when the draft is a new file), then run with --cycles --only <address>
      over the recordings: --rec folders, or every folder of the corpus
      index (readable_corpus.py) that covers the function.
@@ -32,7 +32,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import ztree  # noqa: E402  (the z-axis tree checked: ztree.py)
-PS2RECOMP = ztree.TREE
+ZAXIS_TREE = ztree.TREE
 GAME_SRC = ztree.GAME
 DRAFTS = os.path.join(GAME_SRC, 'drafts')
 import zaxis_paths  # noqa: E402  (tooling/paths.env: the workspaces, the data, the work database)
@@ -143,7 +143,7 @@ def main():
                     'given: $ZAXIS_SCRATCH/reccorpus/v5')
     ap.add_argument('--keep', action='store_true', help='leave the drafts in src/game/drafts')
     ap.add_argument('--json')
-    ap.add_argument('--no-rebuild', action='store_true', help='leave ps2xFnCheck built with the drafts')
+    ap.add_argument('--no-rebuild', action='store_true', help='leave zx-fncheck built with the drafts')
     ap.add_argument('--show', type=int, default=2)
     ap.add_argument('--no-workdb', action='store_true', help='drafts without the work database\'s card')
     args = ap.parse_args()
@@ -152,10 +152,10 @@ def main():
 
     import readable_draft as rd
     workspace = zaxis_paths.get('AI_WORKSPACE')
-    generated = os.environ.get('PS2X_RUNNER_GENERATED_DIR') or os.path.join(workspace, 'recomp', 'generated')
+    generated = os.environ.get('ZX_RUNNER_GENERATED_DIR') or os.path.join(workspace, 'recomp', 'generated')
     cache = os.path.join(args.build, 'CMakeCache.txt')
     if os.path.exists(cache):
-        m = re.search(r'^PS2X_RUNNER_GENERATED_DIR:PATH=(.*)$', open(cache).read(), re.M)
+        m = re.search(r'^ZX_RUNNER_GENERATED_DIR:PATH=(.*)$', open(cache).read(), re.M)
         if m and m.group(1):
             generated = m.group(1)
     ws = rd.Workspace(workspace, generated, os.path.join(zaxis_paths.get('DM2_WORKSPACE'), 'ai-decomp.c'))
@@ -218,7 +218,7 @@ def main():
         # Build; drafts that do not compile are set aside (and their
         # functions' registrations put back) so the others can be checked.
         for attempt in range(len(addresses) + 1):
-            b = subprocess.run(['ninja', '-C', args.build, '-j', os.environ.get('NINJA_JOBS', '8'), 'ps2xFnCheck'], capture_output=True, text=True)
+            b = subprocess.run(['ninja', '-C', args.build, '-j', os.environ.get('NINJA_JOBS', '8'), 'zx-fncheck'], capture_output=True, text=True)
             build_ok = b.returncode == 0
             log = b.stdout + b.stderr
             failed = []
@@ -250,7 +250,7 @@ def main():
         if not build_ok:
             print(log[-3000:])
         if build_ok:
-            fncheck = os.path.join(args.build, 'ps2xRuntime', 'ps2xFnCheck')
+            fncheck = os.path.join(args.build, 'runtime', 'zx-fncheck')
             for a in addresses:
                 folders = list(args.rec)
                 if args.corpus:
@@ -271,8 +271,8 @@ def main():
             if written or aside:
                 subprocess.run(['cmake', args.build], capture_output=True, text=True)
         if (written or disabled) and not args.no_rebuild:
-            # ps2xFnCheck as the sources are again (else it keeps the drafts).
-            subprocess.run(['ninja', '-C', args.build, '-j', os.environ.get('NINJA_JOBS', '8'), 'ps2xFnCheck'], capture_output=True, text=True)
+            # zx-fncheck as the sources are again (else it keeps the drafts).
+            subprocess.run(['ninja', '-C', args.build, '-j', os.environ.get('NINJA_JOBS', '8'), 'zx-fncheck'], capture_output=True, text=True)
     for a in addresses:
         r = results.get(a, {})
         name = r.get('name', '')

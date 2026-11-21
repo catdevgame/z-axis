@@ -86,7 +86,7 @@ namespace ps2_stubs
         {
             static const bool disabled = []
             {
-                const char *value = std::getenv("PS2X_SDR_HLE");
+                const char *value = std::getenv("ZX_SDR_HLE");
                 return value && *value && *value != '0';
             }();
             return !disabled && PS2IopTransport::hasModuleRpcServer(runtime, kSdrSid);
@@ -96,7 +96,7 @@ namespace ps2_stubs
         {
             static const bool enabled = []
             {
-                const char *value = std::getenv("PS2X_TRACE_SDR");
+                const char *value = std::getenv("ZX_TRACE_SDR");
                 return value && *value && *value != '0';
             }();
             return enabled;

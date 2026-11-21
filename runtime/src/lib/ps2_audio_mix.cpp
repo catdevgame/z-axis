@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::audio_mix
+namespace zx::audio_mix
 {
     namespace
     {

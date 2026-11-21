@@ -116,7 +116,7 @@ namespace zge
     struct PrimitiveWords
     {
         uint32_t ready;
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2 +0x04: 1 while primitives are drawn (initPrimitiveRenderer sets it;
         // DM2's drawLines and drawPrimitiveQuads draw nothing at 0, and a setter
         // after them sets it, returning the value it had). ZGE3 has no such word.
@@ -131,7 +131,7 @@ namespace zge
 
     // ZGE2's switch (DM2's PrimitiveWords::primitivesOn): the shared bodies reach it through this, so they compile in
     // every game and name it only where kIsDm2 (ZGE3's and ZGE4's words have none: never reached).
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     inline uint32_t &primitivesOnWord(PrimitiveWords &words) { return words.primitivesOn; }
 #else
     inline uint32_t &primitivesOnWord(PrimitiveWords &) { static uint32_t none = 0; return none; }

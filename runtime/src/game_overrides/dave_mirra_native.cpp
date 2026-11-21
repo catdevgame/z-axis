@@ -40,15 +40,15 @@
 // (*(0x1FA8C8) + 0x10), the screen matrix *(0x1FA8A4) and the clip matrix
 // *(0x1FA8AC).
 //
-// Settings: the render path (PS2X_RENDER_PATH, the app's render_path; the
+// Settings: the render path (ZX_RENDER_PATH, the app's render_path; the
 // Native Meshes row). DM2's default (unset, auto) draws natively from the draw
 // records (zge/host/class_draws.cpp: the rider and bike too, which this
 // override has no skinned form for), with this override drawing on the GPU
 // renderer what the records do not reach; native: this override alone
 // (developers); strict: every mesh through VU1 (kFollowRenderPath: DM2 follows
-// it, since ailevel6). PS2X_DM2_NATIVE=1 / 0 forces the override either way,
-// 0 the records off too (developers, A/B runs). PS2X_TRACE_DM2NATIVE=1 counts;
-// PS2X_DM2_NATIVE_DUMP=<n> prints n nodes' payloads and chains from a
+// it, since ailevel6). ZX_DM2_NATIVE=1 / 0 forces the override either way,
+// 0 the records off too (developers, A/B runs). ZX_TRACE_DM2NATIVE=1 counts;
+// ZX_DM2_NATIVE_DUMP=<n> prints n nodes' payloads and chains from a
 // level's 200th frame.
 #include "dave_mirra.h"
 
@@ -81,7 +81,6 @@ namespace dave_mirra
 {
     namespace native_draw
     {
-        namespace zx = ps2x::zaxis;
 
         constexpr uint32_t kViewGlobals = 0x001085F8u; // FUN_001085F8(): the view's VU1 globals
         constexpr uint32_t kScreenMatrix = 0x001FA8A4u; // *(): world -> GS screen, 4 rows (VU1 1016-1019)
@@ -103,7 +102,7 @@ namespace dave_mirra
         }
 
         // Whether DM2 follows the render path (auto: native on the GPU
-        // renderer) when PS2X_DM2_NATIVE is not set. On since ailevel6's
+        // renderer) when ZX_DM2_NATIVE is not set. On since ailevel6's
         // measurements (BRINGUP "AI levels in DM2, round 6"): Windows'
         // VIF1 and GS workers 8-11x less busy, game logic and the ride checks
         // unchanged.
@@ -122,7 +121,7 @@ namespace dave_mirra
         struct CachedPart
         {
             uint32_t entries = 0, firstPacket = 0;
-            std::shared_ptr<const zx::RigidMesh> mesh;
+            std::shared_ptr<const zx::zaxis::RigidMesh> mesh;
             uint64_t lastUse = 0;
         };
 
@@ -148,10 +147,10 @@ namespace dave_mirra
         // One boot's hooks, switch and mesh cache: made at the boot's first
         // use (the install), so every boot installs its hooks into its own
         // function table and caches the meshes of its own levels
-        // (ps2x::boot::PerBoot).
+        // (zx::boot::PerBoot).
         State &state()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
+            static zx::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
             return *ofBoot.get();
         }
 
@@ -161,11 +160,11 @@ namespace dave_mirra
         {
             State &s = state();
             if (s.addedSetting)
-                ps2x::settings::remove("display.native_meshes");
+                zx::settings::remove("display.native_meshes");
             s.addedSetting = false;
         }
 
-        bool readMatrix(const zx::GuestMemory &m, uint32_t address, float out[4][4])
+        bool readMatrix(const zx::zaxis::GuestMemory &m, uint32_t address, float out[4][4])
         {
             const uint8_t *p = m.bytes(address, 64);
             if (!p)
@@ -197,13 +196,13 @@ namespace dave_mirra
             state().origViewGlobals(rdram, ctx, runtime);
             State &s = state();
             ++s.clock;
-            const zx::GuestMemory m{rdram};
+            const zx::zaxis::GuestMemory m{rdram};
             uint32_t screen = 0, clip = 0;
             s.view.valid = m.u32(kScreenMatrix, screen) && readMatrix(m, screen, s.view.screen) &&
                            m.u32(kClipMatrix, clip) && readMatrix(m, clip, s.view.clip);
             uint32_t view = 0;
             s.view.haveView = m.u32(kViewMatrix, view) && readMatrix(m, view, s.view.view);
-            if (s.view.valid && !zx::clipDepthRange(s.view.screen, s.view.clip, s.view.nearW, s.view.farW))
+            if (s.view.valid && !zx::zaxis::clipDepthRange(s.view.screen, s.view.clip, s.view.nearW, s.view.farW))
                 s.view.nearW = s.view.farW = 0.0f; // clipped nodes stay on VU1
             if (s.trace && (s.clock % 3600u) == 1u)
                 std::cout << "[dm2native] view: near w " << s.view.nearW << ", far w " << s.view.farW << std::endl;
@@ -218,7 +217,7 @@ namespace dave_mirra
                 ++s.rebuilds;
         }
 
-        std::shared_ptr<const zx::RigidMesh> meshOf(const zx::GuestMemory &m, uint32_t part, uint32_t entries)
+        std::shared_ptr<const zx::zaxis::RigidMesh> meshOf(const zx::zaxis::GuestMemory &m, uint32_t part, uint32_t entries)
         {
             State &s = state();
             CachedPart now;
@@ -232,9 +231,9 @@ namespace dave_mirra
                 return it->second.mesh;
             }
             const auto started = std::chrono::steady_clock::now();
-            auto mesh = std::make_shared<zx::RigidMesh>();
+            auto mesh = std::make_shared<zx::zaxis::RigidMesh>();
             std::string why;
-            if (zx::decodeRigidPart(m, part, *mesh, &why, zx::PacketKind::RigidPrelit))
+            if (zx::zaxis::decodeRigidPart(m, part, *mesh, &why, zx::zaxis::PacketKind::RigidPrelit))
                 now.mesh = mesh;
             else if (s.trace)
                 std::cout << "[dm2native] part 0x" << std::hex << part << std::dec << " stays on VU1: " << why << std::endl;
@@ -291,7 +290,7 @@ namespace dave_mirra
         // The node's material chain as the DMA reads it now: per CALL of a
         // packet, the last GS block UNPACKed before it. False for a chain of
         // another form.
-        bool readChain(const zx::GuestMemory &m, uint32_t chain, std::vector<Item> &out, std::string *why, bool dump)
+        bool readChain(const zx::zaxis::GuestMemory &m, uint32_t chain, std::vector<Item> &out, std::string *why, bool dump)
         {
             auto fail = [why](const char *r)
             {
@@ -405,7 +404,7 @@ namespace dave_mirra
             return fail("chain too long");
         }
 
-        void dumpNode(const zx::GuestMemory &m, uint32_t nodeAddr, uint32_t cull, uint32_t part, uint32_t type,
+        void dumpNode(const zx::zaxis::GuestMemory &m, uint32_t nodeAddr, uint32_t cull, uint32_t part, uint32_t type,
                       uint32_t tagAddress, uint32_t chain)
         {
             std::printf("[dm2native] node 0x%08x cull 0x%x part 0x%08x type 0x%x tag 0x%08x chain 0x%08x\n", nodeAddr, cull,
@@ -454,7 +453,7 @@ namespace dave_mirra
             const uint32_t nodeAddr = getRegU32(ctx, 4);
             const uint32_t cull = getRegU32(ctx, 5);
             const uint32_t packet = getRegU32(ctx, 6);
-            const zx::GuestMemory m{rdram};
+            const zx::zaxis::GuestMemory m{rdram};
             uint32_t cursor = 0;
             m.u32(packet, cursor);
             const uint32_t tagAddress = (cursor + 15u) & ~15u; // FUN_001D8740 opens the CALL tag there
@@ -472,7 +471,7 @@ namespace dave_mirra
 
             uint32_t part = 0, tableAddr = 0, typeWord = 0, buffers = 0;
             if (!m.u32(nodeAddr + node::kPart, part) || !m.u32(nodeAddr + node::kTable, tableAddr) ||
-                !m.u32(part + zx::part::kRenderType, typeWord) || !m.u32(part + zx::part::kBuffers, buffers))
+                !m.u32(part + zx::zaxis::part::kRenderType, typeWord) || !m.u32(part + zx::zaxis::part::kBuffers, buffers))
                 return;
             const uint32_t type = typeWord >> 26;
             const uint32_t drawn = (buffers >> 1) & 1u;
@@ -480,7 +479,7 @@ namespace dave_mirra
             const bool tagOk = m.u32(tableAddr + table::kChains + drawn * 4u, chain) && m.u32(tagAddress, tagLo) &&
                                m.u32(tagAddress + 4u, tagHi) && ((tagLo >> 28) & 7u) == 5u &&
                                (tagHi & 0x7FFFFFFFu) == (chain & 0x7FFFFFFFu) &&
-                               m.u32(part + zx::part::kPacketEntries + drawn * 4u, entries);
+                               m.u32(part + zx::zaxis::part::kPacketEntries + drawn * 4u, entries);
             uint32_t levelFrame = 0;
             if (s.dump > 0 && tagOk && m.u32(0x0025BCC4u, levelFrame) && levelFrame >= 200u) // a level's 200th frame on
             {
@@ -499,7 +498,7 @@ namespace dave_mirra
             }
             // Type 0x14 is DM2's sky (VU1 0x14 / 0x16 at 0xC88: AI's 0x18).
             const bool sky = type == kSkyType;
-            if (type != static_cast<uint32_t>(zx::RenderType::RigidPrelit) && !sky)
+            if (type != static_cast<uint32_t>(zx::zaxis::RenderType::RigidPrelit) && !sky)
             {
                 ++s.otherType;
                 return;
@@ -514,7 +513,7 @@ namespace dave_mirra
                 ++s.badTag;
                 return;
             }
-            std::shared_ptr<const zx::RigidMesh> mesh = meshOf(m, part, entries);
+            std::shared_ptr<const zx::zaxis::RigidMesh> mesh = meshOf(m, part, entries);
             if (!mesh)
             {
                 ++s.undecodable;
@@ -522,14 +521,14 @@ namespace dave_mirra
             }
             // Material k's packet -> its run of the mesh.
             uint8_t materials = 0;
-            if (!m.u8(part + zx::part::kMaterialCount, materials))
+            if (!m.u8(part + zx::zaxis::part::kMaterialCount, materials))
                 return;
-            std::vector<std::pair<uint32_t, zx::RigidMesh::Run>> runs;
+            std::vector<std::pair<uint32_t, zx::zaxis::RigidMesh::Run>> runs;
             runs.reserve(materials);
             for (uint32_t k = 0; k < materials && k < mesh->runs.size(); ++k)
             {
                 uint32_t p = 0;
-                if (!m.u32(entries + k * zx::kPacketEntryBytes, p))
+                if (!m.u32(entries + k * zx::zaxis::kPacketEntryBytes, p))
                     return;
                 if (p)
                     runs.push_back({p, mesh->runs[k]});
@@ -588,7 +587,7 @@ namespace dave_mirra
                 // EE thread, where VIF1 reaches the node: the chain's GS
                 // blocks as the DMA reads them (TEX0 patched by the texture
                 // interrupt handler).
-                const zx::GuestMemory m{runtime->memory().getRDRAM()};
+                const zx::zaxis::GuestMemory m{runtime->memory().getRDRAM()};
                 std::vector<Item> items;
                 std::string why;
                 if (!readChain(m, chain, items, &why, false))
@@ -603,14 +602,14 @@ namespace dave_mirra
                 struct Step
                 {
                     std::vector<uint8_t> block;
-                    zx::RigidMesh::Run run;
+                    zx::zaxis::RigidMesh::Run run;
                 };
                 std::vector<Step> steps;
                 steps.reserve(items.size());
                 for (Item &it : items)
                 {
                     const auto r = std::find_if(runs.begin(), runs.end(),
-                                                [&](const std::pair<uint32_t, zx::RigidMesh::Run> &x)
+                                                [&](const std::pair<uint32_t, zx::zaxis::RigidMesh::Run> &x)
                                                 { return x.first == it.packet; });
                     if (r == runs.end())
                     {
@@ -646,9 +645,9 @@ namespace dave_mirra
         using nd::kBuildPacket;
         nd::State &s = nd::state();
         {
-            // PS2X_DM2_NATIVE over the render path; strict: through VU1.
-            const char *forced = std::getenv("PS2X_DM2_NATIVE");
-            const char *path = ps2x::boot::text("PS2X_RENDER_PATH");
+            // ZX_DM2_NATIVE over the render path; strict: through VU1.
+            const char *forced = std::getenv("ZX_DM2_NATIVE");
+            const char *path = zx::boot::text("ZX_RENDER_PATH");
             const bool strict = path && (std::strcmp(path, "strict") == 0 || std::strcmp(path, "0") == 0);
             const bool overrideAlone = path && std::strcmp(path, "native") == 0;
             const bool records = !strict && !overrideAlone;
@@ -663,16 +662,16 @@ namespace dave_mirra
             // drops a vertex's light bones and sends three, fills the material table in the submeshes' order and
             // sends the UVs as floats; its lit program (VU1 0x118) lights the alpha too.
             game::host::native_draws::attach(runtime, s.records, {.clipped = GSNativeClip::NearSplitAndFar},
-                                             {.weights = ps2x::zaxis::SkinnedDrawForm::Weights::LightBonesDropped,
+                                             {.weights = zx::zaxis::SkinnedDrawForm::Weights::LightBonesDropped,
                                               .materialsInGroupOrder = true,
                                               .uvsAsFloats = true,
                                               .alphaFromLights = true},
                                              /*followInterpolation: its riders are native only from their records*/ s.on);
-            ps2x::gs_shots::install(runtime); // (PS2X_GS_SHOT_VSYNC, developers)
+            zx::gs_shots::install(runtime); // (ZX_GS_SHOT_VSYNC, developers)
         }
-        if (const char *v = std::getenv("PS2X_TRACE_DM2NATIVE"))
+        if (const char *v = std::getenv("ZX_TRACE_DM2NATIVE"))
             s.trace = std::atoi(v);
-        if (const char *v = std::getenv("PS2X_DM2_NATIVE_DUMP"))
+        if (const char *v = std::getenv("ZX_DM2_NATIVE_DUMP"))
             s.dump = std::atoi(v);
         s.origViewGlobals = runtime.lookupFunction(kViewGlobals);
         s.origDrawRigid = runtime.lookupFunction(kDrawRigid);
@@ -688,9 +687,9 @@ namespace dave_mirra
         }
         // The Native Meshes row (Aggressive Inline's key), unless the app
         // added one; switched while the game runs.
-        if (!ps2x::settings::has("display.native_meshes"))
+        if (!zx::settings::has("display.native_meshes"))
         {
-            ps2x::settings::Setting setting;
+            zx::settings::Setting setting;
             setting.key = "display.native_meshes";
             setting.label = "Native Meshes";
             setting.help = "Levels drawn by the GPU.";
@@ -701,7 +700,7 @@ namespace dave_mirra
                 game::host::native_draws::setRecords(value != 0 && nd::state().records);
                 game::host::native_draws::setMeshesOn(value != 0);
             };
-            ps2x::settings::add(setting);
+            zx::settings::add(setting);
             s.addedSetting = true;
             runtime.addStoppedHook(&nd::removeSetting);
         }

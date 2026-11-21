@@ -12,12 +12,12 @@
 // while the switch is on, with half the alpha as the GS blend factor. Off
 // clears the switch and Low halves the alpha for that one call only, so the
 // game's own state is never changed and the setting applies at once; at the
-// game's own the call is the game's. PS2X_MOTION_BLUR=0|1|2 sets it in the
-// runner (checks; the app sets it from its settings), PS2X_TRACE_MOTION_BLUR=1
+// game's own the call is the game's. ZX_MOTION_BLUR=0|1|2 sets it in the
+// runner (checks; the app sets it from its settings), ZX_TRACE_MOTION_BLUR=1
 // logs the packet bytes the draws add.
 //
-// Widescreen (settings.ini [display] widescreen and aspect, PS2X_WIDESCREEN,
-// PS2X_ASPECT): the 3D drawn narrower for a picture the host stretches to the
+// Widescreen (settings.ini [display] widescreen and aspect, ZX_WIDESCREEN,
+// ZX_ASPECT): the 3D drawn narrower for a picture the host stretches to the
 // window's aspect, the frustum as much wider, the 2D kept at its 4:3 shape and
 // the HUD at the wide picture's sides (zge_view.cpp has the whole of it). The
 // engines differ in where the camera keeps its scale (WideCamera) and in what
@@ -27,12 +27,17 @@
 // own field of view stays the game's. The game's decisions keep its own view
 // (zge/host/game_view.h).
 //
-// Draw distance (the game's settings.ini [gameplay] draw_distance, PS2X_DRAW_DISTANCE:
+// Draw distance (the game's settings.ini [gameplay] draw_distance, ZX_DRAW_DISTANCE:
 // 0 the game's, 1 far, 2 farthest): every far clip the game sets times the
 // game's factor (the fog with it), and the levels of detail as far out.
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <utility>
+#include <vector>
+
+struct R5900Context;
 
 class PS2Runtime;
 
@@ -111,7 +116,7 @@ namespace zge_host::view
         const uint32_t *displayXScales;
         size_t displayXScaleCount;
         // A level is drawn (the front end, loading and movies stay 4:3);
-        // mode: the game's own state, for PS2X_TRACE_WIDESCREEN=1.
+        // mode: the game's own state, for ZX_TRACE_WIDESCREEN=1.
         bool (*inLevel)(const uint8_t *rdram, uint32_t &mode);
         // A drawable HUD widget (its parent and the parent's parent named)
         // that keeps its distance from the wide picture's edge when it is in
@@ -162,4 +167,52 @@ namespace zge_host::view
 
     // True when the hooks are in place.
     bool installDrawDistance(PS2Runtime &runtime, const DrawDistance &distance);
+
+    // A game camera's hidden twin. A setting that moves a game's own camera (Camera Distance and Height, mouse-look)
+    // moves what the game decides by its view, so the camera's update runs twice a frame: first the twin, on its own
+    // copies of the camera's records (`blocks`: the game's camera state, its camera object, the camera record), at
+    // the game's own tuning, outside the game's EE time (runtime/ee_time.h) and with every byte it writes put back,
+    // then the player's camera as before. The twin's pose is the game's view (keepTwinPose, runtime/ps2_game_pose.h).
+    // A change the game makes to the records between two frames (a cut, a mode, a scripted eye, a camera made) is
+    // made to the twin's too: each frame's blocks are compared with what the player's run left (notePlayer, taken as
+    // its update returns, with what its camera objects' own updates write after it: notePlayerWrites).
+    class CameraTwin
+    {
+    public:
+        struct Block
+        {
+            uint32_t address = 0, size = 0;
+            std::vector<uint8_t> hidden, playerAfter;
+        };
+        // This frame's blocks (address, size): the twin's bytes get the changes made since the player's last run.
+        // With other blocks than those kept (a new level, another camera shown) the twin starts afresh from the
+        // player's bytes: true then.
+        bool track(const uint8_t *rdram, const std::vector<std::pair<uint32_t, uint32_t>> &blocks);
+        // The twin's run: its bytes in the blocks, `update` called with the game's time held, the bytes it left kept,
+        // the player's put back, and the EE context and the stack below sp as they were.
+        void run(uint8_t *rdram, R5900Context *ctx, const std::function<void()> &update);
+        // After the player's run: what it left.
+        void notePlayer(const uint8_t *rdram);
+        // After a function of the player's camera that runs apart from its update (a camera object's own update):
+        // the bytes of the block at `address` that it wrote (`before`: the block as it was before it ran) are the
+        // player's, the others' stay as the player's run left them, so the game's changes since are still seen.
+        void notePlayerWrites(const uint8_t *rdram, uint32_t address, const std::vector<uint8_t> &before);
+        // The block at `address` as it is now (empty when it is not a block).
+        std::vector<uint8_t> bytesNow(const uint8_t *rdram, uint32_t address) const;
+        std::vector<Block> &blocks() { return m_blocks; }
+        const Block *blockAt(uint32_t address) const;
+        bool valid() const { return m_valid; }
+        void reset() { m_blocks.clear(), m_valid = false; }
+
+    private:
+        std::vector<Block> m_blocks;
+        bool m_valid = false;
+    };
+
+    // A camera record's pose (the twin's bytes of it: ZGE4's Camera, right .. position at +0xB0, fromWorld at +0x70) as
+    // the game's own camera this frame, taken by the camera's next frustum (runtime/ps2_game_pose.h).
+    void keepTwinPose(uint32_t cameraRecord, const std::vector<uint8_t> &record);
+    // After the player's camera ran: where its camera object stands (the pose holds while it stays there).
+    void noteTwinPlayer(const uint8_t *rdram, uint32_t cameraRecord, uint32_t cameraObject);
+    void dropTwinPose(uint32_t cameraRecord);
 }

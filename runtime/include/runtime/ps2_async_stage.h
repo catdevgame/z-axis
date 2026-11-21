@@ -67,7 +67,7 @@ public:
         if (m_done.load(std::memory_order_acquire) >= target || isWorkerThread())
             return;
         m_drainWaits.fetch_add(1u, std::memory_order_relaxed);
-        ps2x::ftrace::Scope traceWait(ps2x::ftrace::kDrainBegin, ps2x::ftrace::kDrainEnd, m_traceId);
+        zx::ftrace::Scope traceWait(zx::ftrace::kDrainBegin, zx::ftrace::kDrainEnd, m_traceId);
         // Most waits are short: spin a little before sleeping.
         for (int spin = 0; spin < 2000; ++spin)
         {
@@ -118,7 +118,7 @@ public:
         return (info.user_time.seconds + info.system_time.seconds) * 1e3 +
                (info.user_time.microseconds + info.system_time.microseconds) * 1e-3;
 #else
-        return ps2x::threadCpuMilliseconds(m_cpuHandle.load(std::memory_order_acquire));
+        return zx::threadCpuMilliseconds(m_cpuHandle.load(std::memory_order_acquire));
 #endif
     }
 
@@ -135,12 +135,12 @@ private:
         pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
         m_machThread.store(pthread_mach_thread_np(pthread_self()), std::memory_order_release);
 #elif defined(_WIN32)
-        m_cpuHandle.store(ps2x::currentThreadCpuHandle(), std::memory_order_release);
+        m_cpuHandle.store(zx::currentThreadCpuHandle(), std::memory_order_release);
 #elif defined(__linux__)
         // Without a name the worker shows under its parent's (Linux threads
         // inherit it): three "GameThread"s in top.
         pthread_setname_np(pthread_self(), m_name);
-        m_cpuHandle.store(ps2x::currentThreadCpuHandle(), std::memory_order_release);
+        m_cpuHandle.store(zx::currentThreadCpuHandle(), std::memory_order_release);
 #endif
         for (;;)
         {
@@ -156,7 +156,7 @@ private:
             }
             try
             {
-                ps2x::ftrace::Scope traceTask(ps2x::ftrace::kTaskBegin, ps2x::ftrace::kTaskEnd, m_traceId);
+                zx::ftrace::Scope traceTask(zx::ftrace::kTaskBegin, zx::ftrace::kTaskEnd, m_traceId);
                 task();
             }
             catch (const std::exception &e)

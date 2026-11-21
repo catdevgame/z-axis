@@ -7,14 +7,14 @@ rounds check against instead of recording again.
     readable_corpus.py record [ROUTE ...]   record the routes (all by default) into <store>/v<N>/<route>/
     readable_corpus.py index                (re)write <store>/v<N>/index.json and index.txt
     readable_corpus.py status               the index's summary: routes, sizes, uncovered functions
-    readable_corpus.py folders FUNCTION     the folders that cover a function (for ps2xFnCheck)
+    readable_corpus.py folders FUNCTION     the folders that cover a function (for zx-fncheck)
     readable_corpus.py routes               the routes and what they do
     readable_corpus.py situations           the game situation each route plays (SITUATIONS: pruning)
 
 Options:
   --store DIR     default $ZAXIS_SCRATCH/reccorpus (the version folder is added; outside
                   /tmp, which macOS clears at a restart)
-  --build DIR     the z-axis build with the runner and ps2xFnCheck (required: your
+  --build DIR     the z-axis build with the runner and zx-fncheck (required: your
                   worktree's own, never the main checkout's): its registry decides
                   what is recorded
   --jobs N        routes recorded side by side (default 2; each runner takes 2 GB and
@@ -34,7 +34,7 @@ the header, are version 5's corpus): recordings of another version are
 another corpus. Since round 14 the recorder learns
 what callees write from page protection (about 0.1 ms a callee call, against
 the full RAM diff's 6 to 8 ms), so each route is one pass (`--passes all`,
-the default) with a cap per function in the function list (PS2X_FNREC=@file):
+the default) with a cap per function in the function list (ZX_FNREC=@file):
   light   every registered function but the heavy ones: 200 calls, at most
           8 a vsync;
   heavy   functions whose calls make many calls (an average of 8 or more in
@@ -44,13 +44,13 @@ the default) with a cap per function in the function list (PS2X_FNREC=@file):
 100 / 1).
 
 Coverage routes (round covrec, the `cov-` routes): `--new-blocks SEED` records
-with PS2X_FNREC_NEW_BLOCKS=1 and PS2X_FNREC_COVERED=SEED (fncheck_corpus.py
+with ZX_FNREC_NEW_BLOCKS=1 and ZX_FNREC_COVERED=SEED (fncheck_corpus.py
 coverage --covered-out): a call is kept only if it runs a block of its
 original that neither the seed (the corpus so far) nor a kept call ran, so a
 route can try every call (up to NB_PER_VSYNC a vsync, 1 for heavy functions)
 for as long as it plays and keeps only the new paths. `--mash-coverage FILE`
 (fncheck_corpus.py coverage --json) weights mash's actions and spots by the
-uncovered blocks each skater state reaches (routes.py MASH_COVERAGE). All passes: PS2X_FNREC_ATOMIC=1, PS2X_READABLE=off, unpaced (PS2X_UNPACED=1),
+uncovered blocks each skater state reaches (routes.py MASH_COVERAGE). All passes: ZX_FNREC_ATOMIC=1, ZX_READABLE=off, unpaced (ZX_UNPACED=1),
 the null GS and VU1 skipped (but the route gs, which draws), a scratch HOME,
 card and support folder per run.
 
@@ -80,7 +80,7 @@ except Exception:   # (a worker's copy of the checks alone: no tooling around th
     SCRATCH_ROOT = os.path.expanduser('~')
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PS2RECOMP = ztree.TREE
+ZAXIS_TREE = ztree.TREE
 WORKSPACE = zaxis_paths.get('AI_WORKSPACE', required=False) or ''  # tools/, recomp/ (its data links)
 sys.path.insert(0, HERE)
 import fnrec_index  # noqa: E402
@@ -89,7 +89,7 @@ import fnrec_index  # noqa: E402
 # the main menu: about vsync 800; the lc and career routes record it), so a
 # 600 s pass reaches play, and the heavy pass's 100 calls are not all spent
 # before it.
-FRONT_END_SKIPPED = {'PS2X_FNREC_FROM': '800'}
+FRONT_END_SKIPPED = {'ZX_FNREC_FROM': '800'}
 # Routes: (kind, what, stop tick or None, extra environment, description).
 #   pad     a pad script (tools/<what>.py script), vsync clock, to the stop tick
 #   input   a played session, ab_inputs/<what>.txt (tools/playbot/ai.py), to the stop tick
@@ -102,7 +102,7 @@ ROUTES = {
     'grinds': ('route', 'boot; tutorial; grindtricks', None, {},
                'grind tricks combined on the rail (grindx: the grind enter\'s paths)'),
     # (One input: port 1 mirrors it, as before pad port 1 went empty without a second gamepad.)
-    'splitscreen': ('route', 'boot; splitscreen; skate 2', None, {'PS2X_PAD_PORT1': 'mirror'},
+    'splitscreen': ('route', 'boot; splitscreen; skate 2', None, {'ZX_PAD_PORT1': 'mirror'},
                     'MULTIPLAYER\'s default game: split screen, skated'),
     'movielot': ('route', 'boot; career 1; skate 2; traffic 4; challenge complete', None, {},
                  'the Movie Lot career: skated, taxi hits, a challenge played to its end'),
@@ -114,7 +114,7 @@ ROUTES = {
     'levels-5': ('route', 'boot; freeskate 5; skate 1', None, FRONT_END_SKIPPED, 'free skate in level 5, one round of skating (a segment of the old levels route)'),
     'levels-6': ('route', 'boot; freeskate 6; skate 1', None, FRONT_END_SKIPPED, 'free skate in level 6, one round of skating (a segment of the old levels route)'),
     'levels-8': ('route', 'boot; freeskate 8; skate 1', None, FRONT_END_SKIPPED, 'free skate in level 8, one round of skating (a segment of the old levels route)'),
-    'gs': ('route', 'boot; tutorial; skate 1', None, dict(FRONT_END_SKIPPED, PS2X_GS_NULL=None, PS2X_VU1_SKIP=None),
+    'gs': ('route', 'boot; tutorial; skate 1', None, dict(FRONT_END_SKIPPED, ZX_GS_NULL=None, ZX_VU1_SKIP=None),
            'the Tutorial with the GS on (the CPU renderer): the renderers the null GS never calls'),
     # Round 12 (engine): routes to the functions the ten above never reached.
     'tricks-a': ('route', 'boot; tutorial; stalltrick UP,UP; stalltrick DOWN; stalltrick LEFT; stalltrick RIGHT; '
@@ -144,20 +144,20 @@ ROUTES = {
 # (tweaks, logged in the route's mash-SEED.jsonl).
 MASH_TWEAKS = 'tweaks=juice,push,tricks'
 APP_RESOURCES = os.path.join(WORKSPACE, 'dist', 'Aggressive Inline.app', 'Contents', 'Resources')
-ZOO_ON = {'PS2X_ZOO': '1', 'PS2X_XBOX_CONVERTED': os.path.join(APP_RESOURCES, 'xbox-converted')}
+ZOO_ON = {'ZX_ZOO': '1', 'ZX_XBOX_CONVERTED': os.path.join(APP_RESOURCES, 'xbox-converted')}
 # Estate's files: the app's when it was built with a GameCube image, else READABLE_ESTATE_DIR.
-ESTATE_ON = dict(ZOO_ON, PS2X_ESTATE='1',
-                 PS2X_ESTATE_DIR=os.environ.get('READABLE_ESTATE_DIR') or os.path.join(APP_RESOURCES, 'estate'))
+ESTATE_ON = dict(ZOO_ON, ZX_ESTATE='1',
+                 ZX_ESTATE_DIR=os.environ.get('READABLE_ESTATE_DIR') or os.path.join(APP_RESOURCES, 'estate'))
 for _k, _name in enumerate(('Tutorial', 'Movie Lot', 'Civic Center', 'Industrial', 'Boardwalk', 'Cannery',
                             'Airfield', 'Museum')):
     ROUTES['mash-%d' % _k] = ('route', 'boot; career %d; mash 10800 %d %s; mash 10800 %d %s' % (
         _k, 100 + _k, MASH_TWEAKS, 200 + _k, MASH_TWEAKS), None, FRONT_END_SKIPPED,
         'mash: the %s career, six minutes of seeded play' % _name)
 ROUTES['mash-zoo'] = ('route', 'boot; freeskate 7; mash 10800 108 %s; mash 10800 208 %s' % (MASH_TWEAKS, MASH_TWEAKS), None,
-                      dict(FRONT_END_SKIPPED, **ZOO_ON), 'mash: the Zoo in free skate (PS2X_ZOO, the app\'s Xbox files), six minutes')
+                      dict(FRONT_END_SKIPPED, **ZOO_ON), 'mash: the Zoo in free skate (ZX_ZOO, the app\'s Xbox files), six minutes')
 ROUTES['mash-estate'] = ('route', 'boot; freeskate 8; mash 10800 109 %s; mash 10800 209 %s' % (MASH_TWEAKS, MASH_TWEAKS),
                          None, dict(FRONT_END_SKIPPED, **ESTATE_ON),
-                         'mash: Estate in free skate (PS2X_ESTATE, the app\'s files; the Zoo on before it), six minutes')
+                         'mash: Estate in free skate (ZX_ESTATE, the app\'s files; the Zoo on before it), six minutes')
 # Round covrec: routes for the paths no route above reaches, recorded with
 # --new-blocks (only calls that run a block of the original no recording ran
 # are kept). Longer mash runs per level, weighted by the uncovered blocks
@@ -234,22 +234,22 @@ ROUTES['cov-traffic'] = ('route', 'boot; career 1; traffic 12; traffic 12 24 0.5
 # Tutorial's goals, the pause menu, a save), every call tried, new paths kept.
 ROUTES['cov-lc'] = ('pad', 'logiccheck', 11400, {}, 'covrec: the logiccheck input, new paths only')
 ROUTES['cov-career'] = ('pad', 'careercheck', 5000, {}, 'covrec: the careercheck input, new paths only')
-ROUTES['cov-splitscreen'] = ('route', 'boot; splitscreen; skate 2', None, {'PS2X_PAD_PORT1': 'mirror'},
+ROUTES['cov-splitscreen'] = ('route', 'boot; splitscreen; skate 2', None, {'ZX_PAD_PORT1': 'mirror'},
                              'covrec: split screen skated, new paths only')
 # Round gamefix (game side): set-ups for the paths the cov- routes still
 # missed (tools/routes.py combos, pickuprun, doublegrindenter, spine TURN).
 # cov-combos and cov-dgenter are recorded with --new-blocks; the cov-npcs-*
 # routes with the classic recorder and only updatePickup (`--passes light
 # --only updatePickup`: the list without caps, so the route's environment
-# sets them): PS2X_FNREC_MIN_CALLS=7 keeps only the calls of an NPC run into
+# sets them): ZX_FNREC_MIN_CALLS=7 keeps only the calls of an NPC run into
 # (the other NPCs' frames make 5 or 6 calls), 3000 calls, 64 a vsync (about
 # 20 NPCs are updated a frame).
 ROUTES['cov-combos'] = ('route', 'boot; tutorial; combos; combos sf,fm,ms', None, FRONT_END_SKIPPED,
                         'gamefix: the SF, FM and MS grind combos asked for on the rail (jizz kept by a tuning poke)')
 for _k, _name in ((1, 'Movie Lot'), (4, 'Boardwalk')):
     ROUTES['cov-npcs-%d' % _k] = ('route', 'boot; career %d; pickuprun 40 300' % _k, None,
-                                  dict(FRONT_END_SKIPPED, PS2X_FNREC_MIN_CALLS='7', PS2X_FNREC_MAX='3000',
-                                       PS2X_FNREC_PER_VSYNC='64'),
+                                  dict(FRONT_END_SKIPPED, ZX_FNREC_MIN_CALLS='7', ZX_FNREC_MAX='3000',
+                                       ZX_FNREC_PER_VSYNC='64'),
                                   'gamefix: the %s career\'s NPCs run into (updatePickup: knocked back, '
                                   'the get-up)' % _name)
 ROUTES['cov-dgenter'] = ('route', 'boot; career 7; doublegrind; doublegrind; ' + '; '.join(
@@ -269,7 +269,7 @@ ROUTES['cov-spineturn'] = ('route', 'boot; freeskate 0; spine + 14 -31 150 0 L1;
 # (tools/routes.py controls), recorded with the classic recorder and --only
 # the controls steps (with --new-blocks the steps rested through the short
 # presses). Its L1+R1 and R2 presses reach no new block: the pad's pressed
-# word (PadState +0x0C) stays 0 for buttons held through PS2X_CONTROL.
+# word (PadState +0x0C) stays 0 for buttons held through ZX_CONTROL.
 ROUTES['cov-controls'] = ('route', 'boot; tutorial; controls', None, FRONT_END_SKIPPED,
                           'gamehand: the left stick as an analog stick in and past the dead zone (readStick)')
 # Round gamehand3 (game side): soundEvent's (0x1C2558) options and music
@@ -278,7 +278,7 @@ ROUTES['cov-controls'] = ('route', 'boot; tutorial; controls', None, FRONT_END_S
 # and play in every career level (mash), recorded with --new-blocks --only
 # the sound functions.
 ROUTES['cov-sound'] = ('route', 'boot; sound front; freeskate 0; sound pause; skate 1; menu; splitscreen; skate 1; '
-                       'sound pause 3; skate 1', None, {'PS2X_PAD_PORT1': 'mirror'},
+                       'sound pause 3; skate 1', None, {'ZX_PAD_PORT1': 'mirror'},
                        'gamehand3: the sound options (volumes, playlist) in the front end, a level and split screen')
 ROUTES['cov-sound-play'] = ('route', 'boot; ' + '; menu; '.join('career %d; mash 2400 %d' % (_k, 700 + _k)
                                                                 for _k in range(0, 8)), None, {},
@@ -289,8 +289,8 @@ ROUTES['cov-sound-play'] = ('route', 'boot; ' + '; menu; '.join('career %d; mash
 # Credits, every cheat code typed and the list), a Timed Run played out twice
 # (the statistics, the Timed Game menu), every air trick of the trick table,
 # every Multiplayer game to its results, the card dialogs with slot 1 unformatted and slot 2 empty
-# (PS2X_MC_SLOT1/2). tools/routes.py options, timedrun, timedend, airtricks, mpgame.
-ROUTES['cov-frontend'] = ('route', 'boot; options', None, {'PS2X_PAD_PORT1': 'mirror'},
+# (ZX_MC_SLOT1/2). tools/routes.py options, timedrun, timedend, airtricks, mpgame.
+ROUTES['cov-frontend'] = ('route', 'boot; options', None, {'ZX_PAD_PORT1': 'mirror'},
                           'paths1: Options (Save & Load, Sound, Controller, Media Viewer, Credits, Cheats: every code)')
 ROUTES['cov-timedrun'] = ('route', 'boot; timedrun 3; mash 4200 901; timedend 1; mash 2000 902; timedend 3; '
                           'timedrun 5; mash 3000 903; timedend 3', None, {},
@@ -299,26 +299,26 @@ ROUTES['cov-airtricks'] = ('route', 'boot; tutorial; airtricks all; airtricks al
                            FRONT_END_SKIPPED, 'paths1: every air trick of the trick table (taps + Square; Circle), '
                            'the air time poked (test only)')
 ROUTES['cov-mpgames'] = ('route', 'boot; splitscreen; ' + '; '.join('mpgame %d 300 %d' % (g, 30 + g) for g in (2, 4, 3, 1, 5)),
-                         None, {'PS2X_PAD_PORT1': 'mirror'},
+                         None, {'ZX_PAD_PORT1': 'mirror'},
                          'paths1: split screen, the Multiplayer games (Egg Hunt, Animal Rescue, Twenty One, Best Trick) '
                          'played to their results (a short mash, then UP held to the clock), Sound Options')
-ROUTES['cov-cards'] = ('route', 'boot; options nocheats', None, {'PS2X_MC_SLOT1': 'unformatted', 'PS2X_MC_SLOT2': 'none'},
+ROUTES['cov-cards'] = ('route', 'boot; options nocheats', None, {'ZX_MC_SLOT1': 'unformatted', 'ZX_MC_SLOT2': 'none'},
                        'paths1: the card dialogs with slot 1 unformatted and slot 2 empty (Save & Load)')
-ROUTES['cov-devmenu'] = ('route', 'boot; tutorial; devmenu; skate 1', None, dict(FRONT_END_SKIPPED, PS2X_DEV_MENU='1'),
-                         'paths1: the hidden debug menu (PS2X_DEV_MENU=1): Toggle Debug, Respawn, every Tuning '
+ROUTES['cov-devmenu'] = ('route', 'boot; tutorial; devmenu; skate 1', None, dict(FRONT_END_SKIPPED, ZX_DEV_MENU='1'),
+                         'paths1: the hidden debug menu (ZX_DEV_MENU=1): Toggle Debug, Respawn, every Tuning '
                          'category, the Art Viewer and its screen dump')
 ROUTES['cov-autoload'] = ('route', 'boot; options nocheats; career 1; skate 1', None,
-                          {'PS2X_ROUTES_CARD': os.path.join(WORKSPACE, 'recomp', 'run', 'mc-sweep-park')},
+                          {'ZX_ROUTES_CARD': os.path.join(WORKSPACE, 'recomp', 'run', 'mc-sweep-park')},
                           'paths1: a copy of the unlocked card with a saved park (autoload at boot, Save & Load '
                           'over it, a career with the loaded save)')
 # The game modes no retail path enters (the mode table 0x24B810: 1 the motion viewer, 4, 7),
-# switched to by PS2X_GUEST_CALL from the level's update (0x1ACA68) and back to play (2) from
+# switched to by ZX_GUEST_CALL from the level's update (0x1ACA68) and back to play (2) from
 # the mode's own update (test only: it changes what the game does).
 _MODE_CALLS = ','.join(['0x1ACA68@4000:0x1A70F0:1', '0x1ABC10@4600:0x1A70F0:2', '0x1ACA68@5000:0x1A70F0:4',
                         '0x1ACC90@5600:0x1A70F0:2', '0x1ACA68@6000:0x1A70F0:7', '0x1C02D8@6600:0x1A70F0:2'])
-ROUTES['cov-devmodes'] = ('route', 'boot; tutorial; buttons 6000', None, dict(FRONT_END_SKIPPED, PS2X_GUEST_CALL=_MODE_CALLS),
+ROUTES['cov-devmodes'] = ('route', 'boot; tutorial; buttons 6000', None, dict(FRONT_END_SKIPPED, ZX_GUEST_CALL=_MODE_CALLS),
                           'paths1: the developer game modes 1 (motion viewer), 4 and 7 entered from the Tutorial '
-                          '(PS2X_GUEST_CALL), every button held in turn, back to play')
+                          '(ZX_GUEST_CALL), every button held in turn, back to play')
 ROUTES['cov-airtricks2'] = ('route', 'boot; tutorial; airtricks 0,33,34,35,36,37,38,18,39,44,45,47,48,49,51,53,54 -40 SQUARE jizz; '
                             'airchain 60 41; airtricks 0,33,34,35,36,37,38 -60 SQUARE jizz', None, FRONT_END_SKIPPED,
                             'paths1: the special tricks (jizzed, every trick unlocked: test only), chains of air tricks '
@@ -342,10 +342,10 @@ ROUTES['cov-pe-themes'] = ('route', 'boot; pe2enter 0; pe2terrain; pe2objects 1;
                            'paths2: Park Editor in the three other themes: terrain, one piece of each group, rails, '
                            'start, a test run')
 ROUTES['cov-pe-park'] = ('route', 'boot; pe2enter 1 load; pe2rails; pe2objects 1; pe2test; pe2load; pe2clear; pe2exit; '
-                         'pe2play 2', None, {'PS2X_ROUTES_CARD': os.path.join(WORKSPACE, 'recomp', 'run', 'mc-sweep-park')},
+                         'pe2play 2', None, {'ZX_ROUTES_CARD': os.path.join(WORKSPACE, 'recomp', 'run', 'mc-sweep-park')},
                          'paths2: a copy of the card with a saved park (mc-sweep-park): Park Editor > Load Saved '
                          'Park, edited, test run, Load Park, Clear Park, Exit; FREE SKATE > Editor Level with it '
-                         '(needs routes.py start\'s PS2X_ROUTES_CARD, paths1)')
+                         '(needs routes.py start\'s ZX_ROUTES_CARD, paths1)')
 ROUTES['cov-pe-rails'] = ('route', 'boot; pe2enter 1; pe2railrow 2; pe2test; pe2save; pe2exit; pe2play 1', None, {},
                          'paths2: Park Editor: the groups that take rails, two pieces each, rails placed, changed and '
                          'deleted on each; a test run, saved, played in FREE SKATE')
@@ -357,7 +357,7 @@ ROUTES['cov-pe-pieces'] = ('route', 'boot; pe2enter 0; pe2towers; pe2objects 6; 
 # project file with the in-level flag): Cannery's "Construct and Score" (the frozen room's
 # computer, after Industrial's Cannery Key), Industrial's "Clear the Junkyard" (the junkyard
 # machine), Airfield's "Place and Trick on N Items" (the 'B' room's green glow). Calling it by
-# PS2X_GUEST_CALL from the level's update (0x1ACA68) sets the editor object, then the EE jumps
+# ZX_GUEST_CALL from the level's update (0x1ACA68) sets the editor object, then the EE jumps
 # to 0xFFFFFFF0 (guest-branch:missing-target; its file loads cannot wait inside a guest call).
 # Round paths3: the careers' in-level editors, reached by their givers (tools/routes.py
 # keys, giver, tool, dochallenge). On the unlocked card (mc-sweep-unlocked) with the seven
@@ -365,7 +365,7 @@ ROUTES['cov-pe-pieces'] = ('route', 'boot; pe2enter 0; pe2towers; pe2objects 6; 
 # record's +8, copied into Player +0x5E8 at level load), as a career with every key has them;
 # each giver is the level script's NPC object of that name (its node's position, from the
 # scene's name-hash table), talked to with CIRCLE; mash afterwards without teleports.
-_UNLOCKED = {'PS2X_ROUTES_CARD': os.path.join(WORKSPACE, 'recomp', 'run', 'mc-sweep-unlocked')}
+_UNLOCKED = {'ZX_ROUTES_CARD': os.path.join(WORKSPACE, 'recomp', 'run', 'mc-sweep-unlocked')}
 ROUTES['cov-crane'] = ('route', 'boot; keys; career 3; tweaks; giver lvleditor; editing; tool crane 3; dochallenge; '
                        'mash 3600 31 teleport=0', None, _UNLOCKED,
                        'paths3: Industrial "Clear the Junkyard": the junkyard machine (lvleditor), the Crane Tool '
@@ -396,7 +396,7 @@ ROUTES['cov-construct'] = ('route', 'boot; keys; career 5; tweaks; giver cannery
 # Best Trick, Egg Hunt, Twenty One, Animal Rescue); paths1's mpgame chose split screen's pause
 # entries instead (Resume, Game Select, Trick List, ...), so no game but Most Points ran.
 ROUTES['cov-mpresults'] = ('route', 'boot; splitscreen; mpround 3 900 41 3; mpround 2 900 42 3; mpround 4 900 43 3; '
-                           'mpround 1 900 44 3; mpround 0 600 45 2', None, {'PS2X_PAD_PORT1': 'mirror'},
+                           'mpround 1 900 44 3; mpround 0 600 45 2', None, {'ZX_PAD_PORT1': 'mirror'},
                            'paths4: split screen, each Multiplayer game (Twenty One, Egg Hunt, Animal Rescue, Best '
                            'Trick, Most Points) chosen from the Multiplayer menu, played (mash, every live trigger '
                            'zone touched, bails: test only), to the end of its clock, the results; Game Select '
@@ -429,7 +429,7 @@ ROUTES['cov-quit'] = ('route', 'boot; career 1; skate 1; quit', None, {},
                       'game and engine shutdown, Exit')
 ROUTES['cov-quit-fe'] = ('route', 'boot; quit', None, {},
                          'paths4: the game\'s exit from the main menu (main\'s loop flag poked: test only)')
-# The level emitters and the explosion effect (test only: PS2X_GUEST_CALL from the play
+# The level emitters and the explosion effect (test only: ZX_GUEST_CALL from the play
 # mode's update 0x1ACA68 at the level's first frame): every emitter the level script names
 # (setEmitterState's hashes in the level's .BIN; most start off and are turned on only by a
 # challenge's anim events) turned on by FUN_001C8F00(hash, 1), the native's own callee, and
@@ -450,23 +450,23 @@ _EMITTERS = {
 for _k, _hashes in _EMITTERS.items():
     _calls = ','.join(['0x1ACA68@1:0x1C8F00:0x%s:1' % _h for _h in _hashes.split()] + ['0x1ACA68@1:0x1CAC70:0x2A76F0:1'])
     ROUTES['cov-emitters-%d' % _k] = ('route', 'boot; career %d; tweaks; skate 2; mash 900 %d' % (_k, 80 + _k), None,
-                                      dict(_UNLOCKED, PS2X_GUEST_CALL=_calls),
+                                      dict(_UNLOCKED, ZX_GUEST_CALL=_calls),
                                       'paths4: career level-select entry %d with every emitter of its script turned '
-                                      'on and an explosion at the skater (test only: PS2X_GUEST_CALL), skated' % _k)
+                                      'on and an explosion at the skater (test only: ZX_GUEST_CALL), skated' % _k)
 # The splash effect (createSplash's callee FUN_001CB980(position, &(size, speed), f12); test only:
-# PS2X_GUEST_CALL at the skater with the pair 0.5, 0 at 0x269D40) in the Boardwalk, at the level's
+# ZX_GUEST_CALL at the skater with the pair 0.5, 0 at 0x269D40) in the Boardwalk, at the level's
 # first frame and again later.
 ROUTES['cov-splash'] = ('route', 'boot; career 4; tweaks; skate 2; mash 600 91', None,
-                        dict(_UNLOCKED, PS2X_GUEST_CALL='0x1ACA68@1:0x1CB980:0x2A76F0:0x269D40,'
+                        dict(_UNLOCKED, ZX_GUEST_CALL='0x1ACA68@1:0x1CB980:0x2A76F0:0x269D40,'
                                                         '0x1ACA68@4000:0x1CB980:0x2A76F0:0x269D40'),
-                        'paths4: the splash effect at the skater (test only: PS2X_GUEST_CALL) in the Boardwalk, skated')
+                        'paths4: the splash effect at the skater (test only: ZX_GUEST_CALL) in the Boardwalk, skated')
 # zfile's watcher (watchFileOperation 0x13EFD0: on only while 0x273A98 is set, which nothing in
 # the game does; test only: poked after boot), then a level loaded and skated.
 ROUTES['cov-filewatch'] = ('route', 'boot; poke 0x273A98 1; career 1; skate 1; menu; freeskate 0; skate 1', None, {},
                            'paths4: zfile\'s file-operation watcher switched on (test only: a poke), a career level '
                            'and a free skate loaded and skated')
-# Round paths5: code no shipped data reaches, run by test-only guest calls (PS2X_GUEST_CALL, with
-# PS2X_READABLE=off as every recording), and the careers' editor pieces ridden.
+# Round paths5: code no shipped data reaches, run by test-only guest calls (ZX_GUEST_CALL, with
+# ZX_READABLE=off as every recording), and the careers' editor pieces ridden.
 # The ragdoll: every player loads assets\dynamics\edwards.zad (FUN_001A7160: 10 bodies, 9
 # constraints; Player +0x0C), the only ZDYN on the disc with constraints, but its stepper FUN_001A4968
 # (player, frame time) has no caller (a cut ragdoll crash), nor is the ragdoll ever attached to the
@@ -478,9 +478,9 @@ ROUTES['cov-filewatch'] = ('route', 'boot; poke 0x273A98 1; career 1; skate 1; m
 _RAGDOLL = ','.join(('0x19B118@%d:0x159AC0:0x72FDA0:0x970A50' if _k % 10 == 0 else '0x19B118@%d:0x1A4968:0x974C00')
                     % (3200 + 20 * _k) for _k in range(150))
 ROUTES['cov-ragdoll'] = ('route', 'boot; career 6; player; states 1500; tweaks; skate 1', None,
-                         dict(_UNLOCKED, PS2X_GUEST_CALL=_RAGDOLL),
+                         dict(_UNLOCKED, ZX_GUEST_CALL=_RAGDOLL),
                          'paths5: Airfield, the players\' ragdoll (edwards.zad) posed on the standing skater and '
-                         'stepped by its stepper (test only: PS2X_GUEST_CALL of wakeDynamics and the uncalled '
+                         'stepped by its stepper (test only: ZX_GUEST_CALL of wakeDynamics and the uncalled '
                          'FUN_001A4968), then skated')
 # The lens flare (fx init sets a sun position for the Movie Lot, Boardwalk and Industrial but never
 # starts weather kinds 5 and 6: FUN_001C8B08(6) by guest call), then one particle of each effect class
@@ -494,9 +494,9 @@ _FXCLASSES = ','.join(['0x1ACA68@3300:0x1C8B08:6'] +
                        '0x1ACA68@5100:0x1D0230:0x2A76F0:0x255070', '0x1ACA68@5200:0x1D2090:0x2A76F0:0x255070',
                        '0x1ACA68@5300:0x1D5700:0x2A76F0:0'])
 ROUTES['cov-fxclasses'] = ('route', 'boot; career 1; tweaks; skate 2; mash 900 94', None,
-                           dict(_UNLOCKED, PS2X_GUEST_CALL=_FXCLASSES),
+                           dict(_UNLOCKED, ZX_GUEST_CALL=_FXCLASSES),
                            'paths5: the Movie Lot\'s lens flare and the effect classes no shipped emitter '
-                           'spawns (test only: PS2X_GUEST_CALL), skated')
+                           'spawns (test only: ZX_GUEST_CALL), skated')
 # Airfield's "Place and Trick on 6 Items": the Vacuum Tool, Do challenge, each placed piece ridden into
 # from its four sides (piecetouch: skaterEffects calls FUN_001C6728 for a piece ridden); the
 # Tutorial left by the pause menu (level 7's teardown FUN_001C7DB8).
@@ -514,16 +514,16 @@ ROUTES['cov-pieces'] = ('route', 'boot; keys; career 6; tweaks; giver hangerBEdi
 _REPLAY = ','.join(['0x1D9CF8@%d:0x1D9908:%d' % (3200 + 25 * _k, (_k + 1) % 2) for _k in range(80)] +
                    ['0x1D9CF8@5300:0x1D9908:1', '0x1D9CF8@5350:0x1D9908:3', '0x1D9CF8@5360:0x1D9908:2',
                     '0x1D9CF8@5500:0x1D9908:0'])
-# The game's own CD client (PS2X_DISC=cdvd: the runtime's disc layer off, the original's file device
+# The game's own CD client (ZX_DISC=ps2: the runtime's disc layer off, the original's file device
 # and sceCd calls run): boot, a career level and a free skate loaded and skated.
 ROUTES['cov-cdvd'] = ('route', 'boot; career 1; skate 1; menu; freeskate 0; skate 1', None,
-                      dict(_UNLOCKED, PS2X_DISC='cdvd'),
-                      'paths5: the files read through the game\'s CD client (PS2X_DISC=cdvd): boot, a career level '
+                      dict(_UNLOCKED, ZX_DISC='ps2'),
+                      'paths5: the files read through the game\'s CD client (ZX_DISC=ps2): boot, a career level '
                       'and a free skate')
 ROUTES['cov-replay'] = ('route', 'boot; freeskate 0; tweaks; mash 6000 96', None,
-                        dict(_UNLOCKED, PS2X_GUEST_CALL=_REPLAY),
+                        dict(_UNLOCKED, ZX_GUEST_CALL=_REPLAY),
                         'paths5: the Movie Lot\'s free skate under mash with the input recorder started and '
-                        'stopped (test only: PS2X_GUEST_CALL of setReplayMode), then a playback')
+                        'stopped (test only: ZX_GUEST_CALL of setReplayMode), then a playback')
 # Longer, denser: a start and an off 12 vsyncs apart every 25 vsyncs, and every 600 vsyncs a record,
 # stop (50 vsyncs on: a stop or playback sooner hung the game in tests), playback and off; Movie Lot
 # only (a recording start hung the Boardwalk's free skate).
@@ -537,14 +537,14 @@ while _t < 8300:
     _REPLAY2 += ['0x1D9CF8@%d:0x1D9908:1' % _t, '0x1D9CF8@%d:0x1D9908:0' % (_t + 12)]
     _t += 25
 ROUTES['cov-replay2'] = ('route', 'boot; freeskate 0; tweaks; mash 12000 98', None,
-                         dict(_UNLOCKED, PS2X_GUEST_CALL=','.join(_REPLAY2)),
+                         dict(_UNLOCKED, ZX_GUEST_CALL=','.join(_REPLAY2)),
                          'paths5: as cov-replay, longer, with a playback every 600 vsyncs (test only)')
-# Round paths6. The movies through the game's own ps2Movie stream and sound code (PS2X_MOVIES=hle:
+# Round paths6. The movies through the game's own ps2Movie stream and sound code (ZX_MOVIES=hle:
 # the runtime's host movie player off): the careercheck input from boot to vsync 600, the first logo
 # movie (the HLE then stalls in GetPicture from about vsync 185: drafter23, the audio ring is never
 # drained).
-ROUTES['cov-movies'] = ('pad', 'careercheck', 600, {'PS2X_MOVIES': 'hle'},
-                        'paths6: boot with the game\'s own movie stream code (PS2X_MOVIES=hle), the first logo movie')
+ROUTES['cov-movies'] = ('pad', 'careercheck', 600, {'ZX_MOVIES': 'hle'},
+                        'paths6: boot with the game\'s own movie stream code (ZX_MOVIES=hle), the first logo movie')
 # The weather (snow: the Civic Center; rain and lightning: Airfield) suspended and resumed as the level
 # scripts' suspendWeatherEffects / resumeWeatherEffects natives do (FUN_001C8EC0 writes 0x2796C8 and
 # 0x2796C4 = 1, FUN_001C8ED0 0x2796C4 = 0: here by poke), the particle budget (fx init: 0x273DD8 =
@@ -562,15 +562,15 @@ for _k, _name in ((2, 'the Civic Center (snow)'), (6, 'Airfield (rain, lightning
 # fn_153688 built at load: +0x20 the root joint, +0x2C 10, +0x30 9) is stepped by updateDynamics
 # (0x15B1B8: a0 the system, a1 0, f12 the frame time, as groundMove 0x19B118 has it) every vsync for
 # 400 vsyncs after each wakeDynamics (0x159AC0: the skater's scene object 0x72FDA0, the system: its
-# bodies posed on the skater's bones), three times while skating (test only: PS2X_GUEST_CALL).
+# bodies posed on the skater's bones), three times while skating (test only: ZX_GUEST_CALL).
 _RAGDOLL2 = []
 for _w in (4000, 4700, 5400):
     _RAGDOLL2 += ['0x19B118@%d:0x159AC0:0x72FDA0:0x970A50' % _w]
     _RAGDOLL2 += ['0x19B118@%d:0x15B1B8:0x970A50:0' % _v for _v in range(_w + 1, _w + 400)]
 ROUTES['cov-ragdoll2'] = ('route', 'boot; career 6; player; tweaks; skate 3; mash 2400 97; player', None,
-                          dict(_UNLOCKED, PS2X_GUEST_CALL=','.join(_RAGDOLL2)),
+                          dict(_UNLOCKED, ZX_GUEST_CALL=','.join(_RAGDOLL2)),
                           'paths6: Airfield, the players\' ragdoll (edwards.zad) posed on the skater and solved by '
-                          'updateDynamics every vsync (test only: PS2X_GUEST_CALL), skated')
+                          'updateDynamics every vsync (test only: ZX_GUEST_CALL), skated')
 # What the game's files never give the solver (zgehand20, test only; the addresses as cov-ragdoll2's):
 # the ragdoll system stepped by updateDynamics as above, with a hold on its first bodies
 # (newBodyContactRecord 0x15BB30, dead in the game: the point at the body's box corner held at the
@@ -597,19 +597,19 @@ _CONTACTS += ['0x19B118@%d:W:%#x:0' % (4700 - 1, _HOLD + 0x14),
               '0x19B118@+1:W:%%(*(*(%#x+0x10)+0x3D4)+0x10):0x41F00000' % _HOLD]
 _CONTACTS += ['0x19B118@%d:0x15B1B8:%#x:0' % (_v, _HOLD) for _v in range(4701, 4900)]
 ROUTES['cov-zgh20-bodies'] = ('route', 'boot; career 6; player; tweaks; skate 3; mash 2400 97; player', None,
-                              dict(_UNLOCKED, PS2X_GUEST_CALL=','.join(_CONTACTS)),
+                              dict(_UNLOCKED, ZX_GUEST_CALL=','.join(_CONTACTS)),
                               'zgehand20: Airfield, the ragdoll solved with holds on its bodies, then stepped body by '
                               'body with a large probe: more than 40 faces to test (test only)')
 # The emitter-only effect classes again (paths5's cov-fxclasses spawned each once, while skating): every
 # 40 vsyncs one of them at the skater (0x2A76F0) while it stands (the camera on it), so their draws run:
 # bubble 0x1CF6C8, firefly 0x1D0230, bloodpool 0x1D2090, screenshard 0x1D5010 (the splash's default
-# parameters 0x255070) and 0x1D5700 (its own default), test only (PS2X_GUEST_CALL).
+# parameters 0x255070) and 0x1D5700 (its own default), test only (ZX_GUEST_CALL).
 _FXCLASSES2 = ['0x1ACA68@%d:%#X:0x2A76F0:%s' % (3400 + 40 * _i, _t, '0' if _t == 0x1D5700 else '0x255070')
                for _i, _t in enumerate([0x1CF6C8, 0x1D0230, 0x1D2090, 0x1D5010, 0x1D5700] * 12)]
 ROUTES['cov-fxclasses2'] = ('route', 'boot; career 1; tweaks; states 3000; skate 1', None,
-                            dict(_UNLOCKED, PS2X_GUEST_CALL=','.join(_FXCLASSES2)),
+                            dict(_UNLOCKED, ZX_GUEST_CALL=','.join(_FXCLASSES2)),
                             'paths6: the emitter-only effect classes spawned at the standing skater again and again '
-                            '(test only: PS2X_GUEST_CALL), then skated')
+                            '(test only: ZX_GUEST_CALL), then skated')
 # The texture cache's overflow recovery (FUN_00107AB8, from advanceTextureCache when low passes high,
 # which the flush under 384 KB free otherwise keeps from happening): the overflow flag (0x27A954) and a
 # small free space (0x27A950) poked in a level, test only.
@@ -617,7 +617,7 @@ ROUTES['cov-texcache'] = ('route', 'boot; career 1; skate 1; poke 0x27A954 1; wa
                           'wait 30; skate 1; menu; freeskate 4; poke 0x27A954 1; skate 1', None, {},
                           'paths6: the texture cache overflow recovery and its flush request (test only: pokes)')
 # The level scripts' anim objects and challenge objects sent their syncStart, play and objectiveComplete
-# events (test only: PS2X_GUEST_CALL of scriptSendEvent, FUN_001E05B0: a0 the object's name hash, a1 the
+# events (test only: ZX_GUEST_CALL of scriptSendEvent, FUN_001E05B0: a0 the object's name hash, a1 the
 # sender, a2 the event's), one every 200 vsyncs from vsync 3500, from the play mode's update (0x1ACA68),
 # while mash plays: what a challenge's completion sets off (animations and their anim events: traffic
 # hidden and shown, explosions, the weather suspended, audio syncs). The objects and events are those of
@@ -660,9 +660,9 @@ for _k, _pairs in _SYNCS.items():
     _calls = ['0x1ACA68@%d:0x1E05B0:%#x:0:%#x' % (3500 + 200 * _i, _name_hash(_o), _name_hash(_e))
               for _i, (_o, _e) in enumerate(_p.split(':') for _p in _pairs.split())]
     ROUTES['cov-syncs-%d' % _k] = ('route', 'boot; career %d; tweaks; mash %d %d' % (_k, 400 + 200 * len(_calls) + 1200, 110 + _k),
-                                   None, dict(_UNLOCKED, PS2X_GUEST_CALL=','.join(_calls)),
+                                   None, dict(_UNLOCKED, ZX_GUEST_CALL=','.join(_calls)),
                                    'paths6: career level %d, the script objects sent their syncStart, play and '
-                                   'objectiveComplete events (test only: PS2X_GUEST_CALL of scriptSendEvent), '
+                                   'objectiveComplete events (test only: ZX_GUEST_CALL of scriptSendEvent), '
                                    'under mash' % _k)
 # A card too full for a save (routes.py cardfill: an 8,000 KB file of its own on slot 1's card):
 # Options > Save & Load, then a career's pause > Save.
@@ -693,10 +693,10 @@ ROUTES['cov-pcfs'] = ('route', 'boot; poke 0x2991F8 0x2347B0; career 1; skate 1;
 # library through zfile's watcher task (watchTaskFunction 0x13EC28: the queued seek and read, the seek's
 # completion 0x140B10); only DM2's menus and AI's leftover MENU/MAIN.ZSC ask for it, AI's UILIB.ZAL never
 # (loadlib.py). Here loadZguiLibrary (0x17EF28: name, path, completion) by guest call with strings
-# (PS2X_GUEST_STRINGS, test only): in the front end and again in a level.
+# (ZX_GUEST_STRINGS, test only): in the front end and again in a level.
 ROUTES['cov-asynclib'] = ('route', 'boot; wait 1500; career 1; skate 2', None,
-                          {'PS2X_GUEST_STRINGS': 'P7Front|uilib:PauseMenu.Zif|LoadComplete|P7Level|uilib:SaveLoad.Zif',
-                           'PS2X_GUEST_CALL': '0x100968@1500:0x17EF28:$0:$1:$2,0x100968@5000:0x17EF28:$3:$4:$2'},
+                          {'ZX_GUEST_STRINGS': 'P7Front|uilib:PauseMenu.Zif|LoadComplete|P7Level|uilib:SaveLoad.Zif',
+                           'ZX_GUEST_CALL': '0x100968@1500:0x17EF28:$0:$1:$2,0x100968@5000:0x17EF28:$3:$4:$2'},
                           'paths7: zgui libraries loaded asynchronously (LOADLIB\'s completion form: test only, guest '
                           'calls), in the front end and in the Movie Lot')
 # The explosions paths6's cov-syncs sent events for that never went off: each one's script object handles
@@ -706,7 +706,7 @@ ROUTES['cov-asynclib'] = ('route', 'boot; wait 1500; career 1; skate 2', None,
 # switchStall and scriptObj_daveHelper07's glassBreak; its syncStart plays AnimObj_SnailExplode's
 # animation, whose anim events explode), the Museum's animObj_FireThe_tank (set active by bankRobber's
 # action). Here the state set (setState 0x1E0798: object hash, state hash) or the events sent
-# (scriptSendEvent 0x1E05B0), then syncStart, under mash (test only: PS2X_GUEST_CALL).
+# (scriptSendEvent 0x1E05B0), then syncStart, under mash (test only: ZX_GUEST_CALL).
 _ACTIVE, _SYNC, _READY = 0x04588EA5, 0x0288DE94, 0x0A969129
 _EXPLODE = {
     4: [(3500, 0x1E0798, (0x06B22BE3, _ACTIVE)), (3600, 0x1E05B0, (0x06B22BE3, 0, _SYNC))],
@@ -717,7 +717,7 @@ _EXPLODE = {
 for _k, _calls in _EXPLODE.items():
     ROUTES['cov-explode-%d' % _k] = (
         'route', 'boot; career %d; tweaks; mash 4000 %d' % (_k, 120 + _k), None,
-        dict(PS2X_GUEST_CALL=','.join('0x1ACA68@%d:0x%X:%s' % (_v, _t, ':'.join('%#x' % _a for _a in _a3))
+        dict(ZX_GUEST_CALL=','.join('0x1ACA68@%d:0x%X:%s' % (_v, _t, ':'.join('%#x' % _a for _a in _a3))
                                       for _v, _t, _a3 in _calls)),
         'paths7: career level-select entry %d: an explosion its level script holds back until a challenge sets '
         'the object active (test only: the state set or the events sent by guest call), under mash' % _k)
@@ -734,8 +734,8 @@ ROUTES['cov-skaters'] = ('route', 'boot; ' + '; '.join('freeskate 1 %d; states 2
 # file), stopped (poke), played back, stopped again (test only).
 ROUTES['cov-padrec'] = ('route', 'boot; career 1; tweaks; mash 2000 140; poke 0x29A158 1; wait 60; mash 1500 141; '
                         'poke 0x29A158 1; wait 60; skate 1', None,
-                        {'PS2X_GUEST_STRINGS': 'rd00:0x2AA6F8:0x100',
-                         'PS2X_GUEST_CALL': '0x1ACA68@3500:0x14C768:$0:1,0x1ACA68@5600:0x14C768:$0:2'},
+                        {'ZX_GUEST_STRINGS': 'rd00:0x2AA6F8:0x100',
+                         'ZX_GUEST_CALL': '0x1ACA68@3500:0x14C768:$0:1,0x1ACA68@5600:0x14C768:$0:2'},
                         'paths7: the engine\'s pad recorder recording and playing back in the Movie Lot (test only: '
                         'guest calls, pokes)')
 # The level objects' engine messages no route sent (they come from animation events, not script SENDs:
@@ -749,7 +749,7 @@ for _i, _o in enumerate((0x004FA119, 0x089619F4, 0x02D5B9C5)):
     _NPCMSG += ['0x1ACA68@%d:0x1646B8:=0x%x:1' % (3500 + 10 * _i, _o)]
     _NPCMSG += ['0x1ACA68@%d:0x1528D8:0:*^%d:0x%x:#64:1' % (3500 + 10 * _i, _b, _e)
                 for _e in (0x7002, 0x0D2F7AD3, 0x0A62E414, 0x00055069)]
-ROUTES['cov-npcmsg'] = ('route', 'boot; career 1; tweaks; mash 2000 142', None, {'PS2X_GUEST_CALL': ','.join(_NPCMSG)},
+ROUTES['cov-npcmsg'] = ('route', 'boot; career 1; tweaks; mash 2000 142', None, {'ZX_GUEST_CALL': ','.join(_NPCMSG)},
                         'paths7: the Movie Lot\'s NPCs and a sound-event object sent the engine messages animation '
                         'events send (test only: guest calls), under mash')
 # The editors' button callbacks no route pressed (each tool registers its buttons with FUN_001F9580: the Rail
@@ -788,7 +788,7 @@ for _i, _v in enumerate((3500, 3800, 4100)):
     _TEXTOBJ += ['0x1ACA68@%d:0x1EB2D0:$%d:%d' % (_v, _i % 2, _i), '0x1ACA68@%d:0x1B3A00:%s:^%d' % (_v, _P1, len(_TEXTOBJ))]
 _TEXTOBJ += ['0x1ACA68@+2:0x1D9908:1', '0x1D9CF8@+50:0x1D9908:3', '0x1D9CF8@+10:0x1D9908:2', '0x1D9CF8@+140:0x1D9908:0']
 ROUTES['cov-textobj'] = ('route', 'boot; freeskate 0; tweaks; mash 2500 143', None,
-                         dict(_UNLOCKED, PS2X_GUEST_STRINGS='P7 Gap Bonus|P7 Second', PS2X_GUEST_CALL=','.join(_TEXTOBJ)),
+                         dict(_UNLOCKED, ZX_GUEST_STRINGS='P7 Gap Bonus|P7 Second', ZX_GUEST_CALL=','.join(_TEXTOBJ)),
                          'paths7: text trick objects put in the trick queue by guest call, the input recorder started '
                          'and played back with one in it (test only), free skate under mash')
 # AI's leftover MENU/PARK.ZSC (a DM2-era park menu with a guiLine) by LOADZSC, and a menu script of our own
@@ -805,8 +805,8 @@ _ZSC = ('OBJECT "guiScreenSpace" "P7Root"\r\n{\r\n\tOnCreate\t"PLAY P7Anim"\r\n\
         '\t\tOnUpdate\t"ROTQUATY Orientation {0.005}"\r\n\t\tLoopMode\t1\r\n\t\tLoopTime\t0\r\n\t\tSpeed\t1\r\n'
         '\t}\r\n}\r\n')
 ROUTES['cov-zguizsc'] = ('route', 'boot; wait 2400', None,
-                         {'PS2X_GUEST_STRINGS': '|'.join((_ZSC, 'rd00:%#x:%#x', 'LOADZSC assets\\menu\\park.zsc')),
-                          'PS2X_GUEST_CALL': ','.join(('0x100968@1500:0x138008:0x800', '0x100968@1500:0x138008:0x40',
+                         {'ZX_GUEST_STRINGS': '|'.join((_ZSC, 'rd00:%#x:%#x', 'LOADZSC assets\\menu\\park.zsc')),
+                          'ZX_GUEST_CALL': ','.join(('0x100968@1500:0x138008:0x800', '0x100968@1500:0x138008:0x40',
                                                        '0x100968@1500:0x148638:^0:$0',
                                                        '0x100968@1500:0x148760:^1:$1:^0:%d' % len(_ZSC),
                                                        '0x100968@1500:0x171170:^1:%*0x240A1C',
@@ -823,7 +823,7 @@ for _v in range(3600, 3604):
                    '0x1ACA68@%d:0x14B9B0:#16:#16:#16:0xff' % _v, '0x1ACA68@%d:0x14BA58:#16:#16:0xff' % _v,
                    '0x1ACA68@%d:0x14BAE0:#32:#32:0xff:0' % _v]
 ROUTES['cov-debugdraw'] = ('route', 'boot; career 1; poke 0x299B24 1; tweaks; mash 1500 147', None,
-                           {'PS2X_GUEST_CALL': ','.join(_DEBUGDRAW)},
+                           {'ZX_GUEST_CALL': ','.join(_DEBUGDRAW)},
                            'paths7: the engine\'s debug geometry on (a poke) and one primitive of each kind added (test '
                            'only: guest calls), the Movie Lot under mash')
 # The input recorder's start saves the players' game objects (each trick object's SpaceNeededForSaving and
@@ -838,7 +838,7 @@ for _hook in (0x1E8B88, 0x1E7EC0, 0x1EC970, 0x1EA5E8) * 2:
     _REPLAY3 += ['0x%X@+%d:0x1D9908:1' % (_hook, 200 if _REPLAY3 else 3300), '0x1D9CF8@+50:0x1D9908:3',
                  '0x1D9CF8@+10:0x1D9908:2', '0x1D9CF8@+140:0x1D9908:0']
 ROUTES['cov-replay3'] = ('route', 'boot; freeskate 0; tweaks; mash 14000 99', None,
-                         dict(_UNLOCKED, PS2X_GUEST_CALL=','.join(_REPLAY3)),
+                         dict(_UNLOCKED, ZX_GUEST_CALL=','.join(_REPLAY3)),
                          'paths7: free skate, the input recorder started while a grind, a manual, a cess slide or a '
                          'stall runs and played back (test only)')
 # The same recorder start, from the update of a skitch (0x1ED8F8), a pole (0x1ED170), a vault (0x1EC040) and a
@@ -849,7 +849,7 @@ for _hook in (0x1ED8F8, 0x1ED170, 0x1EC040, 0x1EB7A8):
     _REPLAY4 += ['0x%X@%s:0x1D9908:1' % (_hook, '+200' if _REPLAY4 else '300'), '0x1D9CF8@+50:0x1D9908:3',
                  '0x1D9CF8@+10:0x1D9908:2', '0x1D9CF8@+140:0x1D9908:0']
 ROUTES['cov-replay4'] = ('route', 'boot; tutorial; skitch; skitchgo; hpole; vpolea; vault; wallride; walljump', None,
-                         dict(FRONT_END_SKIPPED, PS2X_GUEST_CALL=','.join(_REPLAY4)),
+                         dict(FRONT_END_SKIPPED, ZX_GUEST_CALL=','.join(_REPLAY4)),
                          'paths8: the Tutorial\'s skitch, pole, vault and wall ride lessons with the input recorder '
                          'started and played back while each trick runs (test only)')
 # Messages the game sends only from places no route reaches, sent by guest call (test only) from a trick handler's
@@ -862,13 +862,13 @@ _MSGS = ['0x1E6EE0@300:~0x1B1930:%*@4:%*0x2762F4:0:#16', '0x1E6EE0@+2:~0x1B1930:
          '0x1E7EC0@300:~0x1B36D8:%**(@4+4):0:F0.25', '0x1E7EC0@+3:~0x1B3738:%**(@4+4):0:F0.5',
          '0x1E7EC0@+3:~0x1B36D8:%**(@4+4):0:F0.75', '0x1E7EC0@+3:~0x1B3738:%**(@4+4):0:F0.0',
          '0x1EDFF8@300:~0x1B1930:%*@4:%*0x276320:0:#16', '0x100968@900:0x1ECD40:2', '0x100968@901:0x1EEDC0:0x10:0x100']
-ROUTES['cov-msgs'] = ('route', 'boot; tutorial; moves', None, dict(FRONT_END_SKIPPED, PS2X_GUEST_CALL=','.join(_MSGS)),
+ROUTES['cov-msgs'] = ('route', 'boot; tutorial; moves', None, dict(FRONT_END_SKIPPED, ZX_GUEST_CALL=','.join(_MSGS)),
                       'paths8: the Tutorial\'s moves with messages sent by guest call (test only): ground object scores, '
                       'a manual\'s hold messages, ButtonReleased to an air trick, two trick ids')
 # The Manuals lesson (the manual's update 0x1E7EC0 runs only once the skater is in a manual: a closed-loop move that
 # a slower run misses now and then, so three tries) with the hold messages alone.
 ROUTES['cov-manualhold'] = ('route', 'boot; tutorial; manual; manual; manual', None,
-                            dict(FRONT_END_SKIPPED, PS2X_GUEST_CALL=','.join(_MSGS[2:6])),
+                            dict(FRONT_END_SKIPPED, ZX_GUEST_CALL=','.join(_MSGS[2:6])),
                             'paths8: the Tutorial\'s Manuals lesson with TrickStartHolding and TrickStoppedHolding sent to '
                             'the manual by guest call (test only)')
 # The Vertical Poles lesson: on the pole, the grab button let go and tapped (a press of it while on a pole tells the
@@ -876,29 +876,29 @@ ROUTES['cov-manualhold'] = ('route', 'boot; tutorial; manual; manual; manual', N
 ROUTES['cov-polebutton'] = ('route', 'boot; tutorial; polebutton 1,2', None, FRONT_END_SKIPPED,
                             'paths8: the Tutorial\'s Vertical Poles lesson, the grab button tapped while on the pole')
 # The movies through the game's own ps2Movie code again (paths6's cov-movies stalled in the first logo:
-# the native sound driver left the movie's audio ring undrained; with PS2X_SOUND=spu2 the IOP's SDRDRV
+# the native sound driver left the movie's audio ring undrained; with ZX_SOUND=spu2 the IOP's SDRDRV
 # drains it, drafter24): the careercheck input to vsync 3000 (recorded with --only the movie drafts: with
 # every unrecorded target this boot grew past 8 GB by vsync 129).
-ROUTES['cov-movies2'] = ('pad', 'careercheck', 3000, {'PS2X_MOVIES': 'hle', 'PS2X_SOUND': 'spu2'},
+ROUTES['cov-movies2'] = ('pad', 'careercheck', 3000, {'ZX_MOVIES': 'hle', 'ZX_SOUND': 'spu2'},
                          'paths7: the careercheck input to vsync 3000 through the game\'s own movie code '
-                         '(PS2X_MOVIES=hle, PS2X_SOUND=spu2: the logos and the intro play)')
+                         '(ZX_MOVIES=hle, ZX_SOUND=spu2: the logos and the intro play)')
 # The volume of a movie that is playing: setMovieAudioVolume (0x11A558, no caller in the game) by
 # guest call during the logos, which have no audio: g_movieHasAudio (0x2736E8) set around each call,
 # so setAudioDecVolume runs (zgehand20; test only).
 ROUTES['cov-zgh20-moviesound'] = ('pad', 'careercheck', 3000,
-                                  {'PS2X_MOVIES': 'hle', 'PS2X_SOUND': 'spu2',
-                                   'PS2X_GUEST_CALL': ','.join('0x11A188@%d:W:0x2736E8:1,0x11A188@+1:0x11A558:0:%d,0x11A188@+1:W:0x2736E8:0' % (_v, _a)
+                                  {'ZX_MOVIES': 'hle', 'ZX_SOUND': 'spu2',
+                                   'ZX_GUEST_CALL': ','.join('0x11A188@%d:W:0x2736E8:1,0x11A188@+1:0x11A558:0:%d,0x11A188@+1:W:0x2736E8:0' % (_v, _a)
                                                                for _v, _a in ((300, 100), (500, 255), (700, 0)))},
                                   'zgehand20: the careercheck boot through the game\'s own movie code, the audio '
                                   'volume set by guest call all along (test only)')
 # LOCAL, AI's level 9 (a January 2002 test level no menu reaches): the Movie Lot's free skate restarted with the level byte set to 9
-# (routes.py restartlevel 9, the port's Restart Level: PS2X_GAME_SETTINGS_MENUS=1), so LOCAL loads with its own
+# (routes.py restartlevel 9, the port's Restart Level: ZX_GAME_SETTINGS_MENUS=1), so LOCAL loads with its own
 # free-skate script LOCALT.BIN, the one shipped script (with TUT/MOVIE.BIN and MP/LOCAL) that calls
 # setBonusObjectiveState; its bonus objective 0 set to `wait` by guest call (FUN_001BE308, as the script's
 # grindEnd over 15 does; test only) after the second level load (`+N`), skated under mash.
 ROUTES['cov-local'] = ('route', 'boot; freeskate 0; states 100; restartlevel 9; states 100; tweaks; mash 5000 132', None,
-                       {'PS2X_GAME_SETTINGS_MENUS': '1',
-                        'PS2X_GUEST_CALL': '0x1A53D0@1:0x13F4B0,0x1A53D0@+1:0x13F4B0,0x1ACA68@+300:0x1BE308:0:0x5b5e4,'
+                       {'ZX_GAME_SETTINGS_MENUS': '1',
+                        'ZX_GUEST_CALL': '0x1A53D0@1:0x13F4B0,0x1A53D0@+1:0x13F4B0,0x1ACA68@+300:0x1BE308:0:0x5b5e4,'
                                            '0x1ACA68@+1500:0x1BE308:0:0x5b5e4'},
                        'paths7: LOCAL (level 9, no menu reaches it) in free skate through Restart Level, its bonus '
                        'objective set (test only), skated')
@@ -906,7 +906,7 @@ ROUTES['cov-local'] = ('route', 'boot; freeskate 0; states 100; restartlevel 9; 
 # the Park Editor's) in the other modes, one route each (recorded with --new-blocks: kept where it runs new
 # blocks, e.g. split screen's per-player loops): split screen and a Timed Run (the Tutorial's load and the
 # port's Restart Level, the loader entered from a level, ran no new block: taken out).
-for _name, _cmds, _env in (('mp', 'splitscreen; states 100', {'PS2X_PAD_PORT1': 'mirror'}),
+for _name, _cmds, _env in (('mp', 'splitscreen; states 100', {'ZX_PAD_PORT1': 'mirror'}),
                            ('timed', 'timedrun 2; states 100', {}),
                            ):
     ROUTES['cov-loads-' + _name] = ('route', 'boot; ' + _cmds, None, _env,
@@ -914,7 +914,7 @@ for _name, _cmds, _env in (('mp', 'splitscreen; states 100', {'PS2X_PAD_PORT1': 
 
 
 def _guest_script(calls, strings, at=1500, per=8, hook=0x100968, gap=1):
-    """PS2X_GUEST_CALL and PS2X_GUEST_STRINGS for (target, args...) calls run from HOOK (renderFrame) from
+    """ZX_GUEST_CALL and ZX_GUEST_STRINGS for (target, args...) calls run from HOOK (renderFrame) from
     vsync AT, PER calls a vsync; an argument 'sTEXT' is a string (passed as $N), others go as given; a target
     given as the string '~0xADDR' is made as an invocation that may wait (paths8); GAP vsyncs between the groups.
     A call whose first element is '@N' (then the target) runs N vsyncs after the one before."""
@@ -942,7 +942,7 @@ def _guest_script(calls, strings, at=1500, per=8, hook=0x100968, gap=1):
         # a string target '~0xADDR' is called as an invocation that may wait (paths8: guest_calls.cpp)
         out.append('0x%X@%d:%s%s' % (hook, vsync, _t if isinstance(_t, str) else '0x%X' % _t,
                                      ''.join(':' + _y for _y in _args)))
-    return {'PS2X_GUEST_CALL': ','.join(out), 'PS2X_GUEST_STRINGS': '|'.join(text)}
+    return {'ZX_GUEST_CALL': ','.join(out), 'ZX_GUEST_STRINGS': '|'.join(text)}
 
 
 # zfile's device API (the wrappers FUN_0013F528 .. FUN_0013F998, ops 0-4 on a device's method table, 5-10 on
@@ -976,14 +976,14 @@ ROUTES['cov-devapi'] = ('route', 'boot; wait 1700; career 1; skate 1', None, _gu
 # methods, 20 slots: name, set attributes, is formatted, format, is present, mount, free space, list, make and
 # remove directory, find, find at, remove file, open, close, read, write, seek, tell, size), which no shipped
 # code opens a file on (only the dead ZAxis dev saves use "mc00:"). Its calls wait (sceMc*), so a plain guest
-# call cannot make them; PS2X_GUEST_CALL's `~` target makes one as an invocation on the thread (guest_calls.cpp,
+# call cannot make them; ZX_GUEST_CALL's `~` target makes one as an invocation on the thread (guest_calls.cpp,
 # paths8). The wrappers FUN_0013F528 .. FUN_0013F998 and openFile/fileWrite/fileRead/fileSize/closeFile/
 # fileSeek with the device's own path "mc00:\\..." and no completion, the front end, an empty card in slot 1:
 # mount "0:0", is formatted / present / free space, a directory made twice, listed and found, a file absent,
 # opened for writing, written, sized, told, seeked, closed, found, opened for reading, read, removed; the
 # directory removed; set attributes; then the device methods called directly with a completion block (the
 # poll task 0x121590 and the completions: heap blocks, as the call returns before they run), the card
-# formatted. PS2X_MC_FD_BASE0=1: this runtime numbers libmc's file descriptors from 1, real libmc from 0,
+# formatted. ZX_MC_FD_BASE0=1: this runtime numbers libmc's file descriptors from 1, real libmc from 0,
 # and the device layer (FUN_00121138) takes only an open that returns 0 (test only).
 _MC = 0x23FD00
 _MCD, _MCF = 'smc00:\\P8DIR', 'smc00:\\P8DIR\\P8.DAT'
@@ -1044,7 +1044,7 @@ _MCCALLS = [
  ('@20', '~0x121860', _MC, _MCCB),           # format
  ('@20', '~0x1217A0', _MC, _MCOUT, 0),
 ]
-ROUTES['cov-mc00'] = ('route', 'boot; wait 3000', None, dict(_guest_script(_MCCALLS, [], per=1), PS2X_MC_FD_BASE0='1'),
+ROUTES['cov-mc00'] = ('route', 'boot; wait 3000', None, dict(_guest_script(_MCCALLS, [], per=1), ZX_MC_FD_BASE0='1'),
                       'paths8: the memory card as zfile\'s mc00 device (test only: guest calls as invocations, file '
                       'descriptors numbered from 0), synchronous and with completions, the front end')
 
@@ -1071,7 +1071,7 @@ ROUTES['cov-hp2-calls'] = ('route', 'boot; wait 2400', None, _guest_script(_HP2_
                            'hand-platform2: sourceDataEnded, soundSetEntry, closeAllSoundStreams, playSoundStreamSample by guest call')
 _HP2_LINE = '=0x41200000/0x41200000/0x41200000/0x3F800000'
 _HP2_DEBUG = ['0x1ACA68@%d:0x14B920:%s:%s:=0xFF00FF00:0xff' % (_v, _HP2_LINE, _HP2_LINE) for _v in range(3600, 3604)]
-ROUTES['cov-hp2-debuglines'] = ('route', 'boot; career 1; poke 0x299B24 1; tweaks; mash 1500 147', None, {'PS2X_GUEST_CALL': ','.join(_HP2_DEBUG)},
+ROUTES['cov-hp2-debuglines'] = ('route', 'boot; career 1; poke 0x299B24 1; tweaks; mash 1500 147', None, {'ZX_GUEST_CALL': ','.join(_HP2_DEBUG)},
                                 'hand-platform2: lines on the debug list with the debug draw on: drawDebugLines')
 
 # zgui's variable types' value setters (the type tables' setFloat, setInt, setVector slots: +0x4C, +0x50, +0x5C; only
@@ -1143,7 +1143,7 @@ ROUTES['cov-libcalls'] = ('route', 'boot; wait 3400', None, _guest_script(_libca
                           'paths8: libm, string span, vector, matrix and quaternion functions no caller reached, by guest '
                           'call in the front end (test only)')
 
-# The game's CD client again (PS2X_DISC=cdvd), through zfile's dvd0 device by guest call in the front end (test only):
+# The game's CD client again (ZX_DISC=ps2), through zfile's dvd0 device by guest call in the front end (test only):
 # the device API as invocations (find, list, free space, an open, size, seek, read and close of UILIB.ZAL, a missing
 # file), then the open and the size with a completion block (heap blocks: the completion's function word is made
 # by strcpy): the check functions (0x11B4D8 ..) are the CD client's callbacks, passed only with a completion. A
@@ -1160,8 +1160,8 @@ _CDCALLS = [
     ('~0x138008', 0x100), ('~0x138008', 0x100), ('~0x138008', 0x400), ('~0x138008', 0x100),
     ('0x148638', '^15', 's\x40\x17\x12'),
     ('@20', '~0x11BFB0', '^18', 's\\ASSETS\\UILIB.ZAL', 1, '^15'), ('@20', '~0x11CC00', '^18', '^16', '^15')]
-ROUTES['cov-cdvd2'] = ('route', 'boot; wait 3200', None, dict(_guest_script(_CDCALLS, [], at=1700, per=1), PS2X_DISC='cdvd'),
-                       'paths8: the game\'s CD client driven through zfile\'s dvd0 device (PS2X_DISC=cdvd; test only: guest '
+ROUTES['cov-cdvd2'] = ('route', 'boot; wait 3200', None, dict(_guest_script(_CDCALLS, [], at=1700, per=1), ZX_DISC='ps2'),
+                       'paths8: the game\'s CD client driven through zfile\'s dvd0 device (ZX_DISC=ps2; test only: guest '
                        'calls in the front end)')
 def _p8_lib2():
     # asset libraries opened by the real API (openAssetLibrary 0x140968 on FX.ZAL and UILIB.ZAL as zfile paths), then the
@@ -1305,7 +1305,7 @@ def _p8_anim1():
         for kind in ('0x068B10D7', '0x12345678'):
             G.append('0x194870@+1:~%s:%s:%s' % (fn, kind, EV))
     G.append('0x100968@4300:~0x1454E8:^1')
-    ENV = {'PS2X_GUEST_CALL': ','.join(G)}
+    ENV = {'ZX_GUEST_CALL': ','.join(G)}
     return {k: v for k, v in locals().items() if k in ('CALLS', 'ENV', 'AT', 'PER', 'GAP', 'HOOK')}
 
 
@@ -1635,7 +1635,7 @@ def _p8_env_io2():
 
 
 ROUTES['cov-stdio'] = ('route', 'boot; wait 2600', None, dict(_p8_env_io2()),
-              "paths8: libc stdio over a real disc file (a FILE made by hand around a sceOpen descriptor; PS2X_GUEST_CALL's W/H store items) by guest call in the front end (test only)")
+              "paths8: libc stdio over a real disc file (a FILE made by hand around a sceOpen descriptor; ZX_GUEST_CALL's W/H store items) by guest call in the front end (test only)")
 
 def _p8_part1():
     # two geometry parts made by the engine (newPart 0x1337D8, newStream 0x133E10 for positions, faces, face normals, normals,
@@ -1780,7 +1780,7 @@ ROUTES['cov-animfree'] = ('route', 'boot; wait 3400', None, dict(_p8_env_free1()
 
 def _p9_wt1():
     # Wall Tap (state 13) entered by setSkaterState from the update of a Wall Ride (the lesson), by guest call (test only)
-    ENV = {'PS2X_GUEST_CALL': '0x1A2F18@300:~0x1A42E0:%@4:13'}
+    ENV = {'ZX_GUEST_CALL': '0x1A2F18@300:~0x1A42E0:%@4:13'}
     return {k: v for k, v in locals().items() if k in ('CALLS', 'ENV', 'AT', 'PER', 'GAP', 'HOOK')}
 
 
@@ -2071,83 +2071,83 @@ ROUTES['cov-misc2'] = ('route', 'boot; freeskate 0; wait 400', None, dict(_p9_en
               "paths9: method stubs, a getter, takeTranslation, a list append and the animation sound on zeroed heap blocks standing for their objects, by guest call in the Movie Lot's free skate (test only)")
 
 # p9 begin cov-mcsave
-ROUTES['cov-mcsave-01'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Mkdir:1:-3'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Mkdir:1:-3]')
-ROUTES['cov-mcsave-02'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Mkdir:1:-5'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Mkdir:1:-5]')
-ROUTES['cov-mcsave-03'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Open:1:-5'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Open:1:-5]')
-ROUTES['cov-mcsave-04'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Open:2:-3'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Open:2:-3]')
-ROUTES['cov-mcsave-05'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Open:3:-3'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Open:3:-3]')
-ROUTES['cov-mcsave-06'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Write:1:-3'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Write:1:-3]')
-ROUTES['cov-mcsave-07'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Write:3:-5'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Write:3:-5]')
-ROUTES['cov-mcsave-08'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Write:4:-3'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Write:4:-3]')
-ROUTES['cov-mcsave-09'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Close:3:-5'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Close:3:-5]')
-ROUTES['cov-mcsave-10'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Chdir:9:-4'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Chdir:9:-4]')
-ROUTES['cov-mcsave-11'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='GetInfo:292:-10'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=GetInfo:292:-10]')
-ROUTES['cov-mcsave-12'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='GetInfo:292:-2'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=GetInfo:292:-2]')
-ROUTES['cov-mcsave-13'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='GetInfo:293:-1'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=GetInfo:293:-1]')
-ROUTES['cov-mcsave-14'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='GetInfo:150:-10'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=GetInfo:150:-10]')
-ROUTES['cov-mcsave-15'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Open:4:-4'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Open:4:-4]')
-ROUTES['cov-mcsave-16'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, PS2X_MC_FAIL='Flush:1:-5'),
-    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (PS2X_MC_FAIL, test only) [PS2X_MC_FAIL=Flush:1:-5]')
+ROUTES['cov-mcsave-01'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Mkdir:1:-3'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Mkdir:1:-3]')
+ROUTES['cov-mcsave-02'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Mkdir:1:-5'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Mkdir:1:-5]')
+ROUTES['cov-mcsave-03'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Open:1:-5'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Open:1:-5]')
+ROUTES['cov-mcsave-04'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Open:2:-3'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Open:2:-3]')
+ROUTES['cov-mcsave-05'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Open:3:-3'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Open:3:-3]')
+ROUTES['cov-mcsave-06'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Write:1:-3'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Write:1:-3]')
+ROUTES['cov-mcsave-07'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Write:3:-5'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Write:3:-5]')
+ROUTES['cov-mcsave-08'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Write:4:-3'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Write:4:-3]')
+ROUTES['cov-mcsave-09'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Close:3:-5'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Close:3:-5]')
+ROUTES['cov-mcsave-10'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Chdir:9:-4'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Chdir:9:-4]')
+ROUTES['cov-mcsave-11'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='GetInfo:292:-10'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=GetInfo:292:-10]')
+ROUTES['cov-mcsave-12'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='GetInfo:292:-2'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=GetInfo:292:-2]')
+ROUTES['cov-mcsave-13'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='GetInfo:293:-1'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=GetInfo:293:-1]')
+ROUTES['cov-mcsave-14'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='GetInfo:150:-10'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=GetInfo:150:-10]')
+ROUTES['cov-mcsave-15'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Open:4:-4'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Open:4:-4]')
+ROUTES['cov-mcsave-16'] = ('route', 'boot; cardsave', None, dict(FRONT_END_SKIPPED, ZX_MC_FAIL='Flush:1:-5'),
+    'paths9: the career saved to the memory card from OPTIONS > SAVE & LOAD with libmc commands failing partway (ZX_MC_FAIL, test only) [ZX_MC_FAIL=Flush:1:-5]')
 # p9 end cov-mcsave
 
 # p9 begin cov-mcdlg
-ROUTES['cov-mcdlg-01'] = ('route', 'boot; carddialog save 0 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-02'] = ('route', 'boot; carddialog save 0 CROSS DOWN+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 CROSS DOWN+CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-03'] = ('route', 'boot; carddialog save 0 TRIANGLE', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 TRIANGLE; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-04'] = ('route', 'boot; carddialog save 0 DOWN+DOWN+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 DOWN+DOWN+CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-05'] = ('route', 'boot; carddialog save 0 UP+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 UP+CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-06'] = ('route', 'boot; carddialog save 0 LEFT+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 LEFT+CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-07'] = ('route', 'boot; carddialog save 0 RIGHT+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 RIGHT+CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-08'] = ('route', 'boot; carddialog save 1 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT2='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 1 DOWN+CROSS; PS2X_MC_SLOT2=unformatted]')
-ROUTES['cov-mcdlg-09'] = ('route', 'boot; carddialog save 1 CROSS TRIANGLE', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT2='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 1 CROSS TRIANGLE; PS2X_MC_SLOT2=unformatted]')
-ROUTES['cov-mcdlg-10'] = ('route', 'boot; carddialog save 0 CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='none'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 CROSS; PS2X_MC_SLOT1=none]')
-ROUTES['cov-mcdlg-11'] = ('route', 'boot; carddialog save 0 TRIANGLE', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='none'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 TRIANGLE; PS2X_MC_SLOT1=none]')
-ROUTES['cov-mcdlg-12'] = ('route', 'boot; carddialog save 0 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='none'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS; PS2X_MC_SLOT1=none]')
-ROUTES['cov-mcdlg-13'] = ('route', 'boot; carddialog save 1 CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT2='none'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 1 CROSS; PS2X_MC_SLOT2=none]')
-ROUTES['cov-mcdlg-14'] = ('route', 'boot; carddialog load 0 CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog load 0 CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-15'] = ('route', 'boot; carddialog load 0 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog load 0 DOWN+CROSS; PS2X_MC_SLOT1=unformatted]')
-ROUTES['cov-mcdlg-16'] = ('route', 'boot; carddialog load 0 TRIANGLE', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='none'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog load 0 TRIANGLE; PS2X_MC_SLOT1=none]')
-ROUTES['cov-mcdlg-17'] = ('route', 'boot; carddialog load 1 CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT2='none'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog load 1 CROSS; PS2X_MC_SLOT2=none]')
-ROUTES['cov-mcdlg-18'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted', PS2X_MC_FAIL='Format:1:-5'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS UP+CROSS; PS2X_MC_SLOT1=unformatted, PS2X_MC_FAIL=Format:1:-5]')
-ROUTES['cov-mcdlg-19'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted', PS2X_MC_FAIL='Format:1:-3'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS; PS2X_MC_SLOT1=unformatted, PS2X_MC_FAIL=Format:1:-3]')
-ROUTES['cov-mcdlg-20'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted', PS2X_MC_FAIL='Mkdir:1:-3'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS; PS2X_MC_SLOT1=unformatted, PS2X_MC_FAIL=Mkdir:1:-3]')
-ROUTES['cov-mcdlg-21'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, PS2X_MC_SLOT1='unformatted', PS2X_MC_FAIL='Open:3:-5'),
-    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (PS2X_MC_SLOT1/2) and failing commands (PS2X_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS; PS2X_MC_SLOT1=unformatted, PS2X_MC_FAIL=Open:3:-5]')
+ROUTES['cov-mcdlg-01'] = ('route', 'boot; carddialog save 0 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-02'] = ('route', 'boot; carddialog save 0 CROSS DOWN+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 CROSS DOWN+CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-03'] = ('route', 'boot; carddialog save 0 TRIANGLE', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 TRIANGLE; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-04'] = ('route', 'boot; carddialog save 0 DOWN+DOWN+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 DOWN+DOWN+CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-05'] = ('route', 'boot; carddialog save 0 UP+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 UP+CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-06'] = ('route', 'boot; carddialog save 0 LEFT+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 LEFT+CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-07'] = ('route', 'boot; carddialog save 0 RIGHT+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 RIGHT+CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-08'] = ('route', 'boot; carddialog save 1 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT2='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 1 DOWN+CROSS; ZX_MC_SLOT2=unformatted]')
+ROUTES['cov-mcdlg-09'] = ('route', 'boot; carddialog save 1 CROSS TRIANGLE', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT2='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 1 CROSS TRIANGLE; ZX_MC_SLOT2=unformatted]')
+ROUTES['cov-mcdlg-10'] = ('route', 'boot; carddialog save 0 CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='none'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 CROSS; ZX_MC_SLOT1=none]')
+ROUTES['cov-mcdlg-11'] = ('route', 'boot; carddialog save 0 TRIANGLE', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='none'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 TRIANGLE; ZX_MC_SLOT1=none]')
+ROUTES['cov-mcdlg-12'] = ('route', 'boot; carddialog save 0 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='none'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS; ZX_MC_SLOT1=none]')
+ROUTES['cov-mcdlg-13'] = ('route', 'boot; carddialog save 1 CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT2='none'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 1 CROSS; ZX_MC_SLOT2=none]')
+ROUTES['cov-mcdlg-14'] = ('route', 'boot; carddialog load 0 CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog load 0 CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-15'] = ('route', 'boot; carddialog load 0 DOWN+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog load 0 DOWN+CROSS; ZX_MC_SLOT1=unformatted]')
+ROUTES['cov-mcdlg-16'] = ('route', 'boot; carddialog load 0 TRIANGLE', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='none'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog load 0 TRIANGLE; ZX_MC_SLOT1=none]')
+ROUTES['cov-mcdlg-17'] = ('route', 'boot; carddialog load 1 CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT2='none'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog load 1 CROSS; ZX_MC_SLOT2=none]')
+ROUTES['cov-mcdlg-18'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted', ZX_MC_FAIL='Format:1:-5'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS UP+CROSS; ZX_MC_SLOT1=unformatted, ZX_MC_FAIL=Format:1:-5]')
+ROUTES['cov-mcdlg-19'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted', ZX_MC_FAIL='Format:1:-3'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS; ZX_MC_SLOT1=unformatted, ZX_MC_FAIL=Format:1:-3]')
+ROUTES['cov-mcdlg-20'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted', ZX_MC_FAIL='Mkdir:1:-3'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS; ZX_MC_SLOT1=unformatted, ZX_MC_FAIL=Mkdir:1:-3]')
+ROUTES['cov-mcdlg-21'] = ('route', 'boot; carddialog save 0 DOWN+CROSS UP+CROSS', None, dict(FRONT_END_SKIPPED, ZX_MC_SLOT1='unformatted', ZX_MC_FAIL='Open:3:-5'),
+    'paths9: the memory card dialogs of OPTIONS > SAVE & LOAD with an unformatted or missing card (ZX_MC_SLOT1/2) and failing commands (ZX_MC_FAIL), test only [boot; carddialog save 0 DOWN+CROSS UP+CROSS; ZX_MC_SLOT1=unformatted, ZX_MC_FAIL=Open:3:-5]')
 # p9 end cov-mcdlg
 
 
@@ -2307,7 +2307,7 @@ def _p9_mat1():
     for k in list(range(0, 13)) + [20, 255]:
         for f in (0, 0xFFFFFFFF, 0x55555555, 0xAAAAAAAA, 0x1, 0x80000000):
             L += ['0x%X@+0:W:%%(^0+0x40):%#x' % (HK, k << 1), '0x%X@+0:W:%%(^0+0):%#x' % (HK, f), '0x%X@+1:~0x102E00:^0' % HK]
-    ENV = {'PS2X_GUEST_CALL': ','.join(L)}
+    ENV = {'ZX_GUEST_CALL': ','.join(L)}
     return {k: v for k, v in locals().items() if k in ('CALLS', 'ENV', 'AT', 'PER', 'GAP', 'HOOK')}
 
 
@@ -2348,7 +2348,7 @@ def _p9_kbd1():
     items = []
     for k, (s5, dst) in enumerate(EV):
         items.append('0x%X@%s:~0x%X:%%@4:=%#x/%#x' % (H, '1' if k == 0 else '+1', H, s5, dst))
-    ENV = {'PS2X_GUEST_CALL': ','.join(items)}
+    ENV = {'ZX_GUEST_CALL': ','.join(items)}
     return {k: v for k, v in locals().items() if k in ('CALLS', 'ENV', 'AT', 'PER', 'GAP', 'HOOK')}
 
 
@@ -2456,30 +2456,30 @@ ROUTES['cov-animstream'] = ('route', 'boot; wait 3000', None, dict(_p9_env_strea
 # p9 begin cov-menumash
 ROUTES['cov-menumash-01'] = ('route', 'boot; menumash 600 1', None, dict(),
     'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 600 1; ]')
-ROUTES['cov-menumash-02'] = ('route', 'boot; menumash 600 2', None, dict(PS2X_PAD_PORT1='mirror'),
-    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 600 2; PS2X_PAD_PORT1=mirror]')
-ROUTES['cov-iop-files'] = ('route', 'boot; career 1', None, dict(PS2X_DISC='cdvd', PS2X_MOVIES='hle'),
-    'zgehand18: ZCDDVD and ZAUDIO over the IOP, the overrides off: the disc client, the sound RPC, the movie start and end [boot; career 1; PS2X_DISC=cdvd PS2X_MOVIES=hle]')
+ROUTES['cov-menumash-02'] = ('route', 'boot; menumash 600 2', None, dict(ZX_PAD_PORT1='mirror'),
+    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 600 2; ZX_PAD_PORT1=mirror]')
+ROUTES['cov-iop-files'] = ('route', 'boot; career 1', None, dict(ZX_DISC='ps2', ZX_MOVIES='hle'),
+    'zgehand18: ZCDDVD and ZAUDIO over the IOP, the overrides off: the disc client, the sound RPC, the movie start and end [boot; career 1; ZX_DISC=ps2 ZX_MOVIES=hle]')
 ROUTES['cov-menumash-03'] = ('route', 'boot; menumash 300 3', None, dict(),
     'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 3; ]')
-ROUTES['cov-menumash-04'] = ('route', 'boot; menumash 300 4', None, dict(PS2X_PAD_PORT1='mirror'),
-    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 4; PS2X_PAD_PORT1=mirror]')
+ROUTES['cov-menumash-04'] = ('route', 'boot; menumash 300 4', None, dict(ZX_PAD_PORT1='mirror'),
+    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 4; ZX_PAD_PORT1=mirror]')
 ROUTES['cov-menumash-05'] = ('route', 'boot; menumash 300 5', None, dict(),
     'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 5; ]')
-ROUTES['cov-menumash-06'] = ('route', 'boot; menumash 300 6', None, dict(PS2X_PAD_PORT1='mirror'),
-    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 6; PS2X_PAD_PORT1=mirror]')
+ROUTES['cov-menumash-06'] = ('route', 'boot; menumash 300 6', None, dict(ZX_PAD_PORT1='mirror'),
+    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 6; ZX_PAD_PORT1=mirror]')
 ROUTES['cov-menumash-07'] = ('route', 'boot; menumash 300 7', None, dict(),
     'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 7; ]')
-ROUTES['cov-menumash-08'] = ('route', 'boot; menumash 300 8', None, dict(PS2X_PAD_PORT1='mirror'),
-    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 8; PS2X_PAD_PORT1=mirror]')
+ROUTES['cov-menumash-08'] = ('route', 'boot; menumash 300 8', None, dict(ZX_PAD_PORT1='mirror'),
+    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 8; ZX_PAD_PORT1=mirror]')
 ROUTES['cov-menumash-09'] = ('route', 'boot; menumash 300 9', None, dict(),
     'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 9; ]')
-ROUTES['cov-menumash-10'] = ('route', 'boot; menumash 300 10', None, dict(PS2X_PAD_PORT1='mirror'),
-    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 10; PS2X_PAD_PORT1=mirror]')
+ROUTES['cov-menumash-10'] = ('route', 'boot; menumash 300 10', None, dict(ZX_PAD_PORT1='mirror'),
+    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 10; ZX_PAD_PORT1=mirror]')
 ROUTES['cov-menumash-11'] = ('route', 'boot; menumash 300 11', None, dict(),
     'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 11; ]')
-ROUTES['cov-menumash-12'] = ('route', 'boot; menumash 300 12', None, dict(PS2X_PAD_PORT1='mirror'),
-    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 12; PS2X_PAD_PORT1=mirror]')
+ROUTES['cov-menumash-12'] = ('route', 'boot; menumash 300 12', None, dict(ZX_PAD_PORT1='mirror'),
+    'paths9: random seeded button presses from the main menu (routes.py menumash) [boot; menumash 300 12; ZX_PAD_PORT1=mirror]')
 # p9 end cov-menumash
 
 # zgui script lines run one at a time by its command dispatcher (FUN_001820F8, the line's first word looked up
@@ -2633,7 +2633,7 @@ SITUATIONS = {
     'cov-filewatch': ('Movie Lot', 'zfile\'s watcher on (test only), levels loaded', []),
     'cov-ragdoll': ('Airfield', 'the players\' ragdoll stepped (test only), skated', []),
     'cov-fxclasses': ('Movie Lot', 'the lens flare and the emitter-only effect classes (test only), skated', []),
-    'cov-cdvd': ('Movie Lot', 'files read through the game\'s CD client (PS2X_DISC=cdvd), levels loaded', []),
+    'cov-cdvd': ('Movie Lot', 'files read through the game\'s CD client (ZX_DISC=ps2), levels loaded', []),
     'cov-replay': ('Movie Lot', 'free skate with the input recorder started, stopped and played back (test only)', []),
     'cov-replay2': ('Movie Lot', 'free skate, the input recorder started and played back again and again (test only)', []),
     'cov-pieces': ('Airfield, Tutorial', 'Place and Trick: the Vacuum Tool, the pieces ridden; the Tutorial left', []),
@@ -2660,8 +2660,8 @@ def situation(route):
 NB_PER_VSYNC = 4
 NB_PER_VSYNC_HEAVY = 1
 NB_MAX = 400
-LIGHT = {'PS2X_FNREC_MAX': '1000', 'PS2X_FNREC_PER_VSYNC': '8'}
-HEAVY = {'PS2X_FNREC_MAX': '100', 'PS2X_FNREC_PER_VSYNC': '1'}
+LIGHT = {'ZX_FNREC_MAX': '1000', 'ZX_FNREC_PER_VSYNC': '8'}
+HEAVY = {'ZX_FNREC_MAX': '100', 'ZX_FNREC_PER_VSYNC': '1'}
 # One pass (round 14): each function's caps in the list file.
 CAPS_LIGHT = (200, 8)
 CAPS_HEAVY = (50, 1)
@@ -2689,15 +2689,15 @@ def recorder_version():
 
 
 def registered(build):
-    """[(address, name, status)] from ps2xFnCheck --list of the build."""
-    p = subprocess.run([os.path.join(build, 'ps2xRuntime', 'ps2xFnCheck'), '--list'], capture_output=True, text=True)
+    """[(address, name, status)] from zx-fncheck --list of the build."""
+    p = subprocess.run([os.path.join(build, 'runtime', 'zx-fncheck'), '--list'], capture_output=True, text=True)
     out = []
     for line in p.stdout.split('\n'):
         m = re.match(r'^0x([0-9a-f]+)\s+(\w+)\s+(\S+)', line)
         if m:
             out.append((int(m.group(1), 16), m.group(3), m.group(2)))
     if not out:
-        sys.exit('readable_corpus.py: ps2xFnCheck --list gave no functions (%s)' % build)
+        sys.exit('readable_corpus.py: zx-fncheck --list gave no functions (%s)' % build)
     return out
 
 
@@ -2705,7 +2705,7 @@ _GENERATED = {}
 
 
 def call_sites(address):
-    gen = os.environ.get('PS2X_RUNNER_GENERATED_DIR') or os.path.join(WORKSPACE, 'recomp', 'generated')
+    gen = os.environ.get('ZX_RUNNER_GENERATED_DIR') or os.path.join(WORKSPACE, 'recomp', 'generated')
     if gen not in _GENERATED:
         files = {}
         for name in os.listdir(gen) if os.path.isdir(gen) else []:
@@ -2822,7 +2822,7 @@ class Run:
     def env(self):
         kind, what, stop, extra, _ = ROUTES[self.route]
         env = dict(os.environ)
-        # The function list as a file (PS2X_FNREC=@file): a sweep's thousands
+        # The function list as a file (ZX_FNREC=@file): a sweep's thousands
         # of addresses, each with its caps in the one-pass mode.
         listing = os.path.join(self.work, 'functions.txt')
         with open(listing, 'w') as f:
@@ -2835,14 +2835,14 @@ class Run:
                     f.write('0x%08x %d %d\n' % ((a,) + tuple(caps)))
                 else:
                     f.write('0x%08x\n' % a)
-        env.update({'PS2X_UNPACED': '1', 'PS2X_GS_NULL': '1', 'PS2X_VU1_SKIP': '1', 'PS2X_SAVES': 'card',
-                    'PS2X_READABLE': 'off', 'PS2X_FNREC_ATOMIC': '1', 'PS2X_FNREC_DIR': self.folder,
-                    'PS2X_FNREC': '@' + listing, 'PS2X_DEV_UNLOCK_ALL': '1',
-                    'PS2X_DEBUG_UI': '0'})
+        env.update({'ZX_UNPACED': '1', 'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1', 'ZX_SAVES': 'card',
+                    'ZX_READABLE': 'off', 'ZX_FNREC_ATOMIC': '1', 'ZX_FNREC_DIR': self.folder,
+                    'ZX_FNREC': '@' + listing, 'ZX_DEV_UNLOCK_ALL': '1',
+                    'ZX_DEBUG_UI': '0'})
         env.update(LIGHT if self.pass_name in ('light', 'all') else HEAVY)
         if self.args.new_blocks:
-            env.update({'PS2X_FNREC_NEW_BLOCKS': '2' if self.args.every_call else '1',
-                        'PS2X_FNREC_COVERED': os.path.abspath(self.args.new_blocks)})
+            env.update({'ZX_FNREC_NEW_BLOCKS': '2' if self.args.every_call else '1',
+                        'ZX_FNREC_COVERED': os.path.abspath(self.args.new_blocks)})
         if self.args.mash_coverage:
             env['MASH_COVERAGE'] = os.path.abspath(self.args.mash_coverage)
         for k, v in extra.items():
@@ -2861,9 +2861,9 @@ class Run:
         card = os.path.join(work, 'mc0')
         if not os.path.isdir(card):
             shutil.copytree(os.path.join(WORKSPACE, 'recomp', 'run', 'mc0'), card)
-        env.update({'HOME': os.path.join(work, 'home'), 'PS2X_APP_SUPPORT_DIR': os.path.join(work, 'app'),
-                    'PS2X_APP_LOG_DIR': os.path.join(work, 'app'), 'PS2X_SCREENSHOT_DIR': os.path.join(work, 'shots'),
-                    'PS2X_MC_ROOT': card, 'PS2X_GS_BACKEND': env.get('PS2X_GS_BACKEND', 'cpu')})
+        env.update({'HOME': os.path.join(work, 'home'), 'ZX_APP_SUPPORT_DIR': os.path.join(work, 'app'),
+                    'ZX_APP_LOG_DIR': os.path.join(work, 'app'), 'ZX_SCREENSHOT_DIR': os.path.join(work, 'shots'),
+                    'ZX_MC_ROOT': card, 'ZX_GS_BACKEND': env.get('ZX_GS_BACKEND', 'cpu')})
         logfile = os.path.join(work, name + '.log')
         with open(logfile, 'wb') as log:
             p = subprocess.Popen([runner, os.path.join(WORKSPACE, 'recomp', 'disc-root', 'SLUS_203.27')], env=env,
@@ -2898,7 +2898,7 @@ class Run:
 
     def go(self):
         kind, what, stop, extra, _ = ROUTES[self.route]
-        runner = os.path.join(self.args.build, 'ps2xRuntime', 'ps2EntryRunner')
+        runner = os.path.join(self.args.build, 'runtime', 'zx-runner')
         name = 'corpus-%s-%s%s' % (self.route, self.pass_name, '-only' if self.args.only else '')
         work = os.path.join(self.args.store, 'work', name)
         shutil.rmtree(work, ignore_errors=True)
@@ -2922,15 +2922,15 @@ class Run:
             path = os.path.join(work, 'script.txt')
             with open(path, 'w') as f:
                 f.write(script)
-            env['PS2X_PAD_SCRIPT'] = '@' + path
-            env['PS2X_PAD_SCRIPT_CLOCK'] = 'vsync'
-            env.setdefault('PS2X_STATE_LOG', '0x276FE4')
+            env['ZX_PAD_SCRIPT'] = '@' + path
+            env['ZX_PAD_SCRIPT_CLOCK'] = 'vsync'
+            env.setdefault('ZX_STATE_LOG', '0x276FE4')
             result, logfile = self.pad_run(env, runner, work, name, stop)
         elif kind == 'pad':
-            env['PS2X_PAD_SCRIPT'] = subprocess.run([sys.executable, os.path.join(WORKSPACE, 'tools', what + '.py'), 'script'],
+            env['ZX_PAD_SCRIPT'] = subprocess.run([sys.executable, os.path.join(WORKSPACE, 'tools', what + '.py'), 'script'],
                                                     capture_output=True, text=True, cwd=WORKSPACE).stdout.strip()
-            env['PS2X_PAD_SCRIPT_CLOCK'] = 'vsync'
-            env.setdefault('PS2X_STATE_LOG', '0x276FE4')
+            env['ZX_PAD_SCRIPT_CLOCK'] = 'vsync'
+            env.setdefault('ZX_STATE_LOG', '0x276FE4')
             result, logfile = self.pad_run(env, runner, work, name, stop)
         else:
             env['RUNNER'] = runner
@@ -2940,7 +2940,7 @@ class Run:
             # Recording slows the runner down: routes.py's wall-clock limits (a
             # batch's reply, the steering loops) are made longer.
             env.setdefault('ROUTES_SLOW', '8')
-            kv = ['%s=%s' % (k, env[k]) for k in env if k.startswith('PS2X_')]
+            kv = ['%s=%s' % (k, env[k]) for k in env if k.startswith('ZX_')]
             subprocess.run([sys.executable, routes, 'start', name] + kv, capture_output=True, text=True, env=env, cwd=WORKSPACE)
             pid_file = os.path.join(WORKSPACE, 'recomp', 'run', 'ctl-' + name, 'pid')
             try:
@@ -2988,7 +2988,7 @@ class Run:
                 ', '.join(missing[:8])
         # The runner's registry differs from the --list the run was planned
         # from (the build was rebuilt from other sources while it ran).
-        unknown = sorted(set(re.findall(r'\[fncheck\] PS2X_FNREC: not a registered function: (\S+)', text)))
+        unknown = sorted(set(re.findall(r'\[fncheck\] ZX_FNREC: not a registered function: (\S+)', text)))
         if unknown:
             result += '; NOT RECORDED (the runner does not register them: rebuilt from other sources?): ' + \
                 ', '.join(unknown[:8]) + (' and %d more' % (len(unknown) - 8) if len(unknown) > 8 else '')
@@ -3144,10 +3144,10 @@ def main():
     ap.add_argument('--routes-py', default=os.environ.get('READABLE_ROUTES_PY') or os.path.join(WORKSPACE, 'tools', 'routes.py'),
                     help='the tools/routes.py to drive the route runs with (default the workspace\'s)')
     ap.add_argument('--new-blocks', metavar='SEED', help='keep only calls that run a block of the original not in SEED '
-                    '(fncheck_corpus.py coverage --covered-out) nor in a kept call (PS2X_FNREC_NEW_BLOCKS)')
+                    '(fncheck_corpus.py coverage --covered-out) nor in a kept call (ZX_FNREC_NEW_BLOCKS)')
     ap.add_argument('--nb-per-vsync', type=int, default=0, metavar='N', help='--new-blocks: calls recorded a vsync per '
                     'function (default %d, %d for heavy ones)' % (NB_PER_VSYNC, NB_PER_VSYNC_HEAVY))
-    ap.add_argument('--every-call', action='store_true', help='--new-blocks: try every call (PS2X_FNREC_NEW_BLOCKS=2: '
+    ap.add_argument('--every-call', action='store_true', help='--new-blocks: try every call (ZX_FNREC_NEW_BLOCKS=2: '
                     'no rest, no per-vsync cap or pick; for a few hot functions with --only)')
     ap.add_argument('--mash-coverage', metavar='FILE', help='mash weighted by the uncovered blocks in FILE '
                     '(fncheck_corpus.py coverage --json; routes.py MASH_COVERAGE)')
@@ -3159,7 +3159,7 @@ def main():
     args = ap.parse_args()
     args.store = os.path.abspath(args.store)
     if not args.build:
-        sys.exit('readable_corpus.py: --build DIR (your worktree\'s build with the runner and ps2xFnCheck; '
+        sys.exit('readable_corpus.py: --build DIR (your worktree\'s build with the runner and zx-fncheck; '
                  'not the main checkout\'s)')
     args.build = os.path.abspath(args.build)
     version_root = os.path.join(args.store, 'v%d' % recorder_version())

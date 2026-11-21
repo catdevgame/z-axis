@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     // TGIH: a geometry object placed in the world (or under its parent
     // instance). flags: bit 1 collides (0x10 with it: not collided with),
@@ -64,6 +64,20 @@ namespace ps2x::app::levels
     extern const uint32_t kPlayerTwo;    // "PlayerTwo"
     extern const uint32_t kCameraPoint;  // "CameraPos": a camera point's kind (BMX XXX's camera.c)
     extern const uint32_t kIdleCamera;   // "idle": the idle cameras' name (BMX XXX's idleCameraMode)
+
+    // The named spawn points only one game's scripts or modes read
+    // (ai_level_convert.py SCRIPT_SPAWNS): AI's Tutorial lesson points
+    // (TutorialAssignerN's setRespawnLocation, the career's TUT.BIN) and the
+    // Movie Lot's wickedTree; BMX XXX's paintball points (spawnPlayer in
+    // kPaintballMode). The export carries them by name; a converter writes
+    // them only for their own game (no other reads them, and BMX XXX would
+    // take a lesson point as a respawn).
+    struct ScriptSpawns
+    {
+        Engine engine;                  // the game that reads them
+        std::vector<std::string> names; // as its scripts name them
+    };
+    const std::vector<ScriptSpawns> &scriptSpawns();
 
     // SDPT: a scene point (its kind a class name's hash, its name's hash,
     // index, position, orientation), then its class's record.

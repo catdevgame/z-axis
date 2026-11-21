@@ -2,7 +2,7 @@
 // Args: <out.c> [addr ...]
 // A program the readable stage wrote into (ApplyReadable.java) gets a first line naming that input
 // and its SHA-256 (before the first //// FUNCTION line, so readers of the functions skip it).
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.decompiler.DecompInterface;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.script.GhidraScript;

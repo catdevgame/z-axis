@@ -1,4 +1,4 @@
-# Every function of BMX XXX (SLUS-20415), from the work database (functions, build bmx_ps2): address, end, layer, best name. game.cmake reads it with PS2X_GAME_CORPUS=bmx: each is built traced and registered for recording. Names and addresses only.
+# Every function of BMX XXX (SLUS-20415), from the work database (functions, build bmx_ps2): address, end, layer, best name. game.cmake reads it with ZX_GAME_CORPUS=bmx: each is built traced and registered for recording. Names and addresses only.
 0x00100008	0x001000B4	sdk	start
 0x001000B8	0x001000C0	sdk	exitThreadCall
 0x001000C0	0x0010025C	sdk	sendGsResetPacket

@@ -43,7 +43,7 @@ namespace ps2_stubs
     // that run a command synchronously (the IOP MCSERV module).
     int32_t takeMemoryCardResult();
     // Power cycle the card slots: the next sceMcInit re-reads
-    // PS2X_MC_SLOT1/2 and every card counts as newly inserted again.
+    // ZX_MC_SLOT1/2 and every card counts as newly inserted again.
     void resetMemoryCardSlots();
     void sceMcChangeThreadPriority(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime);
     void sceMcChdir(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime);

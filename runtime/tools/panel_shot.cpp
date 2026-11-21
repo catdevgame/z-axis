@@ -1,5 +1,5 @@
-// ps2xPanelShot: the Thor panel on the Mac, from a RAM dump of a real run.
-//   ps2xPanelShot --data <pmap folder> --ram <file.ram> --out <file.png>
+// zx-panelshot: the Thor panel on the Mac, from a RAM dump of a real run.
+//   zx-panelshot --data <pmap folder> --ram <file.ram> --out <file.png>
 //                 [--touch "tap X Y; drag X Y X Y; pinch X0 Y0 X1 Y1 SCALE; wait S"] [--time N]
 //                 [--goal-lines 1]  (each goal's title and progress line as the list shows them, and its bar's count)
 //                 [--game dm2]   (Dave Mirra BMX 2's RAM: its own capture, game_overrides/dave_mirra_panel.cpp)
@@ -258,10 +258,11 @@ int main(int argc, char **argv)
     auto t0 = Clock::now();
     panel::captureSnapshot(memory.data(), memory.size(), *snapshot);
     auto t1 = Clock::now();
-    std::printf("capture %.1f us: level %d mode %d at %.1f %.1f %.1f score %d goals %u words %u objects %u line \"%s\" timer %.1f, snapshot %zu bytes\n",
+    std::printf("capture %.1f us: level %d mode %d at %.1f %.1f %.1f score %d goals %u words %u objects %u line \"%s\" trick \"%s\" pending %.0f timer %.1f, snapshot %zu bytes\n",
                 std::chrono::duration<double, std::micro>(t1 - t0).count(), snapshot->level, static_cast<int>(snapshot->mode),
                 snapshot->x, snapshot->y, snapshot->z, snapshot->score, snapshot->objectiveCount, snapshot->scriptWordCount,
-                snapshot->trackedCount, snapshot->line, snapshot->timerSeconds, sizeof(panel::Snapshot));
+                snapshot->trackedCount, snapshot->line, snapshot->currentTrick, snapshot->pendingScore, snapshot->timerSeconds,
+                sizeof(panel::Snapshot));
     // The goals as the game has them: each one's state word, the active goal, its status line, the live targets.
     std::printf("goals:");
     for (uint32_t i = 0; i < snapshot->objectiveCount; ++i)

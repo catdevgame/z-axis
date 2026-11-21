@@ -39,19 +39,19 @@ namespace ee
         }
     }
 
-#if ZAXIS_DEV_CHECKS
+#if ZX_DEV_CHECKS
     void setMarkerHook(MarkerHook hook) { t_ee.markerHook = hook; }
 #endif
 
     namespace
     {
         // The safe-point model runs: on a fiber in the game, or under
-        // ps2xFnCheck's call handler while its --safepoints hook is set.
+        // zx-fncheck's call handler while its --safepoints hook is set.
         inline bool modelOn() { return !t_ee.callHandler || t_ee.safePointHook; }
     }
 
     uint64_t directReturnDispatches() { return t_ee.directReturns; }
-#if ZAXIS_DEV_CHECKS
+#if ZX_DEV_CHECKS
     void setSafePointHook(SafePointHook hook) { t_ee.safePointHook = hook; }
 #endif
     bool safePointHookSet() { return t_ee.safePointHook != nullptr; }
@@ -341,7 +341,7 @@ namespace ee
     {
         static const bool on = []
         {
-            const char *v = std::getenv("PS2X_READABLE_FRAMES");
+            const char *v = std::getenv("ZX_READABLE_FRAMES");
             return !(v && v[0] == '0');
         }();
         return on;
@@ -349,11 +349,11 @@ namespace ee
 
     namespace
     {
-        // PS2X_READABLE_LEAN's parts. (The app's boot sets it, collection/settings.cpp gameBootConfig; the environment
+        // ZX_READABLE_LEAN's parts. (The app's boot sets it, collection/settings.cpp gameBootConfig; the environment
         // wins.)
         uint32_t readLeanParts()
         {
-            const char *v = ps2x::boot::text("PS2X_READABLE_LEAN");
+            const char *v = zx::boot::text("ZX_READABLE_LEAN");
             if (!v || !*v || std::strcmp(v, "0") == 0)
                 return 0u;
             if (std::strcmp(v, "1") == 0)
@@ -385,14 +385,14 @@ namespace ee
 
     namespace
     {
-        // PS2X_READABLE_LEAN_RANGE=[!]LO-HI,...: lean's saves and registers only in the functions in those ranges
-        // (less a `!` range), as PS2X_READABLE_HELD_RANGE bisects the held table: which function a difference is.
+        // ZX_READABLE_LEAN_RANGE=[!]LO-HI,...: lean's saves and registers only in the functions in those ranges
+        // (less a `!` range), as ZX_READABLE_HELD_RANGE bisects the held table: which function a difference is.
         bool leanInRange(const FrameRow *layout)
         {
             static const std::vector<std::pair<bool, std::pair<uint32_t, uint32_t>>> ranges = []
             {
                 std::vector<std::pair<bool, std::pair<uint32_t, uint32_t>>> list;
-                const char *v = std::getenv("PS2X_READABLE_LEAN_RANGE");
+                const char *v = std::getenv("ZX_READABLE_LEAN_RANGE");
                 for (const char *at = v; at && *at;)
                 {
                     const bool except = *at == '!';
@@ -453,11 +453,11 @@ namespace ee
 
     uint64_t entryRegister(const Frame &frame, int reg) { return entryValue(frame, reg); }
 
-    // PS2X_STACK_POISON=1: every readable function finds the stack below its sp full of 0x5A, so a read of a value
+    // ZX_STACK_POISON=1: every readable function finds the stack below its sp full of 0x5A, so a read of a value
     // left on the stack, by it or by a callee through a pointer into its frame, shows up against a run without it
     // (a stale read has no other witness: the replay answers calls, the A/B sees only dumps and streams).
     //
-    // PS2X_STACK_POISON_STORES=FILE and PS2X_STACK_POISON_FRAMES=FILE (tools/readable_frame_stores.tsv: each
+    // ZX_STACK_POISON_STORES=FILE and ZX_STACK_POISON_FRAMES=FILE (tools/readable_frame_stores.tsv: each
     // function's frame size in the original and the slots it stores there on any path): at the entry of EVERY
     // function of the table, readable or the recompiled original, so `off` gets the same fill as the defaults and
     // the A/B compares the two (career_ab.py stale). STORES fills the slots the function stores: a store the
@@ -531,7 +531,7 @@ namespace ee
         const auto found = frameFills().find(ctx->pc);
         if (found == frameFills().end() || !found->second.original)
         {
-            std::fprintf(stderr, "PS2X_STACK_POISON: entered at 0x%x, no function of the table\n", ctx->pc);
+            std::fprintf(stderr, "ZX_STACK_POISON: entered at 0x%x, no function of the table\n", ctx->pc);
             std::abort();
         }
         fillFrame(found->second, static_cast<uint32_t>(gpr64(ctx, reg::sp)));
@@ -542,17 +542,17 @@ namespace ee
     {
         if constexpr (!kDevChecks)
             return; // (career_ab.py stale's tool: the dev flavour's)
-        const char *stores = std::getenv("PS2X_STACK_POISON_STORES");
-        const char *frames = std::getenv("PS2X_STACK_POISON_FRAMES");
+        const char *stores = std::getenv("ZX_STACK_POISON_STORES");
+        const char *frames = std::getenv("ZX_STACK_POISON_FRAMES");
         if (!stores && !frames)
             return;
         if (stores && frames)
         {
-            std::fprintf(stderr, "PS2X_STACK_POISON_STORES and PS2X_STACK_POISON_FRAMES: one at a time\n");
+            std::fprintf(stderr, "ZX_STACK_POISON_STORES and ZX_STACK_POISON_FRAMES: one at a time\n");
             std::abort();
         }
         g_fillMode = stores ? FillMode::Stores : FillMode::Frames;
-        readFrameFills(stores ? "PS2X_STACK_POISON_STORES" : "PS2X_STACK_POISON_FRAMES", stores ? stores : frames);
+        readFrameFills(stores ? "ZX_STACK_POISON_STORES" : "ZX_STACK_POISON_FRAMES", stores ? stores : frames);
         uint32_t wrapped = 0;
         for (auto &[address, fill] : frameFills())
             if (runtime.hasFunction(address))
@@ -577,7 +577,7 @@ namespace ee
                 fillFrame(found->second, sp);
             return;
         }
-        static const bool on = std::getenv("PS2X_STACK_POISON") != nullptr;
+        static const bool on = std::getenv("ZX_STACK_POISON") != nullptr;
         if (!on || !frame.rdram)
             return;
         const uint32_t bytes = layout && layout->size ? layout->size : 0x100u;
@@ -755,7 +755,7 @@ namespace ee
     {
         static const bool on = []
         {
-            const char *v = std::getenv("PS2X_READABLE_SAFEPOINTS");
+            const char *v = std::getenv("ZX_READABLE_SAFEPOINTS");
             return !(v && v[0] == '0');
         }();
         return on;
@@ -1153,7 +1153,7 @@ namespace ee
         {
             // A slice's jal: dispatched like a readable callee called
             // directly (game::call), the whole function in it. Under
-            // ps2xFnCheck (--safepoints: a frame goes slice by slice only
+            // zx-fncheck (--safepoints: a frame goes slice by slice only
             // after an interruption) the dispatch's 8 are charged but it is
             // not a safe point: the replay of the original runs the call
             // inline, its SliceEmu charging the 8 and returning to the slice
@@ -1219,7 +1219,7 @@ namespace ee
             t_ee.frame->view = call.view;
         if (t_ee.callHandler)
         {
-            // ps2xFnCheck's replay of the original follows the return in
+            // zx-fncheck's replay of the original follows the return in
             // place, uncharged (as the recording's cycles leave out the
             // scheduler's dispatch of the return address). After its
             // --safepoints interruption the model goes on as that dispatch
@@ -1252,7 +1252,7 @@ namespace ee
         Frame *frame = t_ee.frame;
         if (!frame)
             return;
-        // (Under ps2xFnCheck too: it answers the call from the recording and
+        // (Under zx-fncheck too: it answers the call from the recording and
         // compares what was published with the registers the original held
         // there, its saves_differ note; drafter23.)
         for (const CalleeSave &save : saves)

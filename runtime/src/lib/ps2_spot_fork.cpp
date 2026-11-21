@@ -22,7 +22,7 @@
 #include <vector>
 
 #if defined(_WIN32) || defined(__ANDROID__)
-namespace ps2x::spot
+namespace zx::spot
 {
     bool enabled() { return false; }
     void setHostLoop(std::function<void()>) {}
@@ -36,7 +36,7 @@ namespace ps2x::spot
 #include <sys/wait.h>
 #include <unistd.h>
 
-namespace ps2x::spot
+namespace zx::spot
 {
 namespace
 {
@@ -58,12 +58,12 @@ namespace
         return v && v[0] ? v : nullptr;
     }
 
-    std::string dir() { return env("PS2X_SPOT_FORK") ? env("PS2X_SPOT_FORK") : ""; }
+    std::string dir() { return env("ZX_SPOT_FORK") ? env("ZX_SPOT_FORK") : ""; }
 
-    // PS2X_SPOT_AT: "tick>=N" or "script>=N"; none: the file <dir>/now only.
+    // ZX_SPOT_AT: "tick>=N" or "script>=N"; none: the file <dir>/now only.
     bool atSpot(uint64_t tick, int64_t scriptTime)
     {
-        if (const char *at = env("PS2X_SPOT_AT"))
+        if (const char *at = env("ZX_SPOT_AT"))
         {
             const std::string s(at);
             const size_t op = s.find(">=");
@@ -103,12 +103,12 @@ namespace
     {
         if (!g_hostLoop)
             return "no host loop to run again (not PS2Runtime::run)";
-        if (!env("PS2X_GS_NULL") || std::string(env("PS2X_GS_NULL")) != "1")
-            return "PS2X_GS_NULL=1 is needed (a GS renderer's threads and GPU state are not rebuilt)";
-        if (!env("ZAXIS_AUDIO") || std::string(env("ZAXIS_AUDIO")) != "off")
-            return "ZAXIS_AUDIO=off is needed (the audio device's thread is not rebuilt)";
-        if (env("PS2X_FNREC"))
-            return "the parent records (PS2X_FNREC): a child records from the spot, by its request";
+        if (!env("ZX_GS_NULL") || std::string(env("ZX_GS_NULL")) != "1")
+            return "ZX_GS_NULL=1 is needed (a GS renderer's threads and GPU state are not rebuilt)";
+        if (!env("ZX_AUDIO") || std::string(env("ZX_AUDIO")) != "off")
+            return "ZX_AUDIO=off is needed (the audio device's thread is not rebuilt)";
+        if (env("ZX_FNREC"))
+            return "the parent records (ZX_FNREC): a child records from the spot, by its request";
         (void)runtime;
         return {};
     }
@@ -120,7 +120,7 @@ namespace
         const std::string log = (fs::path(dir()) / (name + ".log")).string();
         for (const auto &[k, v] : vars)
             ::setenv(k.c_str(), v.c_str(), 1);
-        ::unsetenv("PS2X_SPOT_FORK");
+        ::unsetenv("ZX_SPOT_FORK");
         const int fd = ::open(log.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
         if (fd >= 0)
         {
@@ -176,8 +176,8 @@ namespace
         const fs::path requests = root / "req";
         std::error_code ec;
         fs::create_directories(requests, ec);
-        const int maxChildren = std::max(1, env("PS2X_SPOT_FORK_MAX") ? std::atoi(env("PS2X_SPOT_FORK_MAX")) : 2);
-        const int idleSeconds = std::max(1, env("PS2X_SPOT_FORK_IDLE") ? std::atoi(env("PS2X_SPOT_FORK_IDLE")) : 600);
+        const int maxChildren = std::max(1, env("ZX_SPOT_FORK_MAX") ? std::atoi(env("ZX_SPOT_FORK_MAX")) : 2);
+        const int idleSeconds = std::max(1, env("ZX_SPOT_FORK_IDLE") ? std::atoi(env("ZX_SPOT_FORK_IDLE")) : 600);
         writeFile(root / "ready", "tick " + std::to_string(tick) + "\npid " + std::to_string(::getpid()) + "\n");
         note("serving at tick " + std::to_string(tick) + " from " + root.string());
         std::map<pid_t, std::string> running;

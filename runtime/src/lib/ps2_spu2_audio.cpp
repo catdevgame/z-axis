@@ -85,18 +85,18 @@ namespace
 PS2Spu2Audio::PS2Spu2Audio()
     : m_ring(kRingFrames * 2u, 0)
 {
-    m_streamWanted = envLong("PS2X_SPU2_AUDIO", 1) != 0;
-    const long latencyMs = std::clamp(envLong("PS2X_SPU2_LATENCY_MS", 60), 10L, 400L);
+    m_streamWanted = envLong("ZX_SPU2_AUDIO", 1) != 0;
+    const long latencyMs = std::clamp(envLong("ZX_SPU2_LATENCY_MS", 60), 10L, 400L);
     m_targetFrames = static_cast<size_t>(latencyMs) * kSampleRate / 1000u;
 
-    const long statsSeconds = std::max(0L, envLong("PS2X_SPU2_STATS", 30));
+    const long statsSeconds = std::max(0L, envLong("ZX_SPU2_STATS", 30));
     m_statsEveryFrames = static_cast<uint64_t>(statsSeconds) * kSampleRate;
     m_statsNextAt = m_statsEveryFrames;
 
-    if (const char *path = std::getenv("PS2X_SPU2_WAV"); path && *path)
+    if (const char *path = std::getenv("ZX_SPU2_WAV"); path && *path)
     {
         m_wavPath = path;
-        const long seconds = std::max(1L, envLong("PS2X_SPU2_WAV_SECONDS", 120));
+        const long seconds = std::max(1L, envLong("ZX_SPU2_WAV_SECONDS", 120));
         m_wavLimitFrames = static_cast<uint64_t>(seconds) * kSampleRate;
         m_wav = std::fopen(path, "wb");
         if (m_wav)
@@ -123,7 +123,7 @@ void PS2Spu2Audio::openStream()
     if (!m_streamWanted || !ps2_host::audioReady())
     {
         std::cerr << "[spu2] host audio output disabled ("
-                  << (m_streamWanted ? "no audio device" : "PS2X_SPU2_AUDIO=0") << ")" << std::endl;
+                  << (m_streamWanted ? "no audio device" : "ZX_SPU2_AUDIO=0") << ")" << std::endl;
         return;
     }
     // s16 stereo 48 kHz in; SDL converts to the device's format and rate.
@@ -185,10 +185,10 @@ void PS2Spu2Audio::submit(const int16_t *frames, size_t count)
     // Host sound that replaces something the game played through the SPU2
     // (runtime/ps2_audio_mix.h) joins here, in emulated time.
     thread_local std::vector<int16_t> mixed;
-    if (ps2x::audio_mix::hasSources())
+    if (zx::audio_mix::hasSources())
     {
         mixed.assign(frames, frames + count * 2u);
-        ps2x::audio_mix::mix(mixed.data(), count);
+        zx::audio_mix::mix(mixed.data(), count);
         frames = mixed.data();
     }
     if (!m_streamTried)

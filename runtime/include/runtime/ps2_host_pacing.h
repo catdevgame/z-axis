@@ -37,8 +37,8 @@
 // game does is the same; the sound follows guest time and its host ring
 // corrects the rate (ps2_spu2_audio.h). Unpaced runs, fast-forwarded
 // loading screens, a window without vsync (no steady refresh) or one that
-// stopped presenting are left alone. PS2X_VSYNC_PHASE=0: no correction.
-namespace ps2x::host_pacing
+// stopped presenting are left alone. ZX_VSYNC_PHASE=0: no correction.
+namespace zx::host_pacing
 {
     using Clock = std::chrono::steady_clock;
 
@@ -69,7 +69,7 @@ namespace ps2x::host_pacing
     {
         static const bool on = []
         {
-            const char *v = std::getenv("PS2X_VSYNC_PHASE");
+            const char *v = std::getenv("ZX_VSYNC_PHASE");
             return !(v && v[0] == '0');
         }();
         return on;
@@ -111,7 +111,7 @@ namespace ps2x::host_pacing
         }
     }
 
-    // Window thread: frames shown, for PS2X_PERF_LOG. Each host frame that
+    // Window thread: frames shown, for ZX_PERF_LOG. Each host frame that
     // shows a new game frame calls shown(frame number, made), every other one
     // repeated(); the counts say how many refreshes each game frame stayed
     // on screen and how many game frames were never shown.

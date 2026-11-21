@@ -116,13 +116,13 @@ namespace
     std::atomic<uint32_t> s_debugGifPacketCount{0};
     std::atomic<uint32_t> s_debugGsRegisterCount{0};
 
-    // PS2X_GS_LOG_LIMIT=<n> raises the per-category caps on the aggressive GS
-    // debug logs (only meaningful with PS2X_ENABLE_AGRESSIVE_LOGS).
+    // ZX_GS_LOG_LIMIT=<n> raises the per-category caps on the aggressive GS
+    // debug logs (only meaningful with ZX_ENABLE_AGRESSIVE_LOGS).
     uint32_t gsDebugLogLimit(uint32_t fallback)
     {
         static const long configured = []()
         {
-            const char *value = std::getenv("PS2X_GS_LOG_LIMIT");
+            const char *value = std::getenv("ZX_GS_LOG_LIMIT");
             return value ? std::strtol(value, nullptr, 0) : -1L;
         }();
         return configured >= 0 ? static_cast<uint32_t>(configured) : fallback;
@@ -634,7 +634,7 @@ PresentationFrame GS::pictureOfDisplay(const GSPresentationRequest &display)
 
 void GS::makePresentationPicture(uint32_t slot, PresentationPicture &out, uint64_t frameNumber)
 {
-    ps2x::ftrace::Scope traceLatch(ps2x::ftrace::kLatchBegin, ps2x::ftrace::kLatchEnd);
+    zx::ftrace::Scope traceLatch(zx::ftrace::kLatchBegin, zx::ftrace::kLatchEnd);
     GSPresentationRequest request{};
     PresentationFrame frame{};
     out = PresentationPicture{};
@@ -851,11 +851,11 @@ GS::TakenFrame GS::shownPresentationFrame() const
     return out;
 }
 
-ps2x::gs_interpolate::Skip GS::presentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out)
+zx::gs_interpolate::Skip GS::presentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out)
 {
     std::lock_guard<std::mutex> backendLock(m_backendLifetimeMutex);
     if (!m_backend)
-        return ps2x::gs_interpolate::Skip::NoPair;
+        return zx::gs_interpolate::Skip::NoPair;
     return m_backend->PresentBetween(from, to, t, out);
 }
 
@@ -2668,7 +2668,7 @@ void GS::drawNativeTriangles(const GSNativeDraw &draw, const GSPrimitiveBatch &b
 namespace
 {
     // Field by field (the structs carry padding, which the register handlers'
-    // stack locals leave indeterminate): for PS2X_GS_STATE_CACHE_CHECK.
+    // stack locals leave indeterminate): for ZX_GS_STATE_CACHE_CHECK.
     bool sameDrawState(const GSDrawState &a, const GSDrawState &b)
     {
         const GSContext &x = a.context, &y = b.context;
@@ -2751,11 +2751,11 @@ const GSDrawState &GS::cachedDrawState() const
 {
     // The state is the same for every kick between two writes of a register
     // other than the vertex ones (a mesh's primitives): built once per change.
-    // PS2X_GS_STATE_CACHE_CHECK=1 rebuilds it at every kick and reports any
+    // ZX_GS_STATE_CACHE_CHECK=1 rebuilds it at every kick and reports any
     // kick where the cached one differs (there should be none).
     static const bool check = []
     {
-        const char *v = std::getenv("PS2X_GS_STATE_CACHE_CHECK");
+        const char *v = std::getenv("ZX_GS_STATE_CACHE_CHECK");
         return v && v[0] == '1';
     }();
     if (m_drawStateDirty)

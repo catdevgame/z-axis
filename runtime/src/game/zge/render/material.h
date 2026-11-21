@@ -35,7 +35,7 @@ namespace zge
 
     constexpr int kMatiMaxLayers = 4;
 
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     // ZGE2's MATI: a 16-bit flags word (bits 2-9 its type, as DM2's loadMaterialChunk packs them), the colours
     // right after it, no name hash, the layers from +0x2C. Only what DM2's loadMaterial and loadMaterialChunk
     // read is named; the record's size is not read by either (zge/assets/geo.h's AI size is not asserted here).
@@ -104,7 +104,7 @@ namespace zge
     // setMaterialPacketSize and setMaterialState): ZGE2 (DM2) a 0x50 header and four layers of 0xB0 (0x310); ZGE3 (AI)
     // a 0x50 header and two layers of 0x120 (0x290), the first laid out again in Material itself; ZGE4 (BMX XXX) a
     // 0x20 header and one layer of 0xF0 (0x110). Only the fields known so far.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     struct Material
     {
         union
@@ -131,7 +131,7 @@ namespace zge
     static_assert(sizeof(Material) == 0x50 && offsetof(Material, references) == 0x002 && offsetof(Material, owner) == 0x008 &&
                   offsetof(Material, tags) == 0x00C && offsetof(Material, tagRecord) == 0x01C && offsetof(Material, colours) == 0x024 &&
                   offsetof(Material, unreadValues) == 0x030 && offsetof(Material, textureCount) == 0x038 && offsetof(Material, stateChanged) == 0x03C && offsetof(Material, type) == 0x040);
-#elif PS2X_GAME_BMX
+#elif ZX_GAME_BMX
     struct Material
     {
         union
@@ -214,7 +214,7 @@ namespace zge
 
     // A material's layer in RAM: the DMA tag, VIF codes and GS registers VU1
     // is sent before the material's strips, then its effect routines.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     // ZGE2's layer (0xB0; four from Material +0x050): the DMA tag, VIF codes, GIF tag and the seven GS registers as
     // ZGE3's (DM2's initMaterialLayers and setLayerTextureRegisters write them at the same offsets), then four words
     // not read yet, the layer's texture id and the two MATI layer words after it. ZGE2 has no material routines
@@ -246,7 +246,7 @@ namespace zge
     constexpr uint32_t kMaterialLayersStart = 0x50, kMaterialLayerCount = 4;
     // The bytes of a layer initMaterialLayers clears: ZGE2's up to its texture id (the id and MATI words stay).
     constexpr uint32_t kMaterialLayerClearedBytes = offsetof(MaterialLayer, texture);
-#elif PS2X_GAME_BMX
+#elif ZX_GAME_BMX
     // ZGE4's layer (0xF0; one from Material +0x020): as ZGE3's up to the routines, of which it has room for 24; its
     // quadword count is in the material's header (Material::qwordCount).
     struct MaterialLayer
@@ -303,7 +303,7 @@ namespace zge
     // above (no DM2 function read so far reads it as the kind).
     inline uint32_t &materialListedFrame(Material &material)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         return material.type;
 #else
         return material.listedFrame;
@@ -322,11 +322,11 @@ namespace zge
 
     // A layer's effect routines (ZGE3 and ZGE4; ZGE2 has none) and the packet's quadword count after the GS block:
     // in ZGE2's and ZGE3's layer, in ZGE4's header.
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     inline ee::Ptr<uint32_t> layerRoutines(ee::Ptr<Material>, uint32_t) { return ee::Ptr<uint32_t>(); }
     inline uint32_t layerQwordCount(ee::Ptr<Material> material, uint32_t layer) { return materialLayer(material, layer).qwordCount; }
     inline void setLayerQwordCount(ee::Ptr<Material> material, uint32_t layer, uint32_t quadwords) { materialLayer(material, layer).qwordCount = quadwords; }
-#elif PS2X_GAME_BMX
+#elif ZX_GAME_BMX
     inline ee::Ptr<uint32_t> layerRoutines(ee::Ptr<Material> material, uint32_t layer) { return ee::Ptr<uint32_t>(materialLayer(material, layer).routines); }
     inline uint32_t layerQwordCount(ee::Ptr<Material> material, uint32_t) { return material->qwordCount; }
     inline void setLayerQwordCount(ee::Ptr<Material> material, uint32_t, uint32_t quadwords) { material->qwordCount = static_cast<uint16_t>(quadwords); }
@@ -340,7 +340,7 @@ namespace zge
     // record, ZGE3 and ZGE4 in the header (Material::textures).
     inline ee::Ptr<uint32_t> textureSlotOf(ee::Ptr<Material> material, uint32_t layer)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         return ee::Ptr<uint32_t>(&materialLayer(material, layer).texture);
 #else
         return ee::Ptr<uint32_t>(material->textures) + layer;
@@ -350,7 +350,7 @@ namespace zge
     // The material's tag table: inside the material in ZGE2 and ZGE3, an object of its own in ZGE4 (0: none), which
     // loadMaterial sets. The header fields one version has and another has not are reached through these, so one
     // body serves the three layouts: a version without the field gets a null pointer, on a path it never takes.
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline ee::Ptr<TagTableHeader> materialTagTable(ee::Ptr<Material> material) { return material->tags; }
     inline void setMaterialTagTable(ee::Ptr<Material> material, ee::Ptr<TagTableHeader> table) { material->tags = table; }
     inline ee::Ptr<uint8_t> materialTagRecord(ee::Ptr<Material>) { return ee::Ptr<uint8_t>(); }  // (in the tag table object)
@@ -364,7 +364,7 @@ namespace zge
     inline ee::Ptr<ee::Float> materialUnreadValues(ee::Ptr<Material> material) { return ee::Ptr<ee::Float>(material->unreadValues); }
 #endif
     // The material's name hash and the MATI's: ZGE3 and ZGE4 only (ZGE2 materials have no name of their own).
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
     inline ee::Ptr<uint32_t> materialNameHashSlot(ee::Ptr<Material>) { return ee::Ptr<uint32_t>(); }
     inline uint32_t matiNameHash(const MatiChunk &) { return 0; }
 #else
@@ -376,7 +376,7 @@ namespace zge
     // ZGE2 keeps the two MATI layer words after the layer's texture id (loadMaterial); the later engines drop them.
     inline void keepMatiLayerWords(ee::Ptr<Material> material, uint32_t layer, const MatiLayer &mati)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         materialLayer(material, layer).matiWords[0] = mati.unknown14[0];
         materialLayer(material, layer).matiWords[1] = mati.unknown14[1];
 #else
@@ -399,11 +399,11 @@ namespace zge
     // the doubleword from the texture count before it.
     inline uint64_t markMaterialStateChanged(Material &material)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         uint64_t &word = *reinterpret_cast<uint64_t *>(&material.textureCount);
         word |= 1ull << 32;
         return word;
-#elif PS2X_GAME_BMX
+#elif ZX_GAME_BMX
         uint64_t &typeWord = typeDoubleword(material); // (ZGE4: the type is the doubleword's upper half)
         typeWord |= 1ull << 32;
         return typeWord;
@@ -525,7 +525,7 @@ namespace zge
     // the word after its texture count.
     inline auto &materialStateChangedWord(Material &material)
     {
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         return material.stateChanged;
 #else
         return material.type;
@@ -558,7 +558,7 @@ namespace zge
         uint16_t count;                   // +0x02 the TMTB's MATI count
         uint32_t flags;                   // +0x04 the low half its own size in bytes (kMaterialTableBytes), then kMaterialTable*
         uint32_t packetChains[2];         // +0x08
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _10[0xB];                // BMX +0x10 (not read yet)
         uint32_t textureEpoch;            // BMX +0x3C (requestTextures, setLayerTextureRegisters, queueMaterialTexture)
 #else

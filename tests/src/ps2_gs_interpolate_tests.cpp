@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace gi = ps2x::gs_interpolate;
+namespace gi = zx::gs_interpolate;
 
 namespace
 {
@@ -183,11 +183,11 @@ void register_ps2_gs_interpolate_tests()
         tc.Run("settings.ini [display] frame_interpolation", [](TestCase &t)
         {
             std::vector<std::string> warnings;
-            const ps2x::app::Settings off = ps2x::app::parseSettings("", &warnings);
+            const zx::app::Settings off = zx::app::parseSettings("", &warnings);
             t.IsTrue(!off.frameInterpolation, "off by default");
-            const ps2x::app::Settings on = ps2x::app::parseSettings("[display]\nframe_interpolation = true\n", &warnings);
+            const zx::app::Settings on = zx::app::parseSettings("[display]\nframe_interpolation = true\n", &warnings);
             t.IsTrue(warnings.empty() && on.frameInterpolation, "read");
-            t.IsTrue(ps2x::app::parseSettings(ps2x::app::formatSettings(on), &warnings).frameInterpolation, "written back");
+            t.IsTrue(zx::app::parseSettings(zx::app::formatSettings(on), &warnings).frameInterpolation, "written back");
         });
     });
 }

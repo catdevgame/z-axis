@@ -24,7 +24,7 @@
 //
 // Every function here is DM2's own, registered in DM2's instance
 // (READABLE_FUNCTION) and checked against DM2's recorded calls
-// (ps2xFnCheck --cycles); they install only when DM2 runs.
+// (zx-fncheck --cycles); they install only when DM2 runs.
 
 #include "ee/abi.h"
 #include "ee/ee.h"

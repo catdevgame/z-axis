@@ -4,14 +4,14 @@
 // something the game played through the SPU2 (a movie's sound, say) adds its
 // 48 kHz stereo frames here. They are mixed in where the SPU2's frames are
 // produced, in emulated time, so they reach the host output (and the
-// PS2X_SPU2_WAV dump) in step with the rest of the game's sound, after the
+// ZX_SPU2_WAV dump) in step with the rest of the game's sound, after the
 // same DC-blocking high-pass the SPU2's output stage applies.
 
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 
-namespace ps2x::audio_mix
+namespace zx::audio_mix
 {
     // Adds `frames` interleaved stereo frames to `mix` (it may leave it
     // unchanged when it has nothing to play). Runs on the thread that

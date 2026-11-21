@@ -5,7 +5,7 @@
 
 #include "collection/extras/disc_image.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     std::unique_ptr<DiscImage> openRvzImage(std::unique_ptr<ImageFile> file, std::string *error);
 }

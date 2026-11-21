@@ -18,7 +18,7 @@
 // Files: <saves>/<profile>.sav (the game save, 143,748 bytes: the byte sum,
 // then the buffer, as the card's data file) and <saves>/Parks/Park NNN.sav
 // (game/host/save_files.h). The card folders' saves are copied in once; the
-// card folders are left as they are. PS2X_SAVES=card: the memory card
+// card folders are left as they are. ZX_SAVES=card: the memory card
 // dialogs, as on the console.
 
 #include "bmx_xxx.h"
@@ -42,6 +42,7 @@ namespace bmx_xxx
                                          .parkBuffer = sym::bmx::g_parkSaveBuffer,
                                          .parkBytes = kParkSaveBytes,
                                          .parkCardFolderPrefix = "BASLUS-20415PARK",
+                                         .completeSave = &keepLevelRecordInSave,
                                          .parkSaved = &releasesParkSaved});
     }
 }

@@ -26,7 +26,7 @@ namespace zge
     int32_t loadTextureChunk(ChunkReader *reader, void *context)
     {
         // Native textures: the Xbox file of this library is read on the host
-        // (not under ps2xFnCheck, whose recordings do not hold the file).
+        // (not under zx-fncheck, whose recordings do not hold the file).
         if (native::hostExtrasOn())
             if (const ZFile *file = reader->file)
                 native::noteTextureFile(std::string(file->path, strnlen(file->path, sizeof(file->path))));

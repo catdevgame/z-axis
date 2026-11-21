@@ -37,7 +37,7 @@ namespace guest_map
     {
         // The game's: every address the runtime's resolution folds onto RAM, the scratchpad at its two addresses.
         Game,
-        // ps2xFnCheck's replay memory: the game's, but for the scratchpad's window at RAM's size too (the
+        // zx-fncheck's replay memory: the game's, but for the scratchpad's window at RAM's size too (the
         // recordings' key for it, fncheck::kScratchpadKey, where the game has RAM's first 64 KB again), so the
         // recordings' memory keys are addresses from the base. The checker opens a key's page there, and a page
         // of another view of it (a mirror, the scratchpad's own addresses) when an access faults on it

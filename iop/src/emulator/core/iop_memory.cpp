@@ -16,7 +16,7 @@ namespace ps2x::iop::detail
 
     IopMemory::IopMemory()
         : m_ram(RamSize), m_owned(RamSize), m_scratch(ScratchSize),
-          m_spu2(std::make_unique<Spu2>(std::span<uint8_t>(m_ram)))
+          m_spu2(std::make_unique<zx::Spu2>(std::span<uint8_t>(m_ram)))
     {
         reset();
     }
@@ -49,7 +49,7 @@ namespace ps2x::iop::detail
             return m_ram[phys];
         if (phys >= ScratchBase && phys < ScratchBase + ScratchSize)
             return m_scratch[phys - ScratchBase];
-        if (Spu2::isRegisterAddress(phys))
+        if (zx::Spu2::isRegisterAddress(phys))
             return static_cast<uint8_t>(m_spu2->readRegister(phys & ~1u) >> ((phys & 1u) * 8u));
         const uint32_t value = readHardware32(phys & ~3u);
         return static_cast<uint8_t>(value >> ((phys & 3u) * 8u));
@@ -64,7 +64,7 @@ namespace ps2x::iop::detail
             std::memcpy(&value, m_ram.data() + phys, sizeof(value));
             return value;
         }
-        if ((phys & 1u) == 0u && Spu2::isRegisterAddress(phys))
+        if ((phys & 1u) == 0u && zx::Spu2::isRegisterAddress(phys))
             return m_spu2->readRegister(phys);
         return static_cast<uint16_t>(read8(address) | (static_cast<uint16_t>(read8(address + 1u)) << 8u));
     }
@@ -84,7 +84,7 @@ namespace ps2x::iop::detail
             std::memcpy(&value, m_scratch.data() + (phys - ScratchBase), sizeof(value));
             return value;
         }
-        if ((phys & 3u) == 0u && Spu2::isRegisterAddress(phys))
+        if ((phys & 3u) == 0u && zx::Spu2::isRegisterAddress(phys))
             return static_cast<uint32_t>(m_spu2->readRegister(phys)) |
                    (static_cast<uint32_t>(m_spu2->readRegister(phys + 2u)) << 16u);
         if ((phys & 3u) == 0u && isHardwareAddress(phys))
@@ -110,7 +110,7 @@ namespace ps2x::iop::detail
             m_scratch[phys - ScratchBase] = value;
             return;
         }
-        if (Spu2::isRegisterAddress(phys))
+        if (zx::Spu2::isRegisterAddress(phys))
         {
             const uint32_t aligned16 = phys & ~1u;
             const uint32_t shift16 = (phys & 1u) * 8u;
@@ -135,12 +135,12 @@ namespace ps2x::iop::detail
             markOwned(phys, sizeof(value));
             return;
         }
-        if ((phys & 1u) == 0u && Spu2::isRegisterAddress(phys))
+        if ((phys & 1u) == 0u && zx::Spu2::isRegisterAddress(phys))
         {
             m_spu2->writeRegister(phys, value);
             return;
         }
-        if ((phys & 1u) == 0u && Spu2::isDmaRegisterAddress(phys))
+        if ((phys & 1u) == 0u && zx::Spu2::isDmaRegisterAddress(phys))
         {
             const uint32_t aligned = phys & ~3u;
             const uint32_t shift = (phys & 2u) * 8u;
@@ -166,7 +166,7 @@ namespace ps2x::iop::detail
             std::memcpy(m_scratch.data() + (phys - ScratchBase), &value, sizeof(value));
             return;
         }
-        if ((phys & 3u) == 0u && Spu2::isRegisterAddress(phys))
+        if ((phys & 3u) == 0u && zx::Spu2::isRegisterAddress(phys))
         {
             m_spu2->writeRegister(phys, static_cast<uint16_t>(value));
             m_spu2->writeRegister(phys + 2u, static_cast<uint16_t>(value >> 16u));
@@ -246,7 +246,7 @@ namespace ps2x::iop::detail
 
     uint32_t IopMemory::readHardware32(uint32_t address) const
     {
-        if (Spu2::isDmaRegisterAddress(address))
+        if (zx::Spu2::isDmaRegisterAddress(address))
             return m_spu2->readDmaRegister(address);
         const auto value = m_hardware.find(address);
         if (value != m_hardware.end())
@@ -281,7 +281,7 @@ namespace ps2x::iop::detail
             break;
         }
 
-        if (Spu2::isDmaRegisterAddress(address))
+        if (zx::Spu2::isDmaRegisterAddress(address))
         {
             m_spu2->writeDmaRegister(address, value);
             return;

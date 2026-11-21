@@ -15,7 +15,7 @@
 #include <memory>
 #include <vector>
 
-namespace ps2x::spu
+namespace zx::spu
 {
     constexpr size_t kBlockBytes = 16;
     constexpr size_t kSamplesPerBlock = 28;

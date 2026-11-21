@@ -8,7 +8,7 @@
 #include <tuple>
 #include <unordered_map>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {

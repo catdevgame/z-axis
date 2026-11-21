@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstring>
 
-#if PS2X_HAS_AVFORMAT
+#if ZX_HAS_AVFORMAT
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -18,7 +18,7 @@ extern "C"
 }
 #endif
 
-namespace ps2x::audio_file
+namespace zx::audio_file
 {
     namespace
     {
@@ -193,7 +193,7 @@ namespace ps2x::audio_file
             bool m_float = false;
         };
 
-#if PS2X_HAS_AVFORMAT
+#if ZX_HAS_AVFORMAT
         // Anything libavformat/libavcodec in the build can demux and decode.
         class FfmpegReader final : public Reader
         {
@@ -460,7 +460,7 @@ namespace ps2x::audio_file
         // A file in a zip (a mod's: runtime/ps2_zip_archive.h) is read whole
         // into memory; one on the host is read in place.
         std::unique_ptr<Source> memory;
-        if (const ps2x::game_files::ZipPath zip = ps2x::game_files::zipPathOf(path); zip.zip)
+        if (const zx::game_files::ZipPath zip = zx::game_files::zipPathOf(path); zip.zip)
         {
             std::vector<uint8_t> bytes;
             if (!zip.zip->read(zip.inside, bytes))
@@ -490,7 +490,7 @@ namespace ps2x::audio_file
             }
             return WavReader::open(std::move(memory), error);
         }
-#if PS2X_HAS_AVFORMAT
+#if ZX_HAS_AVFORMAT
         return FfmpegReader::open(path, std::move(memory), error);
 #else
         if (error)
@@ -501,7 +501,7 @@ namespace ps2x::audio_file
 
     std::vector<std::string> extensions()
     {
-#if PS2X_HAS_AVFORMAT
+#if ZX_HAS_AVFORMAT
         return {".wav", ".ogg", ".opus", ".flac", ".mp3"};
 #else
         return {".wav"};

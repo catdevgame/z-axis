@@ -4,7 +4,7 @@
 #include <cctype>
 #include <string>
 
-namespace ps2x::games
+namespace zx::games
 {
     const std::vector<Game> &all()
     {

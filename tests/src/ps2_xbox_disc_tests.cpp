@@ -17,7 +17,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = std::filesystem::temp_directory_path() / ("ps2x-xboxdisc-" + std::to_string(now));
+            path = std::filesystem::temp_directory_path() / ("zx-xboxdisc-" + std::to_string(now));
             std::filesystem::create_directories(path);
         }
         ~TempDir()
@@ -44,7 +44,7 @@ void register_ps2_xbox_disc_tests()
         {
             ps2_xbox_disc::reset();
 #if !defined(_WIN32)
-            unsetenv("PS2X_XBOX_DIR");
+            unsetenv("ZX_XBOX_DIR");
 #endif
             t.IsFalse(ps2_xbox_disc::init(), "no disc");
             t.IsFalse(ps2_xbox_disc::available(), "not available");
@@ -71,11 +71,11 @@ void register_ps2_xbox_disc_tests()
             put(dir.path / "disc" / "media" / "assets" / "levels" / "ZOO" / "zoo.TXR", "FORM!");
             put(dir.path / "disc" / "media" / "assets" / "levels" / "ZOO" / "zoot.bin", "BI");
 #if !defined(_WIN32)
-            setenv("PS2X_XBOX_DIR", (dir.path / "disc").string().c_str(), 1);
+            setenv("ZX_XBOX_DIR", (dir.path / "disc").string().c_str(), 1);
             ps2_xbox_disc::reset();
-            t.IsTrue(ps2_xbox_disc::init(), "found from PS2X_XBOX_DIR");
+            t.IsTrue(ps2_xbox_disc::init(), "found from ZX_XBOX_DIR");
             t.IsTrue(ps2_xbox_disc::init(), "idempotent");
-            unsetenv("PS2X_XBOX_DIR");
+            unsetenv("ZX_XBOX_DIR");
 #else
             t.IsTrue(ps2_xbox_disc::openPath((dir.path / "disc").string()), "opened");
 #endif

@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <numeric>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     std::vector<size_t> inGameOrder(const std::vector<std::string_view> &ids)
     {

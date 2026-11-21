@@ -55,8 +55,8 @@ def _user_home():
 USER_HOME = _user_home()
 
 # Test runs make no sound (mute1, as paths.sh): every runner this process starts opens SDL's dummy audio device. A run
-# that has to be heard says ZAXIS_AUDIO=on itself.
-os.environ.setdefault('ZAXIS_AUDIO', 'off')
+# that has to be heard says ZX_AUDIO=on itself.
+os.environ.setdefault('ZX_AUDIO', 'off')
 
 
 def load(path=os.path.join(ZAXIS_TOOLING, 'paths.env'),
@@ -96,8 +96,7 @@ def _tree():
         return os.environ['ZAXIS_TREE']
     here = os.getcwd()
     while True:
-        if os.path.exists(os.path.join(here, '.git')) and (os.path.isdir(os.path.join(here, 'runtime', 'src', 'game'))
-                                                          or os.path.isdir(os.path.join(here, 'ps2xRuntime', 'src', 'game'))):
+        if os.path.exists(os.path.join(here, '.git')) and os.path.isdir(os.path.join(here, 'runtime', 'src', 'game')):
             return here
         up = os.path.dirname(here)
         if up == here:
@@ -176,8 +175,8 @@ def _zlayout():
     return module
 
 
-# A z-axis tree's top-level folders, old or new (checks/zlayout.py): zpaths.folder(tree, 'runtime') is 'runtime',
-# or 'ps2xRuntime' in a tree from before tools17; zpaths.tree_path(tree, 'runtime', 'src', 'game').
+# A z-axis tree's top-level folders (checks/zlayout.py): zpaths.folder(tree, 'runtime') is 'runtime';
+# zpaths.tree_path(tree, 'runtime', 'src', 'game').
 zlayout = _zlayout()
 folder = zlayout.folder
 tree_path = zlayout.path

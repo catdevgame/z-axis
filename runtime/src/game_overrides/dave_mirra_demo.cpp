@@ -1,5 +1,5 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): the attract demo, as the Xbox and
-// GameCube releases play it ([extras] attract_demo, PS2X_DM2_ATTRACT_DEMO=1;
+// GameCube releases play it ([extras] attract_demo, ZX_DM2_ATTRACT_DEMO=1;
 // off by default).
 //
 // Left at the main menu, the game plays one of its own replays (REPLAY.ZAL)
@@ -64,7 +64,6 @@ namespace dave_mirra::demo
 {
     namespace
     {
-        namespace zx = ps2x::zaxis;
 
         constexpr const char kTag[] = "[demo]";
         constexpr const char kOwner[] = "dm2-demo";
@@ -80,7 +79,7 @@ namespace dave_mirra::demo
         // The PS2 disc's REPLAY.ZAL holds level 3's demo replays alone (its
         // other demo groups are left-over bytes that crash the level they
         // load); the Xbox's holds the rest. Made at app build
-        // (tooling/ai/tools/dm2_xbox.py: <PS2X_DM2_XBOX_LEVELS_DIR>/demo/
+        // (tooling/ai/tools/dm2_xbox.py: <ZX_DM2_XBOX_LEVELS_DIR>/demo/
         // REPLAY.ZAL, the PS2's with the demo groups it lacks the Xbox's);
         // without it the demo is level 3's alone.
         constexpr size_t kDiscDemos = 1;
@@ -136,7 +135,7 @@ namespace dave_mirra::demo
             uint32_t frames = 0; // the demo frame's count in its step
             uint32_t played = 0; // frames of the replay played
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         uint8_t readByte(uint8_t *rdram, uint32_t at)
         {
@@ -195,7 +194,7 @@ namespace dave_mirra::demo
             state().starting = true;
             const size_t demos = state().library.empty() ? kDiscDemos : std::size(kDemos);
             uint32_t which = readByte(rdram, sym::dm2::g_demoReplaysRead) % demos;
-            if (const char *forced = std::getenv("PS2X_DM2_DEMO"); forced && *forced) // developers: that demo each time
+            if (const char *forced = std::getenv("ZX_DM2_DEMO"); forced && *forced) // developers: that demo each time
                 which = static_cast<uint32_t>(std::atoi(forced)) % demos;
             const Demo &demo = kDemos[which];
             writeByte(rdram, sym::dm2::g_demoLevel, demo.level);
@@ -336,36 +335,36 @@ namespace dave_mirra::demo
 
         bool patchMainMenu(std::string &text)
         {
-            zx::Span idle = zx::findObject(text, "MainMenu/MainMenuFrame/DemoMode");
-            if (!idle.found() || zx::findProperty(text, idle, "OnActivationScript").found())
+            zx::zaxis::Span idle = zx::zaxis::findObject(text, "MainMenu/MainMenuFrame/DemoMode");
+            if (!idle.found() || zx::zaxis::findProperty(text, idle, "OnActivationScript").found())
                 return false;
-            const zx::Span once = zx::findProperty(text, idle, "ActivateOnce");
+            const zx::zaxis::Span once = zx::zaxis::findProperty(text, idle, "ActivateOnce");
             if (!once.found())
                 return false;
-            const int depth = zx::indentAt(text, idle.begin) + 1;
+            const int depth = zx::zaxis::indentAt(text, idle.begin) + 1;
             const size_t lineEnd = text.find('\n', once.end);
             if (lineEnd == std::string::npos)
                 return false;
-            text.insert(zx::objectEnd(text, idle), zx::indentBlock(kDemoAction, depth));
+            text.insert(zx::zaxis::objectEnd(text, idle), zx::zaxis::indentBlock(kDemoAction, depth));
             text.insert(lineEnd + 1, std::string(static_cast<size_t>(depth), '\t') + "OnActivationScript\t\"PLAY PlayDemo\"\r\n");
             return true;
         }
 
         bool patchCommonUi(std::string &text)
         {
-            zx::Span start = zx::findObject(text, "CommonUI/StartDemo");
-            return start.found() && zx::replaceIn(text, start, "PLAY StartGameReal\"", "PLAY FlowControl\"");
+            zx::zaxis::Span start = zx::zaxis::findObject(text, "CommonUI/StartDemo");
+            return start.found() && zx::zaxis::replaceIn(text, start, "PLAY StartGameReal\"", "PLAY FlowControl\"");
         }
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
-            if (!zx::readArchive(bytes, entries))
+            std::vector<zx::zaxis::ArchiveEntry> entries;
+            if (!zx::zaxis::readArchive(bytes, entries))
                 return false;
             int patched = 0;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                const std::string name = zx::scriptName(entry);
+                const std::string name = zx::zaxis::scriptName(entry);
                 if (name != "MainMenu" && name != "CommonUI")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
@@ -381,7 +380,7 @@ namespace dave_mirra::demo
             }
             if (patched != 2)
                 return false;
-            bytes = zx::writeArchive(entries);
+            bytes = zx::zaxis::writeArchive(entries);
             std::cout << kTag << " the main menu's idle timer plays the demo" << std::endl;
             return true;
         }
@@ -389,7 +388,7 @@ namespace dave_mirra::demo
 
     bool install(PS2Runtime &runtime)
     {
-        const char *on = ps2x::boot::text("PS2X_DM2_ATTRACT_DEMO");
+        const char *on = zx::boot::text("ZX_DM2_ATTRACT_DEMO");
         if (!on || on[0] != '1')
             return false;
         State &st = state();
@@ -407,13 +406,13 @@ namespace dave_mirra::demo
         }
         if (!zge_host::addScriptFunction(runtime, scriptFunctions(), "BmxStartDemo", &startDemo))
             return false;
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, kOwner);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, kOwner);
         std::error_code ec;
-        if (const char *dir = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS_DIR"); dir && *dir &&
+        if (const char *dir = zx::boot::text("ZX_DM2_XBOX_LEVELS_DIR"); dir && *dir &&
             std::filesystem::is_regular_file(std::filesystem::path(dir) / "demo" / "REPLAY.ZAL", ec))
         {
             st.library = std::filesystem::path(dir) / "demo" / "REPLAY.ZAL";
-            ps2x::game_files::registerProvider("ASSETS/", &provideLibrary, kOwner);
+            zx::game_files::registerProvider("ASSETS/", &provideLibrary, kOwner);
         }
         std::cout << kTag << " on: the Xbox's attract demo at the main menu ("
                   << (st.library.empty() ? std::string("level 3's alone: no Xbox demo replays") : st.library.string()) << ")"

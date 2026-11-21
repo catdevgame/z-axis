@@ -11,7 +11,7 @@
 
 namespace zge::native
 {
-    namespace gf = ps2x::game_files;
+    namespace gf = zx::game_files;
 
     std::string normalizeGamePath(const std::string &gamePath) { return gf::normalizePath(gamePath); }
 
@@ -19,7 +19,7 @@ namespace zge::native
     {
         // One boot's files and the disc reads its guest memory came from
         // (a game booted after another in the same process reads its own
-        // disc: ps2x::boot::PerBoot makes this at the boot's first use).
+        // disc: zx::boot::PerBoot makes this at the boot's first use).
         struct DiscRead
         {
             uint32_t size = 0;
@@ -38,7 +38,7 @@ namespace zge::native
 
         State &state()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
+            static zx::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
             return *ofBoot.get();
         }
     }
@@ -56,7 +56,7 @@ namespace zge::native
                 roots.disc = paths.cdRoot;
             if (roots.disc.empty())
                 roots.image = PS2Runtime::cdImageFileSystem();
-            if (const char *mods = ps2x::boot::text("PS2X_MODS_DIR"); mods && *mods)
+            if (const char *mods = zx::boot::text("ZX_MODS_DIR"); mods && *mods)
                 roots.mods = gf::modsRoots(mods);
             files = std::make_unique<gf::GameFileSystem>(std::move(roots));
         }

@@ -1,6 +1,6 @@
 // The level scripts' stack machine (runtime/src/game/aggressive/script):
 // a handler written by hand run through the readable interpreter, the
-// natives' names. The game's own scripts are checked by ps2xFnCheck.
+// natives' names. The game's own scripts are checked by zx-fncheck.
 #include "MiniTest.h"
 
 #include "aggressive/script/script.h"

@@ -3,17 +3,23 @@
 // (aggressive_inline_devstart.cpp): developer runs without menus, and the
 // collection's Custom Freeplay starting the game into its map's slot.
 //
-//   PS2X_DEV_START_LEVEL=<n>|PARK   the level select's value (0 Woodward
+//   ZX_DEV_START_LEVEL=<n>|PARK   the level select's value (0 Woodward
 //                                   Camp .. 7 Airport, the Xbox levels after
 //                                   the park), or PARK: value 8, the park
-//                                   (the memory card's, or PS2X_DM2_PARK_FILE's:
+//                                   (the memory card's, or ZX_DM2_PARK_FILE's:
 //                                   dave_mirra_saves.cpp)
-//   PS2X_DEV_START_SKATER=<n>       the rider choice's entry (default 0, the
+//   ZX_DEV_START_SKATER=<n>       the rider choice's entry (default 0, the
 //                                   first bike), or "ask": the game's rider
 //                                   and bike choices wait for the player's
 //                                   own picks, then the route goes on
-//   PS2X_DEV_START_QUIT=<s>         stop the runner s seconds after the rider
+//   ZX_DEV_START_QUIT=<s>         stop the runner s seconds after the rider
 //                                   is placed
+//   ZX_DM2_KEEP_LEVEL_RECORDS=1   the row's level's saved records (its
+//                                   bests and who set them: g_savedRecords,
+//                                   game/dm2/action/saved_records.h) kept as
+//                                   the player's save had them: put back
+//                                   whenever the ride sets one (a custom
+//                                   map's, whose bests are not the level's)
 //
 // The presses are the game's own pad input (PSPadBackend::
 // setOverrideButtons), each step waiting on the game's state: Start
@@ -28,10 +34,16 @@
 // in AI's devstart. Logged as "[devstart] ...", with the time from the
 // level's Cross to the placed rider (the load).
 //
-// Levels other than Woodward Camp need an opened save or
-// PS2X_DEV_UNLOCK_ALL=1 (dave_mirra_devlevels.cpp).
+// A level the player's characters have not opened (only Woodward Camp is
+// open in a fresh game; ProQuest opens the others) is locked in the select
+// (bmxSetupLevelStats plays LockLevel). For the pick the row's level is
+// opened in every character's record of the saved game in memory, and the
+// bits are put back as they were once the level state has begun, so a save
+// made after keeps the player's own progress (BMX XXX's devstart does the
+// same). ZX_DEV_UNLOCK_ALL=1 opens every level for good
+// (dave_mirra_devlevels.cpp).
 //
-// The values are the boot's (ps2x::boot::text: the environment, else what
+// The values are the boot's (zx::boot::text: the environment, else what
 // the app gave this boot: collection/maps.h mapSlots).
 
 #include "dave_mirra_devstart.h"
@@ -49,6 +61,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace dave_mirra::devstart
 {
@@ -68,6 +81,17 @@ namespace dave_mirra::devstart
         // g_levelMenuGameLevels).
         constexpr uint32_t kParkEntry = 8u;
         constexpr uint32_t kMainMenuFreeRide = 2u; // FREERIDE: the main menu's third item
+        // The characters' records (game/dm2/game/players.h RiderCharacter,
+        // 21 of 0x3C8 bytes): each level's LevelGoals (0x44 bytes from
+        // +0x13C), its flags at +0x3C, kLevelOpen the level choice's bit. A
+        // level select value's game level is g_levelMenuGameLevels's byte.
+        constexpr uint32_t kCharacters = 21u, kCharacterBytes = 0x3C8u;
+        constexpr uint32_t kCharacterLevels = 0x13Cu, kLevelGoalsBytes = 0x44u, kLevelGoalsFlags = 0x3Cu;
+        constexpr uint8_t kLevelOpen = 0x01u;
+        constexpr uint32_t kGameLevels = 8u; // DM2's own levels, 0 .. 7 (the park's entry has none)
+        // A level's saved records (game/dm2/game/records.h kRecordsPerSpan of
+        // SavedRecord, 0x14 bytes each).
+        constexpr uint32_t kLevelRecordsBytes = 27u * 0x14u;
         // The rider record's physics position (game/dm2/rider/rider.h, as the
         // panel reads it) and how far the physics has run.
         constexpr uint32_t kRiderPosition = 0x1040u;
@@ -95,7 +119,7 @@ namespace dave_mirra::devstart
         {
             Step step = Step::Boot;
             Step afterFocus = Step::Done;
-            std::string level;    // PS2X_DEV_START_LEVEL
+            std::string level;    // ZX_DEV_START_LEVEL
             int entry = -1;       // the level select's value, once known
             uint32_t rider = 0;
             bool askRider = false; // "ask": the player picks the rider and the bike
@@ -110,10 +134,16 @@ namespace dave_mirra::devstart
             uint64_t focusDeadline = 0;
             uint64_t settledAt = 0;
             uint64_t bootDeadline = 0;
+            bool opening = false;              // the row's level opened in the characters' records for the pick
+            std::vector<uint8_t> openedBefore; // each character's open bit as it was (0: it was shut)
+            uint32_t gameLevel = 0;            // the row's game level
+            bool keepRecords = false;          // ZX_DM2_KEEP_LEVEL_RECORDS
+            std::vector<uint8_t> recordsBefore; // the level's saved records as the save had them
+            int recordsPutBack = 0;
             std::chrono::steady_clock::time_point crossed, placed;
             PS2Runtime *runtime = nullptr;
         };
-        State &devStart() { return ps2x::session::state<State>(); }
+        State &devStart() { return zx::session::state<State>(); }
 
         uint32_t word(const uint8_t *rdram, uint32_t address)
         {
@@ -183,6 +213,75 @@ namespace dave_mirra::devstart
             return upper == "PARK" ? static_cast<int>(kParkEntry) : -1;
         }
 
+        uint32_t levelFlags(uint32_t character, uint32_t level)
+        {
+            return sym::dm2::g_riderCharacters + character * kCharacterBytes + kCharacterLevels + level * kLevelGoalsBytes + kLevelGoalsFlags;
+        }
+
+        // The row's level open in every character's record, the bits as they
+        // were kept for putBack. The park's entry has no level record.
+        void openLevel(uint8_t *rdram)
+        {
+            State &s = devStart();
+            if (s.entry < 0 || s.entry >= static_cast<int>(kParkEntry))
+                return;
+            if (s.openedBefore.empty())
+            {
+                s.gameLevel = byte(rdram, sym::dm2::g_levelMenuGameLevels + static_cast<uint32_t>(s.entry));
+                if (s.gameLevel >= kGameLevels)
+                    return;
+                for (uint32_t character = 0; character < kCharacters; ++character)
+                    s.openedBefore.push_back(byte(rdram, levelFlags(character, s.gameLevel)) & kLevelOpen);
+                s.opening = true;
+            }
+            for (uint32_t character = 0; character < kCharacters; ++character)
+                if (uint8_t *flags = getMemPtr(rdram, levelFlags(character, s.gameLevel)))
+                    *flags |= kLevelOpen;
+        }
+
+        uint32_t levelRecords(uint32_t level) { return sym::dm2::g_savedRecords + level * kLevelRecordsBytes; }
+
+        // The row's level's saved records kept (once the level is known).
+        void keepRecords(const uint8_t *rdram)
+        {
+            State &s = devStart();
+            if (!s.keepRecords || !s.recordsBefore.empty() || s.openedBefore.empty())
+                return;
+            for (uint32_t i = 0; i < kLevelRecordsBytes; ++i)
+                s.recordsBefore.push_back(byte(rdram, levelRecords(s.gameLevel) + i));
+        }
+
+        // Every vsync: the kept records as they were, whatever the ride set.
+        void putRecordsBack(uint8_t *rdram, uint64_t)
+        {
+            State &s = devStart();
+            uint8_t *records = s.recordsBefore.empty() ? nullptr : getMemPtr(rdram, levelRecords(s.gameLevel));
+            if (!records || std::memcmp(records, s.recordsBefore.data(), kLevelRecordsBytes) == 0)
+                return;
+            std::memcpy(records, s.recordsBefore.data(), kLevelRecordsBytes);
+            if (s.recordsPutBack++ == 0)
+                std::cout << "[devstart] level " << s.gameLevel << "'s saved records put back as they were (the ride set its own)"
+                          << std::endl;
+        }
+
+        // The bits openLevel set put back: the records as the player's game had them.
+        void putBack(uint8_t *rdram)
+        {
+            State &s = devStart();
+            if (!s.opening)
+                return;
+            int shut = 0;
+            for (uint32_t character = 0; character < kCharacters && character < s.openedBefore.size(); ++character)
+                if (!s.openedBefore[character])
+                    if (uint8_t *flags = getMemPtr(rdram, levelFlags(character, s.gameLevel)))
+                    {
+                        *flags = static_cast<uint8_t>(*flags & ~kLevelOpen);
+                        ++shut;
+                    }
+            s.opening = false;
+            std::cout << "[devstart] level " << s.gameLevel << " shut again for " << shut << " character(s), as the save had it" << std::endl;
+        }
+
         bool mainMenuUp(const uint8_t *rdram)
         {
             return byte(rdram, sym::dm2::g_currentGameState) == kGameStateFrontEnd && word(rdram, sym::dm2::g_menuMode) == kMenuFrontEnd &&
@@ -210,6 +309,8 @@ namespace dave_mirra::devstart
                 s.pressed = 0;
                 apply();
             }
+            if (s.opening && s.step != Step::Loading && s.step != Step::Placed)
+                openLevel(rdram);
             if (now < s.waitUntil)
                 return;
             switch (s.step)
@@ -239,6 +340,12 @@ namespace dave_mirra::devstart
                 }
                 return;
             case Step::MainMenu:
+                // The row's level opened for the pick from here on (a save
+                // loaded later is opened too: every vsync until the load).
+                if (s.entry < 0)
+                    s.entry = resolveEntry(s.level);
+                openLevel(rdram);
+                keepRecords(rdram);
                 // FREERIDE: the third item, then Cross.
                 if (s.downs < static_cast<int>(kMainMenuFreeRide))
                 {
@@ -336,6 +443,8 @@ namespace dave_mirra::devstart
                 return;
             }
             case Step::Loading:
+                if (s.opening && byte(rdram, sym::dm2::g_currentGameState) == kGameStateLevel)
+                    putBack(rdram);
                 if (riderPlaced(rdram))
                 {
                     s.placed = std::chrono::steady_clock::now();
@@ -361,18 +470,23 @@ namespace dave_mirra::devstart
 
     void install(PS2Runtime &runtime)
     {
-        const char *level = ps2x::boot::text("PS2X_DEV_START_LEVEL");
+        const char *level = zx::boot::text("ZX_DEV_START_LEVEL");
         if (!level || !*level)
             return;
         State &s = devStart();
         s.level = level;
-        if (const char *rider = ps2x::boot::text("PS2X_DEV_START_SKATER"); rider && *rider)
+        if (const char *rider = zx::boot::text("ZX_DEV_START_SKATER"); rider && *rider)
         {
             s.askRider = std::strcmp(rider, "ask") == 0;
             s.rider = s.askRider ? 0u : static_cast<uint32_t>(std::atoi(rider));
         }
-        if (const char *quit = ps2x::boot::text("PS2X_DEV_START_QUIT"); quit && *quit)
+        if (const char *quit = zx::boot::text("ZX_DEV_START_QUIT"); quit && *quit)
             s.quitAfter = std::atof(quit);
+        if (const char *keep = zx::boot::text("ZX_DM2_KEEP_LEVEL_RECORDS"); keep && keep[0] == '1')
+        {
+            s.keepRecords = true;
+            runtime.addVSyncHook(&putRecordsBack);
+        }
         s.runtime = &runtime;
         runtime.addVSyncHook([](uint8_t *rdram, uint64_t vsync) { onVsync(rdram, vsync); });
         std::cout << "[devstart] on: FREERIDE level " << s.level << ", rider "

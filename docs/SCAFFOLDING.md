@@ -23,7 +23,7 @@ design), the dead-code manifests (docs/DEAD-CODE.md), `ee::FunctionPtr` callback
 The engine's scale macro brings its factor into VU0 through t0, so t0's upper half (what the last 128-bit move
 through it left) lands in VU0's work register, where later vector code reads it. Where no vector can be named for it,
 `zge::scaleLeftover(zge::LeftBy::caller | zge::LeftBy::lastCall)` (zge/math/scale_leftover.h, pinned, framework to the
-lint) reads it as the original's code path leaves it. The user's decision ("name it in the engine", t0carry1).
+lint) reads it as the original's code path leaves it. The user's decision ("name it in the engine").
 
 - Why for now: DM2's only 128-bit writers of t0 are library code (sceVu0CopyMatrix's third row, the string routines,
   the IPU copies) reached through callbacks; until those are readable the leftover has no name as data.
@@ -65,7 +65,7 @@ them); the remaining ones are in functions still being converted.
 ## left-by-caller
 
 `ee::LeftByCaller<T>` (ee/plain.h): a value a caller leaves in a callee-saved register that the original reads
-without setting (AI's initZgui and finishUiImageLoad: the user's "checker supplies it", leftreg1). The replay checker
+without setting (AI's initZgui and finishUiImageLoad: the user's "checker supplies it"). The replay checker
 supplies the word from the recording (tools/readable_entry_reads.tsv).
 
 - Why for now: the original reads a register its callers set for their own reasons.
@@ -80,7 +80,7 @@ readable body in that game yet: DM2's and BMX XXX's level-1 engine functions (th
 signature unproven there), their own game functions not yet written, and calls whose result registers the caller
 reads (a void or float callee's v0).
 
-- Removed by: the callee readable in that game (src2plan D4, D5, D8; B4, B5, B7), then a plain call.
+- Removed by: the callee readable in that game, then a plain call.
 - find: `\bee::(call|game)\b(?=\s*[<(,])`
 
 ## upper-half-argument
@@ -118,7 +118,7 @@ In game mode `ee::call` restores the whole context after a guest call, so a gues
 call's caller-saved temporaries (t0's upper half among them), where the PS2 passes them on. DM2's bailMove is the one
 known function that depends on the chain; its gate passes, so no word it reaches differs today.
 
-- Removed by: ee::callGuest putting the callee's caller-saved temporaries back from `t_left` after `restoreSaves` (at
+- Removed by: ee::callGuest putting the callee's caller-saved temporaries back from `t_ee.left` after `restoreSaves` (at
   least t0's 128 bits), if a gate ever shows the chain matters; or the chain's functions all readable.
 - Counted by hand: 1 known site (dm2/rider bailMove).
 
@@ -129,8 +129,8 @@ placed by the held-register table (ee/held.cpp: the callee-saved registers the o
 that other call. render_path = records (zge/host/class_draws.cpp): the strict encoder without its VU1 work begins the
 draw's DMA tag (`sce::vif1PacketCnt`) where the original calls the part's packet (`sce::vif1PacketCall`); without the
 placing the table loses its place there, and the class renderer's next callee with a frame (requestTextures) saves
-entry values into stack the game copies later (BMX XXX's health bar shards' texture coordinates, s-muly2's heap word
-of nativedef1). A runtime registration: the generated held tables are not changed by it.
+entry values into stack the game copies later (BMX XXX's health bar shards' texture coordinates, a heap word in career_ab's
+s-muly2 run). A runtime registration: the generated held tables are not changed by it.
 
 - Why for now: the gates compare every RAM word with the held table on, and the records path shares the readable
   encoder, whose calls the table follows through the original's sites.
@@ -140,12 +140,9 @@ of nativedef1). A runtime registration: the generated held tables are not change
 
 ## misnamed-row
 
-DM2's own symbol row named `matrixMultiply` (DM2 0x1128D8) is a point transform, a different function from AI's
-matrixMultiply (DM2 0x128660). Callers use it by address under that row's name. DM2's own row `rowsFromMatrix`
-(DM2 0x1285B0) is ZGE2's matrix copy (out, m: the rotation's and the translation's x, y, z), which ZGE3 inlines;
-zge/collision's copyBodyMatrix calls it under that name. The engine's row `pathFirstPoint` reads a record's word
-+0x0C, which nothing calls in AI; BMX XXX's camera objects call it on a follower, whose +0x0C is its end mode (the
-function sits just before setFollowerEndMode): game/bmx/level/camera_objects.cpp's followerEndMode calls it by address.
+The engine's row `pathFirstPoint` reads a record's word +0x0C, which nothing calls in AI; DM2's boats and traffic
+cars and BMX XXX's cars, camera objects and pathman objects call it on a follower, whose +0x0C is its end mode (the
+function sits just before setFollowerEndMode): zge/scene/follower.h's followerEndMode calls it under that name.
 
 - Removed by: the row renamed from evidence in readable_symbols.tsv and its callers updated.
-- Counted by hand: 3 rows.
+- Counted by hand: 1 row.

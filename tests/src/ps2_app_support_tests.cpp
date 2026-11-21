@@ -14,14 +14,16 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
-using namespace ps2x::app;
+using namespace zx::app;
 
 namespace
 {
@@ -31,7 +33,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = std::filesystem::temp_directory_path() / ("ps2x-app-" + std::to_string(now));
+            path = std::filesystem::temp_directory_path() / ("zx-app-" + std::to_string(now));
             std::filesystem::create_directories(path);
         }
         ~TempDir()
@@ -150,7 +152,7 @@ void register_ps2_app_support_tests()
     {
         tc.Run("app paths: platform defaults and the scratch override", [](TestCase &t)
         {
-            const AppPaths overridden = resolveAppPaths("Aggressive Inline", envFrom({{"HOME", "/Users/x"}, {"PS2X_APP_SUPPORT_DIR", "/tmp/scratch"}}));
+            const AppPaths overridden = resolveAppPaths("Aggressive Inline", envFrom({{"HOME", "/Users/x"}, {"ZX_APP_SUPPORT_DIR", "/tmp/scratch"}}));
             t.Equals(overridden.supportDir, std::filesystem::path("/tmp/scratch"), "override replaces the support folder");
             t.Equals(overridden.settingsFile, std::filesystem::path("/tmp/scratch/settings.ini"), "settings.ini inside it");
             t.Equals(overridden.memcardSlot1, std::filesystem::path("/tmp/scratch/memcards/slot1"), "slot1");
@@ -158,7 +160,7 @@ void register_ps2_app_support_tests()
             t.Equals(overridden.controlsFile, std::filesystem::path("/tmp/scratch/controls.ini"), "controls.ini");
             t.Equals(overridden.logDir, std::filesystem::path("/tmp/scratch/Logs"), "logs stay inside the override");
 
-            const AppPaths logs = resolveAppPaths("Aggressive Inline", envFrom({{"HOME", "/Users/x"}, {"PS2X_APP_SUPPORT_DIR", "/tmp/s"}, {"PS2X_APP_LOG_DIR", "/tmp/l"}}));
+            const AppPaths logs = resolveAppPaths("Aggressive Inline", envFrom({{"HOME", "/Users/x"}, {"ZX_APP_SUPPORT_DIR", "/tmp/s"}, {"ZX_APP_LOG_DIR", "/tmp/l"}}));
             t.Equals(logs.logDir, std::filesystem::path("/tmp/l"), "log override");
 #if defined(__APPLE__)
             const AppPaths mac = resolveAppPaths("Aggressive Inline", envFrom({{"HOME", "/Users/x"}}));
@@ -354,7 +356,7 @@ void register_ps2_app_support_tests()
                 Need::XboxText, Need::XboxSpeech, Need::XboxLevelScripts, Need::XboxFreeSkate, Need::XboxApe,
                 Need::XboxTextures, Need::XboxSkaters, Need::XboxMovies, Need::Estate, Need::Dm2XboxLevels,
                 Need::Dm2XboxThemes, Need::Dm2RetroMovie, Need::BmxText, Need::BmxChallenges, Need::BmxEditorPieces,
-                Need::BmxLevelPreviews, Need::BmxLogoMovie, Need::BmxGcLevels};
+                Need::BmxLevelPreviews, Need::BmxLogoMovie, Need::BmxGcLevels, Need::BmxTrailers, Need::BmxCreate, Need::BmxSongs};
 
             TempDir empty;
             BootFolders nothing;
@@ -396,6 +398,9 @@ void register_ps2_app_support_tests()
             put(x / "releases" / "movies" / "ASSETS" / "MOVIES" / "MENU" / "BRONX.PSM");
             put(x / "releases" / "movies" / "ASSETS" / "MOVIES" / "ZAXIS.XMV");
             put(x / "releases" / "levels" / "ASSETS" / "LEVELS" / "CMP_SCRT" / "a.geo");
+            put(x / "releases" / "movies" / "ASSETS" / "MOVIES" / "COMPEDGE" / "TUROK.XMV");
+            put(x / "releases" / "create" / "added.txt");
+            put(x / "releases" / "music" / "songs.txt");
             BootFolders every;
             every.extras = x;
             every.resources = full.path / "resources";
@@ -411,10 +416,10 @@ void register_ps2_app_support_tests()
             BootFolders bundled;
             bundled.resources = every.resources;
             const auto given = releaseFolders(bundled);
-            t.IsTrue(given.size() == 1 && given[0].first == "PS2X_ESTATE_DIR" && findInstalled(bundled)[Need::Estate],
+            t.IsTrue(given.size() == 1 && given[0].first == "ZX_ESTATE_DIR" && findInstalled(bundled)[Need::Estate],
                      "an app built with the Estate: offered");
             const auto both = releaseFolders(every);
-            t.IsTrue(std::any_of(both.begin(), both.end(), [&](const auto &f) { return f.first == "PS2X_ESTATE_DIR" && f.second == x / "estate"; }),
+            t.IsTrue(std::any_of(both.begin(), both.end(), [&](const auto &f) { return f.first == "ZX_ESTATE_DIR" && f.second == x / "estate"; }),
                      "the setup's extras before the bundled ones");
 
             // BMX XXX with its GameCube disc alone: no Xbox movies.
@@ -423,16 +428,17 @@ void register_ps2_app_support_tests()
             put(gc.path / "releases" / "challenges" / "objctv.txt");
             put(gc.path / "releases" / "editor" / "OBJECT.OBJ");
             put(gc.path / "releases" / "levels" / "ASSETS" / "LEVELS" / "CMP_SCRT" / "a.geo");
+            put(gc.path / "releases" / "create" / "added.txt");
             BootFolders gcOnly;
             gcOnly.extras = gc.path;
             const Installed cube = findInstalled(gcOnly);
             t.IsTrue(cube[Need::BmxText] && cube[Need::BmxChallenges] && cube[Need::BmxEditorPieces] && cube[Need::BmxGcLevels] &&
-                         !cube[Need::BmxLevelPreviews] && !cube[Need::BmxLogoMovie],
+                         cube[Need::BmxCreate] && !cube[Need::BmxSongs] && !cube[Need::BmxLevelPreviews] && !cube[Need::BmxLogoMovie] && !cube[Need::BmxTrailers],
                      "the GameCube's content offered, the Xbox's movies not");
 
             // The boot's own names (gameBootConfig's), as the game's rows read them.
-            const Installed booted = findInstalled(envFrom({{"PS2X_XBOX_DIR", (x / "xbox").string()},
-                                                            {"PS2X_DM2_XBOX_LEVELS_DIR", (gc.path / "none").string()}}));
+            const Installed booted = findInstalled(envFrom({{"ZX_XBOX_DIR", (x / "xbox").string()},
+                                                            {"ZX_DM2_XBOX_LEVELS_DIR", (gc.path / "none").string()}}));
             t.IsTrue(booted[Need::XboxText] && booted[Need::XboxFreeSkate] && !booted[Need::XboxApe] && !booted[Need::Dm2XboxLevels],
                      "from the boot config: the Xbox files, no Ape without its model, a folder that is not there is none");
         });
@@ -473,7 +479,10 @@ void register_ps2_app_support_tests()
             t.IsTrue(offered(dm2, O::Dm2CreatePlayer, rider), "and offered with it, no disc needed");
             t.IsTrue(!offered(bmx, O::Language, none) && !offered(bmx, O::Tuning, none) && !offered(bmx, O::BmxXboxChallenges, none) &&
                          !offered(bmx, O::BmxEditorPieces, none) && !offered(bmx, O::BmxLevelPreviews, none) &&
-                         !offered(bmx, O::BmxLogoMovie, none) && !offered(bmx, O::BmxGcLevels, none),
+                         !offered(bmx, O::BmxLogoMovie, none) && !offered(bmx, O::BmxGcLevels, none) &&
+                         !offered(bmx, O::BmxLogoSplash, none) && !offered(bmx, O::BmxTrailers, none) &&
+                         !offered(bmx, O::BmxCarTextures, none) && !offered(bmx, O::BmxGreenSkin, none) &&
+                         !offered(bmx, O::BmxTopless, none) && !offered(bmx, O::BmxXboxSongs, none),
                      "BMX XXX with its PS2 disc alone: none of its other releases' rows (the tuning only times their challenges)");
             t.IsTrue(offered(bmx, O::BmxParkEditor, none) && offered(bmx, O::BmxMenuLines, none) && offered(bmx, O::BmxAllMpModes, none) &&
                          offered(bmx, O::BmxIntroMovie, none),
@@ -488,10 +497,12 @@ void register_ps2_app_support_tests()
                      "Android: no Map Window, no Display Mode");
             t.IsTrue(!offered(Need::XboxTextures, none) && offered(Need::XboxTextures, all), "Xbox Textures with the Xbox pack only");
 
-            // Custom Freeplay: AI's start goes through the Estate.
-            t.IsTrue(mapSlotOf("ai") && mapSlotOf("ai")->need == Need::Estate && mapSlotOf("dm2")->need == Need::Nothing &&
+            // Custom Freeplay: AI's Tutorial slot goes through the Estate,
+            // its Movie Lot and every other slot needs nothing.
+            t.IsTrue(mapSlotOf("ai") && mapSlotOf("ai")->need == Need::Estate && mapSlot("ai", "MOVIE") &&
+                         mapSlot("ai", "MOVIE")->need == Need::Nothing && mapSlotOf("dm2")->need == Need::Nothing &&
                          mapSlotOf("bmx")->need == Need::Nothing,
-                     "AI's maps need the Estate (the GameCube disc); DM2's and BMX XXX's nothing");
+                     "AI's Tutorial slot needs the Estate (the GameCube disc); the Movie Lot, DM2's and BMX XXX's nothing");
         });
 
         tc.Run("mods: a tuning.ini only where a game reads one", [](TestCase &t)
@@ -505,17 +516,21 @@ void register_ps2_app_support_tests()
             };
             put(shared / "10-ai" / "mod.ini", "[mod]\nid = ai-tune\ngames = ai, dm2\n");
             put(shared / "10-ai" / "tuning.ini", "x = 1\n");
-            put(shared / "20-dm2" / "mod.ini", "[mod]\nid = dm2-tune\ngames = dm2, bmx\n");
+            put(shared / "20-dm2" / "mod.ini", "[mod]\nid = dm2-tune\ngames = dm2\n");
             put(shared / "20-dm2" / "tuning.ini", "x = 1\n");
+            put(shared / "30-bmx" / "mod.ini", "[mod]\nid = bmx-tune\ngames = bmx\n");
+            put(shared / "30-bmx" / "tuning.ini", "x = 1\n");
             const std::vector<Mod> mods = listSharedMods(shared);
-            t.Equals(mods.size(), size_t(2), "two mods");
-            if (mods.size() != 2)
+            t.Equals(mods.size(), size_t(3), "three mods");
+            if (mods.size() != 3)
                 return;
+            t.IsTrue(mods[2].contents == kModTuning && mods[2].changesLogic() && mods[2].notes.empty(),
+                     "for BMX XXX: tuning (its GameCube release's table on the PS2's values), changes game logic");
             t.IsTrue(mods[0].contents == kModTuning && mods[0].changesLogic() && mods[0].notes.empty(),
                      "for AI among others: tuning, changes game logic");
             t.IsTrue(mods[1].contents == 0u && !mods[1].changesLogic() && mods[1].notes.size() == 1 &&
                          mods[1].notes[0].find("tuning.ini not read") == 0,
-                     "for DM2 and BMX XXX alone: no tuning, no logic changed, a note says why");
+                     "for DM2 alone: no tuning, no logic changed, a note says why");
             TempDir own;
             put(own.path / "Mods" / "tune" / "tuning.ini", "x = 1\n");
             const std::vector<Mod> dm2Own = listMods(own.path / "Mods", {}, {}, "dm2");
@@ -689,7 +704,7 @@ void register_ps2_app_support_tests()
                      "the Mods folder, then the mods on, in order");
             t.IsTrue(listMods(mods, disc).size() == 3 && listMods(mods, disc)[1].on, "none named: every mod on");
 
-            // The boot: the game's settings say which are off (gameBootConfig's PS2X_MODS_DIR).
+            // The boot: the game's settings say which are off (gameBootConfig's ZX_MODS_DIR).
             Settings settings;
             setModOn(settings, "20-rails", false);
             AppPaths paths;
@@ -697,9 +712,9 @@ void register_ps2_app_support_tests()
             BootFolders folders;
             folders.resources = dir.path;
             auto noEnv = [](const char *) -> const char * { return nullptr; };
-            const ps2x::BootConfig boot = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
-            const std::string *given = boot.find("PS2X_MODS_DIR");
-            t.IsTrue(given && *given == ps2x::game_files::modsText({mods, mods / "10-Park", mods / "30-music"}),
+            const zx::BootConfig boot = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
+            const std::string *given = boot.find("ZX_MODS_DIR");
+            t.IsTrue(given && *given == zx::game_files::modsText({mods, mods / "10-Park", mods / "30-music"}),
                      "the boot's mods: the Mods folder, 10-Park, 30-music");
         });
 
@@ -778,9 +793,23 @@ void register_ps2_app_support_tests()
             t.IsTrue(packs.size() == 1 && packs[0] == shared / "20-songs.zip" / "Textures" / "ai", "AI's texture folder, through the zip");
             t.IsTrue(texturePacks(dm2, "dm2").empty(), "DM2's: the zip has none for it");
             std::vector<uint8_t> bytes;
-            t.IsTrue(ps2x::game_files::readFileBelow(packs[0], "AA-8.PNG", bytes) && bytes.size() == 3, "its picture read in place");
+            t.IsTrue(zx::game_files::readFileBelow(packs[0], "AA-8.PNG", bytes) && bytes.size() == 3, "its picture read in place");
             const std::vector<CustomMap> maps = listAllMaps(mods, dir.path / kMapsFolder);
             t.IsTrue(maps.size() == 1 && maps[0].where == "Mods/50-park" && maps[0].name == "Test Park", "the map page lists the Mods folder's map");
+            // A game's own Mods folder's maps: listed (not read as mods), the
+            // game the folder's when map.ini names none.
+            const std::filesystem::path own = dir.path / "games" / "dm2" / "Mods";
+            std::filesystem::create_directories(own / "park");
+            std::filesystem::create_directories(own / "plain" / "ASSETS");
+            std::ofstream(own / "park" / "map.ini") << "[map]\nname = My Park\nslot = PARK\n";
+            const std::vector<CustomMap> gameMaps = listGameMaps(own, "dm2");
+            t.IsTrue(gameMaps.size() == 1 && gameMaps[0].game == "dm2" && gameMaps[0].where == "games/dm2/Mods/park" &&
+                         gameMaps[0].park == "park.dat" && gameMaps[0].folder == own / "park",
+                     "a game's own Mods folder's map listed, its game the folder's, its park file park.dat");
+            t.IsTrue(listMods(own, {}, {}, "dm2").size() == 1 && listMods(own, {}, {}, "dm2")[0].name == "plain",
+                     "and still no mod of that game's");
+            const std::vector<CustomMap> every = listAllMaps(mods, dir.path / kMapsFolder, gameMaps);
+            t.IsTrue(every.size() == 2 && every[1].name == "My Park", "the map page lists it after the Mods folder's");
         });
 
         tc.Run("mods: the order, needs, conflicts, switches; the boot's folders and texture packs", [](TestCase &t)
@@ -843,17 +872,17 @@ void register_ps2_app_support_tests()
             BootFolders folders;
             folders.resources = dir.path;
             auto noEnv = [](const char *) -> const char * { return nullptr; };
-            const ps2x::BootConfig alone = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
-            t.IsTrue(alone.find("PS2X_MODS_DIR") && *alone.find("PS2X_MODS_DIR") == ps2x::game_files::modsText({own, own / "10-old"}) &&
-                         !alone.find("PS2X_TEXTURE_PACKS"),
+            const zx::BootConfig alone = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
+            t.IsTrue(alone.find("ZX_MODS_DIR") && *alone.find("ZX_MODS_DIR") == zx::game_files::modsText({own, own / "10-old"}) &&
+                         !alone.find("ZX_TEXTURE_PACKS"),
                      "no collection Mods folder given: the game's own, as before, and no texture packs");
             folders.sharedMods = shared;
-            const ps2x::BootConfig boot = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
-            t.IsTrue(boot.find("PS2X_MODS_DIR") &&
-                         *boot.find("PS2X_MODS_DIR") ==
-                             ps2x::game_files::modsText({own, own / "10-old", shared / "a-base", shared / "b-addon", shared / "e-pics"}),
+            const zx::BootConfig boot = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
+            t.IsTrue(boot.find("ZX_MODS_DIR") &&
+                         *boot.find("ZX_MODS_DIR") ==
+                             zx::game_files::modsText({own, own / "10-old", shared / "a-base", shared / "b-addon", shared / "e-pics"}),
                      "the collection's mods read after the game's own, those not read left out");
-            t.IsTrue(boot.find("PS2X_TEXTURE_PACKS") && *boot.find("PS2X_TEXTURE_PACKS") == ps2x::game_files::modsText({shared / "e-pics" / "Textures"}),
+            t.IsTrue(boot.find("ZX_TEXTURE_PACKS") && *boot.find("ZX_TEXTURE_PACKS") == zx::game_files::modsText({shared / "e-pics" / "Textures"}),
                      "a mod of one game: its Textures folder itself");
 
             // The order round-trips in the collection's root file.
@@ -875,22 +904,22 @@ void register_ps2_app_support_tests()
             BootFolders folders;
             folders.sharedMods = shared;
             auto noEnv = [](const char *) -> const char * { return nullptr; };
-            const ps2x::BootConfig boot = gameBootConfig("dm2", settings, paths, gameSettingsProfile("dm2"), folders, noEnv);
-            const std::string *text = boot.find("PS2X_MODS_DIR");
+            const zx::BootConfig boot = gameBootConfig("dm2", settings, paths, gameSettingsProfile("dm2"), folders, noEnv);
+            const std::string *text = boot.find("ZX_MODS_DIR");
             t.IsTrue(text != nullptr, "mods given");
             if (!text)
                 return;
             std::filesystem::create_directories(dir.path / "disc" / "ASSETS");
             std::ofstream(dir.path / "disc" / "ASSETS" / "MENU.ZAL") << "disc";
-            ps2x::game_files::GameFileSystem files({dir.path / "disc", nullptr, ps2x::game_files::modsRoots(*text)});
+            zx::game_files::GameFileSystem files({dir.path / "disc", nullptr, zx::game_files::modsRoots(*text)});
             auto file = files.open("cdrom0:\\ASSETS\\MENU.ZAL;1");
             std::vector<uint8_t> bytes;
-            t.IsTrue(file && ps2x::game_files::readAll(*file, bytes) && std::string(bytes.begin(), bytes.end()) == "zipped",
+            t.IsTrue(file && zx::game_files::readAll(*file, bytes) && std::string(bytes.begin(), bytes.end()) == "zipped",
                      "the game reads the zip's file over the disc's");
             BootFolders none;
-            const ps2x::BootConfig plain = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), none, noEnv);
-            t.IsTrue(plain.find("PS2X_MODS_DIR") && *plain.find("PS2X_MODS_DIR") == (paths.supportDir / "Mods").string() &&
-                         !plain.find("PS2X_TEXTURE_PACKS"),
+            const zx::BootConfig plain = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), none, noEnv);
+            t.IsTrue(plain.find("ZX_MODS_DIR") && *plain.find("ZX_MODS_DIR") == (paths.supportDir / "Mods").string() &&
+                         !plain.find("ZX_TEXTURE_PACKS"),
                      "no mods anywhere: the Mods folder alone, as before");
         });
 
@@ -919,6 +948,16 @@ void register_ps2_app_support_tests()
             t.IsTrue(!parseMapDescription("[map]\nname = y\ngame = bmx\nslot = CHL_MULY\nnpcs = some\n", map, &error) &&
                          error.find("npcs") != std::string::npos,
                      "another npcs value: refused, saying so");
+            t.IsTrue(parseMapDescription("[map]\nname = y\ngame = ai\nslot = TUT\nslot.DM2 = commerci\nslot.bmx = CMP_ROOT\n", map) &&
+                         map.targets.size() == 2 && map.targets["dm2"] == "COMMERCI" && map.targets["bmx"] == "CMP_ROOT",
+                     "slot.<game>: the slot each other game's player gets it converted into, upper case");
+            t.IsTrue(parseMapDescription("[map]\nname = y\nslot = PARK\n", map, nullptr, "dm2") && map.game == "dm2" && map.park == "park.dat",
+                     "in a game's own Mods folder the game defaults to that folder's; DM2's park slot's file is park.dat");
+            t.IsTrue(parseMapDescription("[map]\nname = y\ngame = dm2\nslot = PARK\npark = mine.dat\n", map) && map.park == "mine.dat" &&
+                         !parseMapDescription("[map]\nname = y\ngame = dm2\nslot = PARK\npark = ../x.dat\n", map, &error),
+                     "park names the saved park's file in the folder, never outside it");
+            t.IsTrue(!parseMapDescription("[map]\nname = y\nslot = TUT\n", map, &error) && error.find("game") != std::string::npos,
+                     "outside a game's own folder the game must be named");
 
             TempDir dir;
             const std::filesystem::path mods = dir.path / "Mods", disc = dir.path / "disc", mapsFolder = dir.path / kMapsFolder;
@@ -939,14 +978,37 @@ void register_ps2_app_support_tests()
                      "each once, with its folder and name");
             t.IsTrue(maps.size() == 2 && mapPlayableIn(maps[0], "ai") && mapPlayableIn(maps[0], "dm2") && mapPlayableIn(maps[0], "bmx") &&
                          !mapPlayableIn(maps[1], "bmx") && !mapPlayableIn(maps[1], "ai"),
-                     "every player starts a map in the slot its own game lends; none one in a slot its game does not lend (PARK)");
-            t.IsTrue(!mapNeedsConversion(maps[0], "ai") && mapNeedsConversion(maps[0], "dm2") && mapNeedsConversion(maps[0], "bmx"),
-                     "AI's player reads AI's map as it is; the others get it converted");
+                     "every player starts a map in a slot its own game lends; none one in a slot its game does not lend (BMX XXX's PARK)");
+            t.IsTrue(maps.size() == 2 && mapSlotFor(maps[0], "ai") == mapSlot("ai", "TUT") && mapSlotFor(maps[0], "dm2") == mapSlot("dm2", "WOODWARD") &&
+                         mapSlotFor(maps[0], "bmx") == mapSlot("bmx", "CHL_MULY") && !mapNeedsConversion(maps[0], *mapSlot("ai", "TUT")) &&
+                         mapNeedsConversion(maps[0], *mapSlot("dm2", "WOODWARD")),
+                     "AI's player reads AI's map as it is in its slot; the others get it converted into their first");
+            {
+                // AI's player without the Estate: the map moved into the Movie
+                // Lot, converted (with its own goals); another game's player
+                // into the slot the map names for it, else its first.
+                const SlotStartable noEstate = [](const MapSlot &slot) { return slot.need != Need::Estate; };
+                CustomMap named = maps[0];
+                named.targets["dm2"] = "COMMERCI";
+                named.targets["bmx"] = "PARK";
+                t.IsTrue(mapSlotFor(maps[0], "ai", noEstate) == mapSlot("ai", "MOVIE") && mapNeedsConversion(maps[0], *mapSlot("ai", "MOVIE")) &&
+                             mapSlotFor(named, "dm2") == mapSlot("dm2", "COMMERCI") && mapSlotFor(named, "bmx") == mapSlot("bmx", "CHL_MULY"),
+                         "no Estate: AI's map in the Movie Lot; slot.dm2 = COMMERCI taken, a slot the game does not lend not");
+                CustomMap park;
+                park.game = "dm2";
+                park.slot = "PARK";
+                t.IsTrue(mapSlotFor(park, "dm2") == mapSlot("dm2", "PARK") && mapSlot("dm2", "PARK")->park && !mapSlotFor(park, "ai") &&
+                             !mapSlotFor(park, "bmx") && mapSlotFor(maps[0], "dm2") != mapSlot("dm2", "PARK"),
+                         "a DM2 park plays in DM2 only, and no map is converted into the park slot");
+                t.IsTrue(mapSlotsOf("ai").size() == 2 && mapSlotsOf("dm2").size() == 9 && mapSlotsOf("bmx").size() == 8,
+                         "the slots: AI's Tutorial and Movie Lot, DM2's eight FREERIDE rows and its park, BMX XXX's eight rows");
+            }
             t.IsTrue(mapSlotOf("ai") == mapSlot("ai", "TUT") && mapSlotOf("dm2") == mapSlot("dm2", "WOODWARD") &&
                          mapSlotOf("bmx") == mapSlot("bmx", "CHL_MULY") && !mapSlotOf("xyz"),
-                     "the slot each game lends");
-            t.IsTrue(mapSlot("ai", "TUT") && std::string(mapSlot("ai", "TUT")->startLevel) == "ESTATE" && !mapSlot("ai", "ZOO"),
-                     "AI's slot TUT is reached through the Estate's entry");
+                     "each game's first slot");
+            t.IsTrue(mapSlot("ai", "TUT") && std::string(mapSlot("ai", "TUT")->startLevel) == "ESTATE" && !mapSlot("ai", "ZOO") &&
+                         std::string(mapSlot("ai", "MOVIE")->startLevel) == "0",
+                     "AI's slot TUT is reached through the Estate's entry, the Movie Lot as free skate's first");
             // The other games' slots: DM2's Woodward Camp row (FREERIDE's
             // level select value 0, open from the start), BMX XXX's Bronx
             // row (a challenge level: no clock), its goal counts kept by
@@ -954,13 +1016,15 @@ void register_ps2_app_support_tests()
             const MapSlot *dm2Slot = mapSlot("dm2", "WOODWARD");
             const MapSlot *bmxSlot = mapSlot("bmx", "CHL_MULY");
             t.IsTrue(dm2Slot && std::string(dm2Slot->startLevel) == "0" && std::string(dm2Slot->folder) == "ASSETS/LEVELS" &&
-                         std::string(dm2Slot->needs) == "PS2X_DM2_LEVEL_CAMERA_POINTS" && !mapSlot("dm2", "LEWAREHO"),
-                     "DM2's slot is Woodward Camp's level row, started as FREERIDE's level select value 0, its level-point "
-                     "camera on the map's own camera points");
+                         std::string(dm2Slot->needs) == "ZX_DM2_LEVEL_CAMERA_POINTS" && !mapSlot("dm2", "LEWAREHO") &&
+                         std::string(mapSlot("dm2", "AIRPORT")->startLevel) == "7",
+                     "DM2's first slot is Woodward Camp's level row, started as FREERIDE's level select value 0 (Airport 7), "
+                     "its level-point camera on the map's own camera points");
             t.IsTrue(bmxSlot && std::string(bmxSlot->startLevel) == "CHL_MULY" &&
-                         std::string(bmxSlot->needs) == "PS2X_BMX_KEEP_LEVEL_GOALS" && !mapSlot("bmx", "CMP_RMPG"),
-                     "BMX XXX's slot is The Bronx's row, started by its folder name with the row's goal counts kept");
-            t.IsTrue(bmxSlot && std::string(bmxSlot->slotNpcs) == "PS2X_BMX_LEVEL_NPCS" && dm2Slot && !dm2Slot->slotNpcs[0] &&
+                         std::string(bmxSlot->keeps) == "ZX_BMX_KEEP_LEVEL_GOALS" && !bmxSlot->needs[0] && mapSlot("bmx", "CMP_RMPG") &&
+                         std::string(mapSlot("bmx", "CMP_RMPG")->startLevel) == "CMP_RMPG",
+                     "BMX XXX's first slot is The Bronx's row, each row started by its folder name with the row's record kept");
+            t.IsTrue(bmxSlot && std::string(bmxSlot->slotNpcs) == "ZX_BMX_LEVEL_NPCS" && dm2Slot && !dm2Slot->slotNpcs[0] &&
                          !mapSlot("ai", "TUT")->slotNpcs[0],
                      "only BMX XXX's slot has NPCs from outside the map's files (The Bronx's riders)");
             std::filesystem::create_directories(mapsFolder / "50-dm2park" / "ASSETS" / "LEVELS" / "WOODWARD");
@@ -983,13 +1047,14 @@ void register_ps2_app_support_tests()
                      "a map read converted: its folder not read (its files are the memory folder's)");
             folders.customMap = maps[0].folder;
             folders.customMapSlot = maps[0].slot;
-            const ps2x::BootConfig boot = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
-            const std::string *given = boot.find("PS2X_MODS_DIR");
-            t.IsTrue(given && *given == ps2x::game_files::modsText(roots), "the boot's mods are those");
-            t.IsTrue(boot.find("PS2X_DEV_START_LEVEL") && *boot.find("PS2X_DEV_START_LEVEL") == "ESTATE" &&
-                         boot.find("PS2X_DEV_START_SKATER") && *boot.find("PS2X_DEV_START_SKATER") == "ask" && boot.find("PS2X_ESTATE") &&
-                         *boot.find("PS2X_ESTATE") == "1",
-                     "started into the slot's free skate with the Estate's entry on, the skater the player's choice");
+            const zx::BootConfig boot = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), folders, noEnv);
+            const std::string *given = boot.find("ZX_MODS_DIR");
+            t.IsTrue(given && *given == zx::game_files::modsText(roots), "the boot's mods are those");
+            t.IsTrue(boot.find("ZX_DEV_START_LEVEL") && *boot.find("ZX_DEV_START_LEVEL") == "ESTATE" &&
+                         boot.find("ZX_DEV_START_SKATER") && *boot.find("ZX_DEV_START_SKATER") == "ask" && boot.find("ZX_ESTATE") &&
+                         *boot.find("ZX_ESTATE") == "1" && boot.find("ZX_AI_KEEP_LEVEL_RECORDS") &&
+                         *boot.find("ZX_AI_KEEP_LEVEL_RECORDS") == "1",
+                     "started into the slot's free skate with the Estate's entry on, the skater the player's choice, the level's records kept");
             // DM2's boot into its map: the start, the rider the player's.
             {
                 const std::vector<CustomMap> dm2Maps = listCustomMaps(mapsFolder);
@@ -1004,11 +1069,12 @@ void register_ps2_app_support_tests()
                     dm2Folders.customMap = dm2Map->folder;
                     dm2Folders.customMapSlot = dm2Map->slot;
                 }
-                const ps2x::BootConfig dm2Boot = gameBootConfig("dm2", settings, paths, gameSettingsProfile("dm2"), dm2Folders, noEnv);
-                t.IsTrue(dm2Map && dm2Boot.find("PS2X_DEV_START_LEVEL") && *dm2Boot.find("PS2X_DEV_START_LEVEL") == "0" &&
-                             dm2Boot.find("PS2X_DEV_START_SKATER") && *dm2Boot.find("PS2X_DEV_START_SKATER") == "ask" &&
-                             !dm2Boot.find("PS2X_DM2_PARK_FILE") && !dm2Boot.find("PS2X_ESTATE") &&
-                             dm2Boot.find("PS2X_DM2_LEVEL_CAMERA_POINTS") && *dm2Boot.find("PS2X_DM2_LEVEL_CAMERA_POINTS") == "1",
+                const zx::BootConfig dm2Boot = gameBootConfig("dm2", settings, paths, gameSettingsProfile("dm2"), dm2Folders, noEnv);
+                t.IsTrue(dm2Map && dm2Boot.find("ZX_DEV_START_LEVEL") && *dm2Boot.find("ZX_DEV_START_LEVEL") == "0" &&
+                             dm2Boot.find("ZX_DEV_START_SKATER") && *dm2Boot.find("ZX_DEV_START_SKATER") == "ask" &&
+                             !dm2Boot.find("ZX_DM2_PARK_FILE") && !dm2Boot.find("ZX_ESTATE") &&
+                             dm2Boot.find("ZX_DM2_LEVEL_CAMERA_POINTS") && *dm2Boot.find("ZX_DM2_LEVEL_CAMERA_POINTS") == "1" &&
+                             dm2Boot.find("ZX_DM2_KEEP_LEVEL_RECORDS") && *dm2Boot.find("ZX_DM2_KEEP_LEVEL_RECORDS") == "1",
                          "DM2 started into FREERIDE's Woodward Camp row, the rider the player's choice, the map's camera points on");
             }
             // BMX XXX's boot into its map: The Bronx's NPC riders left out
@@ -1018,19 +1084,19 @@ void register_ps2_app_support_tests()
                 bmxFolders.resources = dir.path;
                 bmxFolders.customMap = mapsFolder / "30-bmxpark";
                 bmxFolders.customMapSlot = "CHL_MULY";
-                const ps2x::BootConfig leftOut = gameBootConfig("bmx", settings, paths, gameSettingsProfile("bmx"), bmxFolders, noEnv);
+                const zx::BootConfig leftOut = gameBootConfig("bmx", settings, paths, gameSettingsProfile("bmx"), bmxFolders, noEnv);
                 bmxFolders.customMapSlotNpcs = true;
-                const ps2x::BootConfig kept = gameBootConfig("bmx", settings, paths, gameSettingsProfile("bmx"), bmxFolders, noEnv);
-                t.IsTrue(leftOut.find("PS2X_BMX_LEVEL_NPCS") && *leftOut.find("PS2X_BMX_LEVEL_NPCS") == "0" &&
-                             leftOut.find("PS2X_BMX_KEEP_LEVEL_GOALS") && kept.find("PS2X_BMX_LEVEL_NPCS") &&
-                             *kept.find("PS2X_BMX_LEVEL_NPCS") == "1" && !boot.find("PS2X_BMX_LEVEL_NPCS"),
+                const zx::BootConfig kept = gameBootConfig("bmx", settings, paths, gameSettingsProfile("bmx"), bmxFolders, noEnv);
+                t.IsTrue(leftOut.find("ZX_BMX_LEVEL_NPCS") && *leftOut.find("ZX_BMX_LEVEL_NPCS") == "0" &&
+                             leftOut.find("ZX_BMX_KEEP_LEVEL_GOALS") && kept.find("ZX_BMX_LEVEL_NPCS") &&
+                             *kept.find("ZX_BMX_LEVEL_NPCS") == "1" && !boot.find("ZX_BMX_LEVEL_NPCS"),
                          "BMX XXX's map boot: the slot's NPC riders off (0), on (1) with npcs = slot; none given to AI's");
             }
             BootFolders plain;
             plain.resources = dir.path;
-            const ps2x::BootConfig asIs = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), plain, noEnv);
-            t.IsTrue(!asIs.find("PS2X_DEV_START_LEVEL") && asIs.find("PS2X_MODS_DIR") &&
-                         *asIs.find("PS2X_MODS_DIR") == ps2x::game_files::modsText({mods, mods / "10-rails"}),
+            const zx::BootConfig asIs = gameBootConfig("ai", settings, paths, gameSettingsProfile("ai"), plain, noEnv);
+            t.IsTrue(!asIs.find("ZX_DEV_START_LEVEL") && asIs.find("ZX_MODS_DIR") &&
+                         *asIs.find("ZX_MODS_DIR") == zx::game_files::modsText({mods, mods / "10-rails"}),
                      "without a map: no start, and only the mods");
             // A map made in AI started by DM2's player: converted (its files
             // the memory folder's), the map's folder unread.
@@ -1040,9 +1106,9 @@ void register_ps2_app_support_tests()
                 converted.customMap = maps[0].folder;
                 converted.customMapSlot = "WOODWARD";
                 converted.customMapConverted = true;
-                const ps2x::BootConfig boot = gameBootConfig("dm2", settings, paths, gameSettingsProfile("dm2"), converted, noEnv);
-                t.IsTrue(boot.find("PS2X_MODS_DIR") && *boot.find("PS2X_MODS_DIR") == ps2x::game_files::modsText({mods, mods / "10-rails"}) &&
-                             boot.find("PS2X_DEV_START_LEVEL") && *boot.find("PS2X_DEV_START_LEVEL") == "0",
+                const zx::BootConfig boot = gameBootConfig("dm2", settings, paths, gameSettingsProfile("dm2"), converted, noEnv);
+                t.IsTrue(boot.find("ZX_MODS_DIR") && *boot.find("ZX_MODS_DIR") == zx::game_files::modsText({mods, mods / "10-rails"}) &&
+                             boot.find("ZX_DEV_START_LEVEL") && *boot.find("ZX_DEV_START_LEVEL") == "0",
                          "a converted map: started into the player's slot, its folder not read");
             }
 
@@ -1081,15 +1147,15 @@ void register_ps2_app_support_tests()
             AppPaths paths;
             paths.supportDir = dir.path;
             auto noEnv = [](const char *) -> const char * { return nullptr; };
-            const std::string plainMods = ps2x::game_files::modsText({mods, mods / "10-rails"});
+            const std::string plainMods = zx::game_files::modsText({mods, mods / "10-rails"});
             for (const char *game : {"ai", "dm2", "bmx"})
             {
                 // The menu's tile, the devstart and the hosts all boot
                 // through gameBootConfig: with no map chosen, no map read.
                 BootFolders folders;
                 folders.resources = dir.path;
-                const ps2x::BootConfig boot = gameBootConfig(game, settings, paths, gameSettingsProfile(game), folders, noEnv);
-                t.IsTrue(boot.find("PS2X_MODS_DIR") && *boot.find("PS2X_MODS_DIR") == plainMods,
+                const zx::BootConfig boot = gameBootConfig(game, settings, paths, gameSettingsProfile(game), folders, noEnv);
+                t.IsTrue(boot.find("ZX_MODS_DIR") && *boot.find("ZX_MODS_DIR") == plainMods,
                          std::string(game) + "'s own start reads the Mods folder and the plain mod, no map");
             }
             // A boot into one map reads that map's folder and no other.
@@ -1099,16 +1165,16 @@ void register_ps2_app_support_tests()
                 folders.resources = dir.path;
                 folders.customMap = map.folder;
                 folders.customMapSlot = map.slot;
-                const ps2x::BootConfig boot = gameBootConfig(map.game, settings, paths, gameSettingsProfile(map.game), folders, noEnv);
-                t.IsTrue(boot.find("PS2X_MODS_DIR") &&
-                             *boot.find("PS2X_MODS_DIR") == ps2x::game_files::modsText({mods, mods / "10-rails", map.folder}),
+                const zx::BootConfig boot = gameBootConfig(map.game, settings, paths, gameSettingsProfile(map.game), folders, noEnv);
+                t.IsTrue(boot.find("ZX_MODS_DIR") &&
+                             *boot.find("ZX_MODS_DIR") == zx::game_files::modsText({mods, mods / "10-rails", map.folder}),
                          map.folderName + "'s boot reads its folder last and no other map's");
             }
         });
 
         tc.Run("custom maps: the idle cameras and the respawns go with a map, in each game's form", [](TestCase &t)
         {
-            namespace lv = ps2x::app::levels;
+            namespace lv = zx::app::levels;
             // A 20 m floor, the starts, a respawn and one idle camera 20 m
             // back and 5 m up (the model's axes: +y up, the games' -z).
             auto park = [](bool camera)
@@ -1183,7 +1249,7 @@ void register_ps2_app_support_tests()
 
         tc.Run("custom maps: a cut-out texture halved to fit stays a cut-out", [](TestCase &t)
         {
-            namespace lv = ps2x::app::levels;
+            namespace lv = zx::app::levels;
             // A 20 m floor under a 256 x 256 lattice (one-texel teal bars every
             // other column, clear between: an arch's or a fence's) and a glass
             // pane at a third of full alpha, both over the 128 side budget.
@@ -1241,7 +1307,7 @@ void register_ps2_app_support_tests()
 
         tc.Run("custom maps: a dynamics prop goes with a map, its name's whole hash its definition's", [](TestCase &t)
         {
-            namespace lv = ps2x::app::levels;
+            namespace lv = zx::app::levels;
             // A 20 m floor and two traffic cones, #dynamics props of one mesh
             // named longer than the name field, with Woodward's cone's
             // definition (DM2's disc: dynamicsDef_ConesA's one box body; its
@@ -1378,7 +1444,7 @@ void register_ps2_app_support_tests()
 
         tc.Run("custom maps: one map in the maps folder, made into each game's files in memory", [](TestCase &t)
         {
-            namespace lv = ps2x::app::levels;
+            namespace lv = zx::app::levels;
             // A small park as a model: a 20 m concrete floor of two triangles,
             // a ledge's edge to grind, the PlayerOne spawn.
             lv::ModelBuilder b;
@@ -1411,13 +1477,14 @@ void register_ps2_app_support_tests()
             }
             std::ofstream(folder / "map.ini") << "[map]\nname = Small Park\ngame = ai\nslot = TUT\n";
             const std::vector<CustomMap> maps = listCustomMaps(mapsFolder);
-            t.IsTrue(maps.size() == 1 && maps[0].game == "ai" && mapPlayableIn(maps[0], "bmx") && mapNeedsConversion(maps[0], "bmx"),
+            t.IsTrue(maps.size() == 1 && maps[0].game == "ai" && mapPlayableIn(maps[0], "bmx") &&
+                         mapNeedsConversion(maps[0], *mapSlotFor(maps[0], "bmx")),
                      "listed once, startable by BMX XXX's player, converted for it");
             if (maps.size() != 1)
                 return;
 
             // BMX XXX's player: the map's files made into The Bronx's slot.
-            const ConvertedMap bmx = convertMap(maps[0], "bmx");
+            const ConvertedMap bmx = convertMap(maps[0], *mapSlot("bmx", "CHL_MULY"));
             const std::string base = "ASSETS/LEVELS/CHL_MULY/CHL_MULY.";
             t.IsTrue(bmx.files.count(base + "GEO") && bmx.files.count(base + "ZIT") && bmx.files.count("ASSETS/LEVELS/CHL_MULY/OBJCTV.TXT") &&
                          bmx.files.count("ASSETS/LEVELS/CHL_MULY/MODELS.ZAL") && bmx.bytes > 0,
@@ -1439,9 +1506,25 @@ void register_ps2_app_support_tests()
                      "the PlayerOne spawn carried");
 
             // DM2's player: Woodward Camp's level row.
-            const ConvertedMap dm2 = convertMap(maps[0], "dm2");
+            const ConvertedMap dm2 = convertMap(maps[0], *mapSlot("dm2", "WOODWARD"));
             t.IsTrue(dm2.files.count("ASSETS/LEVELS/WOODWARD/WOODWARD.GEO") && dm2.files.size() == 5,
                      "DM2's slot: the level row's five files");
+            const ConvertedMap commercial = convertMap(maps[0], *mapSlot("dm2", "COMMERCI"));
+            t.IsTrue(commercial.files.count("ASSETS/LEVELS/COMMERCI/COMMERCI.ZIT") && commercial.files.size() == 5 &&
+                         commercial.slot == mapSlot("dm2", "COMMERCI"),
+                     "another row's slot: its five files under its name");
+            // AI's player without the Estate: the map moved into the Movie
+            // Lot with its own scripts (its goals), not the converter's empty ones.
+            {
+                const std::filesystem::path script = folder / "ASSETS" / "LEVELS" / "TUT" / "TUTT.BIN";
+                std::ofstream(script, std::ios::binary) << "a lesson script";
+                const ConvertedMap movie = convertMap(maps[0], *mapSlot("ai", "MOVIE"));
+                const auto kept = movie.files.find("ASSETS/LEVELS/MOVIE/MOVIET.BIN");
+                t.IsTrue(movie.files.count("ASSETS/LEVELS/MOVIE/MOVIE.GEO") && kept != movie.files.end() &&
+                             std::string(kept->second.begin(), kept->second.end()) == "a lesson script" &&
+                             movie.files.count("ASSETS/LEVELS/MOVIE/MOVIE.BIN") && !movie.files.count("ASSETS/LEVELS/TUT/TUT.GEO"),
+                         "into the Movie Lot: MOVIE's files, its free skate script the map's own TUTT.BIN");
+            }
 
             // A model that would not fit a game's memory is refused with why,
             // never started: 150,000 triangles of their own vertices (the
@@ -1489,7 +1572,87 @@ void register_ps2_app_support_tests()
                 why = e.what();
             }
             t.IsTrue(why.find("PlayerOne") != std::string::npos, "no PlayerOne spawn: refused, saying so");
-            t.IsTrue(!mapNeedsConversion(maps[0], "ai"), "AI's player reads the folder as it is");
+            t.IsTrue(mapSlotFor(maps[0], "ai") && !mapNeedsConversion(maps[0], *mapSlotFor(maps[0], "ai")),
+                     "AI's player reads the folder as it is");
+        });
+
+        tc.Run("custom maps: tag words and named points go with a map where its game reads them", [](TestCase &t)
+        {
+            namespace lv = zx::app::levels;
+            // A floor whose faces carry a gap's tag, its front edge a grind
+            // with a tag word, the start, a lesson point and a paintball point.
+            lv::ModelBuilder b;
+            std::vector<lv::Rgba> grey(16 * 16, lv::Rgba{150, 150, 144, 255});
+            lv::Primitive floor;
+            floor.positions = {{-10.0, 0.0, -10.0}, {10.0, 0.0, -10.0}, {10.0, 0.0, 10.0}, {-10.0, 0.0, 10.0}};
+            floor.triangles = {{0, 2, 1}, {0, 3, 2}};
+            floor.uvs = std::vector<lv::Vec2>{{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}, {0.0, 1.0}};
+            floor.material = b.material("concrete#tag=gap_roof", {1.0, 1.0, 1.0, 1.0}, b.image("concrete", 16, 16, grey));
+            b.node("floor", b.mesh("floor", {floor}));
+            lv::Primitive edge;
+            edge.positions = {{-10.0, 0.0, -10.0}, {10.0, 0.0, -10.0}};
+            edge.lines = {{0, 1}};
+            b.node("edge#grind#tag=0x00C0FFEE", b.mesh("edge", {edge}));
+            b.node("PlayerOne#spawn=PlayerOne", std::nullopt, {0.0, 1.0, 0.0});
+            b.node("lessonOne#spawn=lessonOne", std::nullopt, {3.0, 1.0, 0.0});
+            b.node("sniper_target#spawn=sniper_target", std::nullopt, {-3.0, 1.0, 0.0});
+            const lv::Model model = b.model();
+            const uint32_t gap = lv::nameHash("gap_roof"), lesson = lv::nameHash("lessonOne"), sniper = lv::nameHash("sniper_target");
+            struct Seen
+            {
+                std::set<uint32_t> faceWords, edgeWords, points;
+            };
+            auto seen = [](const lv::Converted &c, lv::Engine engine, const std::string &base)
+            {
+                Seen out;
+                const lv::Geometry geo = lv::Geometry::read(c.files.at(base + "GEO"), engine);
+                for (const lv::GeoObject &o : geo.objects)
+                    for (const lv::ObjectPart &p : o.parts)
+                    {
+                        if (p.part.faceTags)
+                            for (const lv::Bytes &r : p.part.faceTags->records)
+                                out.faceWords.insert(engine == lv::Engine::Zge3 ? lv::FaceTag::read(r).eventKind : lv::BikeFaceTag::read(r).tag);
+                        if (p.part.edgeTags)
+                            for (const lv::Bytes &r : p.part.edgeTags->records)
+                                out.edgeWords.insert(engine == lv::Engine::Zge3 ? lv::EdgeTag::read(r).eventId : lv::BikeEdgeTag::read(r).tag);
+                    }
+                for (const lv::ScenePoint &p : lv::SceneData::read(c.files.at(base + "DAT"), engine).points)
+                    if (p.kind == lv::kSpawnPoint)
+                        out.points.insert(p.name);
+                return out;
+            };
+            const lv::Converted ai = lv::convertModel(model, lv::Engine::Zge3, "MOVIE");
+            const lv::Converted dm2 = lv::convertModel(model, lv::Engine::Zge2, "COMMERCI");
+            const lv::Converted bmx = lv::convertModel(model, lv::Engine::Zge4, "CMP_ROOT");
+            const Seen inAi = seen(ai, lv::Engine::Zge3, "ASSETS/LEVELS/MOVIE/MOVIE.");
+            const Seen inDm2 = seen(dm2, lv::Engine::Zge2, "ASSETS/LEVELS/COMMERCI/COMMERCI.");
+            const Seen inBmx = seen(bmx, lv::Engine::Zge4, "ASSETS/LEVELS/CMP_ROOT/CMP_ROOT.");
+            for (const auto &[game, s] : {std::pair<const char *, const Seen *>{"AI", &inAi}, {"DM2", &inDm2}, {"BMX XXX", &inBmx}})
+                t.IsTrue(s->faceWords.count(gap) && s->edgeWords.count(0x00C0FFEEu),
+                         std::string(game) + ": the faces' tag word (a name, hashed) and the edge's (a hex word) in its records");
+            t.IsTrue(inAi.points.count(lesson) && !inAi.points.count(sniper) && inBmx.points.count(sniper) && !inBmx.points.count(lesson) &&
+                         !inDm2.points.count(lesson) && !inDm2.points.count(sniper),
+                     "AI keeps the lesson point, BMX XXX the paintball point, each left out of the games that do not read it");
+            t.IsTrue(ai.files.count("ASSETS/LEVELS/MOVIE/MOVIET.BIN") && dm2.files.count("ASSETS/LEVELS/COMMERCI/COMMERCI.ZIT") &&
+                         bmx.files.count("ASSETS/LEVELS/CMP_ROOT/OBJCTV.TXT"),
+                     "each in the slot asked for");
+
+            // Exported back from AI's files: the words and the lesson point
+            // in the model, so the next conversion has them again.
+            lv::LevelFiles files;
+            for (const char *ext : {"GEO", "INS", "DAT", "TXR"})
+                files[ext] = ai.files.at(std::string("ASSETS/LEVELS/MOVIE/MOVIE.") + ext);
+            const lv::Model back = lv::exportLevel(lv::Engine::Zge3, files);
+            const auto has = [](const auto &items, const std::string &part)
+            { return std::any_of(items.begin(), items.end(), [&](const auto &i) { return i.name.find(part) != std::string::npos; }); };
+            char word[16];
+            std::snprintf(word, sizeof(word), "0x%08x", gap);
+            t.IsTrue(has(back.materials, std::string("#tag=") + word) && has(back.nodes, "#grind=ledge#tag=0x00c0ffee") &&
+                         has(back.nodes, "lessonOne#spawn=lessonOne"),
+                     "the export carries the face word, the edge word and the named point");
+            const Seen again = seen(lv::convertModel(back, lv::Engine::Zge4), lv::Engine::Zge4, "ASSETS/LEVELS/CHL_MULY/CHL_MULY.");
+            t.IsTrue(again.faceWords.count(gap) && again.edgeWords.count(0x00C0FFEEu) && !again.points.count(lesson),
+                     "AI's map made into BMX XXX's files: the words kept, the lesson point left out");
         });
 
         tc.Run("settings: [mods] keeps the mods switched off, by their folders' names", [](TestCase &t)
@@ -1556,13 +1719,17 @@ void register_ps2_app_support_tests()
                                                   "extras.park_editor", "extras.xbox_challenges", "extras.editor_pieces",
                                                   "extras.level_previews",
                                                   "extras.logo_movie", "extras.intro_movie", "extras.gc_levels",
-                                                  "extras.menu_lines", "extras.all_mp_modes", "saves.profile",
+                                                  "extras.menu_lines", "extras.all_mp_modes", "extras.logo_splash",
+                                                  "extras.trailers", "extras.car_textures", "extras.green_skin",
+                                                  "extras.topless_girl", "extras.xbox_songs", "saves.profile",
                                                   "memcard.pcsx2_import_offered"},
                      "BMX's own options: its languages, the developer menu, the tuning, the park editor, its other "
                      "releases' content, the save profile, the PCSX2 import");
             t.IsTrue(!s.bmxXboxChallenges && !s.bmxEditorPieces && !s.bmxLevelPreviews && !s.bmxLogoMovie && !s.bmxIntroMovie &&
                          !s.bmxGcLevels && !s.bmxMenuLines && !s.bmxAllMpModes && bmxGame.find("gc_levels = false") != std::string::npos &&
-                         bmxGame.find("all_mp_modes = false") != std::string::npos &&
+                         bmxGame.find("all_mp_modes = false") != std::string::npos && !s.bmxLogoSplash && !s.bmxTrailers &&
+                         !s.bmxCarTextures && !s.bmxGreenSkin && !s.bmxTopless && !s.bmxXboxSongs &&
+                         bmxGame.find("topless_girl = false") != std::string::npos &&
                          bmxGame.find("menu_lines = false") != std::string::npos && s.tuning == 0 &&
                          s.language == 0 && bmxGame.find("xbox_challenges = false") != std::string::npos &&
                          bmxGame.find("intro_movie = false") != std::string::npos &&
@@ -1571,12 +1738,16 @@ void register_ps2_app_support_tests()
             Settings releases;
             releases.bmxXboxChallenges = releases.bmxEditorPieces = releases.bmxLevelPreviews = releases.bmxLogoMovie = releases.bmxIntroMovie = true;
             releases.bmxGcLevels = releases.bmxMenuLines = releases.bmxAllMpModes = true;
+            releases.bmxLogoSplash = releases.bmxTrailers = releases.bmxCarTextures = releases.bmxGreenSkin = releases.bmxTopless =
+                releases.bmxXboxSongs = true;
             const Settings releasesRead = parseSettings(formatSettings(releases, bmx, SettingsScope::Game), &warnings);
             t.IsTrue(releasesRead.bmxXboxChallenges && releasesRead.bmxEditorPieces && releasesRead.bmxLevelPreviews && releasesRead.bmxLogoMovie &&
                          releasesRead.bmxIntroMovie && releasesRead.bmxGcLevels && releasesRead.bmxMenuLines &&
-                         releasesRead.bmxAllMpModes && warnings.empty(),
+                         releasesRead.bmxAllMpModes && releasesRead.bmxLogoSplash && releasesRead.bmxTrailers &&
+                         releasesRead.bmxCarTextures && releasesRead.bmxGreenSkin && releasesRead.bmxTopless &&
+                         releasesRead.bmxXboxSongs && warnings.empty(),
                      "[extras] xbox_challenges, editor_pieces, level_previews, logo_movie, intro_movie, gc_levels, menu_lines, "
-                     "all_mp_modes read back");
+                     "all_mp_modes, logo_splash, trailers, car_textures, green_skin, topless_girl, xbox_songs read back");
             t.IsTrue(bmxGame.find("Syracuse") != std::string::npos && bmxGame.find("Civic Center") == std::string::npos,
                      "BMX's tuning line says what it changes there");
             t.IsTrue(bmxGame.find("draw_distance = original") != std::string::npos && bmxGame.find("changes the game") != std::string::npos &&

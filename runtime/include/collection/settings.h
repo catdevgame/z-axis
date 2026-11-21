@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::app
+namespace zx::app
 {
     using GetEnv = std::function<const char *(const char *name)>;
 
@@ -38,9 +38,9 @@ namespace ps2x::app
 
     // macOS: ~/Library/Application Support/<appName> and ~/Library/Logs/<appName>;
     // Windows: %APPDATA%\<appName> (logs in Logs\ there); Linux: XDG data home.
-    // PS2X_APP_SUPPORT_DIR replaces the support folder (logs then go to its
+    // ZX_APP_SUPPORT_DIR replaces the support folder (logs then go to its
     // Logs subfolder, for automated runs that must not touch the real one);
-    // PS2X_APP_LOG_DIR replaces the log folder.
+    // ZX_APP_LOG_DIR replaces the log folder.
     AppPaths resolveAppPaths(const std::string &appName, const GetEnv &getEnv);
 
     enum class Scaling
@@ -78,8 +78,8 @@ namespace ps2x::app
         bool nativeMeshes = true;   // GPU renderer: level meshes drawn natively (false: strict VIF/VU1/GS path)
         bool recordsMeshes = false; // with nativeMeshes: drawn from the draw records, no VU1 work in the packets (render_path = records)
         bool hostDisc = true;       // the game's files read on the host (false: its CD/DVD client over the emulated IOP)
-        // GPU renderer picture quality (runtime/gs/gs_quality.h), by ps2x::gs_quality::Option.
-        std::array<int, ps2x::gs_quality::kOptionCount> quality = ps2x::gs_quality::defaults();
+        // GPU renderer picture quality (runtime/gs/gs_quality.h), by zx::gs_quality::Option.
+        std::array<int, zx::gs_quality::kOptionCount> quality = zx::gs_quality::defaults();
         int motionBlur = 2;         // the game's previous-frame blend: 0 off, 1 low, 2 the game's
         // Far clip and fog, a game's own ([gameplay] draw_distance): 0 the game's, 1 far, 2 farthest; -1
         // not set: the game's default (drawDistanceOf). legacyDrawDistance: an earlier version's app-wide
@@ -124,6 +124,12 @@ namespace ps2x::app
         bool bmxLogoMovie = false;      // the Z-Axis logo movie in the movie gallery
         bool bmxIntroMovie = false;     // the intro movie at boot, as the GameCube plays it
         bool bmxGcLevels = false;       // the GameCube's Secret Level and three test levels in the level select
+        bool bmxLogoSplash = false;     // the Z-Axis logo at boot, as the GameCube plays it
+        bool bmxTrailers = false;       // the Xbox's Turok and Vexx trailers in the Competitive Edge movies
+        bool bmxCarTextures = false;    // create-a-rider's Xbox and GameCube textures and parts
+        bool bmxGreenSkin = false;      // create-a-rider's green skins and faces (the other releases' Green Skin mode)
+        bool bmxTopless = false;        // create-a-rider's topless top (the other releases' Topless Girl mode)
+        bool bmxXboxSongs = false;      // the Xbox's eight songs no release's soundtrack names, as its tracks 21 to 28
         bool bmxMenuLines = false;      // BMX XXX: the pause and game over lines its menus leave out ([extras]); off by default: the menus as the game made them
         bool bmxAllMpModes = false;     // BMX XXX: every multiplayer mode whose rules work in SELECT GAME ([extras]); off by default: the game's three
         int tuning = 0;                 // kTunings index: the PS2 release's gameplay balance, or the Xbox's ([gameplay])
@@ -156,12 +162,12 @@ namespace ps2x::app
     inline constexpr const char *kWideAspects[] = {"16:9", "16:10", "21:9", "32:9", "window"};
     inline constexpr const char *kMotionBlurLevels[] = {"off", "low", "original"};
     inline constexpr const char *kDrawDistances[] = {"original", "far", "farthest"};
-    // settings.ini names of Settings::language (also PS2X_LANGUAGE's values;
+    // settings.ini names of Settings::language (also ZX_LANGUAGE's values;
     // "us" and "uk" of earlier versions read as English).
     inline constexpr const char *kLanguages[] = {"english", "french", "german", "spanish"};
-    // settings.ini names of Settings::tuning (also PS2X_TUNING's values).
+    // settings.ini names of Settings::tuning (also ZX_TUNING's values).
     inline constexpr const char *kTunings[] = {"ps2", "xbox"};
-    // settings.ini names of Settings::zooUnlock (also PS2X_ZOO_UNLOCK's values).
+    // settings.ini names of Settings::zooUnlock (also ZX_ZOO_UNLOCK's values).
     inline constexpr const char *kZooUnlocks[] = {"museum", "always"};
 
     // A game's own options: the settings.ini keys and Settings rows that only
@@ -196,9 +202,15 @@ namespace ps2x::app
         BmxGcLevels,       // [extras] gc_levels: BMX XXX's GameCube Secret Level and test levels
         BmxMenuLines,      // [extras] menu_lines: BMX XXX's left-out pause and game over lines
         BmxAllMpModes,     // [extras] all_mp_modes: BMX XXX's multiplayer modes SELECT GAME leaves out
+        BmxLogoSplash,     // [extras] logo_splash: BMX XXX's Z-Axis logo at boot (the GameCube's)
+        BmxTrailers,       // [extras] trailers: BMX XXX's Xbox Turok and Vexx trailers
+        BmxCarTextures,    // [extras] car_textures: BMX XXX's create-a-rider textures and parts of the other releases
+        BmxGreenSkin,      // [extras] green_skin: BMX XXX's Green Skin mode (the other releases')
+        BmxTopless,        // [extras] topless_girl: BMX XXX's Topless Girl mode (the other releases')
+        BmxXboxSongs,      // [extras] xbox_songs: BMX XXX's Xbox songs no soundtrack names
         SaveProfile,     // [saves] profile: several careers side by side
         Pcsx2Import,     // [memcard] pcsx2_import_offered: the PCSX2 save import offer
-        // In the game's gameplay.ini (PS2X_GAMEPLAY_INI), written by its
+        // In the game's gameplay.ini (ZX_GAMEPLAY_INI), written by its
         // override: the Camera, Assists and Cheats pages.
         GameplayPages,
         // App-wide values (every game's settings.ini at the collection's
@@ -215,7 +227,7 @@ namespace ps2x::app
     // What a game is to the settings: the game (runtime/ps2_games.h: its id,
     // boot ELF, title, what its logic follows), its file's header, and its
     // options.
-    struct GameSettingsProfile : ps2x::games::Game
+    struct GameSettingsProfile : zx::games::Game
     {
         std::vector<GameOption> options;
         bool has(GameOption option) const;
@@ -248,26 +260,27 @@ namespace ps2x::app
         std::string customMapSlot;         // the slot this game lends it (the level folder)
         bool customMapSlotNpcs = false;    // it keeps the slot level's own NPCs (map.ini npcs = slot)
         bool customMapConverted = false;   // its files are the memory folder's, converted for this game
+        std::string customMapPark;         // DM2's park slot: the saved park's file in the map's folder (map.ini park)
         // The collection's Mods folder (<support>/Mods, collection/mods.h), "" in the single-game app (whose
         // <support>/Mods is the game's own).
         std::filesystem::path sharedMods;
     };
     // The folders of the other releases' content a boot is given, by the
-    // boot name the game reads each by (PS2X_XBOX_DIR: xbox, PS2X_ESTATE_DIR:
+    // boot name the game reads each by (ZX_XBOX_DIR: xbox, ZX_ESTATE_DIR:
     // estate, ...): the one the setup made from the player's discs
     // (folders.extras), else the one bundled with the app (folders.resources);
     // only those there are.
     std::vector<std::pair<std::string, std::filesystem::path>> releaseFolders(const BootFolders &folders);
     // What the app gives a game when it boots it: the game's settings (the
     // options its profile has), its folders and files, the renderer settings
-    // (over PS2X_GS_SCALE and PS2X_GS_FULL_HEIGHT unless the environment
-    // sets PS2X_GS_BACKEND, as the app always applied them). The
+    // (over ZX_GS_SCALE and ZX_GS_FULL_HEIGHT unless the environment
+    // sets ZX_GS_BACKEND, as the app always applied them). The
     // environment still wins over the rest (runtime/ps2_boot_config.h).
-    ps2x::BootConfig gameBootConfig(const std::string &gameId, const Settings &settings, const AppPaths &paths,
+    zx::BootConfig gameBootConfig(const std::string &gameId, const Settings &settings, const AppPaths &paths,
                                     const GameSettingsProfile &profile, const BootFolders &folders,
                                     const GetEnv &getEnv);
-    // The renderer settings as the GS renderer reads them: PS2X_GS_BACKEND,
-    // PS2X_GS_SCALE, PS2X_GS_FULL_HEIGHT.
+    // The renderer settings as the GS renderer reads them: ZX_GS_BACKEND,
+    // ZX_GS_SCALE, ZX_GS_FULL_HEIGHT.
     std::vector<std::pair<std::string, std::string>> rendererValues(const Settings &settings);
 
     // Which part of the settings a settings.ini holds.

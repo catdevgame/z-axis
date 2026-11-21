@@ -17,7 +17,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     bool bakeFont(const std::vector<uint8_t> &ttf, float pixelHeight, BitmapFont &out)
     {

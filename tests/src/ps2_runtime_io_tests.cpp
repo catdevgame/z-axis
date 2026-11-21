@@ -787,16 +787,16 @@ void register_ps2_runtime_io_tests()
                 out.write(data.data(), static_cast<std::streamsize>(data.size()));
             }
 
-            setTestEnv("PS2X_MC_SLOT2", "none");
+            setTestEnv("ZX_MC_SLOT2", "none");
             clearContext(test.ctx);
             ps2_stubs::resetMemoryCardSlots();
             ps2_stubs::sceMcInit(test.rdram.data(), &test.ctx, nullptr);
-            setTestEnv("PS2X_MC_SLOT2", nullptr);
+            setTestEnv("ZX_MC_SLOT2", nullptr);
 
             t.Equals(getInfo(0u), -1, "slot 1 should hold a newly seen formatted card");
             t.Equals(readGuestS32(test.rdram.data(), freeAddr), 7644,
                      "free clusters should count directory entry tables and file data like mcman");
-            t.Equals(getInfo(1u), -10, "PS2X_MC_SLOT2=none should leave slot 2 empty");
+            t.Equals(getInfo(1u), -10, "ZX_MC_SLOT2=none should leave slot 2 empty");
             t.Equals(readGuestS32(test.rdram.data(), typeAddr), 0, "an empty slot has no card type");
 
             clearContext(test.ctx);
@@ -804,12 +804,12 @@ void register_ps2_runtime_io_tests()
             t.Equals(getInfo(0u), 0, "sceMcInit again (libmc) should not make mcman forget the card");
             t.Equals(getInfo(1u), -10, "nor insert one");
 
-            setTestEnv("PS2X_MC_SLOT1", "unformatted");
+            setTestEnv("ZX_MC_SLOT1", "unformatted");
             clearContext(test.ctx);
             ps2_stubs::resetMemoryCardSlots();
             ps2_stubs::sceMcInit(test.rdram.data(), &test.ctx, nullptr);
-            setTestEnv("PS2X_MC_SLOT1", nullptr);
-            t.Equals(getInfo(0u), -2, "PS2X_MC_SLOT1=unformatted should report an unformatted card");
+            setTestEnv("ZX_MC_SLOT1", nullptr);
+            t.Equals(getInfo(0u), -2, "ZX_MC_SLOT1=unformatted should report an unformatted card");
             t.Equals(readGuestS32(test.rdram.data(), formatAddr), 0, "the card should read as unformatted");
             t.Equals(getInfo(0u), 0, "then as the same, still unformatted card");
             t.Equals(readGuestS32(test.rdram.data(), formatAddr), 0, "format stays 0");

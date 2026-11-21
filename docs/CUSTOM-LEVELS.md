@@ -6,7 +6,7 @@ tools give a map, section 3 how each part was built and proved, section 4 the qu
 
 ## 1. Custom Freeplay across the games
 
-The user's idea: before picking a custom map, choose a player type from any of the three games: an
+The idea: before picking a custom map, choose a player type from any of the three games: an
 inline skater (AI), a Dave Mirra BMX 2 rider or a BMX XXX rider. A fourth entry on the collection's
 main menu, freeplay only.
 
@@ -14,7 +14,7 @@ main menu, freeplay only.
   "skater" boots AI's code and "rider" boots DM2's or BMX XXX's. The mix is in the collection's
   menu and in the content, not in one game's code: no skater inside BMX XXX's physics.
 - **One map, every player.** The three games' engines are versions of one engine: AI is ZGE3,
-  DM2 ZGE2 and BMX XXX ZGE4 (`tooling/ai/tools/dm2_level.py` docstring). A level is the same five
+  DM2 ZGE2 and BMX XXX ZGE4 (`tooling/ai/tools/zge_level_gltf.py` docstring). A level is the same five
   files in each, with per-version chunk differences:
   - AI: `<L>.ZIT .GEO .INS .TXR .DAT`, `MOTIONS.ZAL`, and the scripts `<L>.BIN` (career) and
     `<L>T.BIN` (free skate and timed run), under `ASSETS/LEVELS/<L>/`.
@@ -25,14 +25,23 @@ main menu, freeplay only.
   A map is stored once, as a mod in the collection's Mods folder (`<support>/Mods/<map>/`, a
   folder or a zip read in place, with a `[map]` section in its `mod.ini`: docs/MODS.md) or in the
   older maps folder (`<support>/Maps/<map>/`), as the level files of the game it was made in, laid
-  out in that game's slot (`collection/maps.h`). A player of
+  out in one of that game's slots (`collection/maps.h`), or in a game's own Mods folder
+  (`games/<id>/Mods/<map>/`). A player of
   that game reads the folder as it is; a player of another game gets the map converted when its
-  boot starts, into its own game's files for its slot, in memory: the boot reads them as a memory
+  boot starts, into its own game's files for one of its slots, in memory: the boot reads them as a memory
   folder (`runtime/ps2_game_files.h` `registerMemoryFolder`, over the mods), nothing is written and
-  nothing is cached (80 to 350 ms a map; 3 to 9 MB held while the game runs). The slots: AI's
-  free skate level 7 (folder `TUT`, reached through the Estate's entry; the slot's files are the
-  map's, whatever level it is), DM2's Woodward Camp level row (`WOODWARD`: a park, with its theme's
-  editor objects, left no room for a large level), BMX XXX's The Bronx (`CHL_MULY`). The maps the
+  nothing is cached (80 to 350 ms a map; 3 to 9 MB held while the game runs). The slots (each
+  game's first that the setup starts takes the maps converted for it, unless a map names one with
+  `slot.<game>`): AI's free skate level 7 (folder `TUT`, reached through the Estate's entry; the
+  slot's files are the map's, whatever level it is) and the Movie Lot (`MOVIE`, free skate's first
+  entry, open from the start: the slot without the GameCube disc); DM2's eight FREERIDE level rows
+  (`WOODWARD` first, the devstart opening a row for the pick) and its park slot (`PARK`: a park
+  saved in DM2's park editor, `ZX_DM2_PARK_FILE`, DM2 only; a converted level there, with its
+  theme's editor objects, left no room for a large level); BMX XXX's eight HARDCORE TOUR rows
+  (`CHL_MULY`, The Bronx, first). A map in a slot its own game's setup cannot start (AI's Tutorial
+  without the Estate) is converted into that game's first that starts, with its goals' files. The
+  bottom screen's map of a map is made at its boot from the files the game reads, in memory
+  (`collection/extras/panel_maps.h` `makeMapPanelFile`, served in place of the slot's `.pmap`). The maps the
   checks ride are three stock levels, one per game, each used as a map: Industrial (AI's career
   level), Woodward Camp (DM2's) and The Underground (BMX XXX's `CMP_ROOT`); of AI's career levels
   only Industrial fits both bike games' budgets. A level whose files
@@ -44,8 +53,8 @@ main menu, freeplay only.
   step: a glTF model, or a stock level, made into a map in one game's files. They are also the
   reference. The app's converter (`runtime/src/collection/levels`) is a native port of the same
   chain from one game's files to another's, with no glTF or PNG in between. Its files are the
-  Python chain's byte for byte: `ps2xMapConvert convert` writes them to a folder to compare, and
-  `ps2xMapConvert export` prints the model in between. A change to one is a change to both.
+  Python chain's byte for byte: `zx-map-convert convert` writes them to a folder to compare, and
+  `zx-map-convert export` prints the model in between. A change to one is a change to both.
 - **The scene points across the games.** A level's DAT holds its scene points (SDPT: a kind, the
   hash of a class name; a name hash; an index; a place and a turn; the kind's record). Every kind in
   the three games' stock levels, what reads it, and what a conversion does with it:
@@ -54,9 +63,9 @@ main menu, freeplay only.
   | --- | --- | --- |
   | Spawn PlayerOne, PlayerTwo (25+9, 17+0, 22+8) | each game's start (`placeSkaterAtLevelStart`, `spawnPlayer`); PlayerTwo split screen in AI and BMX XXX | carried; DM2 has no second start (its multiplayer takes turns), so PlayerTwo is left out there |
   | Spawn, the respawns: AI's "Respawn" (413), DM2's "Player" (2,349), BMX XXX's other names (about 290) | a fallen player put back at the nearest (AI `respawn`, DM2 `respawnAtStart`, BMX XXX `findSpawnFace`: any name) | carried as `#spawn=respawn`, written with the target's name (BMX XXX's unnamed, as its own) |
-  | Spawn named by scripts or modes: AI's lessonOne ... and wickedTree, BMX XXX's sniper_shooter and sniper_target, DM2's one unnamed hash | AI's `setRespawnLocation` script native, BMX XXX's paintball | left out: no script or mode of another game names them |
+  | Spawn named by scripts or modes: AI's lessonOne ... lessonTwentyFive and wickedTree, BMX XXX's sniper_shooter and sniper_target, DM2's one unnamed hash | AI's `setRespawnLocation` script native, BMX XXX's paintball | carried by name (`#spawn=lessonOne`; `SCRIPT_SPAWNS`, `levels/scene.h scriptSpawns`) and written only into the files of the game that reads them (a map moved to another slot of its own game, or made from a model); left out of the others (BMX XXX would take a lesson point as a respawn); the unnamed hash is left out |
   | CameraPos "idle" (0, 0, 60) | BMX XXX's idle camera behind a competition's instructions and its GAME OVER (ANOTHER RUN) screen (`idleCameraMode`: points 1 to N in turn, the first tag byte the field of view; none: the level's origin) | carried as `#camera` nodes (`#fov=N`) in all three games' files; BMX XXX's other CameraPos names (" idle", "CHL", a "van" at index 0, which `vanCameraMode` never asks for) have no reader and are left out |
-  | DM2's level-point camera (no scene point: five points a level in the executable, `g_levelCameraPoints`) | DM2's mode 4 (a SESSION's or ProQuest's instructions, the leaderboard, multiplayer's time up and game select): 5 m above a point, looking at a point circling it; FREERIDE, the Custom Freeplay start, goes straight to the turn and its RUN FINISHED keeps the ground camera | `dm2_level_convert.py table-cameras` writes a level's row as its CameraPos idle points (the Woodward map has them); DM2's level camera points option (`PS2X_DM2_LEVEL_CAMERA_POINTS=1`, `levelCameraPoint`) takes a level's own in the row's place, and the DM2 slot's start turns it on. A point is the eye 5 m lower in DM2's files |
+  | DM2's level-point camera (no scene point: five points a level in the executable, `g_levelCameraPoints`) | DM2's mode 4 (a SESSION's or ProQuest's instructions, the leaderboard, multiplayer's time up and game select): 5 m above a point, looking at a point circling it; FREERIDE, the Custom Freeplay start, goes straight to the turn and its RUN FINISHED keeps the ground camera | `dm2_level_convert.py table-cameras` writes a level's row as its CameraPos idle points (the Woodward map has them); DM2's level camera points option (`ZX_DM2_LEVEL_CAMERA_POINTS=1`, `levelCameraPoint`) takes a level's own in the row's place, and the DM2 slot's start turns it on. A point is the eye 5 m lower in DM2's files |
   | Globals (13, 17, 14) | the clear and fog colours, the fog and far clip (all three) | from the model's sky, as before (each game's record) |
   | Waypoint (6,079, 8,768, 952) | the paths of the level's traffic, people, boats and path men | left out: those objects are the source level's and do not come with a map |
   | AI's OAR zone boxes (1,215), NPC (130), pathhead and pathpoint (151, 189), PARTICLE (181), POINTER (5); BMX XXX's PathMan, FastPathMan, MOTIONLIST, BirdObj (12, 296, 389, 38) | the levels' props, NPCs, critters, emitters and walkers | left out: each names the source level's own models, animations or scripts |
@@ -80,27 +89,60 @@ main menu, freeplay only.
   its files keep a map's cameras so they go on to the other games. The cameras and respawns add
   under 300 bytes to a converted map (AI's Tutorial's lesson points left out make it smaller); the
   size guard is unchanged.
-- **Freeplay only.** No career, goals or unlocks: spawn, ride, a session score and trick list,
-  restart or change map. In AI that is the free skate script (`<L>T.BIN`; the Zoo's prototype
-  ships 60-byte empty scripts and loads, so a minimal one is enough); in DM2 nothing; in BMX XXX an
-  `OBJCTV.TXT` with no objectives. Goals can come later per game.
+
+  The faces' and edges' tag words go with a map too: the word a TGFT or TGFE record carries (AI's
+  FaceTag event word and EdgeTag event id, the bike games' `tag`), which the games' goals and
+  events find faces and edges by (DM2's gaps, `g_levelGapDefs`, by face tags, in FREERIDE too;
+  BMX XXX's PROXIMITY, TRANSFER and GRIND objectives; AI's Jump and Land events). The export writes
+  them as `#tag=0x<word>` on the faces' materials and on the grind marks (grind edges only: a word
+  on an edge that is not ground is left out, 4 of CHL_MULY's 390); a model's `#tag=<name>` gives
+  a name's hash. A stock level has tens (INDUST 5 face and 10 edge words, WOODWARD 41 and 15,
+  CHL_MULY 36 and 23). Every face word goes through; every edge word on a collidable face does
+  (WOODWARD into BMX XXX: 15 of 15, 160 edges). A word on an edge of a face that does not collide
+  is lost: the export puts a collidable object's loose faces in a `#deco` object of their own,
+  which has no collision part, and the converters tag only the collision parts' face edges (the
+  TGFE records index a collision part's faces), so the word has no edge to go on (INDUST's
+  scriptobj_carlightgrindA: 16 of its 39 faces loose, its one word on them; 9 of 10 words go
+  through).
+- **Free play, with a map's own goals.** No career or unlocks: spawn, ride, a session score and
+  trick list, restart or change map. A map's goals are its own files' and run in its own game:
+  AI's free skate script (`<L>T.BIN`; the Estate's has its lessons; a converted map gets a 60-byte
+  empty one, as the Zoo's prototype ships, which loads), BMX XXX's `OBJCTV.TXT` (the tour reads it;
+  a converted map's has no objectives); DM2's are the executable's and FREERIDE runs none. What they
+  mark is not kept: BMX XXX's start puts the row's level record back (counts, flags, marks) and its
+  saved records (bests), in a save written meanwhile too; AI's the level's records (top speed and the
+  rest, a row of the career save: `ZX_AI_KEEP_LEVEL_RECORDS`, so the Estate's own records file is
+  kept too); DM2's free ride writes no level record, so there is nothing of the slot level's to keep. Proved on BMX XXX's Dam
+  as a map with its own goals, ridden to game over and saved: the save differs from the one before
+  only where a stock ride's also differs outside the level's record (two bytes and the byte sum),
+  while the stock level itself, ridden the same way, changes its record and its bests (the two bytes
+  are any ride's: a trick-ever-landed bit and the rider's won-level flag the round's start clears).
+  On AI's Movie Lot, from a career save with the level's records zeroed in RAM before the pick, the
+  map's ride set six of its 14 records; kept, the autosave at the quit holds the row as it was at
+  the pick, not kept it holds the ride's (75 bytes of the row). On DM2 the rides set none of the row's saved
+  records even with nothing kept (their 540 bytes zeroed first, read to the front end), and DM2's game
+  over offers no save line; `ZX_DM2_KEEP_LEVEL_RECORDS` only guards the row should a ride ever set one. A map moved into another slot
+  of its own game takes the files its goals are in along (AI's scripts and MOTIONS.ZAL, BMX XXX's
+  OBJCTV.TXT and asset libraries). Goals are not translated between the games' systems.
 - **The menu.** Custom Freeplay, then the player type (three tiles with the games' art), then
-  the one list of maps, each once, every one startable by every player (the row says which game
+  the one list of maps (the collection's Mods folder's, each game's own Mods folder's, the Maps
+  folder's), each once, every one startable by every player (the row says which game
   it was made in and that it is converted when it starts); then the game's own skater or rider
   select. A map that does not convert for a game (over its budgets) does not start, and
   after its first failed start the list shows the converter's reason. A setting (`[general] custom_freeplay`, off by default) shows the mode.
 
 ## 2. What the engine and the tools give a map
 
-- **Levels converted into AI's PS2 formats.** `runtime/tools/xbox_convert.cpp` (ps2xXboxConvert)
+- **Levels converted into AI's PS2 formats.** `runtime/tools/xbox_convert.cpp` (zx-xbox-convert)
   makes the Zoo and the Ape from the user's Xbox files at packaging time; the app loads them from
-  `Resources/xbox-converted` (`PS2X_XBOX_CONVERTED`, `collection/settings.cpp gameBootConfig`). It converts
+  `Resources/xbox-converted` (`ZX_XBOX_CONVERTED`, `collection/settings.cpp gameBootConfig`). It converts
   the textures (Xbox DXT into 8-bit BMPs with a 256-colour palette, at most 128 a side, 2,560 KB
   of texels in all, the largest shrunk first) and, in the GEO, only re-cuts the TGFM strip groups
-  (60 entries each) and rewrites the MATI layers (`ps2_zaxis_xbox.cpp:810-995`); INS, DAT, ZIT,
-  the scripts and MOTIONS.ZAL are the Xbox files copied as they are, and collision (TGCI) and grind
-  edges (TGFE) pass through inside the GEO untouched (`runtime/include/runtime/ps2_zaxis_zoo.h:12-36,
-  104-125`, `ps2_zaxis_zoo.cpp:489-611`). The closer precedent is the Estate:
+  (60 entries each) and rewrites the MATI layers (`ps2_zaxis_xbox.cpp` `convertGeometry`,
+  `convertMaterials`, `restrip`); INS, DAT, ZIT, the scripts and MOTIONS.ZAL are the Xbox files
+  copied as they are, and collision (TGCI) and grind edges (TGFE) pass through inside the GEO
+  untouched (`runtime/include/runtime/ps2_zaxis_zoo.h`'s header and `Options`, `ps2_zaxis_zoo.cpp`
+  `build`). The closer precedent is the Estate:
   `runtime/tools/gc_convert.cpp` with `ps2_zaxis_estate.h` writes a full AI level set from the
   GameCube release (TUT.ZIT, GEO, INS, TXR, DAT, BIN, TUTT.BIN, MOTIONS.ZAL, TEXTURES.TXT,
   VISIBILITY.TXT, ICONS.UFNT, STILL.ULIB), served as Free Skate's "Estate" in level index 7. Both
@@ -113,7 +155,7 @@ main menu, freeplay only.
   and served as AI's level 9) and from AI's into DM2's; the reason in the commit is the user's "one
   engine, three games, nothing mixed". The old tools are in git history (`git show
   0bc955afc^:ps2xRuntime/tools/dm2_level.py` and `ai_level.py`) and are the nearest thing to a
-  writer of both chunk sets. Section 7 asks whether a park of our own in three formats is "mixed".
+  writer of both chunk sets. Section 4 says why "nothing mixed" is no rule.
 - **Readers.** `tooling/ai/tools/ai_level.py` (AI): FORM/TGEO/TGPT/TGVP/TGFP, TGFE tag buffers,
   TGIH instances, TIDA/TII8/TII6 streams; `collision_triangles` and `grind_edges` (byte 9 bit 0,
   kind byte 8); subcommands `ground`, `edges`, `compare`, `selftest`, `info`. It loads TXR but
@@ -122,15 +164,15 @@ main menu, freeplay only.
   and 4/8-bit BMPs; `tree_faces`, `collision_triangles`, `goal_places`; subcommands `selftest` and
   `info` only. Neither is a level writer (`serialize()` re-emits a parsed tree): the writers are
   `ai_level_write.py`, `dm2_level_write.py` and `bmx_level_write.py`, with their round trips (section 3, step 1). DM2's grind edges are read in
-  `playbot/dm2map.py:178-181` and `dm2_xbox.py:975`, not in `dm2_level.py`.
+  `playbot/dm2map.py` (`build`) and `dm2_xbox.py` (`grind_edges`), not in `dm2_level.py`.
 - **The same conversion for DM2's Xbox levels.** `tooling/ai/tools/dm2_xbox.py` converts Venice and
   Greenville into DM2's PS2 formats (TXRH plus TBMP in TXRC; TGFE records of 8 bytes; TGCI leaves
   inline; TGFT dropped; `TEXTURE_BUDGET_KB` 2,560) and has its own `ground`, `edges`, `compare`.
   The workdb's notes on it are the ZGE2 vs ZGE3 differences a writer must know (`workdb.py notes
   layout`: "TGCI, the collision kd-tree", "MATI 0xA0 -> 0x9C", "DM2's collidable faces").
 - **A check against the game's own collision.** `ai_level.py ground` and `edges` against the
-  runtime's `PS2X_ESTATE_PROBE` and `PS2X_ESTATE_GRINDS` (SETTINGS.md), point by point. The same
-  check tests a level we write; `dm2_xbox.py` has the DM2 side (`PS2X_DM2_XBOX_LEVEL_GRINDS`).
+  runtime's `ZX_ESTATE_PROBE` and `ZX_ESTATE_GRINDS` (SETTINGS.md), point by point. The same
+  check tests a level we write; `dm2_xbox.py` has the DM2 side (`ZX_DM2_XBOX_LEVEL_GRINDS`).
 - **Three park editors, three formats.** AI's and BMX XXX's
   editor are one in `game/zge/editor` (464 shared bodies; 146 BMX and 226 AI functions stay in the games' folders),
   while DM2 keeps its own. The save formats stay per game:
@@ -144,20 +186,21 @@ main menu, freeplay only.
     test-run tools, pieces file `assets\editor\BMX3.Pep`, four themes, park level 12, the same
     0x2000-byte save). It also reads 8 preset parks from `assets\editor\presets\`, a disc-file
     route for shipping a park. No retail menu reaches the editor: `playbot/bmxedit.py` plays it,
-    and `PS2X_BMX_PARK_EDITOR=1` puts it on the app's main menu.
+    and `ZX_BMX_PARK_EDITOR=1` (the setting `[extras] park_editor`) puts it on the game's main
+    menu as PARK EDITOR.
   - DM2: `game/dm2/editor/` (DM2's own: a grid of at most 64 x 64 cells of 5 m, 25 object
     categories, 50 lights, a capacity meter of each object's vertex count plus 200, park level 8,
     a 0x2565-byte save that stays on the emulated card).
   A park built in one does not load in another.
 - **A level served from a folder, and a Mods folder.** AI's Estate is served for the Tutorial's
   slot (level index 7, `ASSETS/LEVELS/TUT`) by a provider while the game is not a career, with the
-  level select's name lookup wrapped (workdb: bringup-estate.md:36); the Zoo sits in index 8 of
+  level select's name lookup wrapped; the Zoo sits in index 8 of
   AI's 14-level table (index 9 was LOCAL, an unused developer level); DM2's tables hold 8 levels
   plus the park, so Venice and Greenville run in Woodward's slot; BMX XXX's `LevelEntry[13]` has
   12 levels plus Mullaly Park. That is how a custom level reaches a level select without a new
   menu path in the game's code. Files are looked up in the game's mods first (its own Mods folder, then the collection's mods that
   name it, in the Mods page's order: docs/MODS.md, `collection/mods.h`; the game gets them
-  as `PS2X_MODS_DIR`), then registered providers, then the disc
+  as `ZX_MODS_DIR`), then registered providers, then the disc
   (`runtime/include/runtime/ps2_game_files.h`); custom music already lives there. The mode's
   setting is `[general] custom_freeplay`.
 - **The bottom screen and the playbot.** `panel_map.py` makes `<LEVEL>.pmap` (a top-down map from
@@ -176,7 +219,7 @@ main menu, freeplay only.
   `parkmap.Reached` says which features a ride reached, from the game's state (a grind within 1.5 m
   of a rail, a wall ride, an air begun on a ramp's piece).
 - **Detail above PS2 budgets on desktop: textures only.** Settings > Display > Native Meshes
-  (`aggressive_inline_native.cpp:986-1000`, `PS2X_RENDER_PATH` native/strict) draws level meshes
+  (`aggressive_inline_native.h` `installNativeDraw`, `ZX_RENDER_PATH` native/strict) draws level meshes
   from host vertex buffers instead of through VU1, but from the same GEO the game opened
   (`zge/native/geo_meshes.h:3-8`); there is no host-only mesh (BMX XXX draws its meshes from the draw records, `render_path = records`). Higher-detail host content is textures: the converted Xbox originals ship
   as `.xtp` packs keyed by the PS2 ones. The draft's "richer host version" of the geometry would be
@@ -217,10 +260,10 @@ main menu, freeplay only.
      padding byte in the stock files is zero, so the writers write zero; the three unread fields
      that are not (TGCI's node byte +1, TGFT +0x0D..0x0F, TGFE +0x0A = 3) are kept in the records
      (`leftover`, `byte_0a`) so the stock files round trip exactly and a level of our own writes 0
-     or 3. The TXR writer stays the Zoo converter's (`ps2_zaxis_xbox.cpp`).
+     or 3. The TXR has no record here: `ai_level_convert.py` writes it (step 2).
    - The game loads what they write: the Tutorial rewritten through the writers and served from a
-     Mods folder (`rewrite --out`, `PS2X_MODS_DIR`; the run log shows the five files opened from
-     the mod) runs logiccheck's route the gate's way (`PS2X_EE_SCALE=4096` against its own
+     Mods folder (`rewrite --out`, `ZX_MODS_DIR`; the run log shows the five files opened from
+     the mod) runs logiccheck's route the gate's way (`ZX_EE_SCALE=4096` against its own
      readable-off run) to 21/21 MATCH, the gate's own rows. With the 755 indexed streams written
      plain (`--plain-streams`) the state is the same. With the 97 collision trees rebuilt by
      `CollisionTree.build` (`--rebuild-trees stock`, over exactly the faces the stock trees list)
@@ -277,7 +320,7 @@ main menu, freeplay only.
    with a 3 m transition and a metal coping, a 10 m flat bar, a 12 m concrete ledge, the spawn and
    two zones; the concrete texture 256 x 256 so the converter halves it (it did, and said so).
    Served from a mod as TUT and checked in the game: `ai_level.py ground` against
-   `PS2X_ESTATE_PROBE` (with `PS2X_ESTATE_PROBE_ANY=1`) 1,600 of 1,600 points within 0.01 m; the
+   `ZX_ESTATE_PROBE` (with `ZX_ESTATE_PROBE_ANY=1`) 1,600 of 1,600 points within 0.01 m; the
    grind probe found 3 of the 11 file edges, 7 "near" (the coping's six 2 m tile edges, which the
    game welds into one 12 m rail) and 1 none (one of the ledge's two edges; the playbot grinds the
    ledge). The playbot (`playbot/modlevel.py ride`, free skate through the Estate's entry) rode it
@@ -310,8 +353,8 @@ main menu, freeplay only.
    its features: the second ride ended off the 80 m slab, falling.
 4. **In the app.** The Custom Freeplay mode (section 1), behind a setting, off by default
    (defaults never change game logic). Custom levels under `<support>/Mods` (looked up before the
-   disc already), mapped into a level slot as the Estate is (AI: index 7 or 9; DM2: Woodward's;
-   BMX XXX: a preset park's or a level row, to settle). Never in the app bundle, never shared.
+   disc already), mapped into one of the games' level slots as the Estate is (the slot table
+   below). Never in the app bundle, never shared.
 
    Done for the first case (SETTINGS.md "Custom Freeplay"): the setting
    (`[general] custom_freeplay`, the app's), the fourth tile and its two pages in the menu's own
@@ -320,11 +363,11 @@ main menu, freeplay only.
    `collection/maps.h`), and the boot: the map's folder read last of the mods, the other maps
    left out, and the game started straight into the slot's free play. The player is chosen on
    the game's own skater select (the rosters live in the games' memory, nothing on the discs
-   lists them, and a typed list would be a guess): the devstart (`PS2X_DEV_START_LEVEL=ESTATE`,
-   `PS2X_DEV_START_SKATER=ask`, now the boot's values, not the environment's alone) presses
+   lists them, and a typed list would be a guess): the devstart (`ZX_DEV_START_LEVEL=ESTATE`,
+   `ZX_DEV_START_SKATER=ask`, now the boot's values, not the environment's alone) presses
    from the boot to the skater select, waits there, then picks the Estate's entry and loads.
-   The slot table (`mapSlots`) has three rows: AI's `TUT` through the Estate's entry, DM2's `WOODWARD`, BMX
-   XXX's `CHL_MULY`. What crosses
+   The slot table (`mapSlots`) has 19 rows: AI's `TUT` through the Estate's entry and `MOVIE`, DM2's
+   eight FREERIDE rows and `PARK`, BMX XXX's eight rows (section 1). What crosses
    the games and what each case needs:
    - **Which game runs:** always the player's. The map crosses, never the player: a DM2 rider in
      AI's engine would need DM2's rider physics, animation, models and tricks inside AI's code
@@ -341,14 +384,14 @@ main menu, freeplay only.
      (`bmx_xxx_devstart.cpp`). A challenge row has no clock (a competition row's run is two
      minutes); the map's `OBJCTV.TXT` has no objectives, and since the game counts a level's goals
      into the player's record as it loads, the start keeps The Bronx's counts and puts them back
-     on the ride's end screens (game over saves) and in the menus (`PS2X_BMX_KEEP_LEVEL_GOALS`). The "ask" rider
+     on the ride's end screens (game over saves) and in the menus (`ZX_BMX_KEEP_LEVEL_GOALS`). The "ask" rider
      select is each game's own (DM2's rider and bike choices).
    - **The slot's NPCs:** a map has the people, riders and traffic its own files place. BMX XXX's
      NPC riders are the level number's (setupNpcs: the executable's records row, `def.NPR.<folder>` of
      `assets/create/defs.zal`, `NPR.Lev<short>.Rider<n>` of `assets/replay.zal`), so The Bronx's three
      stood and rode in every `CHL_MULY` map; the pedestrians (PathMan) and traffic (Car) are level
      objects, the map's own. `map.ini`'s `npcs` (none by default, `slot` for a map made from the
-     slot's level) gives BMX XXX's boot `PS2X_BMX_LEVEL_NPCS` 0 or 1 (`bmx_xxx_npcs.cpp`: with 0
+     slot's level) gives BMX XXX's boot `ZX_BMX_LEVEL_NPCS` 0 or 1 (`bmx_xxx_npcs.cpp`: with 0
      setupNpcs answers as in multiplayer). AI's Tutorial's lesson givers come from its scripts (the
      map's `TUT.BIN`/`TUTT.BIN`) and DM2's park (level 8) has no NPCs, so their slots need no switch.
    - **The sky, in all three games:** `--sky SKY.png` on each converter (`ai_level_convert.py`'s
@@ -410,7 +453,7 @@ main menu, freeplay only.
      libraries round trip too; DM2's six others are an older form (DM2's writer's).
    - The game loads what they write: the Bronx (CHL_MULY, bmxlogic's level) rewritten and served
      from a Mods folder (`rewrite --out`, the log shows all ten files opened from the mod) runs
-     bmxlogic the gate's way (`PS2X_EE_SCALE=4096` against its own readable-off run) to 17/17
+     bmxlogic the gate's way (`ZX_EE_SCALE=4096` against its own readable-off run) to 17/17
      MATCH, every rider position bit-exact. It does the same with the 2,001 indexed streams
      written plain (`--plain-streams`) and with the 459 collision trees rebuilt over the stock
      trees' faces (`--rebuild-trees stock`). In BMX XXX, unlike AI's Tutorial, the tree's
@@ -501,16 +544,16 @@ main menu, freeplay only.
 - Which level slot each game lends: for AI the Tutorial's 7. The files go in a mod as
   `ASSETS/LEVELS/TUT/TUT.*` (mods are read before the Estate's provider and the disc), and level 7
   is always unlocked. LOCAL's 9 is in no level select at all, and the free skate select has no
-  Tutorial entry either (entries 0-6 are the seven career levels: entry 0 places the Airfield):
+  Tutorial entry either (entries 0-6 are the seven career levels: entry 0 is the Movie Lot):
   today a custom level in slot 7 is reached in free skate only through the Estate's entry (the
-  setting on, `PS2X_DEV_START_LEVEL=ESTATE`, or the playbot's `modlevel.py`), or through the
-  career's Tutorial. Either slot needs the Custom Freeplay menu (step 4) for a real entry; 7 is
-  the one that plays today. DM2: the park slot, in a park theme's place (step 6); BMX XXX has no precedent yet (its preset parks
-  are the nearest). Each game
+  setting on, `ZX_DEV_START_LEVEL=ESTATE`, or the playbot's `modlevel.py`), or through the
+  career's Tutorial. The Custom Freeplay menu (step 4) is its real entry, and AI lends the Movie
+  Lot (`MOVIE`, free skate's first entry, open from the start) too. DM2: its eight FREERIDE level
+  rows (Woodward Camp's first) and the park slot, in a park theme's place (step 6). Each game
   already has a park slot its menus reach in free play, with a list of parks to choose from: AI's
   Free Skate entry 7 (the Editor Level; a Repository park plays as level 11), DM2's FREERIDE value 8
   (session level 8, from the card's list), BMX XXX's PARK EDITOR > SESSION (park level 12, behind the
-  app's menu line). A custom level could take that slot and its list rather than a stock level's.
+  main menu's PARK EDITOR line, `[extras] park_editor`). A custom level could take that slot and its list rather than a stock level's.
   BMX XXX: settled, a level row, CHL_MULY (The Bronx: a challenge level, no clock) by default; a
   competition row (CMP_RMPG, CMP_ROOT) is a two-minute run. Park level 12
   does not work as a level slot. It is the park editor's Mullaly theme (`ASSETS/EDITOR/MULLALY`)

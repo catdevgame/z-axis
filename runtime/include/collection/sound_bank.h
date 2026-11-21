@@ -33,7 +33,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     enum class BankLayout
     {
@@ -53,7 +53,7 @@ namespace ps2x::collection
         uint8_t volume = 0;       // 0..127
         int8_t pan = 0;           // -127..127
         uint16_t adsr1 = 0, adsr2 = 0;
-        std::shared_ptr<const ps2x::spu::DecodedSample> wave; // null: its wave is outside the file
+        std::shared_ptr<const zx::spu::DecodedSample> wave; // null: its wave is outside the file
 
         // The voice's volume registers for the sample at `level` (0..127 of
         // its own volume), split by its pan as the engine's panVolumes does.

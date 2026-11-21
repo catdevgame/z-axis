@@ -45,7 +45,7 @@
 // keyboard and mouse are port 0. Every other call gets exactly what the
 // original does. Mouse-look is inactive until the mouse moves the view, so
 // without mouse motion the game runs bit for bit as without the hook.
-// PS2X_MOUSELOOK=0 leaves the camera alone; [mouse] mode = stick turns it
+// ZX_MOUSELOOK=0 leaves the camera alone; [mouse] mode = stick turns it
 // off from controls.ini (or Settings > Controls > Mouse Look).
 #include "dave_mirra.h"
 #include "zge_sites.h"
@@ -88,7 +88,7 @@ namespace dave_mirra::mouselook
     const hi::Vec3 kUp{0.0f, -1.0f, 0.0f};
 
     // One boot's original and trace switch (made at the boot's first use,
-    // the install: ps2x::boot::PerBoot).
+    // the install: zx::boot::PerBoot).
     struct Hooks
     {
         PS2Runtime::RecompiledFunction transform = nullptr;
@@ -100,7 +100,7 @@ namespace dave_mirra::mouselook
 
     Hooks &hooks()
     {
-        static ps2x::boot::PerBoot<Hooks> ofBoot([] { return Hooks{}; });
+        static zx::boot::PerBoot<Hooks> ofBoot([] { return Hooks{}; });
         return ofBoot.get();
     }
 
@@ -226,7 +226,7 @@ namespace dave_mirra
     {
         using namespace mouselook;
         Hooks &h = hooks();
-        if (const char *v = std::getenv("PS2X_MOUSELOOK"); v && v[0] == '0')
+        if (const char *v = std::getenv("ZX_MOUSELOOK"); v && v[0] == '0')
             return false;
         h.transform = runtime.lookupFunction(kTransform);
         h.followCamera = runtime.lookupFunction(kFollowCamera);
@@ -236,7 +236,7 @@ namespace dave_mirra
             std::cerr << "[dave-mirra] mouse-look hook not installed" << std::endl;
             return false;
         }
-        const char *trace = std::getenv("PS2X_TRACE_MOUSELOOK");
+        const char *trace = std::getenv("ZX_TRACE_MOUSELOOK");
         h.trace = trace && trace[0] == '1';
         return true;
     }

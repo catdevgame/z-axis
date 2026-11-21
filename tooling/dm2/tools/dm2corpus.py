@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""A game's recording corpus (DM2's, or BMX XXX's with --game bmx): the counterpart of PS2Recomp's
+"""A game's recording corpus (DM2's, or BMX XXX's with --game bmx): the counterpart of AI's
 readable_corpus.py (docs/READABLE.md, "How a function is proven"), over the pad script routes of
 dm2routes.py or bmxroutes.py.
 
-    dm2corpus.py cov ROUTE ...     a PS2X_FNPROF profile of each route: <store>/cov/ROUTE.csv
+    dm2corpus.py cov ROUTE ...     a ZX_FNPROF profile of each route: <store>/cov/ROUTE.csv
     dm2corpus.py record ROUTE ...  each route recorded into <store>/<game>-v1/ROUTE/
     dm2corpus.py ship ROUTE ...    recorded folders to the Linux worker (reccorpus/<game>-v1), checked by size and
                                    file count, then dropped from the Mac
@@ -66,7 +66,7 @@ def rss_mb(pid):
 
 def function_list(build, out):
     """Every registered function of the game, with its caps."""
-    p = subprocess.run([os.path.join(build, 'ps2xRuntime', 'ps2xFnCheck'), '--list'], capture_output=True, text=True)
+    p = subprocess.run([os.path.join(build, 'runtime', 'zx-fncheck'), '--list'], capture_output=True, text=True)
     addresses = [int(m.group(1), 16) for m in re.finditer(r'^%s:0x([0-9a-f]+)\s' % GAME, p.stdout, re.M)]
     files = {}
     for name in os.listdir(GENERATED):
@@ -88,7 +88,7 @@ class Run:
         self.args, self.route, self.kind = args, route, kind
 
     def script_arg(self, work, script):
-        """A played route's script is long: as a file (PS2X_PAD_SCRIPT=@file) past what a variable holds."""
+        """A played route's script is long: as a file (ZX_PAD_SCRIPT=@file) past what a variable holds."""
         if len(script) < 60000:
             return script
         path = os.path.join(work, 'script.txt')
@@ -105,44 +105,44 @@ class Run:
         script = routes.script_of(self.route)
         end = max(int(i.split('v')[0]) for i in script.split(',')) + 300
         env = dict(os.environ)
-        env.update({'PS2X_UNPACED': '1', 'PS2X_GS_NULL': '1', 'PS2X_VU1_SKIP': '1', 'PS2X_READABLE': 'off',
-                    'PS2X_DEV_UNLOCK_ALL': '1', 'PS2X_DEBUG_UI': '0', 'PS2X_SAVES': 'card', 'PS2X_MC_FD_BASE0': '1', 'PS2X_GS_BACKEND': 'cpu',
-                    'HOME': os.path.join(work, 'home'), 'PS2X_APP_SUPPORT_DIR': os.path.join(work, 'app'),
-                    'PS2X_APP_LOG_DIR': os.path.join(work, 'app'), 'PS2X_SCREENSHOT_DIR': os.path.join(work, 'shots'),
-                    'PS2X_MC_ROOT': os.path.join(work, 'mc0'), 'PS2X_PAD_SCRIPT_CLOCK': 'vsync',
-                    'PS2X_PAD_SCRIPT': self.script_arg(work, script), 'PS2X_DUMP_WHEN': 'end:script>=%d' % end,
-                    'PS2X_DUMP_PREFIX': os.path.join(work, 'dump', 'd'),
-                    'PS2X_STATE_LOG': '0x%X,0x%X,0x%X,0x%X' % (routes.MODE, routes.SESSION, routes.LEVEL_FRAME, routes.RIDER_TABLE)})
+        env.update({'ZX_UNPACED': '1', 'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1', 'ZX_READABLE': 'off',
+                    'ZX_DEV_UNLOCK_ALL': '1', 'ZX_DEBUG_UI': '0', 'ZX_SAVES': 'card', 'ZX_MC_FD_BASE0': '1', 'ZX_GS_BACKEND': 'cpu',
+                    'HOME': os.path.join(work, 'home'), 'ZX_APP_SUPPORT_DIR': os.path.join(work, 'app'),
+                    'ZX_APP_LOG_DIR': os.path.join(work, 'app'), 'ZX_SCREENSHOT_DIR': os.path.join(work, 'shots'),
+                    'ZX_MC_ROOT': os.path.join(work, 'mc0'), 'ZX_PAD_SCRIPT_CLOCK': 'vsync',
+                    'ZX_PAD_SCRIPT': self.script_arg(work, script), 'ZX_DUMP_WHEN': 'end:script>=%d' % end,
+                    'ZX_DUMP_PREFIX': os.path.join(work, 'dump', 'd'),
+                    'ZX_STATE_LOG': '0x%X,0x%X,0x%X,0x%X' % (routes.MODE, routes.SESSION, routes.LEVEL_FRAME, routes.RIDER_TABLE)})
         if len(script) > 100000:     # a played route: more than an environment string can hold
             path = os.path.join(work, 'script.txt')
             with open(path, 'w') as f:
                 f.write(script)
-            env['PS2X_PAD_SCRIPT'] = '@' + path
+            env['ZX_PAD_SCRIPT'] = '@' + path
         for k, v in routes.extra_env(self.route).items():
             if v is None:
                 env.pop(k, None)
             else:
                 env[k] = v
         if a.gs:
-            env.pop('PS2X_GS_NULL', None)
-            env.pop('PS2X_VU1_SKIP', None)
+            env.pop('ZX_GS_NULL', None)
+            env.pop('ZX_VU1_SKIP', None)
         if self.kind == 'cov':
             os.makedirs(os.path.join(a.store, 'cov'), exist_ok=True)
             result = os.path.join(a.store, 'cov', self.route + '.csv')
-            env['PS2X_FNPROF'] = result
+            env['ZX_FNPROF'] = result
         else:
             result = os.path.join(a.store, VERSION, self.route)
             shutil.rmtree(result, ignore_errors=True)
             os.makedirs(result)
             listing = os.path.join(work, 'functions.txt')
             function_list(a.build, listing)
-            env.update({'PS2X_FNREC': '@' + listing, 'PS2X_FNREC_DIR': result, 'PS2X_FNREC_ATOMIC': '1',
-                        'PS2X_FNREC_MAX': '1000', 'PS2X_FNREC_PER_VSYNC': '8',
+            env.update({'ZX_FNREC': '@' + listing, 'ZX_FNREC_DIR': result, 'ZX_FNREC_ATOMIC': '1',
+                        'ZX_FNREC_MAX': '1000', 'ZX_FNREC_PER_VSYNC': '8',
                         # (proof1) no call begun past the route's end, the end mark's guest moment: what the run
                         # does while it is being stopped depends on the host's timing, so a recording made on
                         # another host would differ in those last calls
-                        'PS2X_FNREC_UNTIL_SCRIPT': str(end)})
-        runner = os.path.join(a.build, 'ps2xRuntime', 'ps2EntryRunner')
+                        'ZX_FNREC_UNTIL_SCRIPT': str(end)})
+        runner = os.path.join(a.build, 'runtime', 'zx-runner')
         log = os.path.join(work, 'run.log')
         t0 = time.time()
         with open(log, 'wb') as f:
@@ -214,7 +214,7 @@ def folder_stat(path):
 
 
 def replay_here(route, root):
-    """With DM2_SHIP_REPLAY's file (lines: the tree, the ps2xFnCheck, the replay folder, the --only list) a semantic replay of
+    """With DM2_SHIP_REPLAY's file (lines: the tree, the zx-fncheck, the replay folder, the --only list) a semantic replay of
     the route before it leaves the Mac, with its memory capped."""
     plan = os.path.expanduser(os.environ.get('DM2_SHIP_REPLAY', os.path.join(SCRATCH, 'dm2corpus', 'replay-before-ship.txt')))
     if not os.path.exists(plan):
@@ -224,9 +224,7 @@ def replay_here(route, root):
     os.makedirs(link, exist_ok=True)
     if not os.path.exists(os.path.join(link, route)):
         os.symlink(os.path.join(root, route), os.path.join(link, route))
-    tool = os.path.join(tree, 'ps2xRuntime', 'tools', 'fncheck_corpus.py')   # (a tree from before tools14; since, the tooling's checks/)
-    if not os.path.exists(tool):
-        tool = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'checks', 'fncheck_corpus.py')
+    tool = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'checks', 'fncheck_corpus.py')
     subprocess.run([sys.executable, '-I', tool, 'run', '--fncheck', fncheck,
                     '--build', os.path.dirname(os.path.dirname(fncheck)), '--out', os.path.join(out, route), '--corpus', link, '--jobs', '2',
                     '--max-mem-gb', '4', '--semantic', '--no-cache', '--only', open(only).read().strip().replace('\n', ',')],

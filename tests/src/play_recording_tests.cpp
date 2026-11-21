@@ -36,11 +36,11 @@ namespace
     // A boot whose BootConfig has these values (the environment left alone).
     void boot(std::initializer_list<std::pair<const char *, std::string>> values)
     {
-        ps2x::BootConfig config;
+        zx::BootConfig config;
         config.game = "ai";
         for (const auto &[name, value] : values)
             config.setOverEnvironment(name, value);
-        ps2x::boot::begin(config);
+        zx::boot::begin(config);
     }
 
     struct Session
@@ -99,12 +99,12 @@ namespace
     std::filesystem::path record(const std::filesystem::path &dir, Session &s, uint64_t frames,
                                  std::vector<Reads> &seen)
     {
-        boot({{"ZAXIS_RECORD", (dir / "rec").string()}});
+        boot({{"ZX_RECORD", (dir / "rec").string()}});
         pr::beginBoot(s.info(dir / "mc0"));
         const std::filesystem::path path = pr::recordingPath();
         seen = play(s, frames, 1);
         pr::endBoot("test");
-        ps2x::boot::end();
+        zx::boot::end();
         return path;
     }
 }
@@ -120,11 +120,11 @@ void register_play_recording_tests()
             boot({});
             Session s;
             pr::beginBoot(s.info({}));
-            t.IsTrue(pr::mode() == pr::Mode::Off, "no ZAXIS_RECORD or ZAXIS_REPLAY: off");
+            t.IsTrue(pr::mode() == pr::Mode::Off, "no ZX_RECORD or ZX_REPLAY: off");
             t.Equals(pr::read(pr::Channel::Hotkey, 7u, 1u), 7u, "the live value");
             t.IsTrue(pr::recordingPath().empty(), "no file");
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
         });
 
         tc.Run("a replay hands back the recorded values at the same reads, and its checksums match", [](TestCase &t)
@@ -138,17 +138,17 @@ void register_play_recording_tests()
             std::vector<Reads> seen;
             const std::filesystem::path file = record(dir, recorded, 600, seen);
             t.IsTrue(std::filesystem::exists(file), "the recording: " + file.string());
-            t.Equals(file.parent_path(), dir / "rec", "in ZAXIS_RECORD's folder");
+            t.Equals(file.parent_path(), dir / "rec", "in ZX_RECORD's folder");
             t.Equals(pr::countIn(dir / "rec"), size_t{1}, "counted");
 
             Session replayed;
-            boot({{"ZAXIS_REPLAY", file.string()}});
+            boot({{"ZX_REPLAY", file.string()}});
             pr::beginBoot(replayed.info({}));
             t.IsTrue(pr::mode() == pr::Mode::Replay, "replaying");
             const std::vector<Reads> again = play(replayed, 600, 2);
             const pr::ReplayResults results = pr::replayResults();
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
             bool same = again.size() == seen.size();
             for (size_t i = 0; same && i < seen.size(); ++i)
                 same = again[i].pad == seen[i].pad && again[i].hotkey == seen[i].hotkey && again[i].date == seen[i].date;
@@ -168,7 +168,7 @@ void register_play_recording_tests()
             std::vector<Reads> seen;
             const std::filesystem::path file = record(dir, recorded, 300, seen);
             Session replayed;
-            boot({{"ZAXIS_REPLAY", file.string()}, {"ZAXIS_REPLAY_STOP", "200"}});
+            boot({{"ZX_REPLAY", file.string()}, {"ZX_REPLAY_STOP", "200"}});
             pr::beginBoot(replayed.info({}));
             replayed.ram[0x1234567] = 1; // the 18th megabyte, not touched by play()
             for (uint64_t f = 1; f <= 300 && !pr::stopRequested(); ++f)
@@ -176,11 +176,11 @@ void register_play_recording_tests()
                 replayed.vsync.store(f);
                 pr::onVsync(replayed.ram.data(), f);
                 if (f == 200)
-                    t.IsTrue(pr::stopRequested(), "stopped at ZAXIS_REPLAY_STOP");
+                    t.IsTrue(pr::stopRequested(), "stopped at ZX_REPLAY_STOP");
             }
             const pr::ReplayResults results = pr::replayResults();
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
             t.IsTrue(results.checksumsDiffered > 0u, "the state differs");
             t.Equals(results.firstDifferingVsync, uint64_t{60}, "first at the first checksum");
         });
@@ -193,11 +193,11 @@ void register_play_recording_tests()
             const std::filesystem::path file = record(dir, recorded, 600, seen);
             std::filesystem::resize_file(file, std::filesystem::file_size(file) * 2 / 3);
             Session replayed;
-            boot({{"ZAXIS_REPLAY", file.string()}});
+            boot({{"ZX_REPLAY", file.string()}});
             pr::beginBoot(replayed.info({}));
             const pr::ReplayResults results = pr::replayResults();
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
             t.IsFalse(results.recordingEnded, "no end record");
             t.IsTrue(results.endVsync > 100u && results.endVsync < 600u, "ends where the file does: " + std::to_string(results.endVsync));
         });
@@ -206,7 +206,7 @@ void register_play_recording_tests()
         {
             const std::filesystem::path dir = scratch("threads");
             Session recorded;
-            boot({{"ZAXIS_RECORD", (dir / "rec").string()}});
+            boot({{"ZX_RECORD", (dir / "rec").string()}});
             pr::beginBoot(recorded.info({}));
             recorded.vsync.store(1);
             t.Equals(pr::read(pr::Channel::Hotkey, 5u, 0u), 5u, "recorded");
@@ -214,9 +214,9 @@ void register_play_recording_tests()
             std::thread([&other]() { other = pr::read(pr::Channel::Hotkey, 9u, 0u); }).join();
             const std::filesystem::path file = pr::recordingPath();
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
             Session replayed;
-            boot({{"ZAXIS_REPLAY", file.string()}});
+            boot({{"ZX_REPLAY", file.string()}});
             pr::beginBoot(replayed.info({}));
             replayed.vsync.store(1);
             uint32_t otherReplay = 0;
@@ -225,12 +225,12 @@ void register_play_recording_tests()
             t.Equals(otherReplay, 11u, "another thread: live");
             t.Equals(other, 9u, "another thread was live while recording");
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
         });
 
         tc.Run("the game's Settings page reads the registry as recorded: rows, names, values, texts", [](TestCase &t)
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             // The host's state: the live run has a volume of 80 and a full
             // screen row; the replay's host 100 and no such row.
             auto host = [](int volume, bool fullscreen)
@@ -277,7 +277,7 @@ void register_play_recording_tests()
             const std::filesystem::path dir = scratch("settings");
             Session recorded;
             host(80, true);
-            boot({{"ZAXIS_RECORD", (dir / "rec").string()}});
+            boot({{"ZX_RECORD", (dir / "rec").string()}});
             pr::beginBoot(recorded.info({}));
             recorded.vsync.store(1);
             const Page live = page();
@@ -286,11 +286,11 @@ void register_play_recording_tests()
             const Page shorter = page();
             const std::filesystem::path file = pr::recordingPath();
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
 
             Session replayed;
             host(100, false);
-            boot({{"ZAXIS_REPLAY", file.string()}});
+            boot({{"ZX_REPLAY", file.string()}});
             pr::beginBoot(replayed.info({}));
             replayed.vsync.store(1);
             const Page again = page();
@@ -299,7 +299,7 @@ void register_play_recording_tests()
             std::string other;
             std::thread([&other]() { other = st::text("audio.volume"); }).join();
             pr::endBoot("test");
-            ps2x::boot::end();
+            zx::boot::end();
             st::clear();
             t.Equals(live.volume, std::string("80%"), "recorded: the live host's text");
             t.Equals(again.volume, live.volume, "replayed: the recorded text, not the replay host's");
@@ -314,21 +314,21 @@ void register_play_recording_tests()
 
         tc.Run("the app's setting: a recordings folder for the boot, off by default", [](TestCase &t)
         {
-            ps2x::app::Settings settings;
+            zx::app::Settings settings;
             t.IsFalse(settings.recordPlay, "off by default");
-            ps2x::app::AppPaths paths;
+            zx::app::AppPaths paths;
             paths.supportDir = "/support/games/ai";
-            const auto &profile = ps2x::app::gameSettingsProfile("ai");
-            ps2x::app::BootFolders folders;
-            ps2x::BootConfig off = ps2x::app::gameBootConfig("ai", settings, paths, profile, folders, nullptr);
-            t.IsTrue(off.find("ZAXIS_RECORD") == nullptr, "off: no recording");
+            const auto &profile = zx::app::gameSettingsProfile("ai");
+            zx::app::BootFolders folders;
+            zx::BootConfig off = zx::app::gameBootConfig("ai", settings, paths, profile, folders, nullptr);
+            t.IsTrue(off.find("ZX_RECORD") == nullptr, "off: no recording");
             settings.recordPlay = true;
-            ps2x::BootConfig on = ps2x::app::gameBootConfig("ai", settings, paths, profile, folders, nullptr);
-            t.IsTrue(on.find("ZAXIS_RECORD") != nullptr, "on: the folder");
-            if (on.find("ZAXIS_RECORD"))
-                t.Equals(std::filesystem::path(*on.find("ZAXIS_RECORD")), pr::folderFor(paths.supportDir),
+            zx::BootConfig on = zx::app::gameBootConfig("ai", settings, paths, profile, folders, nullptr);
+            t.IsTrue(on.find("ZX_RECORD") != nullptr, "on: the folder");
+            if (on.find("ZX_RECORD"))
+                t.Equals(std::filesystem::path(*on.find("ZX_RECORD")), pr::folderFor(paths.supportDir),
                          "the game's Recordings folder");
-            t.IsTrue(ps2x::BootConfig::carries("ZAXIS_REPLAY") && ps2x::BootConfig::carries("ZAXIS_REPLAY_STOP"),
+            t.IsTrue(zx::BootConfig::carries("ZX_REPLAY") && zx::BootConfig::carries("ZX_REPLAY_STOP"),
                      "a boot carries the replay's values");
         });
     });

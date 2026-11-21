@@ -19,7 +19,9 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iterator>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -31,7 +33,7 @@
 namespace
 {
     namespace fs = std::filesystem;
-    namespace ex = ps2x::app::extras;
+    namespace ex = zx::app::extras;
 
     struct TempDir
     {
@@ -39,7 +41,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = fs::temp_directory_path() / ("ps2x-extras-" + std::to_string(now));
+            path = fs::temp_directory_path() / ("zx-extras-" + std::to_string(now));
             fs::create_directories(path);
         }
         ~TempDir()
@@ -449,12 +451,12 @@ void register_ps2_extras_tests()
             write(roms / "xbox" / "game.iso", xiso());
             write(roms / "gamecube" / "game.gcm", gcm());
             write(roms / "ps2" / "notes.bin", std::vector<uint8_t>(70000, 3));
-            const ps2x::app::DiscSearch search = ps2x::app::findDiscs({roms}, {}, ex::pathOpener());
+            const zx::app::DiscSearch search = zx::app::findDiscs({roms}, {}, ex::pathOpener());
             std::vector<std::string> names;
-            for (const ps2x::app::FoundDisc &disc : search.discs)
+            for (const zx::app::FoundDisc &disc : search.discs)
             {
                 names.push_back(disc.name);
-                t.IsTrue(disc.kind == ps2x::app::FoundDisc::Kind::Extras, disc.name + " is an extras disc");
+                t.IsTrue(disc.kind == zx::app::FoundDisc::Kind::Extras, disc.name + " is an extras disc");
                 t.IsNull(disc.extras, disc.name + ": none the app makes extras from (made-up executables)");
             }
             std::sort(names.begin(), names.end());
@@ -463,7 +465,7 @@ void register_ps2_extras_tests()
                 all += " " + name;
             t.IsTrue(names == std::vector<std::string>{"game.gcm", "game.iso"}, "the two game discs, not the other file:" + all);
             t.IsTrue(search.extrasOf("ai").empty(), "no game's extras");
-            const ps2x::app::DiscSearch noExtras = ps2x::app::findDiscs({roms}, {}, {});
+            const zx::app::DiscSearch noExtras = zx::app::findDiscs({roms}, {}, {});
             t.IsTrue(noExtras.discs.empty(), "with no opener, no extras discs looked for");
         });
 
@@ -473,19 +475,19 @@ void register_ps2_extras_tests()
             fs::create_directories(dir.path / "extras" / "xbox");
             fs::create_directories(dir.path / "bundle" / "xbox");
             fs::create_directories(dir.path / "bundle" / "estate");
-            ps2x::app::Settings settings;
-            ps2x::app::AppPaths paths;
+            zx::app::Settings settings;
+            zx::app::AppPaths paths;
             paths.supportDir = dir.path;
-            ps2x::app::BootFolders folders;
+            zx::app::BootFolders folders;
             folders.resources = dir.path / "bundle";
             folders.extras = dir.path / "extras";
             auto noEnv = [](const char *) -> const char * { return nullptr; };
-            const ps2x::BootConfig boot =
-                ps2x::app::gameBootConfig("ai", settings, paths, ps2x::app::gameSettingsProfile("ai"), folders, noEnv);
-            const std::string *xbox = boot.find("PS2X_XBOX_DIR"), *estate = boot.find("PS2X_ESTATE_DIR");
+            const zx::BootConfig boot =
+                zx::app::gameBootConfig("ai", settings, paths, zx::app::gameSettingsProfile("ai"), folders, noEnv);
+            const std::string *xbox = boot.find("ZX_XBOX_DIR"), *estate = boot.find("ZX_ESTATE_DIR");
             t.IsTrue(xbox && *xbox == (dir.path / "extras" / "xbox").string(), "the setup's Xbox files");
             t.IsTrue(estate && *estate == (dir.path / "bundle" / "estate").string(), "a bundled one it did not make");
-            t.IsNull(boot.find("PS2X_XBOX_PACK"), "none of either: not set");
+            t.IsNull(boot.find("ZX_XBOX_PACK"), "none of either: not set");
         });
 
         tc.Run("no panel maps from a disc with no levels", [](TestCase &t)
@@ -499,6 +501,32 @@ void register_ps2_extras_tests()
             t.IsFalse(ex::makePanelMaps(ex::PanelGame::AggressiveInline, disc, {}, dir.path / "panel", log, &error),
                       "refused");
             t.IsFalse(error.empty(), "says why: " + error);
+        });
+
+        tc.Run("a custom map's files over the disc, and its panel file refused without its level", [](TestCase &t)
+        {
+            TempDir dir;
+            fs::create_directories(dir.path / "disc" / "ASSETS" / "LEVELS" / "MOVIE");
+            std::ofstream(dir.path / "disc" / "ASSETS" / "LEVELS" / "MOVIE" / "MOVIE.TXT") << "disc";
+            std::ofstream(dir.path / "disc" / "ASSETS" / "LEVELS" / "MOVIE" / "MOVIE.GEO") << "disc";
+            ex::FolderFiles disc;
+            t.IsTrue(disc.open(dir.path / "disc", {"ASSETS"}), "the disc folder");
+            std::map<std::string, ex::Bytes> map;
+            map["ASSETS/LEVELS/MOVIE/movie.geo"] = {'m', 'a', 'p'};
+            map["ASSETS/LEVELS/MOVIE/MOVIE.INS"] = {'i'};
+            const ex::LayeredFiles files(disc, std::move(map));
+            ex::Bytes geo, txt, ins;
+            t.IsTrue(files.readAny("assets/levels/movie/MOVIE.GEO", geo) && geo == ex::Bytes{'m', 'a', 'p'},
+                     "the map's file wins over the disc's of that path (any case)");
+            t.IsTrue(files.readAny("ASSETS/LEVELS/MOVIE/MOVIE.TXT", txt) && txt == ex::Bytes{'d', 'i', 's', 'c'} &&
+                         files.readAny("ASSETS/LEVELS/MOVIE/MOVIE.INS", ins) && ins.size() == 1,
+                     "the disc's other files, and the map's own");
+            t.Equals(files.files().size(), size_t(3), "each path once");
+            ex::Bytes out;
+            std::vector<std::string> log;
+            std::string error;
+            const bool made = ex::makeMapPanelFile(ex::PanelGame::DaveMirra2, files, "WOODWARD", "Test", out, log, &error);
+            t.IsTrue(!made && !error.empty(), "a level it does not have: refused, saying why: " + error);
         });
 
         tc.Run("LZO1X: literals, a match that overlaps itself, the end marker", [](TestCase &t)
@@ -571,17 +599,186 @@ void register_ps2_extras_tests()
                 std::ifstream in(dir.path / "pack" / "textures" / "ASSETS" / "LEVELS" / "T" / (std::string(file) + ".xtp"),
                                  std::ios::binary);
                 const Bytes xtp((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-                std::vector<ps2x::texture_replace::Entry> entries;
-                t.IsTrue(ps2x::texture_replace::parsePack(xtp, entries, &error), std::string(form.name) + ": a pack " + error);
+                std::vector<zx::texture_replace::Entry> entries;
+                t.IsTrue(zx::texture_replace::parsePack(xtp, entries, &error), std::string(form.name) + ": a pack " + error);
                 t.Equals(entries.size(), size_t(1), std::string(form.name) + ": one picture");
                 if (entries.size() != 1)
                     continue;
                 t.Equals(entries[0].width, 8u, std::string(form.name) + ": keyed by the PS2 size");
-                t.Equals(entries[0].indexHash, ps2x::texture_replace::indexHash(indices.data(), indices.size()),
+                t.Equals(entries[0].indexHash, zx::texture_replace::indexHash(indices.data(), indices.size()),
                          std::string(form.name) + ": and its indices");
                 t.Equals(entries[0].picture->width, 16u, std::string(form.name) + ": the Xbox picture's size");
                 t.IsTrue(entries[0].picture->data == pixels, std::string(form.name) + ": its DXT3 as it is");
             }
+        });
+
+        tc.Run("BMX XXX's level props with other Xbox names are paired by picture, unlike ones left out", [](TestCase &t)
+        {
+            // The PS2 prop: 8 x 8, red on the left, blue on the right, its
+            // name with the size ("wall128"); on the Xbox it is "wall" at
+            // twice the size, next to "floor" (the halves the other way).
+            Bytes indices(64);
+            for (size_t i = 0; i < indices.size(); ++i)
+                indices[i] = (i % 8) < 4 ? 1 : 2;
+            const std::vector<std::array<uint8_t, 4>> palette = {{0, 0, 0, 0x80}, {0, 0, 255, 0x80}, {255, 0, 0, 0x80}};
+            const Bytes ps2 = chunk("TXRC", txrh("wall128", 8, 8) + chunk("TBMP", bmp8(8, 8, indices, palette)));
+            const Bytes wall = dxt3Halves(16, 16, 0xF800, 0x001F), floor = dxt3Halves(16, 16, 0x001F, 0xF800);
+            const Bytes xboxWall = chunk("TXRC", txrh("wall", 16, 16) + txpr(16, 16, wall));
+            const Bytes xboxFloor = chunk("TXRC", txrh("floor", 16, 16) + txpr(16, 16, floor));
+            // A ZAL of one entry: ZDIR, DIDF (the count at 0x10), GRID, DLEN, OFST, then the entry.
+            auto zal = [](const Bytes &entry)
+            {
+                Bytes d(0x18 + 3 * 12, 0);
+                std::memcpy(d.data(), "ZDIR", 4);
+                std::memcpy(d.data() + 8, "DIDF", 4);
+                le32(d, 0x10, 1);
+                std::memcpy(d.data() + 0x18, "GRID", 4);
+                std::memcpy(d.data() + 0x24, "DLEN", 4);
+                le32(d, 0x2C, uint32_t(entry.size()) | 0x60000000u);
+                std::memcpy(d.data() + 0x30, "OFST", 4);
+                le32(d, 0x38, uint32_t(d.size()));
+                return d + entry;
+            };
+            struct Case
+            {
+                const char *name;
+                Bytes xbox;  // the Xbox entry's textures (each in a ZLZO)
+                bool paired; // the PS2 prop gets the Xbox "wall"
+            };
+            const Case cases[] = {
+                {"the alike one among two", zlzo(xboxFloor) + zlzo(xboxWall), true},
+                {"only an unlike one", zlzo(xboxFloor), false},
+            };
+            for (const Case &c : cases)
+            {
+                TempDir dir;
+                write(dir.path / "ps2" / "ASSETS" / "LEVELS" / "T" / "MODELS.ZAL", zal(chunk("FMDL", library(ps2))));
+                write(dir.path / "xbox" / "media" / "assets" / "levels" / "t" / "models.zal",
+                      zal(chunk("FMDL", library(c.xbox))));
+                ex::FolderFiles ps2Disc, xboxDisc;
+                t.IsTrue(ps2Disc.open(dir.path / "ps2", {"levels"}) && xboxDisc.open(dir.path / "xbox", {"levels"}),
+                         std::string(c.name) + ": the folders");
+                ex::XboxTexturePackOptions options;
+                options.movies = false;
+                options.archives = true;
+                std::vector<std::string> log;
+                std::string error;
+                t.IsTrue(ex::makeXboxTexturePack(ps2Disc, xboxDisc, dir.path / "pack", options, log, &error),
+                         std::string(c.name) + ": made " + error);
+                std::ifstream reportFile(dir.path / "pack" / "textures" / "report.txt");
+                const std::string report((std::istreambuf_iterator<char>(reportFile)), std::istreambuf_iterator<char>());
+                const fs::path xtpPath = dir.path / "pack" / "textures" / "ASSETS" / "LEVELS" / "T" / "MODELS.ZAL.xtp";
+                if (!c.paired)
+                {
+                    t.IsFalse(fs::exists(xtpPath), std::string(c.name) + ": no pack for the file");
+                    t.IsTrue(report.find("wall128 8x8: no Xbox picture alike, nearest floor 16x16") != std::string::npos,
+                             std::string(c.name) + ": the report says so, with the nearest: " + report);
+                    continue;
+                }
+                std::ifstream in(xtpPath, std::ios::binary);
+                const Bytes xtp((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+                std::vector<zx::texture_replace::Entry> entries;
+                t.IsTrue(zx::texture_replace::parsePack(xtp, entries, &error), std::string(c.name) + ": a pack " + error);
+                t.Equals(entries.size(), size_t(1), std::string(c.name) + ": one picture");
+                if (entries.size() != 1)
+                    continue;
+                t.Equals(entries[0].indexHash, zx::texture_replace::indexHash(indices.data(), indices.size()),
+                         std::string(c.name) + ": keyed by the PS2 prop");
+                t.IsTrue(entries[0].picture->data == wall, std::string(c.name) + ": the Xbox wall's picture");
+                t.IsTrue(report.find("by picture: wall128 8x8 -> wall 16x16") != std::string::npos,
+                         std::string(c.name) + ": in the report: " + report);
+            }
+        });
+
+        // A game folder as 1.1.0 left it: its PS2 disc's files, its record of the extras discs ("# z-axis extras 1")
+        // and its parts, made with no keys.
+        const auto setUpBefore = [](const fs::path &dir, const std::string &record, std::initializer_list<const char *> parts)
+        {
+            write(dir / "disc" / "SYSTEM.CNF", {'B', 'O', 'O', 'T'});
+            write(dir / "disc" / "ASSETS" / "LEVELS" / "A" / "A.TXT", {'a'});
+            std::ofstream(dir / "disc.manifest", std::ios::binary) << "z-axis game files 1\ngame x\nelf SLUS_000.00\nsha256 ab12\n";
+            std::ofstream(dir / "extras.manifest", std::ios::binary) << record;
+            for (const char *part : parts)
+                write(dir / "extras" / part / "made.txt", {'1', '.', '1'});
+        };
+        const auto read = [](const fs::path &path)
+        {
+            std::ifstream in(path, std::ios::binary);
+            return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        };
+
+        tc.Run("an update finds the parts whose maker changed since 1.1.0", [&](TestCase &t)
+        {
+            // (BMX XXX's content and Xbox textures are made by makers at version 1; its maps by one still at 0)
+            TempDir bmx;
+            setUpBefore(bmx.path, "# z-axis extras 1\nxbox\t/discs/bmx-xbox.iso\ngamecube\t/discs/bmx-gc.rvz\n",
+                        {"releases", "xbox-pack", "panel"});
+            const ex::StaleExtras stale = ex::staleExtras("bmx", bmx.path);
+            t.IsTrue(stale.parts == std::vector<std::string>({"releases", "xbox-pack"}), "the content and the textures");
+            t.Equals(stale.discs.size(), size_t(2), "made from both discs");
+            // (DM2's maps' maker is at 1: its maps alone, from no disc)
+            TempDir dm2;
+            setUpBefore(dm2.path, "# z-axis extras 1\nxbox\t/discs/dm2-xbox.iso\n", {"xbox-levels", "xbox-pack", "panel"});
+            const ex::StaleExtras dm2Stale = ex::staleExtras("dm2", dm2.path);
+            t.IsTrue(dm2Stale.parts == std::vector<std::string>({"panel"}), "DM2's maps alone");
+            t.IsTrue(dm2Stale.discs.empty(), "no disc needed");
+            // (AI's parts are all as 1.1.0 made them)
+            TempDir ai;
+            setUpBefore(ai.path, "# z-axis extras 1\nxbox\t/discs/ai-xbox.iso\n", {"xbox", "xbox-converted", "xbox-pack", "panel"});
+            const ex::StaleExtras aiStale = ex::staleExtras("ai", ai.path);
+            t.IsTrue(aiStale.parts.empty() && aiStale.unkeyed, "nothing for AI to make, but its keys to write");
+            std::vector<ex::ExtrasSource> noSources;
+            t.IsTrue(ex::makeExtras("ai", ai.path, noSources, {}, {}, {{"xbox", "/discs/ai-xbox.iso"}}).ok, "AI's keys written");
+            t.IsTrue(ex::staleExtras("ai", ai.path, false).empty(), "then nothing for AI (made, as here, with no skaters)");
+            // (a game not set up has nothing to update)
+            TempDir none;
+            t.IsTrue(ex::staleExtras("ai", none.path).empty(), "nothing without the PS2 disc's files");
+        });
+
+        tc.Run("a part whose disc does not open is kept, with its disc recorded", [&](TestCase &t)
+        {
+            TempDir bmx;
+            setUpBefore(bmx.path, "# z-axis extras 1\nxbox\t/discs/bmx-xbox.iso\n", {"releases", "xbox-pack", "panel"});
+            std::vector<ex::ExtrasSource> none;
+            const std::vector<ex::RecordedDisc> gone = {{"xbox", "/discs/bmx-xbox.iso"}};
+            const ex::ExtrasResult r = ex::makeExtras("bmx", bmx.path, none, {}, {}, gone);
+            t.IsTrue(r.ok, "nothing failed: " + r.message);
+            t.IsTrue(r.made.empty(), "nothing made");
+            t.IsTrue(r.kept == std::vector<std::string>({"releases", "xbox-pack"}), "the two parts kept for want of the disc");
+            t.Equals(r.missing.size(), size_t(1), "the disc asked for");
+            t.Equals(read(bmx.path / "extras" / "releases" / "made.txt"), std::string("1.1"), "the content as it was");
+            t.Equals(read(bmx.path / "extras" / "xbox-pack" / "made.txt"), std::string("1.1"), "the textures as they were");
+            t.IsFalse(fs::exists(bmx.path / "extras" / "releases.key"), "no key: still made by the version before");
+            t.IsTrue(fs::exists(bmx.path / "extras" / "panel.key"), "the maps, as they would be made now, keyed");
+            const std::vector<ex::RecordedDisc> recorded = ex::recordedExtras(bmx.path);
+            t.IsTrue(recorded.size() == 1 && recorded[0].source == "/discs/bmx-xbox.iso", "the disc still recorded");
+            t.IsTrue(ex::staleExtras("bmx", bmx.path).parts == std::vector<std::string>({"releases", "xbox-pack"}),
+                     "and still to update, once the disc is back");
+            // (the record the version after: no part is taken as 1.1.0's any more)
+            t.IsTrue(read(bmx.path / "extras.manifest").rfind("# z-axis extras 2\n", 0) == 0, "the record's new head");
+        });
+
+        tc.Run("a part's key names its makers, its discs and the parts it reads", [&](TestCase &t)
+        {
+            TempDir ai;
+            setUpBefore(ai.path, "# z-axis extras 1\nxbox\t/discs/ai-xbox.iso\n", {"xbox", "xbox-converted", "xbox-pack", "panel"});
+            std::vector<ex::ExtrasSource> none;
+            const ex::ExtrasResult r = ex::makeExtras("ai", ai.path, none, {}, {}, {{"xbox", "/discs/ai-xbox.iso"}});
+            t.IsTrue(r.ok && r.made.empty(), "1.1.0's parts taken as they are: " + r.message);
+            const std::string panel = read(ai.path / "extras" / "panel.key");
+            t.IsTrue(panel.find("maker panel_maps_ai 0\n") != std::string::npos, "its maker: " + panel);
+            t.IsTrue(panel.find("input ps2 ab12\n") != std::string::npos, "the PS2 disc's ELF");
+            t.IsTrue(panel.find("after xbox-converted ") != std::string::npos && panel.find("after xbox ") != std::string::npos,
+                     "the Zoo and the Xbox scripts it reads");
+            const std::string pack = read(ai.path / "extras" / "xbox-pack.key");
+            t.IsTrue(pack.find("input xbox f8cd57e2") != std::string::npos, "the Xbox disc, by its default.xbe: " + pack);
+            // (a stray part no disc makes is taken away: Estate with no GameCube disc recorded)
+            write(ai.path / "extras" / "estate" / "made.txt", {'x'});
+            write(ai.path / "extras" / "xbox-pack.partial" / "half.txt", {'x'});
+            ex::makeExtras("ai", ai.path, none, {}, {}, {{"xbox", "/discs/ai-xbox.iso"}});
+            t.IsFalse(fs::exists(ai.path / "extras" / "estate"), "Estate taken away");
+            t.IsFalse(fs::exists(ai.path / "extras" / "xbox-pack.partial"), "a stopped make's folder taken away");
+            t.IsTrue(fs::exists(ai.path / "extras" / "xbox-pack" / "made.txt"), "the textures kept");
         });
 
         tc.Run("no extras without the PS2 disc", [](TestCase &t)

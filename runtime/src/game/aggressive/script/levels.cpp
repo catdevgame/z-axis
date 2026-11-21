@@ -1,7 +1,7 @@
 // Natives the other levels' scripts run (round 6): the careers of the
 // Civic Center, Industrial, Boardwalk, Cannery, Airfield and Museum and
 // the Zoo's free skate, recorded with tools/routes.py and
-// PS2X_DEV_UNLOCK_ALL. Same conventions as library.cpp: pop the arguments
+// ZX_DEV_UNLOCK_ALL. Same conventions as library.cpp: pop the arguments
 // off the script stack, call the game, push a result and return 1 when one
 // was pushed.
 

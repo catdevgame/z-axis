@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     using Vec3 = std::array<double, 3>;
     using Quat = std::array<double, 4>; // x, y, z, w

@@ -152,7 +152,7 @@ def default_sweep():
     best = None
     if os.path.isdir(out):
         for b in sorted(os.listdir(out)):
-            p = os.path.join(out, b, 'ps2xRuntime', 'readable_sweep')
+            p = os.path.join(out, b, 'runtime', 'readable_sweep')
             if os.path.isdir(p) and (best is None or os.path.getmtime(p) > os.path.getmtime(best)):
                 best = p
     return best
@@ -160,7 +160,7 @@ def default_sweep():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--sweep', help='the generated drafts (default: the newest out/*/ps2xRuntime/readable_sweep)')
+    ap.add_argument('--sweep', help='the generated drafts (default: the newest out/*/runtime/readable_sweep)')
     ap.add_argument('--src', default=GAME_SRC, help='the hand-written sources (default %(default)s)')
     ap.add_argument('--json', action='store_true')
     ap.add_argument('--by-file', action='store_true', help='also each file\'s counts')

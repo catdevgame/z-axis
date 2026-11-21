@@ -17,8 +17,8 @@ owner=BmxRenderer.framePackets the frame packets' words (render_path = records)
 # corners' u and v (the original neither; untextured screen shards: material 0, flags 5), so they are the stack residue
 # at 0x1FDFBC0 + 0x20k, which spawnShardFromTriangle and spawnShards copy into the Shard. That residue is the last
 # callee frame below drawSkinned: vif1PacketAddQword's (0x22abd0, its sq of the skinned draw's matrix rows) on the
-# strict path, requestTextures' saves on records, which leaves those VU1-work calls out (PS2X_WATCH32 on s-rmpg).
-# Readers (the lane watch, ZAXIS_LANE_WATCH, over the six words of each differing shard on s-rmpg, s-root and s-dam2-end,
+# strict path, requestTextures' saves on records, which leaves those VU1-work calls out (ZX_WATCH32 on s-rmpg).
+# Readers (the lane watch, ZX_LANE_WATCH_BUILD, over the six words of each differing shard on s-rmpg, s-root and s-dam2-end,
 # `off` and the defaults): drawShards alone (0x1AA6B4 u, 0x1AA6BC v), every frame of the shard's life, into its vertices
 # for drawPrimitiveStrips with texture 0; nothing after it is freed until another record takes the memory and writes
 # them first (s-root t7142, s-dam2-end t9181: the words equal again from the next dump). Dumps inside a live shard's

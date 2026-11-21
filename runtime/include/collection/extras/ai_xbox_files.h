@@ -1,7 +1,7 @@
 #pragma once
 
 // The Xbox release's files Aggressive Inline reads as they are
-// (runtime/ps2_xbox_disc.h: PS2X_XBOX_DIR), copied from the player's Xbox
+// (runtime/ps2_xbox_disc.h: ZX_XBOX_DIR), copied from the player's Xbox
 // disc into <out>/assets/<path with the disc's case>, as tools/xbox_files.py
 // bundle copies them (tools/xbox-files.txt's list, the same files), and the
 // Zoo's level-select flythrough as the disc has it (movies/flythrus/zoo.bik,
@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     // The files' patterns (paths below media/assets, lower case, `*` and `?`).
     const std::vector<std::string> &aiXboxFilePatterns();

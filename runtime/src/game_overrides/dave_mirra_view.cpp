@@ -1,7 +1,7 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): the view settings.
 //
-// Widescreen (settings.ini [display] widescreen and aspect, PS2X_WIDESCREEN,
-// PS2X_ASPECT): Aggressive Inline's host side (zge_view.cpp) at DM2's
+// Widescreen (settings.ini [display] widescreen and aspect, ZX_WIDESCREEN,
+// ZX_ASPECT): Aggressive Inline's host side (zge_view.cpp) at DM2's
 // functions, on ZGE2's camera and zgui:
 //  - the projection's horizontal scale (Camera::horizontalScale, 1.0 from
 //    the display at the camera's set-up, setCameraScales) and the frustum's
@@ -25,7 +25,7 @@
 // (its frame count is not 0): the front end and loading screens stay 4:3.
 // With widescreen never turned on nothing is written.
 //
-// Draw distance (settings.ini [gameplay] draw_distance, PS2X_DRAW_DISTANCE):
+// Draw distance (settings.ini [gameplay] draw_distance, ZX_DRAW_DISTANCE):
 // a camera's far clip (Camera::farClip; newSceneRecord sets 200 at creation,
 // a level its own, Woodward Camp 187). The projection maps the 16-bit Z from
 // the near clip to it and the frustum's far plane is built from it, both
@@ -132,7 +132,7 @@ namespace dave_mirra::view
         };
 
         // One boot's original projection and cameras (made at the boot's
-        // first use, the install: ps2x::boot::PerBoot).
+        // first use, the install: zx::boot::PerBoot).
         struct State
         {
             PS2Runtime::RecompiledFunction projection = nullptr;
@@ -141,7 +141,7 @@ namespace dave_mirra::view
 
         State &state()
         {
-            static ps2x::boot::PerBoot<State> ofBoot([] { return State{}; });
+            static zx::boot::PerBoot<State> ofBoot([] { return State{}; });
             return ofBoot.get();
         }
 

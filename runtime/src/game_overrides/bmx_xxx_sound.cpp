@@ -25,7 +25,7 @@
 // options menu also keeps them in the saved game (SavedGame's
 // channelVolumes, which its sliders show), written first, as the menu's
 // bmxmenuscriptSet*Volume do (game/bmx/ui/menu_script.cpp). With the app's
-// settings (PS2X_GAME_SETTINGS_MENUS=1).
+// settings (ZX_GAME_SETTINGS_MENUS=1).
 #include "bmx_xxx.h"
 #include "sym/game_overrides/bmx_xxx_sound.cpp.h"
 
@@ -63,6 +63,9 @@ namespace bmx_xxx::native_sound
             .bankWaves = 0x30u,
             .stringTableText = sym::bmx::stringTableText,
             .songKey = "KSTR_SONGINFO_%02u_",
+            // The Xbox's unused songs, MUSIC.ZSD's waves 20-27 when they are
+            // on (bmx_xxx_releases.cpp).
+            .resolve = &bmx_xxx::releasesSong,
         };
 
         // The saved game (game/bmx/profile/players.h SavedGame) as far as
@@ -103,7 +106,7 @@ namespace bmx_xxx
 {
     bool installNativeSound(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); on && on[0] == '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); on && on[0] == '1')
             zge_host::volumes::install(runtime, native_sound::kGameVolumes);
         return zge_host::sound::install(runtime, native_sound::kSound);
     }

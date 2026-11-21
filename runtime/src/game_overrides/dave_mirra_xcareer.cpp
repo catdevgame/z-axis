@@ -5,9 +5,9 @@
 //
 // The data is made at build time by tooling/ai/tools/dm2_xbox_career.py
 // (called by dm2_xbox.py convert) from the Xbox executable's tables, which
-// are the PS2's with two more levels: <PS2X_DM2_XBOX_LEVELS_DIR>/CAREER.BIN.
+// are the PS2's with two more levels: <ZX_DM2_XBOX_LEVELS_DIR>/CAREER.BIN.
 // Nothing here reads a disc or converts anything. On with the Xbox levels
-// (Settings > Game > Xbox Levels); PS2X_DM2_XBOX_CAREER=0 turns it off.
+// (Settings > Game > Xbox Levels); ZX_DM2_XBOX_CAREER=0 turns it off.
 //
 // DM2's per-level tables have rows for eight levels (and the park editor):
 //   goals 0x233900 (0x1B80 a level: 5 tiers x 4 goals x 0x160), gaps
@@ -31,7 +31,7 @@
 // The texts the game finds by the level number (goals, the pros' places, the
 // level's name and instructions: "KSTRSP_GOAL_LEV02_EASY_0") are swapped in
 // the string table in memory with the Xbox level's (added to STRING.EUS and
-// the other languages under "PS2X_XBOX<n>_<key>").
+// the other languages under "ZX_XBOX<n>_<key>").
 //
 // Unlocks: the Xbox opens Venice in Airport's pro tier and its competition
 // with Airport's bronze, Greenville in the Commercial District's (in place
@@ -58,7 +58,7 @@
 // run with the slot's own rows in place). A save without that file loads with
 // the Xbox levels locked.
 //
-// PS2X_DM2_XCAREER_TRACE=1 logs swaps, rewards, goal parts and gaps.
+// ZX_DM2_XCAREER_TRACE=1 logs swaps, rewards, goal parts and gaps.
 
 #include "dave_mirra.h"
 
@@ -96,8 +96,7 @@ namespace dave_mirra::xcareer
     namespace
     {
         namespace fs = std::filesystem;
-        namespace zx = ps2x::zaxis;
-        using ps2x::zaxis_text::keyHash;
+        using zx::zaxis_text::keyHash;
 
         // Tables (CAREER.BIN's kinds).
         enum Kind : uint32_t
@@ -180,7 +179,7 @@ namespace dave_mirra::xcareer
         // One boot's career: the levels read from CAREER.BIN, their texts
         // and rewards, the slot and the originals of the hooks. Made at the
         // boot's first use (the install), so a game booted after another in
-        // the same process starts as a fresh one does (ps2x::boot::PerBoot).
+        // the same process starts as a fresh one does (zx::boot::PerBoot).
         struct State
         {
             bool on = false, trace = false;
@@ -202,13 +201,13 @@ namespace dave_mirra::xcareer
                                            setupStats = nullptr, tierDone = nullptr, cardStart = nullptr,
                                            cardWrite = nullptr, cardRead = nullptr, partState = nullptr,
                                            gapFound = nullptr, sessionCommit = nullptr;
-            bool cardSaves = false; // PS2X_SAVES=card: the card's own write and read
+            bool cardSaves = false; // ZX_SAVES=card: the card's own write and read
             bool commitDone = false;
         };
 
         State &state()
         {
-            static ps2x::boot::PerBoot<State> ofBoot([] { return State{}; });
+            static zx::boot::PerBoot<State> ofBoot([] { return State{}; });
             return ofBoot.get();
         }
 
@@ -416,7 +415,7 @@ namespace dave_mirra::xcareer
             return dave_mirra::saves::profileFile(dave_mirra::saves::kXboxLevelsSuffix);
         }
         constexpr size_t kStoreRider = kProgressSize + 4u;
-        bool validStore(const ps2x::saves::Bytes &d)
+        bool validStore(const zx::saves::Bytes &d)
         {
             if (d.size() < 16u || std::memcmp(d.data(), kMagic, 4) != 0)
                 return false;
@@ -430,7 +429,7 @@ namespace dave_mirra::xcareer
         void writeStore()
         {
             State &st = state();
-            ps2x::saves::Bytes d(kMagic, kMagic + 4);
+            zx::saves::Bytes d(kMagic, kMagic + 4);
             auto put = [&](uint32_t v)
             {
                 const uint8_t *b = reinterpret_cast<const uint8_t *>(&v);
@@ -448,16 +447,16 @@ namespace dave_mirra::xcareer
                     d.insert(d.end(), r.begin(), r.end());
             }
             std::string error;
-            if (!ps2x::saves::writeFileAtomic(storeFile(), d.data(), d.size(), &error))
+            if (!zx::saves::writeFileAtomic(storeFile(), d.data(), d.size(), &error))
                 std::cerr << "[xcareer] could not write " << storeFile().string() << ": " << error << std::endl;
             else if (st.trace)
                 std::cout << "[xcareer] saved " << storeFile().string() << std::endl;
         }
         void openForChecks()
         {
-            // PS2X_DEV_UNLOCK_ALL=1 (developers, test runs; as Aggressive Inline's): every
+            // ZX_DEV_UNLOCK_ALL=1 (developers, test runs; as Aggressive Inline's): every
             // rider has the Xbox levels open (their progress only; DM2's own are not touched).
-            if (const char *open = ps2x::boot::text("PS2X_DEV_UNLOCK_ALL"); open && open[0] == '1')
+            if (const char *open = zx::boot::text("ZX_DEV_UNLOCK_ALL"); open && open[0] == '1')
                 for (Level &level : state().levels)
                     for (auto &r : level.riders)
                         r[0x3Cu] |= 1u;
@@ -468,7 +467,7 @@ namespace dave_mirra::xcareer
             for (Level &level : st.levels)
                 level.riders.assign(kRiderCount, freshRider());
             openForChecks();
-            const ps2x::saves::ReadResult r = ps2x::saves::readWithBackup(storeFile(), validStore);
+            const zx::saves::ReadResult r = zx::saves::readWithBackup(storeFile(), validStore);
             if (!r.ok())
             {
                 std::cout << "[xcareer] no " << storeFile().filename().string()
@@ -596,7 +595,7 @@ namespace dave_mirra::xcareer
             for (const std::string &key : keys)
             {
                 const uint32_t a = keyHash(key);
-                const uint32_t b = keyHash("PS2X_XBOX" + std::to_string(level.xboxLevel) + "_" + key);
+                const uint32_t b = keyHash("ZX_XBOX" + std::to_string(level.xboxLevel) + "_" + key);
                 if (swapPair(a, b))
                     st.textSwaps.emplace_back(a, b);
             }
@@ -968,8 +967,8 @@ namespace dave_mirra::xcareer
         }
         bool patchStrings(std::vector<uint8_t> &bytes, int lang)
         {
-            ps2x::zaxis_text::StringTable table;
-            if (!ps2x::zaxis_text::readStringTable(bytes, table))
+            zx::zaxis_text::StringTable table;
+            if (!zx::zaxis_text::readStringTable(bytes, table))
                 return false;
             auto set = [&](const std::string &key, const std::string &text, bool keep)
             {
@@ -993,11 +992,11 @@ namespace dave_mirra::xcareer
                 else
                 {
                     set(t.key, "", true); // the slot's key, so it can be swapped
-                    set("PS2X_XBOX" + std::to_string(t.level) + "_" + t.key, t.text, false);
+                    set("ZX_XBOX" + std::to_string(t.level) + "_" + t.key, t.text, false);
                 }
                 ++n;
             }
-            bytes = ps2x::zaxis_text::writeStringTable(table);
+            bytes = zx::zaxis_text::writeStringTable(table);
             if (state().trace)
                 std::cout << "[xcareer] string table " << lang << ": " << n << " texts" << std::endl;
             return n != 0u;
@@ -1007,23 +1006,23 @@ namespace dave_mirra::xcareer
         // to 8 + the Xbox levels, 8 (the park editor) passed over.
         bool patchLevelSelect(std::string &text)
         {
-            zx::Span select = zx::findObject(text, "MainMenu/SelectLevel");
+            zx::zaxis::Span select = zx::zaxis::findObject(text, "MainMenu/SelectLevel");
             if (!select.found())
                 return false;
             const std::string more = std::to_string(1u + state().levels.size());
             const std::string skip =
-                "DECLARE String PS2XTmp\\nSET PS2XTmp {\\\"PS2XR\\\"}\\nSTRCAT PS2XTmp Root.CurrentRideType\\nGOTO PS2XTmp\\n"
-                "GOTO PS2XSkipEnd\\n:PS2XR0\\n:PS2XR1\\nSET PS2XTmp {\\\"PS2XV\\\"}\\nSTRCAT PS2XTmp CurValue\\nGOTO PS2XTmp\\n"
-                "GOTO PS2XSkipEnd\\n:PS2XV8\\nSET PS2XTmp {\\\"PS2XD\\\"}\\nSTRCAT PS2XTmp LastDir\\nGOTO PS2XTmp\\n"
-                "SET CurValue {7}\\nGOTO PS2XSkipEnd\\n:PS2XD1\\nSET CurValue {9}\\n:PS2XSkipEnd\\nUNDECLARE PS2XTmp\\n";
-            bool ok = zx::replaceIn(text, select, "OnChange\t\"SET Root.CurrentLevel CurValue\\n",
+                "DECLARE String ZXTmp\\nSET ZXTmp {\\\"ZXR\\\"}\\nSTRCAT ZXTmp Root.CurrentRideType\\nGOTO ZXTmp\\n"
+                "GOTO ZXSkipEnd\\n:ZXR0\\n:ZXR1\\nSET ZXTmp {\\\"ZXV\\\"}\\nSTRCAT ZXTmp CurValue\\nGOTO ZXTmp\\n"
+                "GOTO ZXSkipEnd\\n:ZXV8\\nSET ZXTmp {\\\"ZXD\\\"}\\nSTRCAT ZXTmp LastDir\\nGOTO ZXTmp\\n"
+                "SET CurValue {7}\\nGOTO ZXSkipEnd\\n:ZXD1\\nSET CurValue {9}\\n:ZXSkipEnd\\nUNDECLARE ZXTmp\\n";
+            bool ok = zx::zaxis::replaceIn(text, select, "OnChange\t\"SET Root.CurrentLevel CurValue\\n",
                                     "OnChange\t\"" + skip + "SET Root.CurrentLevel CurValue\\n");
-            ok = ok && zx::replaceIn(text, select,
+            ok = ok && zx::zaxis::replaceIn(text, select,
                                      ":1\\nSET Frame.ProquestInfo.Visible {1}\\nSET Frame.FreeRideInfo.Visible {0}\\n:End",
                                      ":1\\nSET Frame.ProquestInfo.Visible {1}\\nSET Frame.FreeRideInfo.Visible {0}\\nADD MaxValue {" +
-                                         more + "}\\nDECLARE String PS2XTmp\\nSET PS2XTmp {\\\"PS2XI\\\"}\\nSTRCAT PS2XTmp CurValue\\n"
-                                         "GOTO PS2XTmp\\nGOTO PS2XInitEnd\\n:PS2XI8\\nSET CurValue {7}\\n:PS2XInitEnd\\n"
-                                         "UNDECLARE PS2XTmp\\n:End");
+                                         more + "}\\nDECLARE String ZXTmp\\nSET ZXTmp {\\\"ZXI\\\"}\\nSTRCAT ZXTmp CurValue\\n"
+                                         "GOTO ZXTmp\\nGOTO ZXInitEnd\\n:ZXI8\\nSET CurValue {7}\\n:ZXInitEnd\\n"
+                                         "UNDECLARE ZXTmp\\n:End");
             if (!ok)
                 std::cerr << "[xcareer] MainMenu.SelectLevel is not the expected script: the Xbox levels not in ProQuest"
                           << std::endl;
@@ -1033,13 +1032,13 @@ namespace dave_mirra::xcareer
         }
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
-            if (!zx::readArchive(bytes, entries))
+            std::vector<zx::zaxis::ArchiveEntry> entries;
+            if (!zx::zaxis::readArchive(bytes, entries))
                 return false;
             bool changed = false;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) != "MainMenu")
+                if (zx::zaxis::scriptName(entry) != "MainMenu")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 if (patchLevelSelect(text))
@@ -1049,12 +1048,12 @@ namespace dave_mirra::xcareer
                 }
             }
             if (changed)
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
             return changed;
         }
     }
 
-    // ---- Career checks (developers): PS2X_DM2_XCAREER_TEST=<script>:<results> ----
+    // ---- Career checks (developers): ZX_DM2_XCAREER_TEST=<script>:<results> ----
     //
     // In any level (an Xbox level with its career in the slot, or DM2's own
     // to compare), from the level's frame 300, the lines of <script> one
@@ -1101,7 +1100,7 @@ namespace dave_mirra::xcareer
         constexpr uint32_t kCommit = 0x00181F58u; // the session's commit a restart runs (FUN_00181F58)
 
         // One boot's check script and where it is (developers; made at the
-        // boot's first use: ps2x::boot::PerBoot).
+        // boot's first use: zx::boot::PerBoot).
         struct CheckState
         {
             std::map<std::string, Place> places;
@@ -1126,7 +1125,7 @@ namespace dave_mirra::xcareer
 
         CheckState &checkState()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<CheckState>> ofBoot([] { return std::make_unique<CheckState>(); });
+            static zx::boot::PerBoot<std::unique_ptr<CheckState>> ofBoot([] { return std::make_unique<CheckState>(); });
             return *ofBoot.get();
         }
         void commitHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
@@ -1415,7 +1414,7 @@ namespace dave_mirra::xcareer
                     place(rdram, ctx, runtime, sp, pa.top - dir * back, dir);
                     return;
                 }
-                if (std::getenv("PS2X_DM2_XCAREER_TEST_TRACE") && f % 5 == 0)
+                if (std::getenv("ZX_DM2_XCAREER_TEST_TRACE") && f % 5 == 0)
                 {
                     char t[140];
                     float v[3] = {};
@@ -1445,8 +1444,8 @@ namespace dave_mirra::xcareer
                 }
                 if (f > 10 && cs.airFrame < 0)
                 {
-                    // Up: pedal (PS2X_DM2_XCAREER_PEDAL=<n>: n frames on, n off; 0 held).
-                    static const int kTap = std::getenv("PS2X_DM2_XCAREER_PEDAL") ? std::atoi(std::getenv("PS2X_DM2_XCAREER_PEDAL")) : 0;
+                    // Up: pedal (ZX_DM2_XCAREER_PEDAL=<n>: n frames on, n off; 0 held).
+                    static const int kTap = std::getenv("ZX_DM2_XCAREER_PEDAL") ? std::atoi(std::getenv("ZX_DM2_XCAREER_PEDAL")) : 0;
                     buttons = (kTap <= 0 || (f / kTap) % 2 == 0) ? 0x0010u : 0u;
                     if (hop > 0.0f && ahead < hop + 3.0f && ahead >= hop)
                         buttons |= 0x4000u; // Cross held (crouch) from 3 units before, let go (the hop) <hop> before
@@ -1571,7 +1570,7 @@ namespace dave_mirra::xcareer
         void install(PS2Runtime &runtime)
         {
             CheckState &cs = checkState();
-            const char *spec = std::getenv("PS2X_DM2_XCAREER_TEST");
+            const char *spec = std::getenv("ZX_DM2_XCAREER_TEST");
             if (!spec || !*spec)
                 return;
             std::string text(spec);
@@ -1598,14 +1597,14 @@ namespace dave_mirra::xcareer
         }
     }
 
-    // PS2X_DM2_XCAREER_TABLES=<file> (developers): the eight PS2 levels'
+    // ZX_DM2_XCAREER_TABLES=<file> (developers): the eight PS2 levels'
     // rows of every career table and the riders' records, written at the
-    // first level's frame 300 (PS2X_DM2_XCAREER_TABLES_FRAME), to compare
+    // first level's frame 300 (ZX_DM2_XCAREER_TABLES_FRAME), to compare
     // runs with the Xbox levels on and off.
     namespace tables
     {
         // One boot's file and whether it is written (made at the boot's
-        // first use: ps2x::boot::PerBoot).
+        // first use: zx::boot::PerBoot).
         struct TablesState
         {
             std::string file;
@@ -1614,14 +1613,14 @@ namespace dave_mirra::xcareer
 
         TablesState &tablesState()
         {
-            static ps2x::boot::PerBoot<TablesState> ofBoot([] { return TablesState{}; });
+            static zx::boot::PerBoot<TablesState> ofBoot([] { return TablesState{}; });
             return ofBoot.get();
         }
 
         void vsync(uint8_t *rdram, uint64_t)
         {
-            static const uint32_t at = std::getenv("PS2X_DM2_XCAREER_TABLES_FRAME")
-                                           ? static_cast<uint32_t>(std::atoi(std::getenv("PS2X_DM2_XCAREER_TABLES_FRAME")))
+            static const uint32_t at = std::getenv("ZX_DM2_XCAREER_TABLES_FRAME")
+                                           ? static_cast<uint32_t>(std::atoi(std::getenv("ZX_DM2_XCAREER_TABLES_FRAME")))
                                            : 300u;
             if (tablesState().done || rd32(rdram, 0x0025BCC4u) < at || rd32(rdram, 0x00259770u) != 2u)
                 return;
@@ -1641,13 +1640,13 @@ namespace dave_mirra::xcareer
     bool install(PS2Runtime &runtime)
     {
         State &st = state();
-        if (const char *file = std::getenv("PS2X_DM2_XCAREER_TABLES"); file && *file)
+        if (const char *file = std::getenv("ZX_DM2_XCAREER_TABLES"); file && *file)
         {
             tables::tablesState().file = file;
             runtime.addVSyncHook(&tables::vsync);
         }
-        st.trace = std::getenv("PS2X_DM2_XCAREER_TRACE") != nullptr;
-        if (std::getenv("PS2X_DM2_XCAREER_TEST"))
+        st.trace = std::getenv("ZX_DM2_XCAREER_TRACE") != nullptr;
+        if (std::getenv("ZX_DM2_XCAREER_TEST"))
         {
             // The checks' notes (developers), in any level.
             auto hook = [&](uint32_t at, PS2Runtime::RecompiledFunction &original, PS2Runtime::RecompiledFunction fn)
@@ -1656,9 +1655,9 @@ namespace dave_mirra::xcareer
             hook(kGapFound, st.gapFound, &gapFoundHook);
             checks::install(runtime);
         }
-        const char *dir = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS_DIR");
-        const char *on = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS");
-        const char *career = std::getenv("PS2X_DM2_XBOX_CAREER");
+        const char *dir = zx::boot::text("ZX_DM2_XBOX_LEVELS_DIR");
+        const char *on = zx::boot::text("ZX_DM2_XBOX_LEVELS");
+        const char *career = std::getenv("ZX_DM2_XBOX_CAREER");
         if (!dir || !*dir || (on && on[0] == '0') || (career && career[0] == '0'))
             return false;
         const std::vector<std::string> folders = xboxlevel::levels();
@@ -1670,7 +1669,7 @@ namespace dave_mirra::xcareer
             st.levels.clear();
             return false;
         }
-        // Only the levels the level select has (PS2X_DM2_XBOX_LEVEL may keep one).
+        // Only the levels the level select has (ZX_DM2_XBOX_LEVEL may keep one).
         st.levels.erase(std::remove_if(st.levels.begin(), st.levels.end(),
                                       [&](const Level &l)
                                       { return std::find(folders.begin(), folders.end(), l.folder) == folders.end(); }),
@@ -1682,7 +1681,7 @@ namespace dave_mirra::xcareer
             return false;
         st.runtime = &runtime;
         openForChecks();
-        const char *saves = ps2x::boot::text("PS2X_SAVES");
+        const char *saves = zx::boot::text("ZX_SAVES");
         st.cardSaves = saves && std::string(saves) == "card";
         auto hook = [&](uint32_t at, PS2Runtime::RecompiledFunction &original, PS2Runtime::RecompiledFunction fn)
         { return (original = runtime.lookupFunction(at)) && runtime.replaceFunction(at, fn); };
@@ -1702,9 +1701,9 @@ namespace dave_mirra::xcareer
         for (const char *name : {"STRING.EUS", "STRING.EUK", "STRING.GER", "STRING.FRE"})
         {
             const int lang = languageOf(name);
-            ps2x::disc_patch::registerPatch(name, [lang](std::vector<uint8_t> &b) { return patchStrings(b, lang); });
+            zx::disc_patch::registerPatch(name, [lang](std::vector<uint8_t> &b) { return patchStrings(b, lang); });
         }
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
         runtime.addVSyncHook(&vsync);
         st.on = true;
         std::cout << "[xcareer] on: ";

@@ -21,9 +21,9 @@
 // shutdownLevelSession, at its call of freeHudMessages) and on quit if a save
 // exists, with a host copy of the game's own serializer.
 //
-// PS2X_SAVES=card: none of this is installed (the reference tools compare
-// against PCSX2, whose timing includes the card dialogs). PS2X_AUTOSAVE=0:
-// no autosave. PS2X_TRACE_SAVES=1: checks the game's buffer against RAM.
+// ZX_SAVES=card: none of this is installed (the reference tools compare
+// against PCSX2, whose timing includes the card dialogs). ZX_AUTOSAVE=0:
+// no autosave. ZX_TRACE_SAVES=1: checks the game's buffer against RAM.
 #include "aggressive_inline_saves.h"
 #include "sym/game_overrides/aggressive_inline_saves.cpp.h"
 #include "zge_saves.h"
@@ -89,7 +89,7 @@ namespace aggressive_inline
             bool inLevelExit = false;   // it is running and has not yet called afterLevelCommit
             std::vector<CareerBodyFilter> bodyFilters; // addCareerBodyFilter
         };
-        Saving &saving() { return ps2x::session::state<Saving>(); }
+        Saving &saving() { return zx::session::state<Saving>(); }
         void filterBody(Bytes &body)
         {
             for (const CareerBodyFilter &filter : saving().bodyFilters)
@@ -161,12 +161,12 @@ namespace aggressive_inline
             return true;
         }
 
-        // PS2X_AUTOSAVE=0: only the game's own saves write (test runs).
+        // ZX_AUTOSAVE=0: only the game's own saves write (test runs).
         bool autosaveEnabled()
         {
             static const bool on = []
             {
-                const char *v = std::getenv("PS2X_AUTOSAVE");
+                const char *v = std::getenv("ZX_AUTOSAVE");
                 return !(v && v[0] == '0');
             }();
             return on;
@@ -192,13 +192,13 @@ namespace aggressive_inline
         {
             static const bool on = []
             {
-                const char *v = std::getenv("PS2X_TRACE_SAVES");
+                const char *v = std::getenv("ZX_TRACE_SAVES");
                 return v && v[0] == '1';
             }();
             return on;
         }
 
-        // PS2X_TRACE_SAVES=1: the game's serialized buffer against the host
+        // ZX_TRACE_SAVES=1: the game's serialized buffer against the host
         // serializer run on RAM now.
         void traceBuffer(const uint8_t *rdram, PS2Runtime *runtime, const uint8_t *body, const char *what)
         {
@@ -307,6 +307,6 @@ namespace aggressive_inline
             std::cerr << "[saves] the level-end autosave hook not installed" << std::endl;
             return;
         }
-        ps2x::session::addShutdownHook(&onQuit);
+        zx::session::addShutdownHook(&onQuit);
     }
 }

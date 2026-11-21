@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-using namespace ps2x::zaxis::xbox;
+using namespace zx::zaxis::xbox;
 
 namespace
 {

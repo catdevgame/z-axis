@@ -10,20 +10,20 @@
   career_ab.py script TRACE OUT [KEY=VAL ...]
   career_ab.py packets A B TICK STREAM
 
-`run` runs the input unpaced with the null GS into DIR/NAME (PS2X_READABLE=SPEC when given, the
+`run` runs the input unpaced with the null GS into DIR/NAME (ZX_READABLE=SPEC when given, the
 defaults otherwise): a state log in DIR/NAME/state.log, a RAM dump every N ticks (default 3,000), the
 scratchpad's hash at every vsync, and per vsync a hash of what rendering is handed
-(PS2X_PACKET_LOG, runtime/ps2_state_probe.h: the VIF1, GIF and VIF0 streams, the GS register writes)
+(ZX_PACKET_LOG, runtime/ps2_state_probe.h: the VIF1, GIF and VIF0 streams, the GS register writes)
 and of VU0's registers. A dump is 32 MB: delete a run's dumps when done.
 
 The inputs: `career` and `logic` are careercheck's and logiccheck's. The others are pad scripts in
 ab_inputs/ next to this file (or any FILE), made by `script` from a closed-loop routes.py run with
-PS2X_PAD_TRACE=<file> (the buttons and sticks the game read, by tick): tools/routes.py waits on the
+ZX_PAD_TRACE=<file> (the buttons and sticks the game read, by tick): tools/routes.py waits on the
 game through a client on the host, so its timing is the host's; the script it leaves replays the
 same presses at the same ticks. Such a file is `#env KEY=VAL` lines and the script. A route that
-pokes the game (a teleport to a giver): PS2X_POKE_TRACE=<file> too, and `script TRACE OUT --pokes
-FILE`: the pokes go in as PS2X_POKE_SCRIPT, the same writes at the same vsyncs. `#env
-PS2X_ROUTES_CARD=DIR` starts from a copy of that card (under recomp/run), as routes.py start does.
+pokes the game (a teleport to a giver): ZX_POKE_TRACE=<file> too, and `script TRACE OUT --pokes
+FILE`: the pokes go in as ZX_POKE_SCRIPT, the same writes at the same vsyncs. `#env
+ZX_ROUTES_CARD=DIR` starts from a copy of that card (under recomp/run), as routes.py start does.
 
 `compare` takes two such run directories (a NAME.log with [state] lines alone also works; its
 mangled lines are then counted and listed as not compared) and reports:
@@ -84,7 +84,7 @@ dump (the dump's .sp file) is counted apart as dead stack: nothing can read it b
 thread whose record does not say where its stack is (main: SetupThread's values, sp under them) gets a
 `stack-of=ID` line with the range.
 
-`--clock K` runs with PS2X_EE_SCALE=K: the EE K times faster than the clock it is charged against,
+`--clock K` runs with ZX_EE_SCALE=K: the EE K times faster than the clock it is charged against,
 idle jumps whole, so no frame overruns its vsync and two sides that charge different cycles for the
 same work stay tick for tick together. What differs then is logic, not time. Two runs compare only
 at the same clock (`compare` says so and fails otherwise); a run's clock is in its run.txt.
@@ -97,7 +97,7 @@ reads before storing), on BOTH sides,
 readable or recompiled original alike (ee/abi.cpp installStackFill): `off` against the defaults, compared as `gate`
 does (ab_allow.txt), and the arguments of every voice call on top. Two fills (--fills):
 
-  - stores (PS2X_STACK_POISON_STORES, DIR/NAME-dp-off, -dp-on): only the slots the function stores in the original. A
+  - stores (ZX_STACK_POISON_STORES, DIR/NAME-dp-off, -dp-on): only the slots the function stores in the original. A
     store the readable keeps writes over the fill; one it drops leaves 0x5A where `off` has the original's value, and
     a later reader (hand-assets' pointVelocity: a transpose's w lanes through VU0 to the camera; hand-level2's
     pairDoubleRailEdge: an address bonePoint reads as a row's w at the museum; drawWorldPrimitives' place, which
@@ -105,7 +105,7 @@ does (ab_allow.txt), and the arguments of every voice call on top. Two fills (--
     control flow, readable_frame_stores.py): such a reader's own entry fill would write over the value left for it on
     both sides and hide the dropped store, as it did for those three before the table followed paths. The whole
     frame's fill cannot see this at all: the reader's own entry fills the slot either way.
-  - frames (PS2X_STACK_POISON_FRAMES, DIR/NAME-pz-off, -pz-on): the whole frame. A read of a slot the function never
+  - frames (ZX_STACK_POISON_FRAMES, DIR/NAME-pz-off, -pz-on): the whole frame. A read of a slot the function never
     writes (stale1's soundEvent 30, drawSparks).
 
 What the original itself reads stale (a slot stored on another path: ramDiskSeek's report when there is no callback,
@@ -121,8 +121,8 @@ waiting for 30% free memory), then `compare` with ab_allow.txt. One line per inp
 its dumps (--keep keeps them). Exit 0 only if every input passes.
 
 DM2's and BMX XXX's `menus` input (PAGE_INPUTS) is the app's Settings page in the game's own menus, from Options
-and from the pause menu (PS2X_GAME_SETTINGS_MENUS=1 on both sides, the route's), every section, Right then Left on
-every row. With the route's PS2X_TRACE_SETTINGS=1 its log has the page's keys (zge_settings.cpp: each key, the row,
+and from the pause menu (ZX_GAME_SETTINGS_MENUS=1 on both sides, the route's), every section, Right then Left on
+every row. With the route's ZX_TRACE_SETTINGS=1 its log has the page's keys (zge_settings.cpp: each key, the row,
 its value before and as the page then shows it): `compare` reads them back on each side (a Left finds the value its
 Right showed and, if the Right changed it, shows the one before again; page_readback) and wants the two sides' keys
 the same; a run that never reaches the page fails.
@@ -162,7 +162,7 @@ RAM_REGIONS = [  # the ELF's one segment and what the game keeps above it (a rep
     (0x01F00000, 0x02000000, 'above the main stack'),
 ]
 NOT_HELD = ('GPRs and FPU registers, IOP and SPU2 state, DMA and timers; VU memory, the GS registers and '
-            'VRAM only through the streams that make them (a VU1 microprogram does not run: PS2X_VU1_SKIP)')
+            'VRAM only through the streams that make them (a VU1 microprogram does not run: ZX_VU1_SKIP)')
 PACKET_STREAMS = ('vif1', 'gif', 'vif0', 'gs')
 # The merge gate's inputs and how far each goes (where its last route ends).
 GATE_INPUTS = (('career', 20000), ('logic', 36000), ('frontend', 31000), ('messages', 23500), ('split', 20000),
@@ -181,7 +181,7 @@ GAMES = {'dm2': {
                 (0x01F00000, 0x02000000, 'above the main stack')],
     'gate': (('fr-woodward', 12000), ('fr-trainyards', 12000), ('pq-woodward', 14000), ('se-woodward', 15000), ('frontend', 6000),
              ('editor-0', 20000), ('play-p1-se0', 15292), ('play-p3-fr0', 16782),  # those two played (ab_inputs/dm2-play-*)
-             ('menus', 15400)),  # the app's Settings page from Options and the pause menu (PS2X_GAME_SETTINGS_MENUS=1, both sides)
+             ('menus', 15400)),  # the app's Settings page from Options and the pause menu (ZX_GAME_SETTINGS_MENUS=1, both sides)
     # (with render_path = records, the defaults' native drawing since nativedef1: the records' own list too)
     'allow': 'ab_allow_dm2.txt,ab_allow_records_dm2.txt',
     'cycles': '1e79c8',  # any traced function will do: __divdi3
@@ -271,11 +271,11 @@ def run(args):
     cards = None
     if other:
         env['GAME'] = args.game
-        env.update({'PS2X_DEV_UNLOCK_ALL': '1', 'PS2X_MC_FD_BASE0': '1', 'PS2X_MC_FIXED_TIME': '1'})  # (the card as dm2corpus.py records it)
+        env.update({'ZX_DEV_UNLOCK_ALL': '1', 'ZX_MC_FD_BASE0': '1', 'ZX_MC_FIXED_TIME': '1'})  # (the card as dm2corpus.py records it)
         if args.game == 'dm2':
-            env['PS2X_PACKET_DEAD_W'] = '1'  # (proven for DM2's shadow volumes' point blocks: tools34, tested2)
+            env['ZX_PACKET_DEAD_W'] = '1'  # (proven for DM2's shadow volumes' point blocks: tools34, tested2)
         if PASSTHROUGH_PROGRAMS.get(args.game):  # (the GS's unread PACKED bits of what a passthrough program sends)
-            env['PS2X_PACKET_PASSTHROUGH'] = ','.join('0x%X' % p for p in PASSTHROUGH_PROGRAMS[args.game])
+            env['ZX_PACKET_PASSTHROUGH'] = ','.join('0x%X' % p for p in PASSTHROUGH_PROGRAMS[args.game])
         played = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ab_inputs', args.game + '-' + args.input + '.txt')
         if os.path.exists(played):  # a played route kept with the gate (ab_inputs): its script and environment
             with open(played) as f:
@@ -289,13 +289,13 @@ def run(args):
         own = {}
         for line in pairs:
             key, _, value = line.partition('=')  # the route's own environment, but for the clock (--clock's)
-            if key == 'PS2X_SAVES_DIR' and value.startswith('@'):
+            if key == 'ZX_SAVES_DIR' and value.startswith('@'):
                 # a saves folder kept with the input (ab_inputs/<name>: BMX XXX's park), copied into the run's folder
                 # so the run writes only its own copy
                 saves = os.path.join(out, 'saves')
                 shutil.copytree(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ab_inputs', value[1:]), saves)
                 value = saves
-            if key != 'PS2X_EE_SCALE':
+            if key != 'ZX_EE_SCALE':
                 env[key] = value
                 own[key] = value
         if len(script) > 100000:  # a played route (tools/playbot): longer than an environment string can be
@@ -315,7 +315,7 @@ def run(args):
             for line in f:
                 if line.startswith('#env '):
                     key, _, value = line[5:].strip().partition('=')
-                    if key == 'PS2X_ROUTES_CARD':
+                    if key == 'ZX_ROUTES_CARD':
                         cards = os.path.join(main, 'recomp', 'run', value)
                     else:
                         env[key] = value
@@ -323,36 +323,36 @@ def run(args):
                     script += line.strip()
     ticks = range(args.every, args.to + 1, args.every) if args.every else []
     env.update({
-        'RUN_DIR': root, 'RUNNER': args.runner, 'PS2X_PAD_SCRIPT': script.rstrip('\n'), 'PS2X_PAD_SCRIPT_CLOCK': 'vsync',
-        'PS2X_HOST_INPUT': '0', 'PS2X_GS_NULL': '1', 'PS2X_VU1_SKIP': '1', 'PS2X_SAVES': 'card', 'STOP_TICK': str(args.to),
-        'PS2X_STATE_LOG': fields, 'PS2X_STATE_LOG_FILE': os.path.join(out, 'state.log'),
-        'PS2X_DUMP_PREFIX': os.path.join(out, 'dump'),
-        'PS2X_PACKET_LOG': os.path.join(out, 'packets.txt'),
+        'RUN_DIR': root, 'RUNNER': args.runner, 'ZX_PAD_SCRIPT': script.rstrip('\n'), 'ZX_PAD_SCRIPT_CLOCK': 'vsync',
+        'ZX_HOST_INPUT': '0', 'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1', 'ZX_SAVES': 'card', 'STOP_TICK': str(args.to),
+        'ZX_STATE_LOG': fields, 'ZX_STATE_LOG_FILE': os.path.join(out, 'state.log'),
+        'ZX_DUMP_PREFIX': os.path.join(out, 'dump'),
+        'ZX_PACKET_LOG': os.path.join(out, 'packets.txt'),
         # The scratchpad's hash at every vsync (the cycle tracer's watch; it needs one traced function).
-        'PS2X_FNCYCLES': (other['cycles'] if other else '18fc70') + ':' + os.path.join(out, 'fncycles.txt'),
-        'PS2X_FNCYCLES_WATCH': '70000000+16384:' + os.path.join(out, 'scratchpad.txt'),
+        'ZX_FNCYCLES': (other['cycles'] if other else '18fc70') + ':' + os.path.join(out, 'fncycles.txt'),
+        'ZX_FNCYCLES_WATCH': '70000000+16384:' + os.path.join(out, 'scratchpad.txt'),
     })
-    if other and own.get('PS2X_SAVES'):
-        env['PS2X_SAVES'] = own['PS2X_SAVES']  # an input of the native saves (pe-session: a park saved as a file)
+    if other and own.get('ZX_SAVES'):
+        env['ZX_SAVES'] = own['ZX_SAVES']  # an input of the native saves (pe-session: a park saved as a file)
     if args.packet_dump:
-        env['PS2X_PACKET_DUMP'] = args.packet_dump
+        env['ZX_PACKET_DUMP'] = args.packet_dump
     if args.voices:  # (the call log's own: vsync numbers and scratchpad as without it)
-        env['PS2X_FNCYCLES'] = ','.join([other['cycles'] if other else '18fc70'] + ['%x' % a for a in voice_table(args.game)]) + ':' + os.path.join(out, 'fncycles.txt')
-        env['PS2X_FNCYCLES_ARGS'] = os.path.join(out, 'voice.txt')
+        env['ZX_FNCYCLES'] = ','.join([other['cycles'] if other else '18fc70'] + ['%x' % a for a in voice_table(args.game)]) + ':' + os.path.join(out, 'fncycles.txt')
+        env['ZX_FNCYCLES_ARGS'] = os.path.join(out, 'voice.txt')
     if args.poison:
-        env['PS2X_STACK_POISON'] = '1'
+        env['ZX_STACK_POISON'] = '1'
     table = args.stores or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'readable_frame_stores.tsv')
     if args.poison_stores:
-        env['PS2X_STACK_POISON_STORES'] = table
+        env['ZX_STACK_POISON_STORES'] = table
     if args.poison_frames:
-        env['PS2X_STACK_POISON_FRAMES'] = table
-    env.pop('PS2X_EE_SCALE', None)
+        env['ZX_STACK_POISON_FRAMES'] = table
+    env.pop('ZX_EE_SCALE', None)
     if args.clock != 1:
-        env['PS2X_EE_SCALE'] = str(args.clock)
+        env['ZX_EE_SCALE'] = str(args.clock)
     if ticks:
-        env['PS2X_DUMP_WHEN'] = ','.join('t%d:tick==%d' % (t, t) for t in ticks)
+        env['ZX_DUMP_WHEN'] = ','.join('t%d:tick==%d' % (t, t) for t in ticks)
     if args.spec is not None:
-        env['PS2X_READABLE'] = args.spec
+        env['ZX_READABLE'] = args.spec
     with open(os.path.join(out, 'run.txt'), 'w') as f:
         f.write('runner %s\nspec %s\nto %d\ninput %s\nfields %s\nclock %d\n' % (args.runner, args.spec, args.to, args.input, fields, args.clock))
         if other:
@@ -799,7 +799,7 @@ def dm2_traffic_car_random(dump):
 
 
 # DM2's particle batches in the frame's packets (tools34): a V4-32 UNPACK to VU1 0x20 or 0xA0 (its NUM qwords, 0 is 256)
-# right after an STCYCL 4, 4, the vertices' w of its data: ps2_state_probe.cpp's deadParticleLanes (PS2X_PACKET_DEAD_W,
+# right after an STCYCL 4, 4, the vertices' w of its data: ps2_state_probe.cpp's deadParticleLanes (ZX_PACKET_DEAD_W,
 # which run sets for DM2), the stream's words no microprogram reads, where they sit in RAM before the DMA sends them.
 DM2_STCYCL_4_4, DM2_PARTICLE_UNPACKS = 0x01000404, (0x6C000020, 0x6C0000A0)
 
@@ -985,10 +985,10 @@ def packet_2d_uniform_texcoords(dump):
 
 
 # The bits of a GIF packet's PACKED data the GS does not read, where a passthrough microprogram sends the packet (tested2;
-# ps2_state_probe.cpp's Passthrough, PS2X_PACKET_PASSTHROUGH, at the words' place in RAM): a TOPS-relative V4-32 UNPACK
+# ps2_state_probe.cpp's Passthrough, ZX_PACKET_PASSTHROUGH, at the words' place in RAM): a TOPS-relative V4-32 UNPACK
 # (after STCYCL 4, 4) whose data starts with a PACKED GIF tag, an MSCAL of a passthrough program (DM2's 0x1C: XTOP vi1,
 # XGKICK vi1, end) after it before any other MSCAL, and the word in one of the tag's register qwords: its bits that
-# register does not read (the GS manual's PACKED formats, ps2xVu1Check's packedMask).
+# register does not read (the GS manual's PACKED formats, zx-vu1check's packedMask).
 PASSTHROUGH_PROGRAMS = {'dm2': (0x1C,)}
 PACKED_MASKS = {0x1: (0xFF, 0xFF, 0xFF, 0xFF), 0x2: (0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0), 0x3: (0x3FFF, 0x3FFF, 0, 0),
                 0x4: (0xFFFF, 0xFFFF, 0x0FFFFFF0, 0x8FF0), 0xC: (0xFFFF, 0xFFFF, 0x0FFFFFF0, 0x8FF0),
@@ -1078,7 +1078,7 @@ def frame_packets(game):
     renderer's frameBuffers name them in the dump: what the packet library writes and the DMA reads), the mesh
     packet's cursor words, the texture request's marker, the statistics' fewest free packet bytes, and the word each
     frame fix-up patches (pointers into the packets). Which code reads them is the watch run's
-    (PS2X_LANE_WATCH over the buffers: the packet library, the frame fix-ups and the DMA only, native1)."""
+    (ZX_LANE_WATCH over the buffers: the packet library, the frame fix-ups and the DMA only, native1)."""
     base, buffers, mesh, marker, least, fixups = RENDERERS[game]
 
     def rule(dump):
@@ -1491,7 +1491,7 @@ def compare_packets(a_dir, b_dir, report, problems, allow=()):
             name, format(len(common), ','), format(sum(int(a[t][2 * i]) for t in common), ','), format(len(differ), ','),
             ' (%s in size), ticks %d to %d' % (format(sized, ','), differ[0], differ[-1]) if differ else ''))
         # Two rows' w, stack residue the original leaves, that no microprogram reads: VU1 0x3F3's
-        # (camera->forward.w) and qword 9's of the 14 quadwords to VU1 1 (ps2xVu1Check --reads and --poke;
+        # (camera->forward.w) and qword 9's of the 14 quadwords to VU1 1 (zx-vu1check --reads and --poke;
         # ps2_state_probe.cpp's kDeadWords). Counted apart.
         dead = [t for t in differ if name == 'vif1' and len(a[t]) > 10 and len(b[t]) > 10 and a[t][10] == b[t][10]]
         if dead:
@@ -1510,7 +1510,7 @@ def compare_packets(a_dir, b_dir, report, problems, allow=()):
 
 
 def script_of(args):
-    """A pad script of a PS2X_PAD_TRACE file: each button's presses and each stick's moves."""
+    """A pad script of a ZX_PAD_TRACE file: each button's presses and each stick's moves."""
     held = {}
     items = []
     last = 0
@@ -1547,7 +1547,7 @@ def script_of(args):
             f.write('#env %s\n' % pair)
         if args.pokes:
             pokes = [line.split() for line in open(args.pokes) if line.strip()]
-            f.write('#env PS2X_POKE_SCRIPT=%s\n' % ','.join('%s:%s=%s' % tuple(p) for p in pokes))
+            f.write('#env ZX_POKE_SCRIPT=%s\n' % ','.join('%s:%s=%s' % tuple(p) for p in pokes))
         f.write(','.join(text for _, text in items) + '\n')
     print('%d presses to tick %d in %s' % (len(items), last, args.out))
 
@@ -1775,14 +1775,14 @@ def compare_voices(a_dir, b_dir, report, problems, listed):
             problems.append('%s: %d of %d calls differ, %d and %d made' % (name, len(differ), min(len(x), len(y)), len(x), len(y)))
 
 
-# The inputs that use the app's Settings page in the game's menus (a route's PS2X_GAME_SETTINGS_MENUS=1 and
-# PS2X_TRACE_SETTINGS=1): a run of one that never reaches the page fails, as one whose page reads back wrong.
+# The inputs that use the app's Settings page in the game's menus (a route's ZX_GAME_SETTINGS_MENUS=1 and
+# ZX_TRACE_SETTINGS=1): a run of one that never reaches the page fails, as one whose page reads back wrong.
 PAGE_INPUTS = ('menus',)
 PAGE_KEY = re.compile(r"^\[settings\] page (0x[0-9a-f]+) (\w+): (\S+) (\S*) '(.*)' -> '(.*)'$")
 
 
 def page_keys(directory):
-    """The Settings page's keys in a run's log (zge_settings.cpp's PS2X_TRACE_SETTINGS lines): [(dialog, key, section,
+    """The Settings page's keys in a run's log (zge_settings.cpp's ZX_TRACE_SETTINGS lines): [(dialog, key, section,
     row, value before, value the page shows after)]."""
     logs = [p for p in glob.glob(os.path.join(directory, '*.log')) if os.path.basename(p) != 'state.log']
     out = []
@@ -1821,7 +1821,7 @@ def compare_page(a_dir, b_dir, report, problems):
     name = re.search(r'^input (\S+)$', open(info).read(), re.M) if os.path.exists(info) else None
     if not a and not b:
         if name and name.group(1) in PAGE_INPUTS:
-            report('Settings page: never reached (no PS2X_TRACE_SETTINGS page keys in either log)')
+            report('Settings page: never reached (no ZX_TRACE_SETTINGS page keys in either log)')
             problems.append('the Settings page never reached')
         return
     for side, keys in (('A', a), ('B', b)):
@@ -1979,11 +1979,11 @@ def main():
     r.add_argument('--input', default='career')
     r.add_argument('--packet-dump')
     r.add_argument('--voices', action='store_true', help='log every voice call\'s arguments (voice.txt)')
-    r.add_argument('--poison', action='store_true', help='PS2X_STACK_POISON=1')
-    r.add_argument('--poison-stores', action='store_true', help='PS2X_STACK_POISON_STORES=readable_frame_stores.tsv')
-    r.add_argument('--poison-frames', action='store_true', help='PS2X_STACK_POISON_FRAMES=readable_frame_stores.tsv')
+    r.add_argument('--poison', action='store_true', help='ZX_STACK_POISON=1')
+    r.add_argument('--poison-stores', action='store_true', help='ZX_STACK_POISON_STORES=readable_frame_stores.tsv')
+    r.add_argument('--poison-frames', action='store_true', help='ZX_STACK_POISON_FRAMES=readable_frame_stores.tsv')
     r.add_argument('--stores', help='with --poison-stores, --poison-frames: another table (a part of it, to find which function a difference is)')
-    r.add_argument('--clock', type=int, default=1, help='PS2X_EE_SCALE (1: the PS2\'s clock)')
+    r.add_argument('--clock', type=int, default=1, help='ZX_EE_SCALE (1: the PS2\'s clock)')
     r.set_defaults(func=run)
     g = sub.add_parser('gate')
     g.add_argument('--dir', required=True)
@@ -1998,8 +1998,8 @@ def main():
     g.add_argument('--voices', action='store_true', help='log the voice calls too (voice.txt)')
     g.add_argument('--every', type=int, help='a RAM dump every N ticks (run\'s default: 3,000); 500 sees what a dump every '
                    '3,000 ticks misses (bmxw1: a QueryHit\'s w that lives a frame)')
-    g.add_argument('--spec', help='the on side\'s PS2X_READABLE (tested: the gate of a game\'s Tested functions); default the defaults')
-    g.add_argument('--off-spec', default='off', help='the off side\'s PS2X_READABLE (default off). A setting that needs a '
+    g.add_argument('--spec', help='the on side\'s ZX_READABLE (tested: the gate of a game\'s Tested functions); default the defaults')
+    g.add_argument('--off-spec', default='off', help='the off side\'s ZX_READABLE (default off). A setting that needs a '
                    'readable body on both sides: off with that one on, e.g. off,+newRider for DM2\'s Create Player, which '
                    'turns itself down where readable newRider does not run (tools29)')
     t = sub.add_parser('stale')
@@ -2015,8 +2015,8 @@ def main():
     t.add_argument('--fills', default='stores,frames', help='stores, frames or both (the module\'s text)')
     t.add_argument('--stores', help='another table than readable_frame_stores.tsv (as `run`\'s)')
     t.add_argument('--game', default='ai', choices=('ai',) + tuple(GAMES))
-    t.add_argument('--spec', help='the on side\'s PS2X_READABLE (as gate\'s); default the defaults')
-    t.add_argument('--off-spec', default='off', help='the off side\'s PS2X_READABLE (default off). A setting that needs a '
+    t.add_argument('--spec', help='the on side\'s ZX_READABLE (as gate\'s); default the defaults')
+    t.add_argument('--off-spec', default='off', help='the off side\'s ZX_READABLE (default off). A setting that needs a '
                    'readable body on both sides: off with that one on, e.g. off,+newRider for DM2\'s Create Player, which '
                    'turns itself down where readable newRider does not run (tools29)')
     t.set_defaults(func=stale)
@@ -2035,7 +2035,7 @@ def main():
     s.add_argument('trace')
     s.add_argument('out')
     s.add_argument('env', nargs='*')
-    s.add_argument('--pokes', help='a PS2X_POKE_TRACE file')
+    s.add_argument('--pokes', help='a ZX_POKE_TRACE file')
     s.set_defaults(func=script_of)
     p = sub.add_parser('packets')
     p.add_argument('a')

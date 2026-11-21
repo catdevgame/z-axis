@@ -44,7 +44,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     enum class PanelGame
     {
@@ -78,4 +78,15 @@ namespace ps2x::app::extras
     // cannot be written (the files made before it stay).
     bool makePanelMaps(PanelGame game, const SourceFiles &disc, const PanelExtras &extras,
                        const std::filesystem::path &out, std::vector<std::string> &log, std::string *error);
+
+    // One level's file for a custom map (collection/maps.h), made at its
+    // boot from the files the boot reads: `files` the game's PS2 disc with
+    // the map's files over it (LayeredFiles, paths from the disc's root),
+    // `folder` the slot's level folder, `title` the map's name. As the
+    // setup's: AI's map and the goals of the slot's career script, DM2's
+    // map (a FREERIDE row runs no goals), BMX XXX's map and the challenges
+    // of the slot's OBJCTV.TXT (the map's own). False with *error when the
+    // level's files do not read.
+    bool makeMapPanelFile(PanelGame game, const SourceFiles &files, const std::string &folder, const std::string &title, Bytes &out,
+                          std::vector<std::string> &log, std::string *error);
 }

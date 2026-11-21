@@ -106,7 +106,7 @@ namespace zge
     struct ModelLoadRequest
     {
         ee::Ptr<char> file;             // +0x00 SceneEntry::file
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2: ZGE2's request is three words, with no id (its newSceneModel sets file, reserved and model; its
         // loadZitModel reads +0x04 and stores the model at +0x08). The id stands past them: nothing of DM2's reads it.
         uint32_t reserved;              // DM2 +0x04

@@ -5,7 +5,7 @@
 // texture, and (Aggressive Inline) the Xbox Bink movie for each PS2 movie.
 // Aggressive Inline's is made as tools/xbox_pack.py makes it (the reference:
 // the same bytes); DM2's and BMX XXX's the same way from their own Xbox
-// libraries' forms (below). The game overrides read them (PS2X_XBOX_PACK:
+// libraries' forms (below). The game overrides read them (ZX_XBOX_PACK:
 // Xbox Textures, Xbox Movies; game_overrides/zge_xbox_textures.h).
 //
 //   <out>/textures/<PS2 path>.xtp   one per PS2 file with replacements
@@ -22,7 +22,12 @@
 // pictures are TDDS chunks (u32 0, then a DDS file: DXT3 with its mips for
 // levels), BMX XXX's TXRCs are each packed in a ZLZO chunk (u32 the unpacked
 // size, then LZO1X: collection/extras/lzo1x.h), and its level props'
-// textures are in the levels' ZAL archives (options.archives).
+// textures are in the levels' ZAL archives (options.archives), where the
+// Xbox names mostly differ (the size dropped: "NDMBURNB_ID1128" ->
+// "NDMBURNB_ID1"): there a PS2 texture with no Xbox picture by name is
+// paired by picture, with the most alike Xbox picture of the archive made
+// small (options.maxPictureDiff, maxPictureCover; report.txt lists each
+// pair and each texture left out with its nearest).
 //
 // The Xbox files keep the PS2 names (sizes dropped from AI's skater names,
 // IDn slots kept); a few renamed ones are paired by name below. A pair goes
@@ -42,7 +47,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     struct XboxTexturePackOptions
     {
@@ -50,6 +55,9 @@ namespace ps2x::app::extras
         double maxCover = 0.5; // largest mean difference of the opaque share a thumbnail cell (0-1)
         bool movies = true;    // the Bink movies too
         bool archives = false; // the ZAL archives' textures too (BMX XXX's level props)
+        // An archive's PS2 texture with no Xbox picture by name, paired by picture (32 x 32 at most):
+        double maxPictureDiff = 10.0;  // largest mean RGB difference where both are opaque (0-255)
+        double maxPictureCover = 0.05; // largest mean difference of the opaque share (0-1)
     };
 
     // Writes the pack into `out` (which should be empty). `log` gets the

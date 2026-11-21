@@ -285,7 +285,7 @@ namespace zge
         ee::Ptr<RotationTrack> rotations;       // +0x2C 0: none
         ee::Ptr<TranslationTrack> translations; // +0x30 0: none
         ee::Ptr<ScaleTrack> scales;             // +0x34 0: none
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2 +0x38: ZGE2's track ends with its link (0x3C bytes, kAnimationTrackBytes): a channel's tracks are
         // singly linked, and ZGE2 keeps no game record, play serial or link back. ZGE3's fields below stand past
         // the end of DM2's record: nothing of DM2's reads them.
@@ -295,7 +295,7 @@ namespace zge
         // the update's callback is told when the track is taken off.
         uint32_t gameRecord;
         uint32_t id;              // +0x3C the play's serial (startAnimation's result): what the callback is given
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         ee::Ptr<AnimationTrack> next;     // +0x40
 #endif
         ee::Ptr<AnimationTrack> previous; // +0x44 0: the channel's first
@@ -324,7 +324,7 @@ namespace zge
         Vec4 translation;           // +0x00
         Vec4 scale;                 // +0x10
         Quaternion rotation;        // +0x20
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2 +0x30: ZGE2's channel is the key, the bone, its flags and its tracks (0x40 bytes,
         // kAnimationChannelBytes): it keeps no sums, weights or object. ZGE3's fields below stand past the end
         // of DM2's record: nothing of DM2's reads them.
@@ -344,12 +344,12 @@ namespace zge
         ee::Float translationWeight; // +0x64
         ee::Float scaleWeight;      // +0x68
         ee::Float rotationWeight;   // +0x6C
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t boneId;            // +0x70 the bone's name hash
         uint16_t flags;             // +0x74 ChannelFlags (the other bits kept)
         uint16_t _76;
 #endif
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         ee::Ptr<AnimationTrack> tracks;  // +0x78 the newest first
 #endif
         ee::Ptr<AnimationTrack> mixNext; // +0x7C the next track to mix
@@ -400,7 +400,7 @@ namespace zge
         uint32_t changes;               // +0x04 the channels' ChannelFlags (bits 0-2), cleared by the pose update
         ee::Ptr<AnimationChannel> channels; // +0x08 (right after the header)
         ee::Float start;                // +0x0C the motion's start: event times count from here
-#if PS2X_GAME_DM2
+#if ZX_GAME_DM2
         // DM2 +0x10: ZGE2's animator has no stopped word (its startAnimation sets both event words, its update
         // walks the second). ZGE3's stopped word stands past the end of DM2's header: nothing of DM2's reads it.
         ee::Ptr<AnimationEvent> firstEvent; // DM2 +0x10
@@ -411,7 +411,7 @@ namespace zge
         // +0x10 set by the event hook: the update stops (startAnimation
         // sets it, the update clears it first).
         uint32_t stopped;
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         ee::Ptr<AnimationEvent> firstEvent; // +0x14 the playing motion's first event (of the object's set)
         ee::Ptr<AnimationEvent> events;     // +0x18 the next event
         uint32_t _1c;

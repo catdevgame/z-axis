@@ -24,7 +24,7 @@
 #include <span>
 #include <vector>
 
-namespace ps2x::iop::detail::spu2
+namespace zx::spu2
 {
     using s8 = int8_t;
     using u8 = uint8_t;
@@ -526,14 +526,14 @@ namespace ps2x::iop::detail::spu2
         u32 PendingIrqs = 0;
         u64 SamplesMixed = 0;
 
-        // Optional raw dump of ADMA input blocks (PS2X_SPU2_ADMA_DUMP=<path>).
+        // Optional raw dump of ADMA input blocks (ZX_SPU2_ADMA_DUMP=<path>).
         std::FILE *AdmaDump = nullptr;
         // Optional SPU2 RAM + voice state snapshot every 5 emulated seconds
-        // (PS2X_SPU2_RAM_DUMP=<prefix>: <prefix>.ram, <prefix>.voices).
+        // (ZX_SPU2_RAM_DUMP=<prefix>: <prefix>.ram, <prefix>.voices).
         const char *RamDumpPrefix = nullptr;
         void DumpState();
 
-        // Optional trace (PS2X_TRACE_SPU2=<n>: first n events).
+        // Optional trace (ZX_TRACE_SPU2=<n>: first n events).
         std::function<void(const char *)> Trace;
         long TraceBudget = 0;
         void TraceEvent(const char *fmt, ...);

@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-namespace zoo = ps2x::zaxis::zoo;
-namespace tr = ps2x::texture_replace;
+namespace zoo = zx::zaxis::zoo;
+namespace tr = zx::texture_replace;
 
 namespace
 {

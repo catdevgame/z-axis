@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-using namespace ps2x::zaxis;
+using namespace zx::zaxis;
 
 namespace
 {

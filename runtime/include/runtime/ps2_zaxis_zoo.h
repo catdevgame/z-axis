@@ -3,11 +3,11 @@
 // Aggressive Inline's Zoo (the level cut from the PS2 release; the Xbox
 // release has it) made into PS2 files at build time, from the user's Xbox
 // files and PS2 disc. The packaging step (tools/make-app.sh,
-// tools/make-windows.ps1) runs ps2xXboxConvert (tools/xbox_convert.cpp),
+// tools/make-windows.ps1) runs zx-xbox-convert (tools/xbox_convert.cpp),
 // which writes what build() makes into the app (Resources/xbox-converted;
 // Windows: xbox-converted\ next to disc\). The game override
 // (game_overrides/aggressive_inline_zoo.cpp) only serves those files
-// (PS2X_XBOX_CONVERTED); it converts nothing.
+// (ZX_XBOX_CONVERTED); it converts nothing.
 //
 // What is made (normalized game paths, under the output folder):
 //   ASSETS/LEVELS/ZOO/ZOO.TXR   the Xbox textures as 8-bit BMPs, at most 128
@@ -44,7 +44,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::zaxis::zoo
+namespace zx::zaxis::zoo
 {
     // The engine's name hash (0x148888): case-insensitive ELF hash.
     constexpr uint32_t engineHash(const char *name)

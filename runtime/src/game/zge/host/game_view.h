@@ -10,14 +10,14 @@
 //
 // The camera the game decides by can also stand elsewhere than the drawn one: a game whose camera settings move its
 // camera (AI's Camera Distance and Height, mouse-look) runs a hidden follow camera at the game's own tuning each frame
-// and keeps its pose here (keepGamePose). The game's view is then that pose: its frustum, the area the scene walk
+// and keeps its pose here (runtime/ps2_game_pose.h). The game's view is then that pose: its frustum, the area the scene walk
 // stamps the regions out of view from, and the eye the placed effects measure their range from
 // (gameCameraPosition); the drawn camera keeps the settings' place and its wall collision.
 //
 // While a camera's drawn frustum is its game's, nothing is kept and the walk marks as it always did.
 
 #include "zge/math/types.h"
-#include "zge/host/game_pose.h"
+#include "runtime/ps2_game_pose.h"
 
 #include <cstdint>
 
@@ -47,6 +47,7 @@ namespace zge::host
     // The camera's game frustum when it differs from the drawn one, else null.
     const GameFrustum *gameFrustum(ee::Ptr<const Camera> camera);
 
-    // The camera's game pose kept for this frame, taken (zge/host/game_pose.h; updateFrustum's).
+    // The camera's game pose while it holds (runtime/ps2_game_pose.h; updateFrustum's).
+    using GamePose = zx::game_pose::Pose;
     bool takeGamePose(ee::Ptr<const Camera> camera, GamePose &pose);
 }

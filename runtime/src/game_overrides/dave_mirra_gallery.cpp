@@ -1,5 +1,5 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): the Retro movie as the movie
-// gallery's last line ([extras] retro_movie, PS2X_DM2_RETRO_MOVIE=1; off by
+// gallery's last line ([extras] retro_movie, ZX_DM2_RETRO_MOVIE=1; off by
 // default).
 //
 // The PS2's menu movie table already has it: g_menuMovies[15] is
@@ -12,7 +12,7 @@
 // movie!": a reward the PS2's career never gives); their discs have the
 // movie (Xbox movie/retro.bik). Here the line is added after the game's,
 // open, and assets\movie\retro.pss is the Xbox's movie made into a PSS at app
-// build (tooling/ai/tools/dm2_xbox.py: <PS2X_DM2_XBOX_LEVELS_DIR>/movies/
+// build (tooling/ai/tools/dm2_xbox.py: <ZX_DM2_XBOX_LEVELS_DIR>/movies/
 // ASSETS/MOVIE/RETRO.PSS, the picture at its 512x256 and 30 frames a second,
 // its sound as the PS2 movies' 48 kHz PCM).
 
@@ -39,7 +39,7 @@ namespace dave_mirra::gallery
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
         namespace fs = std::filesystem;
 
         constexpr const char kTag[] = "[gallery]";
@@ -55,7 +55,7 @@ namespace dave_mirra::gallery
             fs::path movie;
             PS2Runtime::RecompiledFunction movieUpdate = nullptr;
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         // The movie, read at each open (not kept: 82 MB; a Bink file the host
         // plays: served so the game finds it).
@@ -88,8 +88,8 @@ namespace dave_mirra::gallery
     bool install(PS2Runtime &runtime)
     {
         State &st = state();
-        const char *on = ps2x::boot::text("PS2X_DM2_RETRO_MOVIE");
-        const char *dir = ps2x::boot::text("PS2X_DM2_XBOX_LEVELS_DIR");
+        const char *on = zx::boot::text("ZX_DM2_RETRO_MOVIE");
+        const char *dir = zx::boot::text("ZX_DM2_XBOX_LEVELS_DIR");
         if (!on || on[0] != '1')
             return false;
         std::error_code ec;

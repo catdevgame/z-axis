@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x_app::platform
+namespace zx_app::platform
 {
     // The app's own resources: Contents/Resources of the bundle on macOS,
     // elsewhere the executable's folder (argv0 resolved).

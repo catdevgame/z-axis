@@ -10,7 +10,7 @@
 // This is the device's PS2 form, which the readable game proves against the
 // original. The host runs its own form of the functions that talk to the IOP
 // (zge/host/disc_device.cpp: the game's files on the host); [host] disc = ps2
-// (ZAXIS_DISC=ps2, PS2X_DISC=cdvd) runs this one over the emulated IOP, the
+// (ZX_DISC=ps2) runs this one over the emulated IOP, the
 // only route to these. The rest of the table (the device's name, the checks
 // with nothing to ask the IOP) is the same in both.
 

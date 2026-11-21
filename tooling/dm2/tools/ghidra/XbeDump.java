@@ -1,6 +1,6 @@
 // Debug helper: the listing from an address on (x86, variable length), with the function each
 // instruction is in. Args: <addr>[:<addr>...] <instructions>
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;

@@ -5,7 +5,7 @@
 
 class PS2Runtime;
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     class GameFile;
 }
@@ -18,5 +18,5 @@ namespace aggressive_inline
 
     // A game file as the game's own opens see it (mods folder, providers,
     // the disc, patches); null if there is none.
-    std::shared_ptr<ps2x::game_files::GameFile> openGameFile(const std::string &path);
+    std::shared_ptr<zx::game_files::GameFile> openGameFile(const std::string &path);
 }

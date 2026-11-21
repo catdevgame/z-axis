@@ -4,15 +4,18 @@
 #include "runtime/ps2_disc_patch.h"
 #include "runtime/ps2_boot_config.h"
 #include "runtime/ps2_zip_archive.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
+#include "zx/zal_archive.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <functional>
+#include <iostream>
 #include <mutex>
 #include <system_error>
 
-namespace ps2x::game_files
+namespace zx::game_files
 {
     namespace
     {
@@ -68,7 +71,7 @@ namespace ps2x::game_files
         class ImageFile final : public GameFile
         {
         public:
-            ImageFile(std::shared_ptr<const ps2x::iop::Iso9660Image> image, uint64_t offset, uint64_t size)
+            ImageFile(std::shared_ptr<const zx::disc::Iso9660Image> image, uint64_t offset, uint64_t size)
                 : m_image(std::move(image)), m_offset(offset), m_size(size)
             {
             }
@@ -82,7 +85,7 @@ namespace ps2x::game_files
             }
 
         private:
-            std::shared_ptr<const ps2x::iop::Iso9660Image> m_image;
+            std::shared_ptr<const zx::disc::Iso9660Image> m_image;
             uint64_t m_offset = 0u;
             uint64_t m_size = 0u;
         };
@@ -105,6 +108,55 @@ namespace ps2x::game_files
             std::shared_ptr<const std::vector<uint8_t>> m_bytes;
         };
 
+        // A file with its first bytes replaced (registerHead): the head from
+        // memory, the rest the file's own.
+        class HeadFile final : public GameFile
+        {
+        public:
+            HeadFile(std::shared_ptr<const std::vector<uint8_t>> head, std::shared_ptr<GameFile> rest)
+                : m_head(std::move(head)), m_rest(std::move(rest))
+            {
+            }
+            uint64_t size() const override { return std::max<uint64_t>(m_head->size(), m_rest->size()); }
+            size_t read(uint64_t offset, void *destination, size_t size) override
+            {
+                size_t done = 0;
+                auto *out = static_cast<uint8_t *>(destination);
+                if (offset < m_head->size())
+                {
+                    done = static_cast<size_t>(std::min<uint64_t>(size, m_head->size() - offset));
+                    std::memcpy(out, m_head->data() + offset, done);
+                }
+                if (done < size)
+                    done += m_rest->read(offset + done, out + done, size - done);
+                return done;
+            }
+
+        private:
+            std::shared_ptr<const std::vector<uint8_t>> m_head;
+            std::shared_ptr<GameFile> m_rest;
+        };
+
+        struct HeadEntry
+        {
+            std::string path; // normalized
+            Head make;
+            std::string name;
+        };
+        // The boot's heads, and those made (by the path, the file's source
+        // and size: null when its maker left it as it is).
+        std::vector<HeadEntry> &heads()
+        {
+            static zx::boot::PerBoot<std::vector<HeadEntry>> ofBoot([] { return std::vector<HeadEntry>{}; });
+            return ofBoot.get();
+        }
+        using MadeHeads = std::map<std::string, std::shared_ptr<const std::vector<uint8_t>>>;
+        MadeHeads &madeHeads()
+        {
+            static zx::boot::PerBoot<MadeHeads> ofBoot([] { return MadeHeads{}; });
+            return ofBoot.get();
+        }
+
         struct ProviderEntry
         {
             std::string folder;
@@ -123,7 +175,7 @@ namespace ps2x::game_files
         // not served the other's files (runtime/ps2_boot_config.h).
         std::vector<ProviderEntry> &providers()
         {
-            static ps2x::boot::PerBoot<std::vector<ProviderEntry>> ofBoot([] { return std::vector<ProviderEntry>{}; });
+            static zx::boot::PerBoot<std::vector<ProviderEntry>> ofBoot([] { return std::vector<ProviderEntry>{}; });
             return ofBoot.get();
         }
 
@@ -212,6 +264,37 @@ namespace ps2x::game_files
                 return nullptr;
             return std::make_shared<HostFile>(stream, size);
         }
+
+        // The archives made with mods' entries (GameFileSystem::withEntries),
+        // for the boot: by the archive's path, where the file under them came
+        // from and every entry's bytes, so a file system over the same
+        // folders makes one once.
+        struct MadeArchive
+        {
+            std::shared_ptr<const std::vector<uint8_t>> bytes;
+            std::string source;
+        };
+        using MadeArchives = std::map<std::string, MadeArchive>;
+        MadeArchives &madeArchives()
+        {
+            static zx::boot::PerBoot<MadeArchives> ofBoot([] { return MadeArchives{}; });
+            return ofBoot.get();
+        }
+        std::mutex &madeArchivesMutex()
+        {
+            static std::mutex mutex;
+            return mutex;
+        }
+    }
+
+    bool isArchivePath(std::string_view normalized)
+    {
+        return normalized.size() > 4 && upper(normalized.substr(normalized.size() - 4)) == ".ZAL";
+    }
+
+    bool ignoredInArchiveFolder(std::string_view name)
+    {
+        return name.empty() || name.front() == '.' || upper(name) == upper(zx::zal::kListingFile);
     }
 
     std::string normalizePath(std::string_view path)
@@ -273,6 +356,19 @@ namespace ps2x::game_files
     {
         std::lock_guard<std::mutex> lock(providerMutex());
         providers().clear();
+    }
+
+    void registerHead(const std::string &path, Head make, std::string name)
+    {
+        std::lock_guard<std::mutex> lock(providerMutex());
+        heads().push_back({normalizePath(path), std::move(make), std::move(name)});
+    }
+
+    void removeHeads(const std::string &name)
+    {
+        std::lock_guard<std::mutex> lock(providerMutex());
+        auto &list = heads();
+        list.erase(std::remove_if(list.begin(), list.end(), [&name](const auto &entry) { return entry.name == name; }), list.end());
     }
 
     void registerMemoryFolder(const std::string &name, MemoryFolder files)
@@ -418,6 +514,128 @@ namespace ps2x::game_files
         return {};
     }
 
+    std::shared_ptr<GameFile> GameFileSystem::openInMod(const std::filesystem::path &root, const std::string &normalized)
+    {
+        if (const ZipPath &zip = zipRoot(root); zip.zip)
+        {
+            const std::string inside = zip.inside.empty() ? normalized : zip.inside + "/" + normalized;
+            std::vector<uint8_t> bytes;
+            if (!zip.zip->hasFile(inside) || !zip.zip->read(inside, bytes))
+                return nullptr;
+            auto file = std::make_shared<MemoryFile>(std::make_shared<const std::vector<uint8_t>>(std::move(bytes)));
+            file->m_origin = GameFile::Origin::Mod;
+            file->m_source = zip.zip->file().string() + ":" + inside;
+            return file;
+        }
+        const std::filesystem::path mod = resolveHost(root, normalized);
+        if (mod.empty())
+            return nullptr;
+        std::shared_ptr<GameFile> file = openHost(mod);
+        if (file)
+        {
+            file->m_origin = GameFile::Origin::Mod;
+            file->m_source = mod.string();
+        }
+        return file;
+    }
+
+    std::filesystem::path GameFileSystem::entryFolderIn(const std::filesystem::path &root, const std::string &normalized)
+    {
+        if (!isArchivePath(normalized))
+            return {};
+        if (const ZipPath &zip = zipRoot(root); zip.zip)
+        {
+            const std::string inside = zip.inside.empty() ? normalized : zip.inside + "/" + normalized;
+            return zip.zip->hasFolder(inside) ? root / std::filesystem::path(normalized) : std::filesystem::path();
+        }
+        return resolveHost(root, normalized, true);
+    }
+
+    std::shared_ptr<GameFile> GameFileSystem::withEntries(const std::string &normalized, std::shared_ptr<GameFile> base,
+                                                          const std::vector<std::filesystem::path> &folders)
+    {
+        namespace zal = zx::zal;
+        // Every mod's entries, the lowest mod's first: their bytes read now
+        // (they are the archive's key with the file under them).
+        struct Given
+        {
+            std::filesystem::path folder;
+            std::string name;
+            std::vector<uint8_t> bytes;
+        };
+        std::vector<Given> given;
+        std::string key = normalized + "\n" + base->source() + "\n" + std::to_string(base->size());
+        for (const std::filesystem::path &folder : folders)
+            for (const std::string &name : listFilesBelow(folder))
+            {
+                if (name.find('/') != std::string::npos)
+                {
+                    std::cout << "[mods] " << normalized << ": " << (folder / name).string()
+                              << " is in a folder of its own, not an entry: not read" << std::endl;
+                    continue;
+                }
+                if (ignoredInArchiveFolder(name))
+                    continue;
+                Given entry{folder, name, {}};
+                if (!readFileBelow(folder, name, entry.bytes))
+                    continue;
+                key += "\n" + (folder / name).string() + " " + std::to_string(entry.bytes.size()) + " " +
+                       std::to_string(std::hash<std::string_view>()(std::string_view(reinterpret_cast<const char *>(entry.bytes.data()), entry.bytes.size())));
+                given.push_back(std::move(entry));
+            }
+        {
+            std::lock_guard<std::mutex> lock(madeArchivesMutex());
+            const MadeArchives &made = madeArchives();
+            if (auto it = made.find(key); it != made.end())
+            {
+                auto file = std::make_shared<MemoryFile>(it->second.bytes);
+                file->m_origin = GameFile::Origin::Mod;
+                file->m_source = it->second.source;
+                return file;
+            }
+        }
+        std::vector<uint8_t> bytes;
+        zal::Archive archive;
+        std::string error;
+        if (!readAll(*base, bytes) || !zal::read(bytes, archive, &error))
+        {
+            std::cout << "[mods] " << normalized << ": mods have entries for it, but " << base->source() << " is not an archive ("
+                      << error << "): they are not read" << std::endl;
+            return base;
+        }
+        size_t replaced = 0;
+        for (Given &entry : given)
+        {
+            const std::optional<size_t> index = zal::findEntry(archive, entry.name);
+            if (!index)
+            {
+                std::cout << "[mods] " << normalized << ": it has no entry " << entry.name << ": "
+                          << (entry.folder / entry.name).string() << " is not read" << std::endl;
+                continue;
+            }
+            archive.entries[*index].data = std::move(entry.bytes);
+            ++replaced;
+        }
+        std::vector<uint8_t> out;
+        if (!zal::write(archive, out, &error))
+        {
+            std::cout << "[mods] " << normalized << ": the archive with the mods' entries cannot be made (" << error
+                      << "): they are not read" << std::endl;
+            return base;
+        }
+        MadeArchive made{std::make_shared<const std::vector<uint8_t>>(std::move(out)),
+                         base->source() + " with " + std::to_string(replaced) + " entries of mods"};
+        std::cout << "[mods] " << normalized << ": " << made.source << std::endl;
+        {
+            std::lock_guard<std::mutex> lock(madeArchivesMutex());
+            madeArchives()[key] = made;
+        }
+        auto file = std::make_shared<MemoryFile>(made.bytes);
+        file->m_origin = GameFile::Origin::Mod;
+        file->m_source = made.source;
+        return file;
+    }
+
     std::shared_ptr<GameFile> GameFileSystem::openOriginal(const std::string &normalized)
     {
         {
@@ -430,29 +648,24 @@ namespace ps2x::game_files
                 return file;
             }
         }
-        for (auto root = m_roots.mods.rbegin(); root != m_roots.mods.rend(); ++root) // (the last mod wins)
+        // The last mod's file wins; the folders of single entries above it
+        // are put in it (the highest first here).
+        std::vector<std::filesystem::path> entryFolders;
+        for (auto root = m_roots.mods.rbegin(); root != m_roots.mods.rend(); ++root)
         {
-            if (const ZipPath &zip = zipRoot(*root); zip.zip)
-            {
-                const std::string inside = zip.inside.empty() ? normalized : zip.inside + "/" + normalized;
-                std::vector<uint8_t> bytes;
-                if (!zip.zip->hasFile(inside) || !zip.zip->read(inside, bytes))
-                    continue;
-                auto file = std::make_shared<MemoryFile>(std::make_shared<const std::vector<uint8_t>>(std::move(bytes)));
-                file->m_origin = GameFile::Origin::Mod;
-                file->m_source = zip.zip->file().string() + ":" + inside;
-                return file;
-            }
-            const std::filesystem::path mod = resolveHost(*root, normalized);
-            if (mod.empty())
-                continue;
-            if (std::shared_ptr<GameFile> file = openHost(mod))
-            {
-                file->m_origin = GameFile::Origin::Mod;
-                file->m_source = mod.string();
-                return file;
-            }
+            if (std::shared_ptr<GameFile> file = openInMod(*root, normalized))
+                return entryFolders.empty() ? file : withEntries(normalized, std::move(file), {entryFolders.rbegin(), entryFolders.rend()});
+            if (std::filesystem::path folder = entryFolderIn(*root, normalized); !folder.empty())
+                entryFolders.push_back(std::move(folder));
         }
+        std::shared_ptr<GameFile> file = openBelowMods(normalized);
+        if (!file || entryFolders.empty())
+            return file;
+        return withEntries(normalized, std::move(file), {entryFolders.rbegin(), entryFolders.rend()});
+    }
+
+    std::shared_ptr<GameFile> GameFileSystem::openBelowMods(const std::string &normalized)
+    {
         {
             std::string name;
             if (std::shared_ptr<const std::vector<uint8_t>> bytes = provided(normalized, &name))
@@ -473,11 +686,11 @@ namespace ps2x::game_files
         }
         if (m_roots.image)
         {
-            const std::optional<ps2x::iop::IsoEntry> entry = m_roots.image->find(normalized);
+            const std::optional<zx::disc::IsoEntry> entry = m_roots.image->find(normalized);
             if (!entry || entry->directory)
                 return nullptr;
             auto file = std::make_shared<ImageFile>(m_roots.image,
-                                                    static_cast<uint64_t>(entry->lsn) * ps2x::iop::Iso9660Image::kSectorSize,
+                                                    static_cast<uint64_t>(entry->lsn) * zx::disc::Iso9660Image::kSectorSize,
                                                     entry->size);
             file->m_source = m_roots.image->path().string() + ":" + normalized;
             return file;
@@ -493,12 +706,47 @@ namespace ps2x::game_files
         std::shared_ptr<GameFile> file = openOriginal(normalized);
         if (!file)
             return nullptr;
+        // A head for this path (registerHead), made once for the file found.
+        Head make;
+        {
+            std::lock_guard<std::mutex> lock(providerMutex());
+            for (const HeadEntry &entry : heads())
+                if (entry.path == normalized)
+                    make = entry.make;
+        }
+        if (make)
+        {
+            const std::string key = normalized + "\n" + file->source() + "\n" + std::to_string(file->size());
+            std::shared_ptr<const std::vector<uint8_t>> head;
+            bool known = false;
+            {
+                std::lock_guard<std::mutex> lock(madeArchivesMutex());
+                if (auto it = madeHeads().find(key); it != madeHeads().end())
+                {
+                    head = it->second;
+                    known = true;
+                }
+            }
+            if (!known)
+            {
+                head = make(*file);
+                std::lock_guard<std::mutex> lock(madeArchivesMutex());
+                madeHeads()[key] = head;
+            }
+            if (head)
+            {
+                auto headed = std::make_shared<HeadFile>(head, file);
+                headed->m_origin = GameFile::Origin::Patched;
+                headed->m_source = file->source() + " (its first " + std::to_string(head->size()) + " bytes made)";
+                return headed;
+            }
+        }
         // An in-memory patch for this file name (a game override's script
         // edits, say), made from whichever file was found.
-        if (ps2x::disc_patch::hasPatch(normalized))
+        if (zx::disc_patch::hasPatch(normalized))
         {
             std::shared_ptr<const std::vector<uint8_t>> patched =
-                ps2x::disc_patch::contents(normalized, [&](std::vector<uint8_t> &bytes) { return readAll(*file, bytes); });
+                zx::disc_patch::contents(normalized, [&](std::vector<uint8_t> &bytes) { return readAll(*file, bytes); });
             if (patched)
             {
                 auto memory = std::make_shared<MemoryFile>(std::move(patched));

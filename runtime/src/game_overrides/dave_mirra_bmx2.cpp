@@ -22,7 +22,7 @@ namespace game::readable
 {
     // The readable game (src/game/ee/readable.h) for DM2: its own
     // registrations only (AI's never install here), the call recorder
-    // (PS2X_FNREC) and the profiler (PS2X_FNPROF).
+    // (ZX_FNREC) and the profiler (ZX_FNPROF).
     void install(PS2Runtime &runtime, game::Game game);
 }
 

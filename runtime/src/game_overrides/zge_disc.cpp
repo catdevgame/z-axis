@@ -4,13 +4,13 @@
 // functions and data: zge/host/disc_device.cpp (the host form, over the
 // files of game/host/disc_files.h), installed over the CD/DVD client
 // (zge/assets/dvd_device.cpp, the PS2 form) by its own switch, whatever
-// PS2X_READABLE says. ZCDDVD.IRX is then not loaded at all.
+// ZX_READABLE says. ZCDDVD.IRX is then not loaded at all.
 //
-// The switch: [host] disc in settings.ini, ZAXIS_DISC for a run: native (the
+// The switch: [host] disc in settings.ini, ZX_DISC for a run: native (the
 // default) or ps2 (the PS2 form over the emulated IOP and cdvdman, as on the
-// console); PS2X_DISC=cdvd, the old name, is ps2. PS2X_MODS_DIR: the mod
+// console). ZX_MODS_DIR: the mod
 // folders in order (the app sets the game's Mods folder and each mod in it,
-// collection/mods.h; ps2_game_files.h reads them). PS2X_TRACE_DISC=1 logs every
+// collection/mods.h; ps2_game_files.h reads them). ZX_TRACE_DISC=1 logs every
 // open (path, size, where it came from), =2 also every read and seek.
 #include "zge_host.h"
 
@@ -38,14 +38,12 @@ namespace zge_host
         // [host] disc: true for the PS2 form.
         bool discOnPs2()
         {
-            if (const char *disc = ps2x::boot::text("ZAXIS_DISC"); disc && *disc)
-                return std::string(disc) == "ps2";
-            const char *old = std::getenv("PS2X_DISC");
-            return old && std::string(old) == "cdvd";
+            const char *disc = zx::boot::text("ZX_DISC");
+            return disc && std::string(disc) == "ps2";
         }
     }
 
-    std::shared_ptr<ps2x::game_files::GameFile> openGameFile(const std::string &path)
+    std::shared_ptr<zx::game_files::GameFile> openGameFile(const std::string &path)
     {
         return game::host::disc::openGameFile(path);
     }
@@ -58,7 +56,7 @@ namespace zge_host
             return false;
         }
         int trace = 0;
-        if (const char *level = std::getenv("PS2X_TRACE_DISC"))
+        if (const char *level = std::getenv("ZX_TRACE_DISC"))
             trace = std::atoi(level);
         game::host::disc::configure(trace, {additions.fileOpened, additions.fileRead});
         if (!game::host::install(runtime, additions.id, "disc"))

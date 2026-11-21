@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BMX XXX's multiplayer, played (routes3): two riders on one split screen, port 1 a copy of port 0 (PS2X_PAD_PORT1=mirror:
+"""BMX XXX's multiplayer, played (routes3): two riders on one split screen, port 1 a copy of port 0 (ZX_PAD_PORT1=mirror:
 the second pad the MULTIPLAYER item asks for), so both riders take the player's answers.
 
     [LEVEL=n RIGHTS=k] bmxmp.py play NAME SEED GAMES [TICKS]   (LEVEL: bmx.LEVELS' index, its cheat entered first;
@@ -44,7 +44,7 @@ CURRENT_PLAYER = 0x29C5E3  # g_currentPlayer (u8): whose turn it is
 GAME_MODE = 0x29EC57     # g_currentGameMode (u8)
 GAME_MODES = 0x284300    # g_gameModes: 0x14 bytes a mode, flags at +0x04 (kModeMultiplayer 0x2, kModeTurns 0x4)
 FIRE_EVERY = int(os.environ.get('FIRE_EVERY', '45'))
-# (routes3) GAMEOVER_REPLAY=1 (with PS2X_BMX_MENU_LINES=1, which adds the game over's VIEW REPLAY): at each game's game
+# (routes3) GAMEOVER_REPLAY=1 (with ZX_BMX_MENU_LINES=1, which adds the game over's VIEW REPLAY): at each game's game
 # over the VIEW REPLAY line is taken once by g_menuChoices (the lines the extra adds move the others), the shown replay
 # (the round's: shownReplay) and each player's replay logged with their set-up byte (Replay::playerWatches: 1 for
 # PAINTBALL's sniper), the replay watched to its end with CROSS (the next shot) pressed until the rider-eyes shot (11),
@@ -83,7 +83,7 @@ def play_mp(name, seed=1, games=('skillz',), ticks=5400, gs=False, max_secs=1500
     menu = bmx.menu_script(level, 0) if single else menu_script(level, rights)
     d = bmx.session_dir(name)
     os.makedirs(d, exist_ok=True)
-    env = {'PS2X_EE_SCALE': '4096'} if os.environ.get('SINGLE') == '1' else {'PS2X_EE_SCALE': '4096', 'PS2X_PAD_PORT1': 'mirror'}
+    env = {'ZX_EE_SCALE': '4096'} if os.environ.get('SINGLE') == '1' else {'ZX_EE_SCALE': '4096', 'ZX_PAD_PORT1': 'mirror'}
     cfg = bmx.run_config(name, menu.text(), env=env, max_secs=max_secs, gs=gs)
     meter, log = dm2.Meter(), player_dm2.Log(os.path.join(d, 'play.log'))
     lv = dm2map.Level(bmx.LEVELS[level][0])

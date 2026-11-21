@@ -25,11 +25,11 @@
 #include <mach-o/dyld.h>
 #endif
 
-// PS2X_TRACE_EE=<from cycle>:<to cycle>:<file> (drafter23): every EE cycle
+// ZX_TRACE_EE=<from cycle>:<to cycle>:<file> (drafter23): every EE cycle
 // charge (A: the cycle after it, the cycles, the host return address of
 // its caller), checkpoint test (C: due or not) and
 // scheduler dispatch (D: the pc) whose cycle is in [from, to], for an
-// 8-cycle hunt between two runs (an entry cycle PS2X_FNCYCLES gives; the
+// 8-cycle hunt between two runs (an entry cycle ZX_FNCYCLES gives; the
 // return addresses with the slide on the first line, for atos).
 namespace
 {
@@ -39,7 +39,7 @@ namespace
         uint64_t from = 0, to = 0;
         EeTrace()
         {
-            const char *spec = std::getenv("PS2X_TRACE_EE");
+            const char *spec = std::getenv("ZX_TRACE_EE");
             if (!spec || !*spec)
                 return;
             char *end = nullptr;
@@ -61,14 +61,14 @@ namespace
     };
     EeTrace g_eeTrace; // (read at static initialisation: a plain load on the hot path)
     inline EeTrace &eeTrace() { return g_eeTrace; }
-    // PS2X_EE_SCALE=K: a test clock for the checks (tooling/checks/career_ab.py --clock):
+    // ZX_EE_SCALE=K: a test clock for the checks (tooling/checks/career_ab.py --clock):
     // the EE runs K times faster than the clock it is charged against, idle
     // jumps to the next event stay whole. No frame overruns its vsync, so two
     // builds that charge different cycles for the same work stay tick for tick
     // together and what differs between them is logic. 1 is the PS2's clock.
     const uint64_t g_eeClockScale = []
     {
-        const char *value = std::getenv("PS2X_EE_SCALE");
+        const char *value = std::getenv("ZX_EE_SCALE");
         return value ? std::max<uint64_t>(1u, std::strtoull(value, nullptr, 0)) : uint64_t{1};
     }();
     uint64_t g_scaledCycles = 0; // charged on that clock, not yet a whole cycle of it
@@ -112,39 +112,39 @@ namespace
         return (microseconds * EeScheduler::kEeClockHz + 999999ull) / 1000000ull;
     }
 
-    // PS2X_UNPACED=1: guest time follows EE cycles only, without waiting for
+    // ZX_UNPACED=1: guest time follows EE cycles only, without waiting for
     // host time (measures how fast the guest can run; logic is unchanged,
     // it only depends on EE cycles).
     bool unpaced()
     {
         static const bool value = []()
         {
-            const char *env = std::getenv("PS2X_UNPACED");
+            const char *env = std::getenv("ZX_UNPACED");
             return env && env[0] == '1';
         }();
         return value;
     }
 
-    // PS2X_IOP_WAKE=0: an idle EE sleeps to its next own event (the vblank)
+    // ZX_IOP_WAKE=0: an idle EE sleeps to its next own event (the vblank)
     // even when the IOP has work before it, as before (IOP replies then
     // reach the EE once per vsync; loads take several times longer).
     bool iopWake()
     {
         static const bool value = []()
         {
-            const char *env = std::getenv("PS2X_IOP_WAKE");
+            const char *env = std::getenv("ZX_IOP_WAKE");
             return !(env && env[0] == '0');
         }();
         return value;
     }
 
-    // PS2X_LOAD_FAST_FORWARD=0: loading screens run at 60 vsyncs per second
+    // ZX_LOAD_FAST_FORWARD=0: loading screens run at 60 vsyncs per second
     // like everything else.
     bool loadFastForward()
     {
         static const bool value = []()
         {
-            const char *env = std::getenv("PS2X_LOAD_FAST_FORWARD");
+            const char *env = std::getenv("ZX_LOAD_FAST_FORWARD");
             return !(env && env[0] == '0');
         }();
         return value;
@@ -191,13 +191,13 @@ namespace
 
 namespace
 {
-    // PS2X_DUMP_WHEN / PS2X_STATE_LOG (runtime/ps2_state_probe.h), evaluated
+    // ZX_DUMP_WHEN / ZX_STATE_LOG (runtime/ps2_state_probe.h), evaluated
     // on the EE thread before the guest sees the new VBlank.
     void runStateProbe(const uint8_t *rdram, uint64_t tick, const R5900Context *ctx, const PS2Memory &memory, const EeScheduler &scheduler)
     {
         // The probe each boot's own (its BootConfig's dumps and log); the
         // packet log the process's.
-        static ps2x::boot::PerBoot<StateProbe> probeOfBoot([]()
+        static zx::boot::PerBoot<StateProbe> probeOfBoot([]()
         {
             StateProbe configured;
             configured.configureFromEnvironment();
@@ -206,20 +206,20 @@ namespace
         // A child forked at a spot (runtime/ps2_spot_fork.h): its own dumps and
         // state log, from its environment.
         static uint32_t probeEpoch = 0;
-        if (probeEpoch != ps2x::spot::forkEpoch())
+        if (probeEpoch != zx::spot::forkEpoch())
         {
-            probeEpoch = ps2x::spot::forkEpoch();
+            probeEpoch = zx::spot::forkEpoch();
             probeOfBoot.get() = StateProbe();
             probeOfBoot.get().configureFromEnvironment();
         }
         static const bool packetsConfigured = []()
         {
-            ps2x::packets::configureFromEnvironment();
+            zx::packets::configureFromEnvironment();
             return true;
         }();
         (void)packetsConfigured;
         StateProbe &probe = probeOfBoot.get();
-        if (ps2x::packets::g_on)
+        if (zx::packets::g_on)
         {
             // The GS registers as the EE would read them: the buffer swaps
             // (sceGsSwapDBuffDc) land on the GS worker, so the GS work queued so
@@ -227,13 +227,13 @@ namespace
             // Read without it, DISPFB at a vsync was the worker's progress: two
             // runs of one binary differed at 18 to 63 of 200 boot vsyncs.
             memory.syncGraphics(PS2Memory::SyncOther);
-            ps2x::packets::add(ps2x::packets::kGsRegisters, &memory.gs(), offsetof(GSRegisters, csr));
-            ps2x::packets::onVsync(tick, ctx);
+            zx::packets::add(zx::packets::kGsRegisters, &memory.gs(), offsetof(GSRegisters, csr));
+            zx::packets::onVsync(tick, ctx);
         }
         ps2_debug_control::onVsync(const_cast<uint8_t *>(rdram), tick);
-        ps2x::lanes::onVsync(tick);
+        zx::lanes::onVsync(tick);
         // A front end's own (runtime/ps2_front_end.h: Android's second screen).
-        if (const ps2x::front_end::Vsync vsync = ps2x::front_end::vsync())
+        if (const zx::front_end::Vsync vsync = zx::front_end::vsync())
             vsync(rdram);
         if (!probe.enabled() || !rdram)
             return;
@@ -567,7 +567,7 @@ void EeScheduler::postEvent(EeEvent event)
 
 namespace
 {
-    // PS2X_EE_TRACE's line for a charge (apart: advanceCycles runs at every charge).
+    // ZX_EE_TRACE's line for a charge (apart: advanceCycles runs at every charge).
     void traceAdvance(uint64_t cycle, uint32_t cycles, void *caller) noexcept
     {
         if (eeTrace().on(cycle))
@@ -1036,11 +1036,11 @@ int EeScheduler::rotateReadyQueue(int priority, bool interruptSafe)
     {
         // Rotating a queue that holds only the caller changes nothing; avoid
         // a dispatcher round trip (guest idle loops call this every pass).
-        // At a scaled clock (PS2X_EE_SCALE > 1) a loop that yields to
+        // At a scaled clock (ZX_EE_SCALE > 1) a loop that yields to
         // nobody runs at the PS2's clock: K times as fast it would poll K
         // times as often for the same guest time (at 4096 the movie player's
         // default thread, polling its decoder through switchThread, took
-        // ~1e8 passes a vsync). AI's boot on the PS2 player (PS2X_MOVIES=hle)
+        // ~1e8 passes a vsync). AI's boot on the PS2 player (ZX_MOVIES=hle)
         // then shows the same 1,603 pictures as at clock 1, on the same
         // vsyncs to the intro's end; the menu comes a vsync sooner (2684), as
         // with the host's movies at both clocks: the front end's load runs
@@ -1063,7 +1063,7 @@ int EeScheduler::rotateReadyQueue(int priority, bool interruptSafe)
                 // (the 1st, 2nd, 4th ... time: whatever way the run ends, its log shows it happened)
                 const uint64_t passes = ++g_lonePasses;
                 if ((passes & (passes - 1u)) == 0u)
-                    std::fprintf(stderr, "[ee] %llu passes between yields nobody took charged at the PS2's clock (PS2X_EE_SCALE=%llu), vsync %llu\n",
+                    std::fprintf(stderr, "[ee] %llu passes between yields nobody took charged at the PS2's clock (ZX_EE_SCALE=%llu), vsync %llu\n",
                                  static_cast<unsigned long long>(passes),
                                  static_cast<unsigned long long>(g_eeClockScale), static_cast<unsigned long long>(m_vsyncTick));
             }
@@ -2272,14 +2272,14 @@ void EeScheduler::processDueDeadlines()
                 // (its host deadline held in phase with the window's frames: ps2_host_pacing.h)
                 auto nextHost = scheduled.hostDeadline + kVBlankPeriod;
                 if (!pacingOff())
-                    nextHost += ps2x::host_pacing::correction(nextHost, kVBlankPeriod);
+                    nextHost += zx::host_pacing::correction(nextHost, kVBlankPeriod);
                 scheduleEvent(scheduled.deadlineCycle + kVBlankPeriodCycles, nextHost,
                               EeEvent{EeEventType::VBlankStart, 0, 0});
             }
             processEvent(scheduled.event);
             // (host time only: frame interpolation's clock, the vblank's paced deadline, not when it was handled)
-            if (scheduled.event.type == EeEventType::VBlankStart && ps2x::gs_interpolate::enabled())
-                ps2x::gs_interpolate::noteVblank(m_vsyncTick, scheduled.hostDeadline);
+            if (scheduled.event.type == EeEventType::VBlankStart && zx::gs_interpolate::enabled())
+                zx::gs_interpolate::noteVblank(m_vsyncTick, scheduled.hostDeadline);
         }
     }
 }
@@ -2348,13 +2348,13 @@ void EeScheduler::processEvent(const EeEvent &event)
         break;
     case EeEventType::VBlankStart:
         ++m_vsyncTick;
-        ps2x::ftrace::mark(ps2x::ftrace::kVsync);
+        zx::ftrace::mark(zx::ftrace::kVsync);
         m_runtime.memory().gs().vsyncTick.store(m_vsyncTick, std::memory_order_release);
         // A play recording's checksums and writes; a replay's comparisons and stop.
         play_recording::onVsync(m_rdram, m_vsyncTick);
         runStateProbe(m_rdram, m_vsyncTick, currentContext(), m_runtime.memory(), *this);
-        // PS2X_SPOT_FORK: the spot, at this guest moment (a forked child goes on from here).
-        ps2x::spot::onVsync(m_runtime, m_vsyncTick, StateProbe::scriptTime());
+        // ZX_SPOT_FORK: the spot, at this guest moment (a forked child goes on from here).
+        zx::spot::onVsync(m_runtime, m_vsyncTick, StateProbe::scriptTime());
         m_runtime.runVSyncHooks(m_rdram, m_vsyncTick);
         m_runtime.memory().displayAtVBlank(); // (the window's picture of a buffer swap the EE made)
         updateFastForward();
@@ -2556,7 +2556,7 @@ void EeScheduler::waitForEvent()
         hostDeadline = std::chrono::steady_clock::time_point::min();
     bool signaled = false;
     {
-        ps2x::ftrace::Scope traceIdle(ps2x::ftrace::kEeIdle, ps2x::ftrace::kEeIdle + 100);
+        zx::ftrace::Scope traceIdle(zx::ftrace::kEeIdle, zx::ftrace::kEeIdle + 100);
         signaled = m_eventCv.wait_until(lock, hostDeadline, [this]()
                                         { return !m_events.empty() ||
                                                  m_stopRequested.load(std::memory_order_acquire); });

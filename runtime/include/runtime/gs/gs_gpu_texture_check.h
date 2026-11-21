@@ -8,7 +8,7 @@
 // after its release reads freed memory: on Direct3D 12 that is the access
 // violation in D3D12_BindFragmentSamplers (BRINGUP "The intro-movie quit").
 //
-// PS2X_GPU_TEXTURE_CHECK=1 (a developer check, off by default): released
+// ZX_GPU_TEXTURE_CHECK=1 (a developer check, off by default): released
 // handles are kept (not given to SDL) for about 2 s, and every use of one
 // through the calls below is reported on stderr with the stack of the use
 // and the stack of the release ("[gpu-check] ..."); so is a sampled or
@@ -21,7 +21,7 @@
 
 #include <cstdint>
 
-namespace ps2x::gpu_texture_check
+namespace zx::gpu_texture_check
 {
     bool enabled();
 

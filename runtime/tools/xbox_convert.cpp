@@ -1,13 +1,13 @@
-// ps2xXboxConvert: what Aggressive Inline takes from the Xbox release and
+// zx-xbox-convert: what Aggressive Inline takes from the Xbox release and
 // needs in the PS2's formats, made from the user's Xbox files and PS2 disc
 // at build time: the Zoo (runtime/ps2_zaxis_zoo.h) and the Ape
 // (runtime/ps2_zaxis_ape.h). The packaging step runs it (tools/make-app.sh,
 // tools/make-windows.ps1) and bundles the output folder as
 // Resources/xbox-converted (Windows: xbox-converted\ next to disc\); the
-// game overrides serve those files (PS2X_XBOX_CONVERTED) and convert
+// game overrides serve those files (ZX_XBOX_CONVERTED) and convert
 // nothing.
 //
-//   ps2xXboxConvert --xbox <dir> --ps2 <dir> --out <dir> [options]
+//   zx-xbox-convert --xbox <dir> --ps2 <dir> --out <dir> [options]
 //
 //   --xbox <dir>   the Xbox release's files, extracted from your own disc
 //                  (tools/xbox_files.py extract): its root, media or
@@ -45,12 +45,12 @@
 namespace
 {
     namespace fs = std::filesystem;
-    namespace zoo = ps2x::zaxis::zoo;
+    namespace zoo = zx::zaxis::zoo;
 
     int usage(const char *why)
     {
-        std::cerr << "ps2xXboxConvert: " << why << "\n"
-                  << "usage: ps2xXboxConvert --xbox <Xbox files> --ps2 <PS2 disc folder> --out <folder>\n"
+        std::cerr << "zx-xbox-convert: " << why << "\n"
+                  << "usage: zx-xbox-convert --xbox <Xbox files> --ps2 <PS2 disc folder> --out <folder>\n"
                   << "       [--split-screen-texture-side N] [--level-texture-budget KB] [--group-entries N] [--hide a,b]\n"
                   << "       [--split-screen-eggs \"x,y,z;...\"] [--keep-willow-twins] [--threads N]\n";
         return 2;
@@ -112,33 +112,33 @@ int main(int argc, char **argv)
     const auto start = std::chrono::steady_clock::now();
     if (!ps2_xbox_disc::openPath(xboxDir))
     {
-        std::cerr << "ps2xXboxConvert: no Xbox assets folder in " << xboxDir << std::endl;
+        std::cerr << "zx-xbox-convert: no Xbox assets folder in " << xboxDir << std::endl;
         return 1;
     }
     std::error_code ec;
     if (!fs::is_directory(ps2Dir, ec))
     {
-        std::cerr << "ps2xXboxConvert: no PS2 disc folder " << ps2Dir << std::endl;
+        std::cerr << "zx-xbox-convert: no PS2 disc folder " << ps2Dir << std::endl;
         return 1;
     }
-    ps2x::game_files::GameFileRoots roots;
+    zx::game_files::GameFileRoots roots;
     roots.disc = ps2Dir;
-    ps2x::game_files::GameFileSystem disc(roots);
+    zx::game_files::GameFileSystem disc(roots);
 
     const zoo::Reader xbox = [](const std::string &path, std::vector<uint8_t> &out)
     { return ps2_xbox_disc::readFile(path, out); };
     const zoo::Reader ps2 = [&disc](const std::string &path, std::vector<uint8_t> &out)
     {
-        std::shared_ptr<ps2x::game_files::GameFile> file = disc.open(path);
-        return file && ps2x::game_files::readAll(*file, out);
+        std::shared_ptr<zx::game_files::GameFile> file = disc.open(path);
+        return file && zx::game_files::readAll(*file, out);
     };
 
     zoo::Made made;
     std::string error;
     if (!zoo::build(xbox, ps2, options, made, std::cout, &error) ||
-        !ps2x::zaxis::ape::build(xbox, made, std::cout, &error))
+        !zx::zaxis::ape::build(xbox, made, std::cout, &error))
     {
-        std::cerr << "ps2xXboxConvert: " << error << std::endl;
+        std::cerr << "zx-xbox-convert: " << error << std::endl;
         return 1;
     }
     uint64_t bytes = 0;
@@ -146,7 +146,7 @@ int main(int argc, char **argv)
     {
         if (!writeFile(fs::path(outDir) / fs::path(path), contents))
         {
-            std::cerr << "ps2xXboxConvert: cannot write " << (fs::path(outDir) / path).string() << std::endl;
+            std::cerr << "zx-xbox-convert: cannot write " << (fs::path(outDir) / path).string() << std::endl;
             return 1;
         }
         bytes += contents.size();

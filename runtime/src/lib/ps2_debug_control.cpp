@@ -72,7 +72,7 @@ namespace
     {
         static std::string dir = []()
         {
-            const char *value = std::getenv("PS2X_CONTROL");
+            const char *value = std::getenv("ZX_CONTROL");
             return std::string(value ? value : "");
         }();
         return dir;
@@ -138,8 +138,8 @@ namespace
         return static_cast<uint32_t>(std::strtoull(text.c_str(), nullptr, 0));
     }
 
-    // PS2X_POKE_TRACE=<file>: a line "<vsync tick> <address> <value>" (hex) per
-    // poke of a client, for tooling/checks/career_ab.py script --pokes; PS2X_POKE_SCRIPT
+    // ZX_POKE_TRACE=<file>: a line "<vsync tick> <address> <value>" (hex) per
+    // poke of a client, for tooling/checks/career_ab.py script --pokes; ZX_POKE_SCRIPT
     // ("<tick>:<address>=<value>,...", hex, in tick order) makes the same
     // writes at the same vsyncs, so a route that pokes (a teleport to a giver,
     // a saved key) replays tick by tick.
@@ -147,7 +147,7 @@ namespace
     {
         static std::FILE *const file = []() -> std::FILE *
         {
-            const char *path = std::getenv("PS2X_POKE_TRACE");
+            const char *path = std::getenv("ZX_POKE_TRACE");
             return path && path[0] ? std::fopen(path, "w") : nullptr;
         }();
         if (file)
@@ -171,10 +171,10 @@ namespace
             std::vector<ScriptedPoke> pokes;
             size_t next = 0;
         };
-        static ps2x::boot::PerBoot<Script> script([]()
+        static zx::boot::PerBoot<Script> script([]()
         {
             Script out;
-            const char *text = ps2x::boot::text("PS2X_POKE_SCRIPT");
+            const char *text = zx::boot::text("ZX_POKE_SCRIPT");
             std::istringstream items(text ? text : "");
             std::string item;
             while (std::getline(items, item, ','))
@@ -429,32 +429,32 @@ namespace
         {
             // A setting of the settings model (runtime/ps2_settings.h).
             const std::string key = arg(1);
-            if (!ps2x::settings::has(key))
+            if (!zx::settings::has(key))
             {
                 reply(s, c.id, "error unknown setting " + key);
                 return true;
             }
             // An action row (no value) runs as if chosen.
-            ps2x::settings::Setting described;
-            const bool action = ps2x::settings::describe(key, described) && described.kind == ps2x::settings::Kind::Action;
+            zx::settings::Setting described;
+            const bool action = zx::settings::describe(key, described) && described.kind == zx::settings::Kind::Action;
             if (op == "set" && action)
             {
-                ps2x::settings::activate(key);
+                zx::settings::activate(key);
                 reply(s, c.id, "ok");
                 return true;
             }
-            if (op == "set" && !ps2x::settings::set(key, static_cast<int>(std::strtol(arg(2).c_str(), nullptr, 0))))
+            if (op == "set" && !zx::settings::set(key, static_cast<int>(std::strtol(arg(2).c_str(), nullptr, 0))))
             {
                 reply(s, c.id, "error set " + key);
                 return true;
             }
-            reply(s, c.id, "ok " + std::to_string(ps2x::settings::value(key)));
+            reply(s, c.id, "ok " + std::to_string(zx::settings::value(key)));
             return true;
         }
         if (op == "settings")
         {
             // As the app menu's Settings... (Cmd+,), on the window thread.
-            const bool ok = ps2x::settings::requestOpen();
+            const bool ok = zx::settings::requestOpen();
             reply(s, c.id, ok ? "ok" : "error no settings screen");
             return true;
         }
@@ -474,9 +474,9 @@ namespace
             // Frame timeline trace: "ftrace start", "ftrace stop FILE".
             bool ok = false;
             if (arg(1) == "start")
-                ok = ps2x::ftrace::start();
+                ok = zx::ftrace::start();
             else if (arg(1) == "stop")
-                ok = ps2x::ftrace::stop(arg(2));
+                ok = zx::ftrace::stop(arg(2));
             reply(s, c.id, ok ? "ok" : "error ftrace");
             return true;
         }

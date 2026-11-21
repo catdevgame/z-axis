@@ -6,7 +6,7 @@
 #include <string_view>
 #include <unordered_set>
 
-namespace ps2x
+namespace zx
 {
     namespace
     {
@@ -14,111 +14,127 @@ namespace ps2x
         // and the check switches a run gives each game it boots.
         const std::vector<std::string> kNames = {
             // The app's renderer settings (read when a GS renderer is made).
-            "PS2X_GS_BACKEND",
-            "PS2X_GS_SCALE",
-            "PS2X_GS_FULL_HEIGHT",
-            "PS2X_RENDER_PATH",
+            "ZX_GS_BACKEND",
+            "ZX_GS_SCALE",
+            "ZX_GS_FULL_HEIGHT",
+            "ZX_RENDER_PATH",
             // A game's own renderer need (DM2's override: its mip levels in
             // a render target, from GS memory).
-            "PS2X_GS_MIP_TARGET_LEVELS",
+            "ZX_GS_MIP_TARGET_LEVELS",
             // BMX XXX's override: its 16-bit Z buffers may be D16 targets.
-            "PS2X_GS_D16_TARGETS",
+            "ZX_GS_D16_TARGETS",
             // The game's folders and files.
-            "PS2X_CONTROLS_INI",
-            "PS2X_GAMEPAD_MAPPINGS",
-            "PS2X_GAMEPLAY_INI",
-            "PS2X_SAVES_DIR",
-            "PS2X_MODS_DIR",
+            "ZX_CONTROLS_INI",
+            "ZX_GAMEPAD_MAPPINGS",
+            "ZX_GAMEPLAY_INI",
+            "ZX_SAVES_DIR",
+            "ZX_MODS_DIR",
             // Texture packs (runtime/ps2_texture_pack.h): the folders, and dump mode's.
-            "PS2X_TEXTURE_PACKS",
-            "PS2X_TEXTURE_DUMP",
-            "PS2X_SCREENSHOT_DIR",
-            "PS2X_GS_PIPELINE_CACHE",
-            "PS2X_XBOX_DIR",
-            "PS2X_XBOX_PACK",
-            "PS2X_XBOX_CONVERTED",
-            "PS2X_ESTATE_DIR",
-            "PS2X_DM2_XBOX_LEVELS_DIR",
-            "PS2X_BMX_RELEASES_DIR",
+            "ZX_TEXTURE_PACKS",
+            "ZX_TEXTURE_DUMP",
+            "ZX_SCREENSHOT_DIR",
+            "ZX_GS_PIPELINE_CACHE",
+            "ZX_XBOX_DIR",
+            "ZX_XBOX_PACK",
+            "ZX_XBOX_CONVERTED",
+            "ZX_ESTATE_DIR",
+            "ZX_DM2_XBOX_LEVELS_DIR",
+            "ZX_BMX_RELEASES_DIR",
             // The game's settings.ini.
-            "PS2X_SAVE_PROFILE",
-            "PS2X_GAME_SETTINGS_MENUS",
-            "PS2X_LANGUAGE",
-            "PS2X_FRENCH_VOICES",
-            "PS2X_DEV_MENU",
-            "PS2X_ZOO",
-            "PS2X_ZOO_UNLOCK",
-            "PS2X_ESTATE",
-            "PS2X_DM2_XBOX_LEVELS",
-            "PS2X_TUNING",
-            "PS2X_CAREER_SCRIPTS",
-            "PS2X_DRAW_DISTANCE",
-            "PS2X_XBOX_FREESKATE",
-            "PS2X_APE",
-            "PS2X_DM2_CREATE_PLAYER",
-            "PS2X_DM2_XBOX_THEMES",
-            "PS2X_DM2_RETRO_MOVIE",
-            "PS2X_DM2_ATTRACT_DEMO",
-            "PS2X_BMX_PARK_EDITOR",
-            "PS2X_BMX_XBOX_CHALLENGES",
-            "PS2X_BMX_EDITOR_PIECES",
-            "PS2X_BMX_LEVEL_PREVIEWS",
-            "PS2X_BMX_LOGO_MOVIE",
-            "PS2X_BMX_INTRO_MOVIE",
-            "PS2X_XBOX_TEXTURES",
-            "PS2X_XBOX_MOVIES",
-            "PS2X_XBOX_MODELS",
+            "ZX_SAVE_PROFILE",
+            "ZX_GAME_SETTINGS_MENUS",
+            "ZX_LANGUAGE",
+            "ZX_FRENCH_VOICES",
+            "ZX_DEV_MENU",
+            "ZX_ZOO",
+            "ZX_ZOO_UNLOCK",
+            "ZX_ESTATE",
+            "ZX_DM2_XBOX_LEVELS",
+            "ZX_TUNING",
+            "ZX_CAREER_SCRIPTS",
+            "ZX_DRAW_DISTANCE",
+            "ZX_XBOX_FREESKATE",
+            "ZX_APE",
+            "ZX_DM2_CREATE_PLAYER",
+            "ZX_DM2_XBOX_THEMES",
+            "ZX_DM2_RETRO_MOVIE",
+            "ZX_DM2_ATTRACT_DEMO",
+            "ZX_BMX_PARK_EDITOR",
+            "ZX_BMX_XBOX_CHALLENGES",
+            "ZX_BMX_EDITOR_PIECES",
+            "ZX_BMX_LEVEL_PREVIEWS",
+            "ZX_BMX_LOGO_MOVIE",
+            "ZX_BMX_INTRO_MOVIE",
+            "ZX_BMX_GC_LEVELS",
+            "ZX_BMX_MENU_LINES",
+            "ZX_BMX_ALL_MP_MODES",
+            "ZX_BMX_LOGO_SPLASH",
+            "ZX_BMX_TRAILERS",
+            "ZX_BMX_CAR_TEXTURES",
+            "ZX_BMX_GREEN_SKIN",
+            "ZX_BMX_TOPLESS",
+            "ZX_BMX_XBOX_SONGS",
+            "ZX_XBOX_TEXTURES",
+            "ZX_XBOX_MOVIES",
+            "ZX_XBOX_MODELS",
             // [host]: the disc device's host form or the PS2's (native | ps2).
-            "ZAXIS_DISC",
+            "ZX_DISC",
             // Check switches, each boot its own: scripted input, the state
             // probe's dumps and log, the cards.
-            "PS2X_PAD_SCRIPT",
-            "PS2X_PAD_SCRIPT_CLOCK",
-            "PS2X_PAD_STICK_CENTER",
-            "PS2X_HOST_INPUT",
-            "PS2X_HOST_INPUT_SCRIPT",
-            "PS2X_POKE_SCRIPT",
-            "PS2X_DUMP_WHEN",
-            "PS2X_DUMP_PREFIX",
-            "PS2X_DUMP_EXTENDED",
-            "PS2X_DUMP_AT_FRAME",
-            "PS2X_SHOT_AT",
-            "PS2X_STATE_LOG",
-            "PS2X_STATE_LOG_FILE",
-            "PS2X_PAD_DUMP",
-            "PS2X_PAD_LOG",
-            "PS2X_SAVES",
-            "PS2X_MC_FD_BASE0",
-            "PS2X_MC_FIXED_TIME",
-            "PS2X_DEV_UNLOCK_ALL",
+            "ZX_PAD_SCRIPT",
+            "ZX_PAD_SCRIPT_CLOCK",
+            "ZX_PAD_STICK_CENTER",
+            "ZX_HOST_INPUT",
+            "ZX_HOST_INPUT_SCRIPT",
+            "ZX_POKE_SCRIPT",
+            "ZX_DUMP_WHEN",
+            "ZX_DUMP_PREFIX",
+            "ZX_DUMP_EXTENDED",
+            "ZX_DUMP_AT_FRAME",
+            "ZX_SHOT_AT",
+            "ZX_STATE_LOG",
+            "ZX_STATE_LOG_FILE",
+            "ZX_PAD_DUMP",
+            "ZX_PAD_LOG",
+            "ZX_SAVES",
+            "ZX_MC_FD_BASE0",
+            "ZX_MC_FIXED_TIME",
+            "ZX_DEV_UNLOCK_ALL",
             // Aggressive Inline's start straight into a free skate level
             // (aggressive_inline_devstart.cpp): developer runs, and the
             // collection's Custom Freeplay starting a game into its map.
-            "PS2X_DEV_START_LEVEL",
-            "PS2X_DEV_START_SKATER",
-            "PS2X_DEV_START_SKATE",
-            "PS2X_DEV_START_QUIT",
+            "ZX_DEV_START_LEVEL",
+            "ZX_DEV_START_SKATER",
+            "ZX_DEV_START_SKATE",
+            "ZX_DEV_START_QUIT",
             // DM2's park read from a host file instead of the memory card
             // (dave_mirra_saves.cpp): the Custom Freeplay map's.
-            "PS2X_DM2_PARK_FILE",
-            // BMX XXX's start keeping the row's level goal counts for the
-            // player's record (bmx_xxx_devstart.cpp): the Custom Freeplay map's.
-            "PS2X_BMX_KEEP_LEVEL_GOALS",
+            "ZX_DM2_PARK_FILE",
+            // BMX XXX's start keeping the row's level record for the
+            // player's save (bmx_xxx_devstart.cpp): the Custom Freeplay map's.
+            "ZX_BMX_KEEP_LEVEL_GOALS",
+            // Aggressive Inline's start keeping the level's records for the
+            // player's save (aggressive_inline_devstart.cpp): the Custom
+            // Freeplay map's.
+            "ZX_AI_KEEP_LEVEL_RECORDS",
+            // DM2's start keeping the row's level's saved records for the
+            // player's save (dave_mirra_devstart.cpp): the Custom Freeplay map's.
+            "ZX_DM2_KEEP_LEVEL_RECORDS",
             // DM2's level-point camera from the level's own camera points
             // (game/dm2/camera/camera.cpp levelCameraPoint): a Custom
             // Freeplay map's.
-            "PS2X_DM2_LEVEL_CAMERA_POINTS",
+            "ZX_DM2_LEVEL_CAMERA_POINTS",
             // BMX XXX's levels' own NPC riders left out (bmx_xxx_npcs.cpp):
             // a Custom Freeplay map that does not keep its slot's.
-            "PS2X_BMX_LEVEL_NPCS",
+            "ZX_BMX_LEVEL_NPCS",
             // The readable code without its proof scaffolding (ee/abi.h leanParts).
-            "PS2X_READABLE_LEAN",
+            "ZX_READABLE_LEAN",
             // Play recordings (runtime/play_recording.h): the app's setting
             // records each boot; a replay reads one.
-            "ZAXIS_RECORD",
-            "ZAXIS_RECORD_CHECKSUMS",
-            "ZAXIS_REPLAY",
-            "ZAXIS_REPLAY_STOP",
+            "ZX_RECORD",
+            "ZX_RECORD_CHECKSUMS",
+            "ZX_REPLAY",
+            "ZX_REPLAY_STOP",
         };
 
         // The boot in progress: its config, and its values as texts kept for

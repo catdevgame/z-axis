@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The slots each function of the game stores in its own stack frame in the original and never reads before storing,
-on any path, from the matching decomp's assembly: readable_frame_stores.tsv, read by PS2X_STACK_POISON_STORES and
-PS2X_STACK_POISON_FRAMES (ee/abi.cpp, `career_ab.py stale`).
+on any path, from the matching decomp's assembly: readable_frame_stores.tsv, read by ZX_STACK_POISON_STORES and
+ZX_STACK_POISON_FRAMES (ee/abi.cpp, `career_ab.py stale`).
 
     readable_frame_stores.py [--asm DIR] [--out FILE] [--why ADDRESS]
 

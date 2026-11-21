@@ -1,6 +1,6 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): Create Player, the menu the game
 // has the code for but never shows, behind [extras] create_player
-// (PS2X_DM2_CREATE_PLAYER=1; off by default).
+// (ZX_DM2_CREATE_PLAYER=1; off by default).
 //
 // What the game has (game/dm2/menu/player_creator.cpp): the creator's start
 // (bmxPlayerCreatorInitialize), which reads ASSETS\CREATEPL.DAT and
@@ -77,8 +77,7 @@ namespace dave_mirra::creator
 {
     namespace
     {
-        namespace zx = ps2x::zaxis;
-        namespace gf = ps2x::game_files;
+        namespace gf = zx::game_files;
 
         constexpr int kRegA0 = 4, kRegA1 = 5, kRegSp = 29, kRegRa = 31;
 
@@ -159,7 +158,7 @@ namespace dave_mirra::creator
             return {d.begin() + static_cast<ptrdiff_t>(c.body - 8), d.begin() + static_cast<ptrdiff_t>(c.body + c.size)};
         }
 
-        uint32_t nameHash(const std::string &name) { return ps2x::zaxis_text::keyHash(name); }
+        uint32_t nameHash(const std::string &name) { return zx::zaxis_text::keyHash(name); }
 
         // ---- the riders' models ------------------------------------------------
 
@@ -1084,38 +1083,38 @@ OBJECT "guiScreenSpace" "PlayerCreator"
         bool patchMainMenu(std::string &text)
         {
             std::string edited = text;
-            zx::Span menu = zx::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
+            zx::zaxis::Span menu = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
             if (!menu.found())
                 return false;
             const bool exitLine = edited.find("\\nExit to Collection", menu.begin) != std::string::npos;
             if (exitLine)
             {
                 // Exit to Collection's action: one place on.
-                zx::Span exitAction = zx::findObject(edited, "MainMenu/MainMenuFrame/MainMenu/7");
-                if (!exitAction.found() || !zx::replaceIn(edited, exitAction, "ACTION \"Script\" \"7\"", "ACTION \"Script\" \"8\""))
+                zx::zaxis::Span exitAction = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame/MainMenu/7");
+                if (!exitAction.found() || !zx::zaxis::replaceIn(edited, exitAction, "ACTION \"Script\" \"7\"", "ACTION \"Script\" \"8\""))
                     return false;
-                menu = zx::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
+                menu = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
             }
             // The line's index is 7 either way (after Multiplayer, 6).
             const std::string action = "ACTION \"Script\" \"7\"\n{\n\tStartDelay\t0\n\tScript\t\"PLAY .DeInit\\nPLAY "
                                        "Root.PlayerCreator.Init\"\n}\n";
-            edited.insert(zx::objectEnd(edited, menu), zx::indentBlock(action, zx::indentAt(edited, menu.begin) + 1));
-            menu = zx::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
+            edited.insert(zx::zaxis::objectEnd(edited, menu), zx::zaxis::indentBlock(action, zx::zaxis::indentAt(edited, menu.begin) + 1));
+            menu = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame/MainMenu");
             const std::string line = std::string("\\n") + kItem;
-            bool ok = zx::replaceIn(edited, menu, "\\nMultiplayer", "\\nMultiplayer" + line);
+            bool ok = zx::zaxis::replaceIn(edited, menu, "\\nMultiplayer", "\\nMultiplayer" + line);
             // The screen: a second top object of the script, made under the
             // root with the main menu (the game's creator functions find it there).
             edited += screenScript();
-            zx::Span frame = zx::findObject(edited, "MainMenu/MainMenuFrame");
-            ok = ok && zx::replaceIn(edited, frame, "\\n!Multiplayer", "\\n!Multiplayer" + line) &&
-                 zx::replaceIn(edited, frame, "\\nCool Stuff\\nMultiplayer", "\\nCool Stuff\\nMultiplayer" + line);
+            zx::zaxis::Span frame = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame");
+            ok = ok && zx::zaxis::replaceIn(edited, frame, "\\n!Multiplayer", "\\n!Multiplayer" + line) &&
+                 zx::zaxis::replaceIn(edited, frame, "\\nCool Stuff\\nMultiplayer", "\\nCool Stuff\\nMultiplayer" + line);
             // The frame one line taller.
             for (const char *from : {"\tHeight\t300\r\n", "\tHeight\t270\r\n"})
             {
-                frame = zx::findObject(edited, "MainMenu/MainMenuFrame");
+                frame = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame");
                 const std::string height = from;
                 const int value = std::stoi(height.substr(8));
-                if (zx::replaceIn(edited, frame, height, "\tHeight\t" + std::to_string(value + 30) + "\r\n"))
+                if (zx::zaxis::replaceIn(edited, frame, height, "\tHeight\t" + std::to_string(value + 30) + "\r\n"))
                     break;
             }
             ok = ok && cheats::patchLevelSelectBack(edited);
@@ -1154,7 +1153,7 @@ OBJECT "guiScreenSpace" "PlayerCreator"
         };
         State &state()
         {
-            static ps2x::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
+            static zx::boot::PerBoot<std::unique_ptr<State>> ofBoot([] { return std::make_unique<State>(); });
             return *ofBoot.get();
         }
         constexpr uint32_t kScratchBytes = 0x4000, kScratchStrings = 0x800;
@@ -1195,13 +1194,13 @@ OBJECT "guiScreenSpace" "PlayerCreator"
             const Parts &p = parts();
             if (!p.made)
                 return false;
-            std::vector<zx::ArchiveEntry> entries;
-            if (!zx::readArchive(bytes, entries))
+            std::vector<zx::zaxis::ArchiveEntry> entries;
+            if (!zx::zaxis::readArchive(bytes, entries))
                 return false;
             bool menu = false;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) != "MainMenu")
+                if (zx::zaxis::scriptName(entry) != "MainMenu")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 if (!patchMainMenu(text))
@@ -1216,7 +1215,7 @@ OBJECT "guiScreenSpace" "PlayerCreator"
                 return false;
             constexpr uint32_t kEntryFlags = 6;
             const auto add = [&](const std::string &file, std::vector<uint8_t> data) {
-                zx::ArchiveEntry entry;
+                zx::zaxis::ArchiveEntry entry;
                 entry.nameHash = nameHash(file);
                 entry.flags = kEntryFlags;
                 entry.data = std::move(data);
@@ -1259,7 +1258,7 @@ OBJECT "guiScreenSpace" "PlayerCreator"
                     add(name + ".ZIF", library(name, assets));
                     ++choices;
                 }
-            bytes = zx::writeArchive(entries);
+            bytes = zx::zaxis::writeArchive(entries);
             std::cout << "[create-player] UILIB: the PlayerCreator screen, " << models << " models, " << choices
                       << " choice libraries; the main menu's " << kItem << std::endl;
             return true;
@@ -1534,15 +1533,15 @@ OBJECT "guiScreenSpace" "PlayerCreator"
 
     bool install(PS2Runtime &runtime)
     {
-        const char *on = ps2x::boot::text("PS2X_DM2_CREATE_PLAYER");
+        const char *on = zx::boot::text("ZX_DM2_CREATE_PLAYER");
         if (!on || on[0] != '1')
             return false;
         // A created rider's model is the readable newRider's (game/dm2/rider/rider_state.cpp): the original makes
         // none for characters 17 .. 20, and a ride with such a rider hangs at END RUN. With the readable newRider
-        // off (PS2X_READABLE=off, -dm2:newRider) the menu is not added: the game as it shipped.
+        // off (ZX_READABLE=off, -dm2:newRider) the menu is not added: the game as it shipped.
         if (!game::readable::runsInGame(sym::dm2::newRider, game::Game::Dm2))
         {
-            std::cout << "[create-player] off: created riders need the readable newRider (PS2X_READABLE turns it off; "
+            std::cout << "[create-player] off: created riders need the readable newRider (ZX_READABLE turns it off; "
                          "the original makes no model for them)"
                       << std::endl;
             return false;
@@ -1580,8 +1579,8 @@ OBJECT "guiScreenSpace" "PlayerCreator"
             std::cerr << "[create-player] hooks not installed" << std::endl;
             return false;
         }
-        ps2x::disc_patch::registerPatch("CREATEPL.DAT", &patchCreatorData);
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
+        zx::disc_patch::registerPatch("CREATEPL.DAT", &patchCreatorData);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
         st.on = true;
         std::cout << "[create-player] on: the main menu's " << kItem << std::endl;
         return true;

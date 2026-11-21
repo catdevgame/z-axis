@@ -34,7 +34,7 @@ TITLE = 'Construct and Score 50,000 Points'
 # text), the tool's round. LEVEL=6: Airfield, "Place and Trick on 6 Items", the 'B' room's Vacuum Tool, whose pieces
 # the skater only touches (not knocked down: their breakable records keep state 1). The corpus's cov-vacuum, cov-pisser,
 # cov-crane and cov-construct each made a breakable record at the editing's end (collectCellBreakable's block
-# 0x1F6AD8, ps2xFnCheck --call-blocks), but none entered the editor again.
+# 0x1F6AD8, zx-fncheck --call-blocks), but none entered the editor again.
 LEVEL = int(os.environ.get('LEVEL', str(CANNERY)))
 
 
@@ -200,7 +200,7 @@ def play(name, rounds=2, wait_ticks=6000):
                 yield from until(bot, lambda s: (objective(bot) or {}).get('state') != state2 or editing(bot), 560)
             say(bot, 'waited')
 
-    cfg = ai.config(name, {'PS2X_DEV_UNLOCK_ALL': '1'}, secs=1500)
+    cfg = ai.config(name, {'ZX_DEV_UNLOCK_ALL': '1'}, secs=1500)
     with core.Run(cfg) as run:
         bot = ai.Player(run, behaviour, 1)
         core.play(run, ai.read, bot, 26000)

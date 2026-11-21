@@ -1,7 +1,7 @@
 // The front end a packaged build starts (runtime/ps2_front_end.h).
 #include "runtime/ps2_front_end.h"
 
-namespace ps2x::front_end
+namespace zx::front_end
 {
     namespace
     {

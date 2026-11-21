@@ -19,7 +19,7 @@ rider.
                                                  the map's features (bikepark.py's play: dm2.Meter's numbers, the
                                                  features reached)
 
-Every run has PS2X_MODS_DIR=FOLDER and a tick limit; everything else is dm2.py's (its clock, card, scratch, runner).
+Every run has ZX_MODS_DIR=FOLDER and a tick limit; everything else is dm2.py's (its clock, card, scratch, runner).
 SHOTS=1: pictures.
 """
 import collections
@@ -95,7 +95,7 @@ def card(name, folder, index, column, row, turns):
         yield from dm2park.save_park(bot)
         out['saved'] = True
 
-    bot, run = dm2park.session(name, program, ticks=40000, env={'PS2X_MODS_DIR': os.path.abspath(folder)})
+    bot, run = dm2park.session(name, program, ticks=40000, env={'ZX_MODS_DIR': os.path.abspath(folder)})
     cardir = os.path.join(dm2.SCRATCH, 'runs', name, 'mc0')
     print('card %s: %s; %s' % (cardir, out, 'BMX2PARK.DAT there' if os.path.exists(os.path.join(cardir, parkmap.DM2_PARK_FILE)) else
                                 'NO BMX2PARK.DAT'), flush=True)
@@ -117,7 +117,7 @@ def ride(name, folder, cardir, ticks, seed=1, theme='LEWAREHO'):
     run_dir = os.path.join(dm2.SCRATCH, 'runs', name)
     shutil.rmtree(run_dir, ignore_errors=True)
     shutil.copytree(cardir, os.path.join(run_dir, 'mc0'))
-    cfg = dm2.run_config(name, s.text(), env={'PS2X_HEADLESS': '1', 'PS2X_MODS_DIR': os.path.abspath(folder)},
+    cfg = dm2.run_config(name, s.text(), env={'ZX_HEADLESS': '1', 'ZX_MODS_DIR': os.path.abspath(folder)},
                          max_secs=max(900, ticks // 10), gs=bikepark.SHOTS)
     cfg.menu_end = s.t + 30
     park = bikepark.Park(world=lambda r, c: (0.0, 0.0, 0.0), steps=[], zones=())

@@ -307,7 +307,7 @@ namespace zge
     // the SPU2's play position, asked for under the IOP lock (Z-Axis's,
     // label "SendToIOP1"). Idle or paused, nothing goes. The bytes sent;
     // what was sent leaves the EE's ring and moves the IOP's last position
-    // on. proceedAudio's, on the stream's thread; only PS2X_MOVIES=hle
+    // on. proceedAudio's, on the stream's thread; only ZX_MOVIES=hle
     // reaches it.
     int32_t audioDecSendToIOP(ee::Ptr<AudioDec> audioDec)
     {

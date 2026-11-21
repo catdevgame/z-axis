@@ -134,15 +134,15 @@ namespace
     // readable function that waits.
     std::string bootText(const char *name)
     {
-        const char *value = ps2x::boot::text(name);
+        const char *value = zx::boot::text(name);
         return value ? value : "(null)";
     }
 
     void entry(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
     {
         ++g_seen.entries;
-        g_seen.profileAtEntry = bootText("PS2X_SAVE_PROFILE");
-        g_seen.tableAtEntry = ps2x::function_table::active().table ? ps2x::function_table::active().table[0] : nullptr;
+        g_seen.profileAtEntry = bootText("ZX_SAVE_PROFILE");
+        g_seen.tableAtEntry = zx::function_table::active().table ? zx::function_table::active().table[0] : nullptr;
         uint32_t serverData = 0;
         g_seen.rpcServerAtEntry = ps2_syscalls::lookupEeRpcServer(kRpcSid, serverData);
 
@@ -186,8 +186,8 @@ namespace
     void applyGame(PS2Runtime &runtime)
     {
         ee::g_ram = runtime.memory().getRDRAM();
-        g_seen.gameAtInstall = ps2x::boot::game();
-        g_seen.profileAtInstall = bootText("PS2X_SAVE_PROFILE");
+        g_seen.gameAtInstall = zx::boot::game();
+        g_seen.profileAtInstall = bootText("ZX_SAVE_PROFILE");
         g_hookOriginal[G] = runtime.lookupFunction(kHooked);
         runtime.replaceFunction(kHooked, &hookWrapper<G>);
         ee::installSuspendableCalls(runtime);
@@ -256,21 +256,21 @@ namespace
     }
 
     // Headless and unpaced, the cards and host folder in a scratch folder of
-    // this test run's own. (The EE scheduler reads PS2X_UNPACED once a
+    // this test run's own. (The EE scheduler reads ZX_UNPACED once a
     // process: after the suites before these have run a runtime, the guest's
     // vblanks here are paced on the host clock.)
     struct HeadlessRuns
     {
         std::filesystem::path folder = std::filesystem::temp_directory_path() /
-                                       ("ps2x-lifecycle-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+                                       ("zx-lifecycle-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         PS2Runtime::IoPaths savedPaths = PS2Runtime::getIoPaths();
         uint8_t *savedRam = ee::g_ram;
         HeadlessRuns()
         {
             registerGames();
-            setEnv("PS2X_GS_NULL", "1");
-            setEnv("PS2X_HEADLESS", "1");
-            setEnv("PS2X_UNPACED", "1");
+            setEnv("ZX_GS_NULL", "1");
+            setEnv("ZX_HEADLESS", "1");
+            setEnv("ZX_UNPACED", "1");
             std::filesystem::create_directories(folder / "mc");
             PS2Runtime::IoPaths paths;
             paths.elfDirectory = folder;
@@ -283,9 +283,9 @@ namespace
         {
             if (ps2_host::initialized())
                 ps2_host::shutdown();
-            setEnv("PS2X_GS_NULL", nullptr);
-            setEnv("PS2X_HEADLESS", nullptr);
-            setEnv("PS2X_UNPACED", nullptr);
+            setEnv("ZX_GS_NULL", nullptr);
+            setEnv("ZX_HEADLESS", nullptr);
+            setEnv("ZX_UNPACED", nullptr);
             PS2Runtime::setIoPaths(savedPaths);
             // Back to the global table, for the tests after these.
             ps2_generated::select("NOT_A_LIFECYCLE_GAME.ELF");
@@ -317,7 +317,7 @@ namespace
     // collection. The stop goes by the guest's vsync clock, not the host's
     // frames: what the boot does at a vblank (the state probe's log) has run
     // by then, paced or not, however late the EE thread gets the CPU.
-    RunResult runGame(Game game, bool hostOwned, ps2x::BootConfig config = {})
+    RunResult runGame(Game game, bool hostOwned, zx::BootConfig config = {})
     {
         RunResult result;
         g_seen = Seen{};
@@ -433,19 +433,60 @@ void register_ps2_runtime_lifecycle_tests()
             t.IsTrue(runtime.tableEntry(kEntry) == Fn(&entry), "DM2 again: as generated");
         });
 
+        tc.Run("the same game booted three times with no table chosen between (a lone game module): each boot's hook wraps the generated function", [](TestCase &t)
+        {
+            // Android with one game's code: no other game's to choose, so the
+            // ELF load's select() does not run; what puts the table back is
+            // each boot's end. Every hook takes its original as the game
+            // overrides do (lookupFunction, then replaceFunction).
+            HeadlessRuns runs;
+            ps2_generated::select(kElfNames[Ai]);
+            for (int boot = 1; boot <= 3; ++boot)
+            {
+                const std::string label = "boot " + std::to_string(boot);
+                {
+                    PS2Runtime runtime;
+                    g_hookOriginal[Ai] = runtime.lookupFunction(kHooked);
+                    t.IsTrue(g_hookOriginal[Ai] == Fn(&hookedOriginal), label + ": the original is the generated function");
+                    runtime.replaceFunction(kHooked, &hookWrapper<Ai>);
+                    runtime.replaceFunction(kNever, &originalRest);
+                    t.IsTrue(runtime.tableEntry(kHooked) == Fn(&hookWrapper<Ai>), label + ": hooked");
+                }
+                t.IsTrue(g_tables[Ai][slotOf(kHooked)] == Fn(&hookedOriginal) && g_tables[Ai][slotOf(kNever)] == Fn(&never),
+                         label + ": its end puts the table back as generated");
+            }
+        });
+
+        tc.Run("a boot's end puts back every table it changed, the one in use and the others", [](TestCase &t)
+        {
+            HeadlessRuns runs;
+            ps2_generated::select(kElfNames[Dm2]);
+            {
+                PS2Runtime runtime;
+                runtime.replaceFunction(kEntry, &never);
+                ps2_generated::select(kElfNames[Ai]);
+                runtime.replaceFunction(kHooked, &never);
+                t.IsTrue(g_tables[Dm2][slotOf(kEntry)] == Fn(&never) && g_tables[Ai][slotOf(kHooked)] == Fn(&never),
+                         "both changed while it runs");
+            }
+            t.IsTrue(g_tables[Dm2][slotOf(kEntry)] == Fn(&entry), "DM2's table as generated after it");
+            t.IsTrue(g_tables[Ai][slotOf(kHooked)] == Fn(&hookedOriginal), "AI's too");
+            t.Equals(zx::function_table::restoreGenerated(), size_t{0}, "nothing left to put back");
+        });
+
         tc.Run("two boots in one process with different BootConfigs: each reads its own, the environment wins", [](TestCase &t)
         {
             HeadlessRuns runs;
-            setEnv("PS2X_SAVE_PROFILE", nullptr);
+            setEnv("ZX_SAVE_PROFILE", nullptr);
             auto configFor = [&](const char *game, const char *profile, const std::string &log)
             {
-                ps2x::BootConfig config;
+                zx::BootConfig config;
                 config.game = game;
-                config.set("PS2X_SAVE_PROFILE", profile);
+                config.set("ZX_SAVE_PROFILE", profile);
                 // The state probe (a per-boot read): the entry's first word,
                 // logged to the boot's own file.
-                config.set("PS2X_STATE_LOG", "0x00100108");
-                config.set("PS2X_STATE_LOG_FILE", (runs.folder / log).string());
+                config.set("ZX_STATE_LOG", "0x00100108");
+                config.set("ZX_STATE_LOG_FILE", (runs.folder / log).string());
                 return config;
             };
             const RunResult ai = runGame(Ai, true, configFor("ai", "AiCareer", "ai.state"));
@@ -468,9 +509,9 @@ void register_ps2_runtime_lifecycle_tests()
             t.IsTrue(lines("ai.state").find("[state] tick=") != std::string::npos, "AI: its state log in its file");
             t.IsTrue(lines("dm2.state").find("[state] tick=") != std::string::npos, "DM2: its state log in its own file");
 
-            setEnv("PS2X_SAVE_PROFILE", "FromEnvironment");
+            setEnv("ZX_SAVE_PROFILE", "FromEnvironment");
             const RunResult env = runGame(Ai, true, configFor("ai", "AiCareer", "ai2.state"));
-            setEnv("PS2X_SAVE_PROFILE", nullptr);
+            setEnv("ZX_SAVE_PROFILE", nullptr);
             checkRun(t, env, Ai, "AI with the environment");
             t.Equals(env.seen.profileAtInstall, std::string("FromEnvironment"), "the environment wins over the boot's");
             const RunResult bare = runGame(Ai, true);
@@ -481,12 +522,12 @@ void register_ps2_runtime_lifecycle_tests()
 
         tc.Run("a step file: its settings, its BootConfig names, and what it must have", [](TestCase &t)
         {
-            ps2x::sequence::Step step;
+            zx::sequence::Step step;
             std::string error;
-            t.IsTrue(ps2x::sequence::parseStep("dm2",
+            t.IsTrue(zx::sequence::parseStep("dm2",
                                                "# a check's step\nelf=/discs/SLUS_201.59\nticks=9000\nseconds=600\r\nstall_seconds=60\n"
                                                "stop_after=/dumps/n-last.sp\nmc_root=/cards/mc0\ncwd=/run\n"
-                                               "PS2X_PAD_SCRIPT=10v:START:2v,20v:SYNC=0x259770==1\nPS2X_DUMP_PREFIX=/dumps/n\n",
+                                               "ZX_PAD_SCRIPT=10v:START:2v,20v:SYNC=0x259770==1\nZX_DUMP_PREFIX=/dumps/n\n",
                                                step, &error),
                      "parsed: " + error);
             t.Equals(step.game, std::string("dm2"), "its game");
@@ -498,17 +539,17 @@ void register_ps2_runtime_lifecycle_tests()
             t.Equals(step.stopAfter.string(), std::string("/dumps/n-last.sp"), "stop_after");
             t.Equals(step.mcRoot.string(), std::string("/cards/mc0"), "mc_root");
             t.Equals(step.workingDirectory.string(), std::string("/run"), "cwd");
-            const std::string *script = step.config.find("PS2X_PAD_SCRIPT");
+            const std::string *script = step.config.find("ZX_PAD_SCRIPT");
             t.IsTrue(script && *script == "10v:START:2v,20v:SYNC=0x259770==1", "a value with = and : in it, whole");
-            t.IsFalse(ps2x::sequence::parseStep("ai", "ticks=10\n", step, &error), "no elf");
-            t.IsFalse(ps2x::sequence::parseStep("ai", "elf=/a\n", step, &error), "no tick limit");
-            t.IsFalse(ps2x::sequence::parseStep("ai", "elf=/a\nticks=ten\n", step, &error), "a tick limit that is no count");
-            t.IsFalse(ps2x::sequence::parseStep("ai", "elf=/a\nticks=10\nPS2X_GS_NULL=1\n", step, &error),
+            t.IsFalse(zx::sequence::parseStep("ai", "ticks=10\n", step, &error), "no elf");
+            t.IsFalse(zx::sequence::parseStep("ai", "elf=/a\n", step, &error), "no tick limit");
+            t.IsFalse(zx::sequence::parseStep("ai", "elf=/a\nticks=ten\n", step, &error), "a tick limit that is no count");
+            t.IsFalse(zx::sequence::parseStep("ai", "elf=/a\nticks=10\nZX_GS_NULL=1\n", step, &error),
                       "a process-wide switch is not a step's");
-            t.IsTrue(error.find("PS2X_GS_NULL") != std::string::npos, "and the error names it");
-            std::vector<ps2x::sequence::Step> steps;
-            t.IsFalse(ps2x::sequence::parseArgument("ai", steps, &error), "an argument item without a file");
-            t.IsFalse(ps2x::sequence::parseArgument("ai:/no/such/step/file", steps, &error), "a step file that is not there");
+            t.IsTrue(error.find("ZX_GS_NULL") != std::string::npos, "and the error names it");
+            std::vector<zx::sequence::Step> steps;
+            t.IsFalse(zx::sequence::parseArgument("ai", steps, &error), "an argument item without a file");
+            t.IsFalse(zx::sequence::parseArgument("ai:/no/such/step/file", steps, &error), "a step file that is not there");
         });
 
         tc.Run("a sequence: AI then DM2 in one process, each its own config and stop, the host down at the end", [](TestCase &t)
@@ -526,22 +567,22 @@ void register_ps2_runtime_lifecycle_tests()
                 return (runs.folder / name).string();
             };
             const std::string ai = stepFile("ai.step", "elf=" + (runs.folder / kElfNames[Ai]).string() +
-                                                           "\nticks=40\nPS2X_SAVE_PROFILE=AiCareer\nPS2X_STATE_LOG=0x00100108\n"
-                                                           "PS2X_STATE_LOG_FILE=" + (runs.folder / "ai.state").string() + "\n");
+                                                           "\nticks=40\nZX_SAVE_PROFILE=AiCareer\nZX_STATE_LOG=0x00100108\n"
+                                                           "ZX_STATE_LOG_FILE=" + (runs.folder / "ai.state").string() + "\n");
             const std::string dm2 = stepFile("dm2.step", "elf=" + (runs.folder / kElfNames[Dm2]).string() +
                                                              "\nticks=100000\nstop_after=" + marker.string() +
-                                                             "\nPS2X_SAVE_PROFILE=Dm2Career\nPS2X_STATE_LOG=0x00100108\n"
-                                                             "PS2X_STATE_LOG_FILE=" + marker.string() + "\n");
-            std::vector<ps2x::sequence::Step> steps;
+                                                             "\nZX_SAVE_PROFILE=Dm2Career\nZX_STATE_LOG=0x00100108\n"
+                                                             "ZX_STATE_LOG_FILE=" + marker.string() + "\n");
+            std::vector<zx::sequence::Step> steps;
             std::string error;
-            t.IsTrue(ps2x::sequence::parseArgument("ai:" + ai + ",dm2:" + dm2, steps, &error), "parsed: " + error);
+            t.IsTrue(zx::sequence::parseArgument("ai:" + ai + ",dm2:" + dm2, steps, &error), "parsed: " + error);
             t.Equals(steps.size(), size_t{2}, "two steps");
             if (steps.size() != 2)
                 return;
-            setEnv("PS2X_SAVE_PROFILE", nullptr);
+            setEnv("ZX_SAVE_PROFILE", nullptr);
             g_seen = Seen{};
             const std::filesystem::path cwd = std::filesystem::current_path();
-            const auto outcomes = ps2x::sequence::run(steps, "lifecycle sequence");
+            const auto outcomes = zx::sequence::run(steps, "lifecycle sequence");
             t.Equals(outcomes.size(), size_t{2}, "both steps ran");
             if (outcomes.size() != 2)
                 return;
@@ -566,40 +607,40 @@ void register_ps2_runtime_lifecycle_tests()
             t.Equals(PS2Runtime::getIoPaths().mcRoot.string(), (runs.folder / "mc").string(), "the I/O folders as they were");
         });
 
-        tc.Run("a test run's sound goes to SDL's dummy device (ZAXIS_AUDIO=off, unpaced runs); ZAXIS_AUDIO=on plays it", [](TestCase &t)
+        tc.Run("a test run's sound goes to SDL's dummy device (ZX_AUDIO=off, unpaced runs); ZX_AUDIO=on plays it", [](TestCase &t)
         {
             auto saved = [](const char *name) -> std::optional<std::string>
             {
                 const char *value = std::getenv(name);
                 return value ? std::optional<std::string>(value) : std::nullopt;
             };
-            const auto savedAudio = saved("ZAXIS_AUDIO");
-            const auto savedUnpaced = saved("PS2X_UNPACED");
+            const auto savedAudio = saved("ZX_AUDIO");
+            const auto savedUnpaced = saved("ZX_UNPACED");
             const auto savedDriver = saved("SDL_AUDIO_DRIVER");
             const auto savedDiskFile = saved("SDL_AUDIO_DISK_OUTPUT_FILE");
             const std::filesystem::path diskFile = std::filesystem::temp_directory_path() /
-                ("ps2x-audio-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".raw");
+                ("zx-audio-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".raw");
             ps2_host::WindowOptions options;
             options.headless = true;
             auto driverWith = [&](const char *audio, const char *unpaced) -> std::string
             {
-                setEnv("ZAXIS_AUDIO", audio);
-                setEnv("PS2X_UNPACED", unpaced);
+                setEnv("ZX_AUDIO", audio);
+                setEnv("ZX_UNPACED", unpaced);
                 if (!ps2_host::initialize("audio test", options))
                     return "no host";
                 const std::string driver = ps2_host::audioReady() ? ps2_host::audioDriver() : "no device";
                 ps2_host::shutdown();
                 return driver;
             };
-            t.Equals(driverWith("off", nullptr), std::string("dummy"), "ZAXIS_AUDIO=off: a device, SDL's dummy one");
+            t.Equals(driverWith("off", nullptr), std::string("dummy"), "ZX_AUDIO=off: a device, SDL's dummy one");
             t.Equals(driverWith(nullptr, "1"), std::string("dummy"), "an unpaced run: the same");
             // The system's driver otherwise, here SDL's disk one (to a file), so the test makes no sound either.
             setEnv("SDL_AUDIO_DRIVER", "disk");
             setEnv("SDL_AUDIO_DISK_OUTPUT_FILE", diskFile.string().c_str());
-            t.Equals(driverWith("on", "1"), std::string("disk"), "ZAXIS_AUDIO=on: the system's driver, unpaced or not");
-            t.Equals(driverWith(nullptr, nullptr), std::string("disk"), "a paced run without ZAXIS_AUDIO: the same");
-            setEnv("ZAXIS_AUDIO", savedAudio ? savedAudio->c_str() : nullptr);
-            setEnv("PS2X_UNPACED", savedUnpaced ? savedUnpaced->c_str() : nullptr);
+            t.Equals(driverWith("on", "1"), std::string("disk"), "ZX_AUDIO=on: the system's driver, unpaced or not");
+            t.Equals(driverWith(nullptr, nullptr), std::string("disk"), "a paced run without ZX_AUDIO: the same");
+            setEnv("ZX_AUDIO", savedAudio ? savedAudio->c_str() : nullptr);
+            setEnv("ZX_UNPACED", savedUnpaced ? savedUnpaced->c_str() : nullptr);
             setEnv("SDL_AUDIO_DRIVER", savedDriver ? savedDriver->c_str() : nullptr);
             setEnv("SDL_AUDIO_DISK_OUTPUT_FILE", savedDiskFile ? savedDiskFile->c_str() : nullptr);
             std::error_code ec;

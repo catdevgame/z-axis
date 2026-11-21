@@ -82,7 +82,7 @@ namespace zge::zgui
         Node node;
         ee::Ptr<char> onCreate;   // +0x40 scripts (Event properties)
         ee::Ptr<char> onDestroy;  // +0x44
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4 keeps every widget's size here (the kinds' Width and Height
         // properties; ZGE3's kinds keep their own).
         ee::Float width;          // +0x48
@@ -95,7 +95,7 @@ namespace zge::zgui
     static_assert(sizeof(Widget) == 0xF0);
     // A new widget's size set to nothing and its alignment to the top left:
     // ZGE4's alone (only its defineWidgetProperties step calls it).
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     inline void clearWidgetLayout(ee::Ptr<Widget> widget)
     {
         widget->width = ee::Float(0.0f);
@@ -166,7 +166,7 @@ namespace zge::zgui
     // The text classes' fields: a text box, a label and the plain text widget.
     struct GuiText
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4: the kind's Alignment, Width and Height are the widget's, named here over it (WidgetLayout).
         union
         {
@@ -191,11 +191,11 @@ namespace zge::zgui
         WidgetColour color;      // +0x110
         ee::Float spacing;       // +0x120
         int32_t tracking;        // +0x124
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t alignment;      // +0x128 (ZGE4: the widget's, above)
 #endif
         uint32_t monospace;      // +0x12C (ZGE4 +0x128)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         ee::Float width;         // +0x130 a text box's; a label's measured (ZGE4: the widget's, above)
         ee::Float height;        // +0x134
 #endif

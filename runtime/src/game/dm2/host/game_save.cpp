@@ -11,7 +11,7 @@
 // the same way from that file into the request's park buffer, and tells the
 // request it is done (its onDone): the level select goes on to load the
 // park's level. Other parks, replays, the start check and name entry stay the
-// game's frame on the memory card. PS2X_SAVES=card: none of this (the frame
+// game's frame on the memory card. ZX_SAVES=card: none of this (the frame
 // on the emulated card, as on the console).
 
 #include "dm2/action/action.h"

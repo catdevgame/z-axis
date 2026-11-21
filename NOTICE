@@ -98,15 +98,20 @@ sce_symbol_database_data.h: hashes and sizes) is upstream PS2Recomp's.
 6. Fetched at build time (not in this repository)
 -------------------------------------------------
 
-CMake downloads each one as a release or tag archive checked by SHA-256 (the
-hashes are in the CMake files):
+Each one is downloaded and checked by SHA-256 (the hashes are in the files
+named): CMake fetches a release or tag archive of each, but for stb_truetype
+and bcdec, single headers it fetches as files; FFmpeg's release tarball is
+fetched by its build script.
 
-- SDL 3.4.18, zlib licence: runtime/cmake/ps2x_sdl3.cmake
+- SDL 3.4.18, zlib licence: runtime/cmake/zx_sdl3.cmake
 - Dear ImGui v1.92.7-docking, MIT: runtime/CMakeLists.txt (debug UI builds)
 - sse2neon v1.9.1, MIT: CMakeLists.txt (ARM builds)
-- FFmpeg n7.1 (Windows: the LGPL shared prebuilt of
-  github.com/System233/ffmpeg-msvc-prebuilt; elsewhere the system's or a
-  static minimal build), LGPL-2.1-or-later: runtime/CMakeLists.txt
+- FFmpeg 9.0.2, LGPL-2.1-or-later: the apps (Mac, Windows, Android) link a
+  minimal static build of its release tarball, configured LGPL only (no
+  --enable-gpl or --enable-nonfree): tooling/ai/tools/build-ffmpeg.sh,
+  android/build-ffmpeg.sh. A development build without that prefix uses the
+  system's FFmpeg, or on Windows the LGPL shared prebuilt n7.1 of
+  github.com/System233/ffmpeg-msvc-prebuilt: runtime/CMakeLists.txt
 - ELFIO Release_3.12, MIT; toml11 v4.4.0, MIT; fmt 12.1.0, MIT; libdwarf
   v2.2.0, LGPL-2.1 (libdwarf) and BSD; rabbitizer 1.14.3, MIT:
   tooling/recompiler/ps2xRecomp/CMakeLists.txt
@@ -114,18 +119,24 @@ hashes are in the CMake files):
 - miniz 3.0.2, MIT: runtime/CMakeLists.txt (zip mods read in place)
 - xxHash 0.8.3, BSD-2-Clause: runtime/CMakeLists.txt (texture packs' names)
 - zstd 1.5.7, BSD-3-Clause (dual-licensed BSD or GPL-2.0; used under BSD):
-  runtime/cmake/ps2x_zstd.cmake (compressed recordings in developer builds;
+  runtime/cmake/zx_zstd.cmake (compressed recordings in developer builds;
   CHD disc images' zstd hunks in every build)
 - libchdr at commit 47d794151b2b64f6aba60304e6480f4f5a2bc24b (2026-10-11),
   BSD-3-Clause, copyright Romain Tisserand, with what it bundles: the LZMA
   SDK 26.02 (public domain), miniz 3.1.2 (MIT) and dr_flac (public domain or
-  MIT-0): iop/cmake/ps2x_chdr.cmake (CHD disc images)
+  MIT-0): iop/cmake/zx_chdr.cmake (CHD disc images)
 - LZ4 1.10.0, BSD-2-Clause (its lib/), copyright Yann Collet:
-  iop/cmake/ps2x_lz4.cmake (ZSO and CSO disc images)
+  iop/cmake/zx_lz4.cmake (ZSO and CSO disc images)
 - stb_truetype v1.28 (github.com/nothings/stb at commit
   9600522de53973336fa033a289858a4354cbb04c), by Sean Barrett, public domain
-  or MIT (the header's own choice of the two): runtime/cmake/ps2x_stb.cmake
+  or MIT (the header's own choice of the two): runtime/cmake/zx_stb.cmake
   (the shipped font drawn for the collection's menu)
+- bcdec v0.985 (github.com/iOrange/bcdec at commit
+  80859ed3b7afb1c527a2a99d70c61457bea72d0c), by Sergii Kudlai, MIT or the
+  Unlicense (the header's own choice of the two): runtime/cmake/zx_bcdec.cmake
+  (texture packs' DDS pictures decoded, runtime/ps2_texture_dds.h, which reads
+  DDS files as PCSX2's GSTextureReplacementLoaders.cpp does at PCSX2 commit
+  5b6e6e23eba403b589495c1abf8266eb1309a5b1, v2.9.131)
 
 
 7. LZO 2.10's LZO1X decompressor

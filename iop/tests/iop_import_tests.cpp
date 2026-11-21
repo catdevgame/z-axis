@@ -282,7 +282,7 @@ namespace
         const auto suffix = std::to_string(
             static_cast<unsigned long long>(std::chrono::steady_clock::now().time_since_epoch().count()));
         const std::filesystem::path root =
-            std::filesystem::temp_directory_path() / ("ps2x-iop-cdvd-search-" + suffix);
+            std::filesystem::temp_directory_path() / ("zx-iop-cdvd-search-" + suffix);
         const std::filesystem::path movieDirectory = root / "MOVIE";
         const std::filesystem::path moviePath = movieDirectory / "OPENING.PSS";
         std::error_code error;
@@ -330,7 +330,7 @@ namespace
         const auto suffix = std::to_string(
             static_cast<unsigned long long>(std::chrono::steady_clock::now().time_since_epoch().count()));
         const std::filesystem::path root =
-            std::filesystem::temp_directory_path() / ("ps2x-iop-cdvd-volume-" + suffix);
+            std::filesystem::temp_directory_path() / ("zx-iop-cdvd-volume-" + suffix);
         std::error_code error;
         std::filesystem::create_directories(root / "ASSETS", error);
         if (!expect(!error, "could not create the temporary CD root"))
@@ -465,6 +465,6 @@ int main()
     if (!testLoadcoreRebootLibraryMode() || !testCdvdSpecialControl() || !testCdvdSearchFile() || !testCdvdFolderVolume() ||
         !testTimrmanPeriodicCallback())
         return 1;
-    std::cout << "ps2xIOP import tests passed\n";
+    std::cout << "iop import tests passed\n";
     return 0;
 }

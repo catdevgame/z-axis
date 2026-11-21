@@ -36,39 +36,40 @@ python3 tools/make-config.py                                  # config.toml -> c
 <build>/recompiler/ps2xRecomp/ps2_recomp config.game.toml     # -> recomp/generated (config.ns.toml -> generated-ns)
 ```
 
-A runner for DM2 alone: configure the tree with `-DPS2X_RUNNER_GENERATED_DIR=<workspace>/recomp/generated
--DPS2X_VU1_AOT_DIR=<workspace>/recomp/generated-vu1`. Several games in one runner (the collection's layout): AI's
-generated code as the main set, DM2's `generated-ns` in `PS2X_RUNNER_EXTRA_GENERATED_DIRS` and its VU1 folder in
-`PS2X_VU1_AOT_EXTRA_DIRS`; the function table in use is chosen by the ELF's name at load. BMX XXX joins them the same
+A runner for DM2 alone: configure the tree with `-DZX_RUNNER_GENERATED_DIR=<workspace>/recomp/generated
+-DZX_VU1_AOT_DIR=<workspace>/recomp/generated-vu1`. Several games in one runner (the collection's layout): AI's
+generated code as the main set, DM2's `generated-ns` in `ZX_RUNNER_EXTRA_GENERATED_DIRS` and its VU1 folder in
+`ZX_VU1_AOT_EXTRA_DIRS`; the function table in use is chosen by the ELF's name at load. BMX XXX joins them the same
 way: its `generated-ns` (`$BMX_RECOMP/generated-ns`, paths.env, made by `tooling/bmx/recomp/recompile.py`) in
-`PS2X_RUNNER_EXTRA_GENERATED_DIRS` too. Each game's instance holds its own folder (`game/dm2`, `game/bmx`) and, with
-`PS2X_BIND_DIR` (the tree's committed `runtime/tools/bind`: `dm2.tsv`, `bmx.tsv`), the shared sources compiled again
-for it: DM2's every source of `game/dm2/instance_sources.txt`. `game/dm2` calls that engine by name, so it is built
-only with DM2's bind table; `game/bmx` with or without one. The apps are built with `tooling/ai/tools/make-app.sh`
+`ZX_RUNNER_EXTRA_GENERATED_DIRS` too. Each game's instance holds its own folder (`game/dm2`, `game/bmx`) and, with
+`ZX_BIND_DIR` (the tree's committed `runtime/tools/bind`: `dm2.tsv`, `bmx.tsv`), the shared sources compiled again
+for it: every source of the game's `instance_sources.txt`. `game/dm2` and `game/bmx` call that engine by name, so
+each is built only with its game's bind table. The apps are built with `tooling/ai/tools/make-app.sh`
 (`GAMES="ai dm2 bmx"`) and `make-windows.ps1 -Games ai,dm2,bmx`; `tools/make-windows-dm2.ps1` builds DM2 alone on
 Windows.
 
 ### VU1 AOT
 
 DM2 has one VU1 micro memory image (836c2d1891f4ba03). `recompile.sh` writes it into `recomp/generated-vu1` with the
-tree's `runtime/tools/vu1_image.py`; a build given that folder (`PS2X_VU1_AOT_DIR` or `PS2X_VU1_AOT_EXTRA_DIRS`)
-compiles its microprograms ahead of time with its own `ps2xVu1Aot` (`runtime/tools/VU1_AOT.md`). Without it DM2's
+tree's `runtime/tools/vu1_image.py`; a build given that folder (`ZX_VU1_AOT_DIR` or `ZX_VU1_AOT_EXTRA_DIRS`)
+compiles its microprograms ahead of time with its own `zx-vu1aot` (`runtime/tools/VU1_AOT.md`). Without it DM2's
 VU1 runs on the interpreter. A run can also dump the images it meets:
-`PS2X_VU1_CODE_DUMP=$PWD/generated-vu1 ./run.sh 85 vu1codes`.
+`ZX_VU1_CODE_DUMP=$PWD/generated-vu1 ./run.sh 85 vu1codes`.
 
 ## Run
 
 ```sh
 cd tooling/dm2/recomp
-RUNNER=<ps2EntryRunner> ./run.sh 80 myrun          # scratch HOME, card and support under $DM2_SCRATCH (/tmp/ai-dm2)
+RUNNER=<zx-runner> ./run.sh 80 myrun          # scratch HOME, card and support under $DM2_SCRATCH (/tmp/ai-dm2)
 ../tools/run-game-dm2.sh NAME MAX_SECS [RUNNER]     # for checks: unpaced, scratch HOME; GAME=bmx for BMX XXX
 ```
 
-- Pictures: window captures come out black; use `PS2X_SHOT_AT="<sec>:<png>,..."` or
+- Pictures: window captures come out black; use `ZX_SHOT_AT="<sec>:<png>,..."` or
   `tools/nctl.py NAME "shot FILE"`.
-- `PS2X_DEV_UNLOCK_ALL=1` (or `PS2X_DM2_OPEN_LEVELS=1`) opens every level;
-  `PS2X_DEV_START_LEVEL=<folder>` (`WOODWARD`, `AIRPORT`, ...) goes straight into one (`docs/DEVTOOLS.md`).
-- The PS2 paths back, for comparisons: `PS2X_SOUND=spu2`, `PS2X_MOVIES=hle`, `PS2X_IOP=1`, `PS2X_SAVES=card`
+- `ZX_DEV_UNLOCK_ALL=1` (or `ZX_DM2_OPEN_LEVELS=1`) opens every level;
+  `ZX_DEV_START_LEVEL=<n>` (the level select's value: 0 Woodward Camp .. 7 Airport) or `PARK` goes straight into
+  one in FREERIDE (`docs/DEVTOOLS.md`).
+- The PS2 paths back, for comparisons: `ZX_SOUND=spu2`, `ZX_MOVIES=hle`, `ZX_IOP=1`, `ZX_SAVES=card`
   (`docs/NATIVE.md`).
 
 ## Checks
@@ -79,7 +80,7 @@ RUNNER=<ps2EntryRunner> ./run.sh 80 myrun          # scratch HOME, card and supp
 - The A/B: `tooling/checks/career_ab.py gate --game dm2` (its routes, `ab_allow_dm2.txt`; `--game bmx` with
   `ab_allow_bmx.txt`; docs/READABLE.md "The gate").
 - The recording corpus: routes in `tools/dm2routes.py`, recorded with `tools/dm2corpus.py record` (a build with
-  `PS2X_GAME_CORPUS=dm2`) and replayed with `tooling/checks/fncheck_corpus.py`; `dm2cov.py` says what the routes
+  `ZX_GAME_CORPUS=dm2`) and replayed with `tooling/checks/fncheck_corpus.py`; `dm2cov.py` says what the routes
   reach, `dm2proof.py` what a replay proves by level. BMX XXX's corpus goes the same way (`--game bmx`,
   `tools/bmxroutes.py`).
 - Play: `tooling/ai/tools/playbot/dm2.py`; BMX XXX: `RUNNER=... BMXCORPUS=DIR tooling/ai/tools/playbot/bmx.py play

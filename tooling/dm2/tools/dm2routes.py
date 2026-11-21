@@ -2,7 +2,7 @@
 """Scripted routes through Dave Mirra BMX 2 for recording and coverage (the counterpart of the
 Aggressive Inline repo's tools/routes.py; docs/READABLE.md "How a function is proven").
 
-Drives a native runner through PS2X_CONTROL, closed loop on the game's state: every step waits on
+Drives a native runner through ZX_CONTROL, closed loop on the game's state: every step waits on
 a guest word (mode, level frame, the menu on screen), never on host time.
 
     dm2routes.py start NAME [KEY=VAL ...]   launch RUNNER with a scratch HOME, card, support folder
@@ -68,15 +68,15 @@ def start(name, pairs):
     for f in ('cmd', 'out'):
         open(os.path.join(ctl, f), 'w').close()
     env = dict(os.environ)
-    env.setdefault('PS2X_DEBUG_UI', '0')
-    env.setdefault('PS2X_GS_BACKEND', 'cpu')
-    env.setdefault('PS2X_UNPACED', '1')
+    env.setdefault('ZX_DEBUG_UI', '0')
+    env.setdefault('ZX_GS_BACKEND', 'cpu')
+    env.setdefault('ZX_UNPACED', '1')
     for kv in pairs:
         k, v = kv.split('=', 1)
         env[k] = v
-    env.update({'PS2X_CONTROL': ctl, 'HOME': os.path.join(d, 'home'), 'PS2X_APP_SUPPORT_DIR': os.path.join(d, 'app'),
-                'PS2X_APP_LOG_DIR': os.path.join(d, 'app'), 'PS2X_SCREENSHOT_DIR': os.path.join(d, 'shots'),
-                'PS2X_MC_ROOT': os.path.join(d, 'mc0')})
+    env.update({'ZX_CONTROL': ctl, 'HOME': os.path.join(d, 'home'), 'ZX_APP_SUPPORT_DIR': os.path.join(d, 'app'),
+                'ZX_APP_LOG_DIR': os.path.join(d, 'app'), 'ZX_SCREENSHOT_DIR': os.path.join(d, 'shots'),
+                'ZX_MC_ROOT': os.path.join(d, 'mc0')})
     with open(os.path.join(d, 'run.log'), 'w') as log:
         p = subprocess.Popen([os.environ['RUNNER'], ELF], cwd=os.path.join(d, 'cwd'), env=env, stdout=log,
                              stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
@@ -196,7 +196,7 @@ def state(g):
 # ---- pad script routes ---------------------------------------------------------------------
 
 class Script:
-    """A PS2X_PAD_SCRIPT, vsync clock: closed on the game by SYNC anchors, so one route replays
+    """A ZX_PAD_SCRIPT, vsync clock: closed on the game by SYNC anchors, so one route replays
     exactly at any host speed (the recorder's, the A/B's)."""
 
     def __init__(self):
@@ -540,7 +540,7 @@ for _level in (0, 1, 3):
         ROUTES[_route] = ((lambda l, t: lambda: proquest(l, 24, 600 + 10 * l + t))(_level, _tier),
                           'ProQuest, %s, the career poked to tier %d: its goals and objects' % (LEVELS[_level], _tier))
         # (test only, for recording) every rider's progress in that level: open, the tier
-        ENVIRONMENT[_route] = {'PS2X_POKE_SCRIPT': ','.join(
+        ENVIRONMENT[_route] = {'ZX_POKE_SCRIPT': ','.join(
             '%x:%x=%x' % (2800, CAREER + rider * 0x3C8 + 0x13C + LEVEL_BLOCKS[_level] * 0x44 + 0x3C, 0x0001 | _tier << 8)
             for rider in range(21))}
 # (test only, for recording) the run's score (the rider's float at +0x1A0) poked past the rookie challenge's,
@@ -548,15 +548,15 @@ for _level in (0, 1, 3):
 for _level, _rider in ((0, 0x1256B10), (1, 0x100D380), (3, 0x12D15C0)):
     _route = 'pq-%s-win' % LEVELS[_level]
     ROUTES[_route] = ((lambda l: lambda: proquest(l, 24, 800 + l))(_level), 'ProQuest, %s, the challenge passed by a poked score' % LEVELS[_level])
-    ENVIRONMENT[_route] = {'PS2X_POKE_SCRIPT': ','.join('%x:%x=%x' % (t, _rider + 0x1A0, 0x47C35000) for t in (8000, 10000, 12000, 14000))}
+    ENVIRONMENT[_route] = {'ZX_POKE_SCRIPT': ','.join('%x:%x=%x' % (t, _rider + 0x1A0, 0x47C35000) for t in (8000, 10000, 12000, 14000))}
 ROUTES['gs-woodward'] = ((lambda: freeride(0, 12, 700)), 'Free Ride, Woodward, with the GS and VU1 on (the CPU renderer): the renderers the null GS skips')
-ENVIRONMENT['gs-woodward'] = {'PS2X_GS_NULL': None, 'PS2X_VU1_SKIP': None}
+ENVIRONMENT['gs-woodward'] = {'ZX_GS_NULL': None, 'ZX_VU1_SKIP': None}
 ROUTES['frontend'] = (frontend, 'options, controllers, audio, the card: load and save')
 ROUTES['saves'] = (frontend, 'as frontend with the native save (the game\'s save serialisation; `card` runs the card dialogs)')
 ROUTES['cool'] = (cool, 'cool stuff: records, movies, credits, replays')
-ROUTES['cool-hle'] = (cool, 'as cool with the game\'s own movie player (PS2X_MOVIES=hle: its IPU decoding and IOP sound, not the host\'s)')
-ENVIRONMENT['cool-hle'] = {'PS2X_MOVIES': 'hle'}
-# The app's Settings page in the game's menus (PS2X_GAME_SETTINGS_MENUS=1, zge_settings.cpp's page): the rows of each
+ROUTES['cool-hle'] = (cool, 'as cool with the game\'s own movie player (ZX_MOVIES=hle: its IPU decoding and IOP sound, not the host\'s)')
+ENVIRONMENT['cool-hle'] = {'ZX_MOVIES': 'hle'}
+# The app's Settings page in the game's menus (ZX_GAME_SETTINGS_MENUS=1, zge_settings.cpp's page): the rows of each
 # of its sections (L1/R1) the runner has, in order (Display, Sound, Controls, Camera, Assists, Cheats: the Controls
 # rows from Pedal on are the keys, the pad's buttons and Reset Controls to Defaults, actions that Right and Left leave
 # alone). The app has more (display.*); the page's Down wraps.
@@ -602,17 +602,17 @@ def menus():
     return s
 
 
-ROUTES['menus'] = (menus, "the app's Settings page (PS2X_GAME_SETTINGS_MENUS=1) from Options and the pause menu: every section, Right and Left on every row")
-ENVIRONMENT['menus'] = {'PS2X_GAME_SETTINGS_MENUS': '1', 'PS2X_TRACE_SETTINGS': '1'}  # (the trace: the page's keys, which the A/B reads back)
+ROUTES['menus'] = (menus, "the app's Settings page (ZX_GAME_SETTINGS_MENUS=1) from Options and the pause menu: every section, Right and Left on every row")
+ENVIRONMENT['menus'] = {'ZX_GAME_SETTINGS_MENUS': '1', 'ZX_TRACE_SETTINGS': '1'}  # (the trace: the page's keys, which the A/B reads back)
 # The game's own exit (test only, as AI's cov-quit): engineMain's loop flag (0x2073B0, the word requestQuit sets; nothing
 # in the retail game calls it) poked, so the main loop ends and the game's and the engine's shutdown run, then Exit.
 QUIT_FLAG = 0x2073B0
 
 
 def quit_env(at):
-    """The loop flag set at tick `at` (PS2X_POKE_SCRIPT), and the route's end 1,800 ticks on: after its Exit the guest
+    """The loop flag set at tick `at` (ZX_POKE_SCRIPT), and the route's end 1,800 ticks on: after its Exit the guest
     runs no more (the pad script's clock stops), the host's vsyncs go on at their own pace."""
-    return {'PS2X_POKE_SCRIPT': '%x:%x=1' % (at, QUIT_FLAG), 'PS2X_DUMP_WHEN': 'end:tick>=%d' % (at + 1800)}
+    return {'ZX_POKE_SCRIPT': '%x:%x=1' % (at, QUIT_FLAG), 'ZX_DUMP_WHEN': 'end:tick>=%d' % (at + 1800)}
 
 
 def quit_fe():
@@ -810,7 +810,7 @@ def played_routes():
             if os.path.exists(os.path.join(PLAY_SESSIONS, name, 'meta.json')):
                 with open(os.path.join(PLAY_SESSIONS, name, 'meta.json')) as f:
                     meta = json.load(f)
-            ENVIRONMENT['play-' + name] = dict({'PS2X_EE_SCALE': '4096', 'PS2X_MC_FIXED_TIME': '1'}, **meta.get('env', {}))
+            ENVIRONMENT['play-' + name] = dict({'ZX_EE_SCALE': '4096', 'ZX_MC_FIXED_TIME': '1'}, **meta.get('env', {}))
 
 
 played_routes()
@@ -949,7 +949,7 @@ def editor_tour(theme=1, seed=903):
 
 
 ROUTES['ed-tour'] = (editor_tour, 'routes3: the park editor: every tool, the view, light options, clear all, save, load')
-ENVIRONMENT['ed-tour'] = {'PS2X_MC_FIXED_TIME': '1'}
+ENVIRONMENT['ed-tour'] = {'ZX_MC_FIXED_TIME': '1'}
 
 
 def frontend_card():
@@ -1000,7 +1000,7 @@ def frontend_card():
 
 
 ROUTES['fe-card'] = (frontend_card, 'routes2: the front end card menus: save and load game, load park and view replays with none')
-ENVIRONMENT['fe-card'] = {'PS2X_MC_FIXED_TIME': '1'}
+ENVIRONMENT['fe-card'] = {'ZX_MC_FIXED_TIME': '1'}
 
 
 def card_tail(s):
@@ -1091,11 +1091,11 @@ def extra_env(name):
 
 
 # Port 1 mirrors port 0: a second pad, which MULTIPLAYER asks for.
-ENVIRONMENT.update({k: {'PS2X_PAD_PORT1': 'mirror'} for k in ROUTES if k.startswith('mp-')})
-ENVIRONMENT['saves'] = {'PS2X_SAVES': None, 'PS2X_MC_FD_BASE0': None}
-ENVIRONMENT['se1-card'] = {'PS2X_EE_SCALE': '4096', 'PS2X_MC_FIXED_TIME': '1'}
+ENVIRONMENT.update({k: {'ZX_PAD_PORT1': 'mirror'} for k in ROUTES if k.startswith('mp-')})
+ENVIRONMENT['saves'] = {'ZX_SAVES': None, 'ZX_MC_FD_BASE0': None}
+ENVIRONMENT['se1-card'] = {'ZX_EE_SCALE': '4096', 'ZX_MC_FIXED_TIME': '1'}
 if os.path.exists(os.path.join(PLAY_SESSIONS, 'p3-se0', 'meta.json')):
-    ENVIRONMENT['se-card'] = dict({'PS2X_EE_SCALE': '4096', 'PS2X_MC_FIXED_TIME': '1'},
+    ENVIRONMENT['se-card'] = dict({'ZX_EE_SCALE': '4096', 'ZX_MC_FIXED_TIME': '1'},
                                   **json.load(open(os.path.join(PLAY_SESSIONS, 'p3-se0', 'meta.json'))).get('env', {}))
 
 

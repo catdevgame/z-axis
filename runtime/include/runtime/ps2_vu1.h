@@ -3,7 +3,7 @@
 
 // VU0's and VU1's interpreter: the core the step runs on (VU1Core, runtime/ps2_vu1_core.h) with what the runtime
 // adds to it: the decoder and its cache, the run loop, the packet observer and pair trace, and the ahead-of-time
-// compiled microprograms (ps2xVu1Aot), the runner's own or a game module's, by micro memory hash.
+// compiled microprograms (zx-vu1aot), the runner's own or a game module's, by micro memory hash.
 
 #include "runtime/ps2_vu1_core.h"
 
@@ -51,7 +51,7 @@ public:
     const VU1State &state() const { return m_state; }
 
     // Called with every PATH1 packet XGKICK completes. With deliver=false the
-    // packet goes only to the observer (offline replay, ps2xVu1Check).
+    // packet goes only to the observer (offline replay, zx-vu1check).
     using PacketObserver = std::function<void(const uint8_t *data, uint32_t size)>;
     void setPacketObserver(PacketObserver observer, bool deliver = true)
     {
@@ -65,7 +65,7 @@ public:
     // True when no pipeline (flags, Q/P, stores, writes, XGKICK) has work left.
     bool pipelinesIdle() const { return !pipelinesPending(); }
     // FNV-1a hash of micro memory: the key of ahead-of-time compiled code
-    // (ps2xVu1Aot, PS2X_VU1_AOT).
+    // (zx-vu1aot, ZX_VU1_AOT).
     static uint64_t codeHash(const uint8_t *code, uint32_t size);
     // True when the current micro memory runs ahead-of-time compiled code.
     bool usingAotCode() const { return m_aotProgram != nullptr; }

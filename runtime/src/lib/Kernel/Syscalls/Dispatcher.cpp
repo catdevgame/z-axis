@@ -22,10 +22,10 @@ namespace ps2_syscalls
         case 0x04:
         {
             // Exit(status): the program is leaving to the OSD. Make it visible,
-            // and with PS2X_DUMP_RAM_ON_EXIT=<file> save EE RAM for post-mortems.
+            // and with ZX_DUMP_RAM_ON_EXIT=<file> save EE RAM for post-mortems.
             std::cerr << "[Exit] guest Exit(" << static_cast<int32_t>(getRegU32(ctx, 4)) << ") pc=0x" << std::hex << ctx->pc
                       << " ra=0x" << getRegU32(ctx, 31) << std::dec << std::endl;
-            if (const char *dumpPath = std::getenv("PS2X_DUMP_RAM_ON_EXIT"); dumpPath && dumpPath[0] != '\0' && rdram)
+            if (const char *dumpPath = std::getenv("ZX_DUMP_RAM_ON_EXIT"); dumpPath && dumpPath[0] != '\0' && rdram)
             {
                 if (FILE *dump = std::fopen(dumpPath, "wb"))
                 {

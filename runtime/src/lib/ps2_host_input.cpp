@@ -175,7 +175,7 @@ namespace ps2_host_input
             return ok;
         }
 
-        // "<n>" seconds or "<n>v" vsyncs, in vsyncs (as PS2X_PAD_SCRIPT).
+        // "<n>" seconds or "<n>v" vsyncs, in vsyncs (as ZX_PAD_SCRIPT).
         double parseScriptTime(const std::string &text)
         {
             constexpr double kVsyncsPerSecond = 59.94;

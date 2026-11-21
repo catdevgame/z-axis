@@ -9,7 +9,7 @@
 #include <mutex>
 #include <utility>
 
-namespace ps2x::settings
+namespace zx::settings
 {
     namespace
     {

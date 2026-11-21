@@ -32,8 +32,8 @@ namespace game::host::movies
 {
     namespace
     {
-        namespace gf = ps2x::game_files;
-        namespace mv = ps2x::movie;
+        namespace gf = zx::game_files;
+        namespace mv = zx::movie;
 
         constexpr double kVsyncHz = 60000.0 / 1001.0;
         // At most this many late pictures dropped for one shown.
@@ -64,7 +64,7 @@ namespace game::host::movies
         // (linear) if it has another rate.
         struct FileSound final : MovieAudio
         {
-            explicit FileSound(std::unique_ptr<ps2x::audio_file::Reader> r) : reader(std::move(r)) {}
+            explicit FileSound(std::unique_ptr<zx::audio_file::Reader> r) : reader(std::move(r)) {}
             bool hasSound() override { return reader != nullptr; }
             size_t read(int16_t *stereo, size_t frames) override
             {
@@ -112,7 +112,7 @@ namespace game::host::movies
                 have = 0;
                 phase = 0.0;
             }
-            std::unique_ptr<ps2x::audio_file::Reader> reader;
+            std::unique_ptr<zx::audio_file::Reader> reader;
             std::vector<int16_t> buffer;
             size_t have = 0;
             double phase = 0.0;
@@ -125,7 +125,7 @@ namespace game::host::movies
             std::unique_ptr<mv::VideoSource> video;
             std::unique_ptr<MovieAudio> audio;
             mv::FileVideo *xbox = nullptr; // video, when it is a host file (the Xbox movie, a host movie)
-            std::deque<ps2x::texture_replace::Entry> frames; // the last full-size pictures shown
+            std::deque<zx::texture_replace::Entry> frames; // the last full-size pictures shown
             mv::Picture picture; // the one nextPicture gave
             uint64_t startTick = 0u;
             uint64_t shown = 0u;
@@ -156,7 +156,7 @@ namespace game::host::movies
             bool trace = false;
         };
 
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         bool skipAsIntro(const std::string &path)
         {
@@ -169,7 +169,7 @@ namespace game::host::movies
                 if (name == st.game.introMovies[i] && !st.introSeen[i])
                 {
                     st.introSeen[i] = true;
-                    return ps2x::settings::value("game.skip_intro_movies", 0) != 0;
+                    return zx::settings::value("game.skip_intro_movies", 0) != 0;
                 }
             return false;
         }
@@ -185,7 +185,7 @@ namespace game::host::movies
                     roots.disc = paths.cdRoot;
                 if (roots.disc.empty())
                     roots.image = PS2Runtime::cdImageFileSystem();
-                if (const char *mods = ps2x::boot::text("PS2X_MODS_DIR"); mods && *mods)
+                if (const char *mods = zx::boot::text("ZX_MODS_DIR"); mods && *mods)
                     roots.mods = gf::modsRoots(mods);
                 fileSystem = std::make_unique<gf::GameFileSystem>(std::move(roots));
             }
@@ -224,12 +224,12 @@ namespace game::host::movies
             std::atomic<int> on{1}; // the developer runner's row (the app has its own)
             std::filesystem::path folder; // <pack>/movies, if any
         };
-        XboxMovies &xbox() { return ps2x::session::state<XboxMovies>(); }
+        XboxMovies &xbox() { return zx::session::state<XboxMovies>(); }
 
         bool xboxMoviesOn()
         {
-            if (ps2x::settings::has(kXboxMoviesKey))
-                return ps2x::settings::value(kXboxMoviesKey, 1) != 0;
+            if (zx::settings::has(kXboxMoviesKey))
+                return zx::settings::value(kXboxMoviesKey, 1) != 0;
             return xbox().on.load() != 0;
         }
 
@@ -256,7 +256,7 @@ namespace game::host::movies
             movie.xbox = video.get();
             movie.video = std::move(video);
             std::string error;
-            movie.audio = std::make_unique<FileSound>(ps2x::audio_file::open(bink, &error));
+            movie.audio = std::make_unique<FileSound>(zx::audio_file::open(bink, &error));
             std::cout << "[movie] " << movie.path << ": Xbox movie " << movie.xbox->width() << "x" << movie.xbox->height()
                       << " (" << first.width << "x" << first.height << " for the game)"
                       << (movie.audio->hasSound() ? "" : ", no sound") << std::endl;
@@ -268,7 +268,7 @@ namespace game::host::movies
         {
             if (!state().movie.xbox)
                 return;
-            namespace tr = ps2x::texture_replace;
+            namespace tr = zx::texture_replace;
             const mv::Picture &full = state().movie.xbox->full();
             if (full.width == shown.width && full.height == shown.height)
                 return; // nothing to gain (Z-AXIS is 512x256 on the Xbox too)
@@ -307,34 +307,34 @@ namespace game::host::movies
         State &st = state();
         // The movie's sound (mixed where the SPU2's frames are made) and its
         // pictures (texture replacements) leave with the game.
-        st.soundSource = ps2x::audio_mix::addSource(&mixSound);
-        ps2x::session::onEnd([]()
+        st.soundSource = zx::audio_mix::addSource(&mixSound);
+        zx::session::onEnd([]()
         {
-            ps2x::audio_mix::removeSource(state().soundSource);
+            zx::audio_mix::removeSource(state().soundSource);
             if (state().game.xboxMovies || !state().hostMovies.empty())
-                ps2x::texture_replace::removeSource("movie");
+                zx::texture_replace::removeSource("movie");
         });
-        if (const char *pack = ps2x::boot::text("PS2X_XBOX_PACK"); st.game.xboxMovies && pack && pack[0])
+        if (const char *pack = zx::boot::text("ZX_XBOX_PACK"); st.game.xboxMovies && pack && pack[0])
         {
             std::error_code ec;
             const std::filesystem::path movies = std::filesystem::path(pack) / "movies";
             if (std::filesystem::is_directory(movies, ec))
             {
                 xbox().folder = movies;
-                const char *on = ps2x::boot::text("PS2X_XBOX_MOVIES");
+                const char *on = zx::boot::text("ZX_XBOX_MOVIES");
                 xbox().on = (on && on[0] == '0') ? 0 : 1;
                 std::cout << "[movie] Xbox movies in " << movies.string() << " (" << (xboxMoviesOn() ? "on" : "off")
                           << ")" << std::endl;
                 // The app adds the row (with settings.ini); the developer runner gets this one.
-                if (!ps2x::settings::has(kXboxMoviesKey))
+                if (!zx::settings::has(kXboxMoviesKey))
                 {
-                    ps2x::settings::Setting row;
+                    zx::settings::Setting row;
                     row.key = kXboxMoviesKey;
                     row.label = "Xbox Movies";
                     row.help = "Sharper movies.";
                     row.current = []() { return xbox().on.load(); };
                     row.apply = [](int value) { xbox().on = value != 0 ? 1 : 0; };
-                    ps2x::session::addSetting(row);
+                    zx::session::addSetting(row);
                 }
             }
         }
@@ -354,7 +354,7 @@ namespace game::host::movies
 
     bool playedOnHost()
     {
-        const char *mode = std::getenv("PS2X_MOVIES");
+        const char *mode = std::getenv("ZX_MOVIES");
         return !(mode && std::string(mode) == "hle");
     }
 
@@ -376,7 +376,7 @@ namespace game::host::movies
                 movie.xbox = video.get();
                 movie.video = std::move(video);
                 std::string error;
-                movie.audio = std::make_unique<FileSound>(ps2x::audio_file::open(host->second.file, &error));
+                movie.audio = std::make_unique<FileSound>(zx::audio_file::open(host->second.file, &error));
                 std::cout << "[movie] " << movie.path << ": " << host->second.file.filename().string() << " "
                           << movie.xbox->width() << "x" << movie.xbox->height() << " (" << host->second.width << "x"
                           << host->second.height << " for the game)" << (movie.audio->hasSound() ? "" : ", no sound")
@@ -510,7 +510,7 @@ namespace game::host::movies
         if (state().movie.frames.empty())
             return;
         state().movie.frames.clear();
-        ps2x::texture_replace::removeSource("movie");
+        zx::texture_replace::removeSource("movie");
     }
 
     void startSound()

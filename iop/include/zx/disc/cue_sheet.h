@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace ps2x::iop
+namespace zx::disc
 {
     // Whether the text is a CUE sheet, by what it says (not the file's name):
     // every line one of the sheet's commands, a FILE among them.

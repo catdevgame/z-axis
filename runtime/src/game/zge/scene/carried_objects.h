@@ -49,7 +49,7 @@ namespace zge
         ee::Ptr<AnimalCarrier> carrier;  // +0x0C
         ee::Ptr<SceneBone> bone;         // +0x10 the carrier's bone it sits on; 0: on the carrier itself (ZGE4's attach
                                          //       takes none)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         // ZGE4 sends no carry messages: the carried object is set up as it is attached, updated twice a frame and
         // let go (detachAnimal) by these.
         uint8_t _14[4];                  //       (0: nothing sets it)
@@ -61,7 +61,7 @@ namespace zge
 
         // ZGE4's calls kept on the record as it is attached, and its let-go call (when it has one) made as it is
         // let go. ZGE2's and ZGE3's records keep none: both do nothing there.
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         void keepCalls(CarriedCall setUpCall, CarriedCall firstUpdateCall, CarriedCall secondUpdateCall, CarriedCall letGoCall)
         {
             firstUpdate = firstUpdateCall;
@@ -86,7 +86,7 @@ namespace zge
     // The parrots' call count AI's game keeps (aggressive/skater/carried.cpp
     // counts it up), cleared when the carried objects start (its name is a
     // low-confidence guess). BMX XXX's engine keeps no such count.
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
     inline void clearAnimalCallCount() { *ee::Global<int32_t, sym::g_animalCallTicks>{} = 0; }
 #else
     inline void clearAnimalCallCount() {}

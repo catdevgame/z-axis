@@ -1,7 +1,7 @@
 // An Aggressive Inline level script's goals for the panel (panel_goals.h).
 #include "panel_goals.h"
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     namespace
     {

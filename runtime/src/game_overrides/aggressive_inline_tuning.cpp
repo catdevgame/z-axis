@@ -1,5 +1,5 @@
 // Aggressive Inline (SLUS-20327): the Xbox release's gameplay balance, as a
-// choice (PS2X_TUNING=xbox; the app: Settings > Game > Gameplay Tuning,
+// choice (ZX_TUNING=xbox; the app: Settings > Game > Gameplay Tuning,
 // settings.ini [gameplay] tuning = ps2|xbox, default ps2).
 //
 // What differs (both executables and level scripts compared; nothing else
@@ -65,7 +65,7 @@ namespace aggressive_inline::tuning
             PS2Runtime::RecompiledFunction setPoints = nullptr;
             PS2Runtime::RecompiledFunction showMessage = nullptr;
         };
-        Hooks &hooks() { return ps2x::session::state<Hooks>(); }
+        Hooks &hooks() { return zx::session::state<Hooks>(); }
 
         void zoneEnterHook(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime)
         {
@@ -127,7 +127,7 @@ namespace aggressive_inline::tuning
 
     void install(PS2Runtime &runtime)
     {
-        const char *which = ps2x::boot::text("PS2X_TUNING");
+        const char *which = zx::boot::text("ZX_TUNING");
         if (!which || std::string(which) != "xbox")
             return;
         if (!(hooks().setPoints = runtime.lookupFunction(kSetPoints)) || !(hooks().showMessage = runtime.lookupFunction(kShowMessage)) ||
@@ -138,7 +138,7 @@ namespace aggressive_inline::tuning
             std::cerr << "[tuning] the experience awards were not wrapped" << std::endl;
             return;
         }
-        ps2x::disc_patch::registerPatch("CIVIC.BIN", &patchCivic, "ai");
+        zx::disc_patch::registerPatch("CIVIC.BIN", &patchCivic, "ai");
         std::cout << "[tuning] the Xbox release's balance: special tricks +300,000, key loot none, Civic's 350,000 trick"
                   << std::endl;
     }

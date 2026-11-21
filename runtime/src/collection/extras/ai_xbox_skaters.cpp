@@ -4,7 +4,7 @@
 
 #include "runtime/ps2_game_files.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     bool makeAiXboxSkaters(const SourceFiles &ps2, const SourceFiles &xbox, const XboxModelMaker &maker,
                            const std::filesystem::path &out, std::vector<std::string> &log, std::string *error)
@@ -35,7 +35,7 @@ namespace ps2x::app::extras
                 ++same;
                 continue;
             }
-            if (!writeFile(out / "models" / ps2x::game_files::normalizePath("ASSETS/" + file), converted, error))
+            if (!writeFile(out / "models" / zx::game_files::normalizePath("ASSETS/" + file), converted, error))
                 return false;
             ++made;
             if (!result.summary.empty())

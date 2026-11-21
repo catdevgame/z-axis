@@ -28,9 +28,9 @@ namespace zge
             static QueryTrace t = []
             {
                 QueryTrace q;
-                if (const char *path = std::getenv("PS2X_COLLISION_TRACE"); path && *path)
+                if (const char *path = std::getenv("ZX_COLLISION_TRACE"); path && *path)
                     q.file = std::fopen(path, "w");
-                const char *time = std::getenv("PS2X_COLLISION_TIME");
+                const char *time = std::getenv("ZX_COLLISION_TIME");
                 q.time = time && *time && std::atoi(time) != 0;
                 return q;
             }();

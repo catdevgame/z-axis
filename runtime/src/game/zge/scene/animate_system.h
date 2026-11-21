@@ -31,7 +31,7 @@ namespace zge
     // read in BMX XXX's own code (startPointSolve, applyPullToPoint, solveDistance, resetAnimatePoints).
     struct AnimatePoint
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t collisionOff;   // BMX +0x00 not 0: collidePoint leaves the point where it is
         uint32_t axisKept[3];    // BMX +0x04 x, y, z: not 0, a hit with the level leaves that axis as it is
 #endif
@@ -52,18 +52,18 @@ namespace zge
         uint32_t id;             // +0xA0 (BMX +0xB0) what the ZPDN data names the point by (findZpdnPoint);
                                  // rig.cpp gives 0, 1 or 2, and nothing in AI looks those up
         ee::Ptr<SceneBone> bone; // +0xA4 (BMX +0xB4)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Ptr<SceneObject> object; // BMX +0xB8 the system's object (newBoneAttachedPoint; constraints copy it)
 #endif
         ee::Ptr<AnimatePoint> next; // +0xA8 (BMX +0xBC)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t _ac;            // +0xAC
 #endif
         // The object the point animates: ZGE4 reads the point's own (resetAnimatePoints), ZGE3 the system's.
         template <typename SystemObject>
         ee::Ptr<SceneObject> objectOr(SystemObject systemObject) const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             (void)systemObject;
             return object;
 #else
@@ -73,7 +73,7 @@ namespace zge
         // ZGE4's own object of the point (0 in ZGE2 and ZGE3, which keep none: their steps read the system's).
         ee::Ptr<SceneObject> ownObject() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return object;
 #else
             return ee::Ptr<SceneObject>();
@@ -83,7 +83,7 @@ namespace zge
         // keeps no axis.
         bool collides() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return collisionOff == 0;
 #else
             return true;
@@ -91,7 +91,7 @@ namespace zge
         }
         bool keepsAxis(uint32_t axis) const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return axisKept[axis] != 0;
 #else
             (void)axis;
@@ -100,20 +100,20 @@ namespace zge
         }
         void setCollisionOff([[maybe_unused]] uint32_t off)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             collisionOff = off;
 #endif
         }
         void setAxisKept([[maybe_unused]] uint32_t axis, [[maybe_unused]] uint32_t kept)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             axisKept[axis] = kept;
 #endif
         }
         // The object the point animates, kept by ZGE4 only (newBoneAttachedPoint stores the system's).
         void setObject(ee::Ptr<SceneObject> systemObject)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             object = systemObject;
 #else
             (void)systemObject;
@@ -124,7 +124,7 @@ namespace zge
                   offsetof(AnimatePoint, solvedSum) == game::readable::perGame(0x60u, 0x60u, 0x70u));
     static_assert(offsetof(AnimatePoint, lastPosition) == game::readable::perGame(0x80u, 0x80u, 0x90u) &&
                   offsetof(AnimatePoint, next) == game::readable::perGame(0xA8u, 0xA8u, 0xBCu));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(AnimatePoint, axisKept) == 0x04 && offsetof(AnimatePoint, object) == 0xB8);
 #endif
     static_assert(offsetof(AnimatePoint, kind) == game::readable::perGame(0x00u, 0x00u, 0x10u) &&
@@ -146,19 +146,19 @@ namespace zge
         ee::Float stiffness;       // +0x0C the weight of what it asks
         Vec4 offset;               // +0x10
         ee::Ptr<SceneBone> bone;   // +0x20
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Ptr<SceneObject> object; // BMX +0x24 the first point's object (newBoneConstraint)
 #endif
         ee::Float restLength;      // +0x24 (BMX +0x28)
         ee::Ptr<AnimateConstraint> next; // +0x28 (BMX +0x2C)
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t _2c;              // +0x2C
 #endif
         // The object the constraint belongs to, kept by ZGE4 only: its first point's (newBoneConstraint,
         // newAnimateBoneSpace).
         void setObjectOf(const AnimatePoint &point)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             object = point.object;
 #else
             (void)point;
@@ -168,7 +168,7 @@ namespace zge
         // keep none: their steps read the system's).
         ee::Ptr<SceneObject> ownObject() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return object;
 #else
             return ee::Ptr<SceneObject>();
@@ -183,7 +183,7 @@ namespace zge
     // when 0) and ignores up to 15 points (newAnimatePlane, pushPointOutOfPlanes).
     struct AnimatePlane
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Ptr<SceneObject> object; // BMX +0x00
         ee::Ptr<SceneBone> bone;     // BMX +0x04
         uint32_t _08[2];
@@ -199,7 +199,7 @@ namespace zge
         ee::Ptr<AnimatePoint> ignored[game::readable::perGame(5, 5, 15)]; // +0x54 points this plane does not stop (rig.cpp's keepOut)
         uint32_t ignoredCount;  // +0x68 (BMX +0x90)
         ee::Ptr<AnimatePlane> next; // +0x6C (BMX +0x94)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t _98[2];
 #endif
         // The object the plane is placed on: ZGE4 keeps it in the plane, taking the system's the first time
@@ -207,7 +207,7 @@ namespace zge
         template <typename SystemObject>
         ee::Ptr<SceneObject> objectOrTake(SystemObject systemObject)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             if (!object)
                 object = systemObject();
             return object;
@@ -218,7 +218,7 @@ namespace zge
         // ZGE4's own object of the plane, for the code that makes one on another object's bone.
         void setObject([[maybe_unused]] ee::Ptr<SceneObject> planeObject)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             object = planeObject;
 #endif
         }
@@ -285,25 +285,25 @@ namespace zge
     // its alignBonesToPoints and sortAnimatePivots read them (rotation +0x30, parent +0x50, 0x60 bytes swapped).
     struct AnimatePivot
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t kind;              // BMX +0x00 AnimatePivotKind, a frame kind's PivotFrameNegation in its top byte
         uint32_t rootBone;          // BMX +0x04 not 0: the bone has no parent bone (newBonePivot's counterpart sets
                                     // 1), so alignBonesToPoints takes its parent frame from the object
 #endif
         ee::Ptr<AnimatePoint> from; // +0x00 (BMX +0x08)
         ee::Ptr<AnimatePoint> to;   // +0x04 (BMX +0x0C)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Ptr<AnimatePoint> third; // BMX +0x10 a frame kind's third point (pivotFrame)
 #endif
         ee::Ptr<SceneBone> bone;    // +0x08 (BMX +0x14)
         ee::Ptr<SceneBone> parentBone; // +0x0C (BMX +0x18)
         ee::Ptr<AnimationChannel> channel; // +0x10 (BMX +0x1C) the bone's in the object's animator
-#if !PS2X_GAME_BMX
+#if !ZX_GAME_BMX
         uint32_t _14[3];            // +0x14
 #endif
         Vec4 restDirection;         // +0x20 from to to, in the parent bone's axes
         Quaternion rotation;        // +0x30 of the bone, in the world
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         Quaternion frameOffset;     // BMX +0x40 a frame kind's: the bone's turn from its frame when made (the frame
                                     // maker's inverse frame times the bone's rotation)
 #endif
@@ -315,7 +315,7 @@ namespace zge
         // line under its parent bone there.
         uint32_t kindWord() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return kind;
 #else
             return kPivotFollowLine;
@@ -323,7 +323,7 @@ namespace zge
         }
         bool onRootBone() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return rootBone != 0;
 #else
             return false;
@@ -331,7 +331,7 @@ namespace zge
         }
         ee::Ptr<AnimatePoint> thirdPoint() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return third;
 #else
             return ee::Ptr<AnimatePoint>();
@@ -339,7 +339,7 @@ namespace zge
         }
         Quaternion *frameOffsetOf()
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return &frameOffset;
 #else
             return nullptr;
@@ -350,7 +350,7 @@ namespace zge
                   offsetof(AnimatePivot, next) == game::readable::perGame(0x44u, 0x44u, 0x54u));
     static_assert(offsetof(AnimatePivot, bone) == game::readable::perGame(0x08u, 0x08u, 0x14u) &&
                   offsetof(AnimatePivot, from) == game::readable::perGame(0x00u, 0x00u, 0x08u));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(AnimatePivot, rootBone) == 0x04 && offsetof(AnimatePivot, third) == 0x10 &&
                   offsetof(AnimatePivot, frameOffset) == 0x40);
 #endif
@@ -366,7 +366,7 @@ namespace zge
     // newBonePivot's counterpart counts it.
     struct AnimateSystem
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t pivotsSkipped;              // BMX +0x00 a word for the system's owner: BMX XXX's game keeps there
                                              // what it hands animate as its third word (not 0: the pivots leave
                                              // their bones); no engine function read reads it
@@ -376,13 +376,13 @@ namespace zge
         int32_t constraintCount;             // +0x08 (BMX +0x0C)
         ee::Ptr<AnimateConstraint> constraints; // +0x0C (BMX +0x10) the newest first
         uint32_t pivotCount;                 // +0x10 (BMX +0x14)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Float roundsScale;               // BMX +0x18 the share of g_animateRounds animate gives it
 #endif
         // ZGE4's words, for the code that owns a system: ZGE2's and ZGE3's systems have none.
         uint32_t pivotsSkippedWord() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return pivotsSkipped;
 #else
             return 0;
@@ -390,20 +390,20 @@ namespace zge
         }
         void setPivotsSkipped([[maybe_unused]] uint32_t word)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             pivotsSkipped = word;
 #endif
         }
         void setRoundsScale([[maybe_unused]] ee::Float scale)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             roundsScale = scale;
 #endif
         }
         // ZGE4 gives a new system all the rounds (newAnimateSystem: its rounds scale 1.0).
         void setUnit()
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             roundsScale = ee::Float(1.0f);
 #endif
         }
@@ -411,7 +411,7 @@ namespace zge
         // truncated. ZGE2 and ZGE3 give the count.
         uint32_t roundsOf(uint32_t rounds) const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return static_cast<uint32_t>(ee::toInt(ee::toFloat(static_cast<int32_t>(rounds)) * roundsScale));
 #else
             return rounds;
@@ -421,19 +421,19 @@ namespace zge
         ee::Ptr<AnimatePlaneGroup> planeGroups; // +0x18 (BMX +0x20)
         ee::Ptr<AnimateSphere> spheres;      // +0x1C (BMX +0x24)
         ee::Ptr<AnimatePull> pulls;          // +0x20 (BMX +0x28)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t collidesWithLevel;          // BMX +0x2C not 0: collidePoint keeps the free points out of the level
                                              // too (setAnimateSystemCollision; one of BMX XXX's rigs sets 1)
 #endif
         ee::Ptr<SceneObject> object;         // +0x24 (BMX +0x30)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         ee::Ptr<AnimateSystem> next;         // BMX +0x34 the next system on the chain (resetAnimatePoints, animate,
                                              // drawAnimateSystem walk it)
 #endif
         // ZGE4's chain and level collision (animate); ZGE2 and ZGE3 have neither: no next system, no collision.
         ee::Ptr<AnimateSystem> nextInChain() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return next;
 #else
             return ee::Ptr<AnimateSystem>();
@@ -441,7 +441,7 @@ namespace zge
         }
         uint32_t levelCollision() const
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             return collidesWithLevel;
 #else
             return 0;
@@ -449,7 +449,7 @@ namespace zge
         }
         void setLevelCollision(uint32_t on)
         {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
             collidesWithLevel = on;
 #else
             (void)on;
@@ -458,7 +458,7 @@ namespace zge
     };
     static_assert(sizeof(AnimateSystem) == game::readable::perGame(0x28u, 0x28u, 0x38u) &&
                   offsetof(AnimateSystem, object) == game::readable::perGame(0x24u, 0x24u, 0x30u));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(AnimateSystem, roundsScale) == 0x18 && offsetof(AnimateSystem, collidesWithLevel) == 0x2C &&
                   offsetof(AnimateSystem, next) == 0x34);
 #endif

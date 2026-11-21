@@ -14,7 +14,7 @@ Examples
   pcsx2pad.py press UP+CROSS
   pcsx2pad.py stick L 0 -1 30              # left stick full up for 30 frames
   pcsx2pad.py release
-  pcsx2pad.py script "7:START,11:START,15:START"    # PS2X_PAD_SCRIPT syntax
+  pcsx2pad.py script "7:START,11:START,15:START"    # ZX_PAD_SCRIPT syntax
   pcsx2pad.py run tools/scripts/boot-to-main-menu.txt
   pcsx2pad.py peek 0x282494 32 ; poke 0x231ca4 0 --size 4
   pcsx2pad.py dump 0 0x2000000 ram.bin
@@ -109,7 +109,7 @@ class Pad:
         self.p = Pine(slot)
         self.verbose = verbose
         # PCSX2PAD_RECORD=FILE appends every input change with its vsync, so a
-        # run can be turned into a PS2X_PAD_SCRIPT afterwards (`padscript`).
+        # run can be turned into a ZX_PAD_SCRIPT afterwards (`padscript`).
         self.record = os.environ.get("PCSX2PAD_RECORD")
         self._last_rec = None
 
@@ -399,7 +399,7 @@ def quit_pcsx2():
 
 # ---- scripts ------------------------------------------------------------
 def parse_native_script(text):
-    """PS2X_PAD_SCRIPT syntax: "<sec>:<BUTTON>[:<dur>],..." (default dur 0.25 s).
+    """ZX_PAD_SCRIPT syntax: "<sec>:<BUTTON>[:<dur>],..." (default dur 0.25 s).
     Same parsing rules as runtime/src/lib/ps2_pad.cpp: unknown buttons and
     items without ':' are skipped."""
     events = []
@@ -463,7 +463,7 @@ def run_native_script(pad, text, origin="firstpoll", fps=FPS, verbose=True):
 
 
 def record_to_native(path, v_from=None, v_to=None, fps=FPS):
-    """Turn a PCSX2PAD_RECORD log into a PS2X_PAD_SCRIPT string: one
+    """Turn a PCSX2PAD_RECORD log into a ZX_PAD_SCRIPT string: one
     "<sec>:<BUTTON>:<dur>" per press, seconds counted from the game's first
     pad poll (the native runtime's origin). Returns (script, stick_notes)."""
     first, events = None, []
@@ -882,7 +882,7 @@ def dispatch(pad, argv, args):
         # and L1 while steering left (the game's sharp turn). Works fakie too
         # (UP and LEFT/RIGHT stay camera-relative). Releases all
         # buttons when within RADIUS. Closed loop, so it does not depend on
-        # wall-clock latency; not expressible as a PS2X_PAD_SCRIPT.
+        # wall-clock latency; not expressible as a ZX_PAD_SCRIPT.
         # RADIUS may instead be a stop condition on the position, e.g. x>-16.
         x, z = float(rest[0]), float(rest[1])
         r = rest[2] if any(c in rest[2] for c in "<>") else float(rest[2])
@@ -993,7 +993,7 @@ def main():
     ap.add_argument("command", nargs=argparse.REMAINDER,
                     help="launch | quit | status | press BTN[+BTN] [frames] | hold BTN N | down BTN | up BTN | "
                          "stick L|R x y [frames] | release | wait N | waitsec S | waitmem ADDR VAL [size] [timeout] | "
-                         "script '<PS2X_PAD_SCRIPT>'|@file | run FILE | peek ADDR [N] | poke ADDR VAL [size] | "
+                         "script '<ZX_PAD_SCRIPT>'|@file | run FILE | peek ADDR [N] | poke ADDR VAL [size] | "
                          "dump ADDR LEN FILE | savestate N | loadstate N | screenshot FILE | frame | "
                          "waitval ADDR TYPE OP VAL | pressuntil BTN ADDR TYPE OP VAL | nexttip | tips | "
                          "goto X Z R | chase ADDR BACK R | balance grind|manual N | waitnear ADDR X Z R | peekf ADDR [N] | checkpoint SLOT NAME | "
@@ -1017,7 +1017,7 @@ def main():
         print("screenshot %s" % screenshot(args.command[1]))
         return
     if verb == "padscript":
-        # padscript LOG [FROM_VSYNC [TO_VSYNC]]: PS2X_PAD_SCRIPT for a recorded run
+        # padscript LOG [FROM_VSYNC [TO_VSYNC]]: ZX_PAD_SCRIPT for a recorded run
         rest = args.command[1:]
         script, sticks = record_to_native(rest[0], int(rest[1]) if len(rest) > 1 else None,
                                           int(rest[2]) if len(rest) > 2 else None)

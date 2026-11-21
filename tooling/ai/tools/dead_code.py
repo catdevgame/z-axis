@@ -4,7 +4,7 @@ docs/DEAD-CODE.md and write the table (default $ZAXIS_SCRATCH/dead-code/dead-cod
 holds strings from the game's ELF, so it stays out of the repo), printing the counts.
 
 Groups: sdk (Sony's libraries, layer sce), engine (NgEngine/ZGE, layer zge) and game
-(Aggressive Inline's own code, layer aggressive). Inputs: PS2Recomp's sweep manifests (the
+(Aggressive Inline's own code, layer aggressive). Inputs: the sweep's manifests (the
 flags column: dead, port-dead, script-dead, data-dead) and the work database
 ($ZAXIS_SCRATCH/workdb/work.duckdb, tooling/dm2/tools/workdb.py build): counterparts
 in the other eight builds, modules, names and the strings each function uses.

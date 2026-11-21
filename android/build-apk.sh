@@ -1,14 +1,18 @@
 #!/bin/sh
-# Makes the Android APK from a cross-built libps2EntryRunner.so, with the SDK's
+# Makes the Android APK from a cross-built libzx-runner.so, with the SDK's
 # build tools alone: no Gradle, and nothing here is game data.
 #
-#   ANDROID_HOME=<sdk> JAVA_HOME=<jdk 17> [APP_ID=<id>] [APP_LABEL=<name>] [EXTRA_LIBS="<file>..."] \
+#   ANDROID_HOME=<sdk> JAVA_HOME=<jdk 17> [TEST=1] [APP_ID=<id>] [APP_LABEL=<name>] [EXTRA_LIBS="<file>..."] \
 #       [GAME_CODE_TOOLS=<folder>] [APP_VERSION=<x.y.z>] [RELEASE=1 KS_PASS=<apksigner form> KS_ALIAS=<alias>] \
 #       android/build-apk.sh <build dir> <SDL3 source dir> <out.apk> [keystore] [icon]
 #
 # APP_ID is the application id (the manifest's io.github.catdevgame.zaxiscollection
 # by default; the classes keep their package): another id is another app, with
-# its own files folder. EXTRA_LIBS are more files for the native library
+# its own files folder. TEST=1 is the test flavour: the id ...zaxiscollection.test
+# and the label "Z-Axis Test" (unless APP_ID or APP_LABEL say otherwise), so it
+# installs beside the player's app, with its own data, and is updated in place;
+# it is debuggable, so adb's run-as reaches its internal storage (the unpacked
+# tools, the game code). EXTRA_LIBS are more files for the native library
 # folder (lib<name>.so each), the one app folder Android lets a program run from.
 # GAME_CODE_TOOLS is the app's tools for making each game's code on the device (stage_game_code_tools.py --android):
 # its native/ programs go in that folder, the rest in assets/game-code-tools with its list, files.txt (its first line
@@ -30,15 +34,17 @@ SDL=$2
 OUT=$3
 KEY=${4:-$BUILD/android-debug.keystore}
 ICON=${5:-}
-# (runtime/ since tools17; ps2xRuntime/ in a build dir from before)
-SO=$BUILD/runtime/libps2EntryRunner.so
-[ -f "$SO" ] || SO=$BUILD/ps2xRuntime/libps2EntryRunner.so
+SO=$BUILD/runtime/libzx-runner.so
 TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
 JAR=$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)/android.jar
 STAGE=$BUILD/apk
 JAVAC=$JAVA_HOME/bin/javac
 
 [ -f "$SO" ] || { echo "no $SO" >&2; exit 1; }
+if [ -n "${TEST:-}" ]; then
+    APP_ID=${APP_ID:-io.github.catdevgame.zaxiscollection.test}
+    APP_LABEL=${APP_LABEL:-Z-Axis Test}
+fi
 rm -rf "$STAGE"
 mkdir -p "$STAGE/classes" "$STAGE/lib/arm64-v8a"
 
@@ -75,6 +81,10 @@ ADAPTIVE
     "$TOOLS/aapt2" compile -o "$STAGE/res.zip" --dir "$RES"
     COMPILED=$STAGE/res.zip
     sed -i '' 's/<application$/& android:icon="@mipmap\/icon"/' "$STAGE/AndroidManifest.xml"
+fi
+if [ -n "${TEST:-}" ]; then
+    [ -z "${RELEASE:-}" ] || { echo "TEST and RELEASE: a test build is never a release" >&2; exit 1; }
+    sed -i '' 's/<application/& android:debuggable="true"/' "$STAGE/AndroidManifest.xml"
 fi
 if [ -n "${RELEASE:-}" ]; then
     sed -i '' '/<!-- Lets adb shell/d; /<profileable /d' "$STAGE/AndroidManifest.xml"
@@ -118,7 +128,7 @@ if [ -n "${GAME_CODE_TOOLS:-}" ]; then
     TOOLS_ASSETS=assets/game-code-tools
 fi
 "$ANDROID_HOME/ndk/$(ls "$ANDROID_HOME/ndk" | sort -V | tail -1)/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip" \
-    --strip-debug "$STAGE/lib/arm64-v8a/libps2EntryRunner.so"
+    --strip-debug "$STAGE/lib/arm64-v8a/libzx-runner.so"
 # The app's own font (runtime/resources/fonts: Michroma, OFL 1.1, the TTF unchanged with its licence) as assets: the
 # menu reads assets/fonts/Michroma-Regular.ttf through SDL before Aggressive Inline's disc is set up.
 mkdir -p "$STAGE/assets/fonts"
@@ -126,7 +136,7 @@ cp "$HERE/../runtime/resources/fonts/Michroma-Regular.ttf" "$HERE/../runtime/res
 # (a player's download packed hard; a developer's quickly)
 LEVEL=-1
 [ -n "${RELEASE:-}" ] && LEVEL=-9
-(cd "$STAGE" && zip -q $LEVEL base.apk classes.dex lib/arm64-v8a/libps2EntryRunner.so assets/fonts/Michroma-Regular.ttf \
+(cd "$STAGE" && zip -q $LEVEL base.apk classes.dex lib/arm64-v8a/libzx-runner.so assets/fonts/Michroma-Regular.ttf \
     assets/fonts/Michroma-OFL.txt $EXTRA && { [ -z "$TOOLS_ASSETS" ] || zip -q -r $LEVEL base.apk "$TOOLS_ASSETS"; })
 "$TOOLS/zipalign" -f 4 "$STAGE/base.apk" "$STAGE/aligned.apk"
 

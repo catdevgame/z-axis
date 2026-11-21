@@ -16,7 +16,7 @@ namespace zge_host::settings_open
         constexpr const char *kNoticeOptions = "Settings are in Options";
         constexpr const char *kNoticePauseMenu = "Settings are in the pause menu";
 
-        // One game boot's request (ps2x::session: gone with the boot).
+        // One game boot's request (zx::session: gone with the boot).
         struct State
         {
             Hooks hooks{};
@@ -24,7 +24,7 @@ namespace zge_host::settings_open
             std::atomic<bool> requested{false};   // raised by the handler (window thread), consumed at the play frame (EE)
             std::atomic<bool> openAtPause{false}; // the play frame paused for it: the next pause menu opens the page
         };
-        State &state() { return ps2x::session::state<State>(); }
+        State &state() { return zx::session::state<State>(); }
 
         void log(const char *what)
         {
@@ -48,14 +48,14 @@ namespace zge_host::settings_open
                 else
                 {
                     log("asked outside a level: the game's Options have the page");
-                    ps2x::settings::notify(kNoticeOptions);
+                    zx::settings::notify(kNoticeOptions);
                 }
                 return;
             }
             if (!st.hooks.playing(rdram))
             {
                 log("asked with play stopped: the pause menu has the page");
-                ps2x::settings::notify(kNoticePauseMenu);
+                zx::settings::notify(kNoticePauseMenu);
                 return;
             }
             st.requested = true;
@@ -68,8 +68,8 @@ namespace zge_host::settings_open
         State &st = state();
         st.hooks = hooks;
         st.runtime = &runtime;
-        ps2x::settings::setOpenHandler(&requested);
-        ps2x::session::onEnd([] { ps2x::settings::setOpenHandler({}); });
+        zx::settings::setOpenHandler(&requested);
+        zx::session::onEnd([] { zx::settings::setOpenHandler({}); });
         if (zge_host::settings::tracing())
             log("Settings... opens the page by the game's own Start and pause menu");
     }
@@ -84,7 +84,7 @@ namespace zge_host::settings_open
             // The menu is up, or play has not started: Start would do
             // nothing here either.
             log("play not pausable at this frame: dropped with the notice");
-            ps2x::settings::notify(kNoticePauseMenu);
+            zx::settings::notify(kNoticePauseMenu);
             return false;
         }
         log("pausing as the game's Start does; the pause menu opens the page");

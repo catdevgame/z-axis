@@ -5,7 +5,7 @@
 #include "collection/disc_finder.h"
 #include "collection/game_setup.h"
 #include "collection/save_transfer.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 #include "test_iso_builder.h"
 
 #include <algorithm>
@@ -20,7 +20,7 @@
 namespace
 {
     namespace fs = std::filesystem;
-    using namespace ps2x::app;
+    using namespace zx::app;
 
     struct TempDir
     {
@@ -28,7 +28,7 @@ namespace
         TempDir()
         {
             const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-            path = fs::temp_directory_path() / ("ps2x-setup-" + std::to_string(now));
+            path = fs::temp_directory_path() / ("zx-setup-" + std::to_string(now));
             fs::create_directories(path);
         }
         ~TempDir()
@@ -184,7 +184,7 @@ void register_ps2_game_setup_tests()
             {
                 const fs::path bin = dir.path / ("game-mode" + std::to_string(mode) + ".bin");
                 writeRaw(dir.path / "game.iso", bin, mode);
-                ps2x::iop::Iso9660Image image;
+                zx::disc::Iso9660Image image;
                 std::string error;
                 t.IsTrue(image.open(bin, &error), "mode " + std::to_string(mode) + " opens: " + error);
                 t.Equals(image.fileSectorSize(), 2352u, "raw sectors");

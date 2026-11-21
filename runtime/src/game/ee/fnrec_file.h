@@ -1,14 +1,14 @@
 #pragma once
 
 // A recording's file (fncheck.h: a header, then records) as it is kept on disk: plain, or compressed with zstd
-// (runtime/cmake/ps2x_zstd.cmake, the pinned library). Every reader and writer of a .fnrec goes through here, so a
+// (runtime/cmake/zx_zstd.cmake, the pinned library). Every reader and writer of a .fnrec goes through here, so a
 // recording reads the same in either form and the name stays <address>.fnrec.
 //
 // The compressed form is a zstd stream whose decompressed bytes are the plain file, byte for byte (`zstd -d` gives
 // it back). It begins with a skippable frame (kPackedMagic) holding a PackedHead: the plain file's header and size,
 // for the tools that only want those (tooling/checks/fnrec_io.py, the verdict cache's key: by the plain size, so a
 // file compressed in place keeps its key). Then frames of whole records, each with its content size and checksum:
-//   - the recorder writes one frame per record (PS2X_FNREC_PLAIN=1: plain files), compressed at kRecordLevel with
+//   - the recorder writes one frame per record (ZX_FNREC_PLAIN=1: plain files), compressed at kRecordLevel with
 //     one context for every file, so its memory does not grow with the files, and a run ended by a kill loses at
 //     most the record it was writing; its head's plain size is 0 (not known while it records);
 //   - the converter (tooling/checks/fnrec_pack.py) groups a plain file's records into frames of at least 64 KiB at
@@ -162,6 +162,6 @@ namespace fncheck
         std::string m_plain;       // a record's plain bytes
     };
 
-    // PS2X_FNREC_PLAIN=1: the recorder writes plain files (compressed by default).
+    // ZX_FNREC_PLAIN=1: the recorder writes plain files (compressed by default).
     bool recorderCompresses();
 }

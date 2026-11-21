@@ -8,7 +8,7 @@
 #include <iterator>
 #include <system_error>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     namespace
     {

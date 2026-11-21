@@ -4,7 +4,7 @@
 #include "../core/iop_kernel.h"
 #include "../core/iop_memory.h"
 #include "ps2x/iop/iop_host.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 #include "ps2x/iop/ps2_path.h"
 
 #include <algorithm>
@@ -626,12 +626,12 @@ namespace ps2x::iop::detail
             const std::string guestPath = memory.readString(nameAddress, 1024u);
             // Disc image without an extracted folder: the image's own
             // directory gives the real LSNs, which readSectors reads.
-            if (const Iso9660Image *iso = imageFileSystem())
+            if (const zx::disc::Iso9660Image *iso = imageFileSystem())
             {
                 const ParsedPs2Path parsed = parsePs2Path(guestPath);
                 if (!parsed || parsed.device != Ps2PathDevice::Cdrom)
                     return false;
-                const std::optional<IsoEntry> entry = iso->find(parsed.path);
+                const std::optional<zx::disc::IsoEntry> entry = iso->find(parsed.path);
                 if (!entry)
                     return false;
                 std::array<uint8_t, 32u> result{};
@@ -657,7 +657,7 @@ namespace ps2x::iop::detail
         }
 
         // Only used when the host gives an image but no CD root folder.
-        const Iso9660Image *imageFileSystem()
+        const zx::disc::Iso9660Image *imageFileSystem()
         {
             if (!host.hostPath(HostPathKind::CdRoot).empty())
                 return nullptr;
@@ -665,7 +665,7 @@ namespace ps2x::iop::detail
             if (imagePath.empty())
                 return nullptr;
             if (!isoImage || isoImage->path() != std::filesystem::path(imagePath))
-                isoImage = Iso9660Image::shared(imagePath);
+                isoImage = zx::disc::Iso9660Image::shared(imagePath);
             return isoImage.get();
         }
 
@@ -809,7 +809,7 @@ namespace ps2x::iop::detail
         std::vector<IsoNode> nodes;
         std::vector<size_t> fileNodes; // indices of file nodes, ascending LSNs
         std::vector<size_t> openFiles; // file nodes with a host handle, least recently read first
-        std::shared_ptr<const Iso9660Image> isoImage;
+        std::shared_ptr<const zx::disc::Iso9660Image> isoImage;
         std::unordered_map<uint32_t, std::array<uint8_t, kSectorSize>> metadataSectors;
     };
 

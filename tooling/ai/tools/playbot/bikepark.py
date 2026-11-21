@@ -497,7 +497,7 @@ def ride_dm2(name, card, ticks, seed=1):
     run_dir = os.path.join(dm2.SCRATCH, 'runs', name)
     shutil.rmtree(run_dir, ignore_errors=True)
     shutil.copytree(card, os.path.join(run_dir, 'mc0'))
-    cfg = dm2.run_config(name, s.text(), env={'PS2X_HEADLESS': '1'}, max_secs=max(900, ticks // 10), gs=SHOTS)
+    cfg = dm2.run_config(name, s.text(), env={'ZX_HEADLESS': '1'}, max_secs=max(900, ticks // 10), gs=SHOTS)
     cfg.menu_end = s.t + 30
 
     def enter(r):
@@ -527,7 +527,7 @@ def ride_dm2(name, card, ticks, seed=1):
 
 
 def ride_bmx(name, parks, ticks, seed=1):
-    """PARK EDITOR (the main menu's third line, PS2X_BMX_PARK_EDITOR=1), SESSION (its third), the first park
+    """PARK EDITOR (the main menu's third line, ZX_BMX_PARK_EDITOR=1), SESSION (its third), the first park
     (bmxedit.py's ride_saved)."""
     import bmx
     import bmxroutes
@@ -540,8 +540,8 @@ def ride_bmx(name, parks, ticks, seed=1):
     for f in os.listdir(parks):
         if f.endswith('.sav'):
             shutil.copy(os.path.join(parks, f), os.path.join(saves, 'Parks', f))
-    cfg = bmx.run_config(name, s.text(), env=dict(PS2X_EE_SCALE='4096', PS2X_BMX_PARK_EDITOR='1', PS2X_HEADLESS='1',
-                                                  PS2X_SAVES_DIR=saves), max_secs=max(900, ticks // 10), gs=SHOTS)
+    cfg = bmx.run_config(name, s.text(), env=dict(ZX_EE_SCALE='4096', ZX_BMX_PARK_EDITOR='1', ZX_HEADLESS='1',
+                                                  ZX_SAVES_DIR=saves), max_secs=max(900, ticks // 10), gs=SHOTS)
     cfg.menu_end = s.t + 30
 
     def enter(r):

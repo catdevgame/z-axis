@@ -3,10 +3,10 @@
 written per build as one file Ghidra applies (aggressive-inline ghidra/scripts/ApplyReadable.java, the pipelines'
 readable stage; MATCH3.md section 7).
 
-    python -I tools/readable_ghidra.py scan [--src PS2RECOMP] [--cache DIR]
+    python -I tools/readable_ghidra.py scan [--src ZAXIS_TREE] [--cache DIR]
         clang over the readable sources: struct layouts, registrations with their C++
         signatures, ee::Global variables (cached per source tree state)
-    python -I tools/readable_ghidra.py gen BUILD OUTDIR [--src PS2RECOMP] [--cache DIR]
+    python -I tools/readable_ghidra.py gen BUILD OUTDIR [--src ZAXIS_TREE] [--cache DIR]
         writes OUTDIR/readable-BUILD.h (the C header for Ghidra's C parser: the structs and
         the prototypes) and OUTDIR/readable-BUILD.jsonl (names, signatures, globals, the
         expected layouts and argument registers ApplyReadable reads back)
@@ -30,7 +30,7 @@ check each build's base decompilation.
 Sources: the work database (workdb.py, read only: readable, readable_symbols, counterparts,
 best_names) and the readable sources themselves (clang's -fdump-record-layouts-complete and
 its JSON AST of the namespaces aggressive, zge and sce; the compile flags come from a
-compile_commands.json under PS2RECOMP/out). The output holds the games' addresses: keep it in
+compile_commands.json under ZAXIS_TREE/out). The output holds the games' addresses: keep it in
 scratch, never commit it.
 """
 import concurrent.futures, glob, hashlib, json, os, re, subprocess, sys
@@ -50,7 +50,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 HOME = os.path.expanduser('~')
 SCRATCH = os.environ.get('AI_SCRATCH', zpaths.ZAXIS_SCRATCH)
 WORKDB = os.environ.get('WORKDB', os.environ.get('WORKDB_DIR', SCRATCH + '/workdb') + '/work.duckdb')
-SRC = os.environ.get('PS2RECOMP', zpaths.ZAXIS_MAIN)
+SRC = os.environ.get('ZAXIS_TREE', zpaths.ZAXIS_MAIN)
 CACHE = os.environ.get('READABLE_GHIDRA_CACHE', SCRATCH + '/ghidranames/cache')
 NAMESPACES = ('aggressive', 'zge', 'sce')
 BUILDS = ('ai_ps2', 'dm2_ps2', 'bmx_ps2', 'ai_xbox', 'ai_gc', 'dm2_xbox', 'dm2_gc', 'bmx_xbox', 'bmx_gc')
@@ -91,7 +91,7 @@ def compile_flags(src):
             if '/src/game/' not in f or not f.endswith('.cpp'):
                 continue
             args = e.get('arguments') or e['command'].split()
-            rel = f[re.search(r'(?:ps2xRuntime|runtime)/src/game/', f).start():]
+            rel = f[re.search(r'runtime/src/game/', f).start():]
             out, skip = [], False
             for a in args[1:]:
                 if skip:
@@ -103,7 +103,7 @@ def compile_flags(src):
                 if a.startswith(('-O', '-g', '-arch')) or a == 'arm64' or a == 'x86_64':
                     continue
                 # paths in the checkout the database was made for: point them at src
-                m = re.match(r'(-I|-isystem)?(.*/(?:PS2Recomp|z-axis))(/(?:ps2xRuntime|runtime|ps2xIOP|iop)/.*)$', a)
+                m = re.match(r'(-I|-isystem)?(.*/(?:PS2Recomp|z-axis))(/(?:runtime|iop)/.*)$', a)
                 if m:
                     a = (m.group(1) or '') + src + m.group(3)
                 out.append(a)
@@ -221,7 +221,7 @@ def walk_ast(node, ns, sink):
 
 
 def symbol_address(name):
-    """A sym:: constant's address (PS2Recomp tools/readable_symbols.py)."""
+    """A sym:: constant's address (runtime/tools/readable_symbols.py)."""
     sys.path.insert(0, os.environ.get('READABLE_TOOLS', zpaths.tree_path(SRC, 'runtime', 'tools')))
     import readable_symbols
     entry = readable_symbols.table().syms.get(name)

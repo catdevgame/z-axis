@@ -23,7 +23,7 @@
 // the menu's lines are made by its builder) that shows the same page,
 // InGameUI.PcSettingsPause, in the pause frame's place.
 //
-// With the app's settings (PS2X_GAME_SETTINGS_MENUS=1): the page's widgets
+// With the app's settings (ZX_GAME_SETTINGS_MENUS=1): the page's widgets
 // and script functions move the game's heap, and the developer runner's
 // checks run without them.
 
@@ -46,7 +46,6 @@ namespace dave_mirra::settings_menu
 {
     namespace
     {
-        namespace zx = ps2x::zaxis;
         using zge_host::settings::Layout;
 
         // The page's frame: origin at its top left, 480 by 320 (the front end's
@@ -352,24 +351,24 @@ namespace dave_mirra::settings_menu
         bool patchMainMenu(std::string &text)
         {
             std::string edited = text;
-            zx::Span options = zx::findObject(edited, "MainMenu/OptionsFrame");
-            zx::Span menu = zx::findObject(edited, "MainMenu/OptionsFrame/Menu");
+            zx::zaxis::Span options = zx::zaxis::findObject(edited, "MainMenu/OptionsFrame");
+            zx::zaxis::Span menu = zx::zaxis::findObject(edited, "MainMenu/OptionsFrame/Menu");
             if (!options.found() || !menu.found())
                 return false;
             // Later positions first: the page after the frame, the menu's
             // action and lines, then the frame's height (before the menu).
             edited.insert(options.end,
-                          zx::indentBlock(page("PcSettings", "OptionsFrame"), zx::indentAt(edited, options.begin)));
-            edited.insert(zx::objectEnd(edited, menu), zx::indentBlock(kOpenAction, zx::indentAt(edited, menu.begin) + 1));
-            menu = zx::findObject(edited, "MainMenu/OptionsFrame/Menu");
-            bool ok = zx::replaceIn(edited, menu, "\\nSave Game\"\r\n", "\\nSave Game\\nSettings\"\r\n") &&
-                      zx::replaceIn(edited, menu, "\tVisibleCount\t5\r\n", "\tVisibleCount\t6\r\n");
-            options = zx::findObject(edited, "MainMenu/OptionsFrame");
-            ok = ok && zx::replaceIn(edited, options, "\tHeight\t200\r\n", "\tHeight\t230\r\n");
+                          zx::zaxis::indentBlock(page("PcSettings", "OptionsFrame"), zx::zaxis::indentAt(edited, options.begin)));
+            edited.insert(zx::zaxis::objectEnd(edited, menu), zx::zaxis::indentBlock(kOpenAction, zx::zaxis::indentAt(edited, menu.begin) + 1));
+            menu = zx::zaxis::findObject(edited, "MainMenu/OptionsFrame/Menu");
+            bool ok = zx::zaxis::replaceIn(edited, menu, "\\nSave Game\"\r\n", "\\nSave Game\\nSettings\"\r\n") &&
+                      zx::zaxis::replaceIn(edited, menu, "\tVisibleCount\t5\r\n", "\tVisibleCount\t6\r\n");
+            options = zx::zaxis::findObject(edited, "MainMenu/OptionsFrame");
+            ok = ok && zx::zaxis::replaceIn(edited, options, "\tHeight\t200\r\n", "\tHeight\t230\r\n");
             // The two actions that set the lines again (one pad, two pads).
-            zx::Span frame = zx::findObject(edited, "MainMenu/MainMenuFrame");
-            ok = ok && zx::replaceIn(edited, frame, "\\nSave Game\\\"}", "\\nSave Game\\nSettings\\\"}") &&
-                 zx::replaceIn(edited, frame, "\\nSave Game\\\"}", "\\nSave Game\\nSettings\\\"}");
+            zx::zaxis::Span frame = zx::zaxis::findObject(edited, "MainMenu/MainMenuFrame");
+            ok = ok && zx::zaxis::replaceIn(edited, frame, "\\nSave Game\\\"}", "\\nSave Game\\nSettings\\\"}") &&
+                 zx::zaxis::replaceIn(edited, frame, "\\nSave Game\\\"}", "\\nSave Game\\nSettings\\\"}");
             if (!ok)
                 return false;
             text = std::move(edited);
@@ -379,22 +378,22 @@ namespace dave_mirra::settings_menu
         // The InGameUI script: the page after the pause frame.
         bool patchInGame(std::string &text)
         {
-            zx::Span pause = zx::findObject(text, "InGameUI/FramePause");
+            zx::zaxis::Span pause = zx::zaxis::findObject(text, "InGameUI/FramePause");
             if (!pause.found())
                 return false;
-            text.insert(pause.end, zx::indentBlock(page("PcSettingsPause", "FramePause"), zx::indentAt(text, pause.begin)));
+            text.insert(pause.end, zx::zaxis::indentBlock(page("PcSettingsPause", "FramePause"), zx::zaxis::indentAt(text, pause.begin)));
             return true;
         }
 
         bool patchUiLibrary(std::vector<uint8_t> &bytes)
         {
-            std::vector<zx::ArchiveEntry> entries;
-            if (!zx::readArchive(bytes, entries))
+            std::vector<zx::zaxis::ArchiveEntry> entries;
+            if (!zx::zaxis::readArchive(bytes, entries))
                 return false;
             bool changed = false;
-            for (zx::ArchiveEntry &entry : entries)
+            for (zx::zaxis::ArchiveEntry &entry : entries)
             {
-                if (zx::scriptName(entry) == "InGameUI")
+                if (zx::zaxis::scriptName(entry) == "InGameUI")
                 {
                     std::string text(entry.data.begin(), entry.data.end());
                     if (patchInGame(text))
@@ -410,7 +409,7 @@ namespace dave_mirra::settings_menu
                     }
                     continue;
                 }
-                if (zx::scriptName(entry) != "MainMenu")
+                if (zx::zaxis::scriptName(entry) != "MainMenu")
                     continue;
                 std::string text(entry.data.begin(), entry.data.end());
                 if (patchMainMenu(text))
@@ -425,7 +424,7 @@ namespace dave_mirra::settings_menu
                 }
             }
             if (changed)
-                bytes = zx::writeArchive(entries);
+                bytes = zx::zaxis::writeArchive(entries);
             return changed;
         }
     }
@@ -445,7 +444,7 @@ namespace dave_mirra
 {
     void installSettingsMenus(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         using namespace settings_menu;
         zge_host::settings::setStyle(kStyle);
@@ -457,7 +456,7 @@ namespace dave_mirra
         for (const zge_host::settings::Function &function : zge_host::settings::pageFunctions())
             if (!zge_host::addScriptFunction(runtime, scriptFunctions(), function.name, function.fn))
                 return;
-        ps2x::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
+        zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary);
         restart::addSettingsLine(runtime);
     }
 }

@@ -3,7 +3,7 @@
 // The face tree as the face tests read it (zge/collision/faces.cpp; BMX XXX's segment test,
 // game/bmx/collision/face_tree.cpp): the tree's nodes, the walk's stack and the faces seen so far in the
 // scratchpad, the sorted list of leaves the shape reaches, and a part's faces, positions and normals from the
-// game's RAM or from the host's copy (PS2X_NATIVE_COLLISION).
+// game's RAM or from the host's copy (ZX_NATIVE_COLLISION).
 
 #include "collision.h"
 
@@ -98,7 +98,7 @@ namespace zge::face_tree
     // Where a face test reads the part: its streams in RAM (face normals
     // TGFN: one float3 per face; TIFN: a table of them and a u8 or u16
     // index per face) and the face tree at its RAM address, or the host
-    // part (PS2X_NATIVE_COLLISION, on by default; outside ps2xFnCheck, when the host
+    // part (ZX_NATIVE_COLLISION, on by default; outside zx-fncheck, when the host
     // has the part and its tree).
     class MeshSource
     {
@@ -122,7 +122,7 @@ namespace zge::face_tree
         // Whether `tree` is the file's: a collision frame with no tree gets
         // one made in the game (testNodeFaces: one leaf with every face),
         // also when the part has a frame with a file tree elsewhere (the Park
-        // Editor's pieces). (Under PS2X_NATIVE_COLLISION_POISON the RAM copy
+        // Editor's pieces). (Under ZX_NATIVE_COLLISION_POISON the RAM copy
         // is overwritten, so nothing can be told from it.)
         bool fileTree(ee::Ptr<uint8_t> tree) const
         {
@@ -209,7 +209,7 @@ namespace zge::face_tree
         }
 
     private:
-        // PS2X_NATIVE_COLLISION=verify: a host value checked against RAM's.
+        // ZX_NATIVE_COLLISION=verify: a host value checked against RAM's.
         template <typename T>
         static const T &verified(const T &host, const T *inRam)
         {

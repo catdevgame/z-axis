@@ -5,7 +5,7 @@
 // entry's range by another function's entry point and turns each into its own function
 // (a tail-jump target), keeping each exported range contiguous.
 // Args: [dry]
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.cmd.function.CreateFunctionCmd;
 import ghidra.app.script.GhidraScript;

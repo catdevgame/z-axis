@@ -1,9 +1,9 @@
 #ifndef PS2_RUNTIME_MACROS_H
 #define PS2_RUNTIME_MACROS_H
 // The EE's instructions as generated code writes them: registers, arithmetic, FPU, MMI, VU0 macro mode, loads and
-// stores. The runtime's readable code uses them too. In a game module (PS2X_GAME_MODULE, game_module/) they are
+// stores. The runtime's readable code uses them too. In a game module (ZX_GAME_MODULE, game_module/) they are
 // compiled with no library header, against the module's view of the runtime (game_module/module_runtime.h).
-#if defined(PS2X_GAME_MODULE)
+#if defined(ZX_GAME_MODULE)
 #include "game_module/module_runtime.h"
 #else
 #include <cstdint>
@@ -23,61 +23,61 @@
 #endif
 #include "runtime/lane_watch.h"
 
-// The runtime's float checks (PS2X_FLOAT_CENSUS, PS2X_FPU_TRAP builds): where generated code reports to.
-void ps2x_float_census(int kind, uint32_t a, uint32_t b, uint32_t r);
-void ps2x_fpu_trap_report(const char *op, uint32_t a, uint32_t b, uint32_t r);
+// The runtime's float checks (ZX_FLOAT_CENSUS, ZX_FPU_TRAP builds): where generated code reports to.
+void zx_float_census(int kind, uint32_t a, uint32_t b, uint32_t r);
+void zx_fpu_trap_report(const char *op, uint32_t a, uint32_t b, uint32_t r);
 
 // In a game module the helpers below are the module's own (an inline namespace: found as if declared here, linked
 // apart from the runtime's copies, which name the library's std:: where the module's name the builtins).
-#if defined(PS2X_GAME_MODULE)
+#if defined(ZX_GAME_MODULE)
 inline namespace game_module
 {
 #endif
 
-// The lane watch (runtime/lane_watch.h, tooling/checks/wlane.py): in a ZAXIS_LANE_WATCH build every guest load
+// The lane watch (runtime/lane_watch.h, tooling/checks/wlane.py): in a ZX_LANE_WATCH_BUILD build every guest load
 // and store below tells the watch its bytes; the app's and the gate's builds compile it to nothing.
-#ifndef ZAXIS_LANE_WATCH
-#define ZAXIS_LANE_WATCH 0
+#ifndef ZX_LANE_WATCH_BUILD
+#define ZX_LANE_WATCH_BUILD 0
 #endif
-#if ZAXIS_LANE_WATCH
-#define PS2X_LANE_WATCH(addr, size, write)                                              \
+#if ZX_LANE_WATCH_BUILD
+#define ZX_LANE_WATCH(addr, size, write)                                              \
     do                                                                                  \
     {                                                                                   \
-        if (ps2x::lanes::g_watchOn)                                                     \
-            ps2x::lanes::watchAccess((addr), (size), (write), ctx->pc);                 \
+        if (zx::lanes::g_watchOn)                                                     \
+            zx::lanes::watchAccess((addr), (size), (write), ctx->pc);                 \
     } while (0)
-// The differential's hooks (lane_watch.h, PS2X_LANE_DIFF): a load before it reads, a store after it wrote (the
+// The differential's hooks (lane_watch.h, ZX_LANE_DIFF): a load before it reads, a store after it wrote (the
 // bytes it left), and in a wlane_branches.py copy of the generated code each conditional branch's direction and each
 // register jump's target.
-#define PS2X_LANE_DIFF_LOAD(addr, size)                                                  \
+#define ZX_LANE_DIFF_LOAD(addr, size)                                                  \
     do                                                                                  \
     {                                                                                   \
-        if (ps2x::lanes::g_diffOn)                                                      \
-            ps2x::lanes::diffAccess(rdram, (addr), (size), false, ctx->pc);             \
+        if (zx::lanes::g_diffOn)                                                      \
+            zx::lanes::diffAccess(rdram, (addr), (size), false, ctx->pc);             \
     } while (0)
-#define PS2X_LANE_DIFF_STORED(addr, size)                                                \
+#define ZX_LANE_DIFF_STORED(addr, size)                                                \
     do                                                                                  \
     {                                                                                   \
-        if (ps2x::lanes::g_diffOn)                                                      \
-            ps2x::lanes::diffAccess(rdram, (addr), (size), true, ctx->pc);              \
+        if (zx::lanes::g_diffOn)                                                      \
+            zx::lanes::diffAccess(rdram, (addr), (size), true, ctx->pc);              \
     } while (0)
-#define PS2X_LANE_BRANCH(pc, taken) (ps2x::lanes::g_diffOn ? ps2x::lanes::diffBranch((pc), (taken)) : (taken))
-#define PS2X_LANE_JUMP(pc, target) (ps2x::lanes::g_diffOn ? ps2x::lanes::diffJump((pc), (target)) : (target))
+#define ZX_LANE_BRANCH(pc, taken) (zx::lanes::g_diffOn ? zx::lanes::diffBranch((pc), (taken)) : (taken))
+#define ZX_LANE_JUMP(pc, target) (zx::lanes::g_diffOn ? zx::lanes::diffJump((pc), (target)) : (target))
 #else
-#define PS2X_LANE_WATCH(addr, size, write) \
+#define ZX_LANE_WATCH(addr, size, write) \
     do                                     \
     {                                      \
     } while (0)
-#define PS2X_LANE_DIFF_LOAD(addr, size) \
+#define ZX_LANE_DIFF_LOAD(addr, size) \
     do                                  \
     {                                   \
     } while (0)
-#define PS2X_LANE_DIFF_STORED(addr, size) \
+#define ZX_LANE_DIFF_STORED(addr, size) \
     do                                    \
     {                                     \
     } while (0)
-#define PS2X_LANE_BRANCH(pc, taken) (taken)
-#define PS2X_LANE_JUMP(pc, target) (target)
+#define ZX_LANE_BRANCH(pc, taken) (taken)
+#define ZX_LANE_JUMP(pc, target) (target)
 #endif
 
 static inline int32_t Ps2ExtractEpi32(__m128i v, int index)
@@ -434,26 +434,26 @@ inline void ps2_fpu_align_addends(float &a, float &b)
     b = std::bit_cast<float>(ub);
 }
 
-// Census, only with -DPS2X_FLOAT_CENSUS (a separate dev build; devdep1): every EE FPU and VU0 macro-mode operation
+// Census, only with -DZX_FLOAT_CENSUS (a separate dev build; devdep1): every EE FPU and VU0 macro-mode operation
 // is counted by what sets it apart from the host's IEEE arithmetic (rounding toward zero, the R5900 adder's
-// operand alignment, denormals read as zero, an overflow or special operand), ps2x_float_census in
+// operand alignment, denormals read as zero, an overflow or special operand), zx_float_census in
 // ps2_state_probe.cpp; the totals print at exit. Reads the operands as given and the result as returned.
-#if defined(PS2X_FLOAT_CENSUS)
+#if defined(ZX_FLOAT_CENSUS)
 enum Ps2FloatCensusKind : int { kCensusAdd, kCensusSub, kCensusMul, kCensusDiv, kCensusSqrt, kCensusCvtWS, kCensusCvtSW,
                                 kCensusVecAdd, kCensusVecSub, kCensusVecMul };
 inline float ps2_census_f(int kind, float a, float b, float r)
 {
-    ps2x_float_census(kind, std::bit_cast<uint32_t>(a), std::bit_cast<uint32_t>(b), std::bit_cast<uint32_t>(r));
+    zx_float_census(kind, std::bit_cast<uint32_t>(a), std::bit_cast<uint32_t>(b), std::bit_cast<uint32_t>(r));
     return r;
 }
 inline int32_t ps2_census_i(int kind, float a, int32_t r)
 {
-    ps2x_float_census(kind, std::bit_cast<uint32_t>(a), 0u, static_cast<uint32_t>(r));
+    zx_float_census(kind, std::bit_cast<uint32_t>(a), 0u, static_cast<uint32_t>(r));
     return r;
 }
 inline float ps2_census_fi(int kind, int32_t w, float r)
 {
-    ps2x_float_census(kind, static_cast<uint32_t>(w), 0u, std::bit_cast<uint32_t>(r));
+    zx_float_census(kind, static_cast<uint32_t>(w), 0u, std::bit_cast<uint32_t>(r));
     return r;
 }
 #define PS2_CENSUS_F(kind, a, b, r) ps2_census_f(kind, a, b, r)
@@ -601,7 +601,7 @@ PS2_FLOAT_NOINLINE inline __m128 ps2_vslow(__m128 a, __m128 b, Ps2VecOp op)
 
 // host is the host result of a op b and r the same rounded toward zero. As in ps2_fnormal, testing host alone
 // finds every lane that needs the double path. Results with exponent 0 are flushed to +-0.
-#if defined(PS2X_FLOAT_CENSUS)
+#if defined(ZX_FLOAT_CENSUS)
 inline __m128 ps2_census_v(Ps2VecOp op, __m128 a, __m128 b, __m128 r)
 {
     alignas(16) float la[4], lb[4], lr[4];
@@ -610,7 +610,7 @@ inline __m128 ps2_census_v(Ps2VecOp op, __m128 a, __m128 b, __m128 r)
     _mm_store_ps(lr, r);
     const int kind = op == Ps2VecOp::Add ? kCensusVecAdd : op == Ps2VecOp::Sub ? kCensusVecSub : kCensusVecMul;
     for (int i = 0; i < 4; ++i)
-        ps2x_float_census(kind, std::bit_cast<uint32_t>(la[i]), std::bit_cast<uint32_t>(lb[i]), std::bit_cast<uint32_t>(lr[i]));
+        zx_float_census(kind, std::bit_cast<uint32_t>(la[i]), std::bit_cast<uint32_t>(lb[i]), std::bit_cast<uint32_t>(lr[i]));
     return r;
 }
 #endif
@@ -690,28 +690,28 @@ inline __m128 ps2_vmul(__m128 a, __m128 b)
 }
 
 
-// Debug aid, only with -DPS2X_FPU_TRAP (a separate build): every EE FPU / VU0 macro ADD, SUB, MUL, DIV, SQRT
+// Debug aid, only with -DZX_FPU_TRAP (a separate build): every EE FPU / VU0 macro ADD, SUB, MUL, DIV, SQRT
 // and RSQRT result whose exponent is 0xF0 or more (|x| >= 2^113) is reported with the generated function it
-// came from (ps2x_fpu_trap_report in ps2_state_probe.cpp, filtered by PS2X_FPU_TRAP_FROM / _LIMIT).
-#if defined(PS2X_FPU_TRAP)
-inline float ps2x_fpu_trap(const char *op, float a, float b, float r)
+// came from (zx_fpu_trap_report in ps2_state_probe.cpp, filtered by ZX_FPU_TRAP_FROM / _LIMIT).
+#if defined(ZX_FPU_TRAP)
+inline float zx_fpu_trap(const char *op, float a, float b, float r)
 {
     if (((std::bit_cast<uint32_t>(r) >> 23) & 0xFFu) >= 0xF0u)
-        ps2x_fpu_trap_report(op, std::bit_cast<uint32_t>(a), std::bit_cast<uint32_t>(b), std::bit_cast<uint32_t>(r));
+        zx_fpu_trap_report(op, std::bit_cast<uint32_t>(a), std::bit_cast<uint32_t>(b), std::bit_cast<uint32_t>(r));
     return r;
 }
-inline __m128 ps2x_vtrap(const char *op, __m128 a, __m128 b, __m128 r)
+inline __m128 zx_vtrap(const char *op, __m128 a, __m128 b, __m128 r)
 {
     alignas(16) float la[4], lb[4], lr[4];
     _mm_store_ps(la, a);
     _mm_store_ps(lb, b);
     _mm_store_ps(lr, r);
     for (int i = 0; i < 4; ++i)
-        ps2x_fpu_trap(op, la[i], lb[i], lr[i]);
+        zx_fpu_trap(op, la[i], lb[i], lr[i]);
     return r;
 }
-#define PS2_FTRAP(op, a, b, r) ps2x_fpu_trap(op, (float)(a), (float)(b), r)
-#define PS2_VTRAP(op, a, b, r) ps2x_vtrap(op, (__m128)(a), (__m128)(b), r)
+#define PS2_FTRAP(op, a, b, r) zx_fpu_trap(op, (float)(a), (float)(b), r)
+#define PS2_VTRAP(op, a, b, r) zx_vtrap(op, (__m128)(a), (__m128)(b), r)
 #else
 #define PS2_FTRAP(op, a, b, r) (r)
 #define PS2_VTRAP(op, a, b, r) (r)
@@ -908,73 +908,73 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
     std::memcpy(rdram + offset, &value, sizeof(value));
 }
 
-#if ZAXIS_LANE_WATCH
+#if ZX_LANE_WATCH_BUILD
 // The generated code's accesses at addresses it knows are RAM (a global): watched and in the differential too (the
 // READ*/WRITE* macros below call Ps2Fast* themselves).
 #define FAST_READ8(addr) ([&]() -> uint8_t {               \
     const uint32_t _faddr = (uint32_t)(addr);              \
-    PS2X_LANE_WATCH(_faddr, 1u, false);                  \
-    PS2X_LANE_DIFF_LOAD(_faddr, 1u);                     \
+    ZX_LANE_WATCH(_faddr, 1u, false);                  \
+    ZX_LANE_DIFF_LOAD(_faddr, 1u);                     \
     return Ps2FastRead8(rdram, _faddr); }())
 #define FAST_READ16(addr) ([&]() -> uint16_t {               \
     const uint32_t _faddr = (uint32_t)(addr);              \
-    PS2X_LANE_WATCH(_faddr, 2u, false);                  \
-    PS2X_LANE_DIFF_LOAD(_faddr, 2u);                     \
+    ZX_LANE_WATCH(_faddr, 2u, false);                  \
+    ZX_LANE_DIFF_LOAD(_faddr, 2u);                     \
     return Ps2FastRead16(rdram, _faddr); }())
 #define FAST_READ32(addr) ([&]() -> uint32_t {               \
     const uint32_t _faddr = (uint32_t)(addr);              \
-    PS2X_LANE_WATCH(_faddr, 4u, false);                  \
-    PS2X_LANE_DIFF_LOAD(_faddr, 4u);                     \
+    ZX_LANE_WATCH(_faddr, 4u, false);                  \
+    ZX_LANE_DIFF_LOAD(_faddr, 4u);                     \
     return Ps2FastRead32(rdram, _faddr); }())
 #define FAST_READ64(addr) ([&]() -> uint64_t {               \
     const uint32_t _faddr = (uint32_t)(addr);              \
-    PS2X_LANE_WATCH(_faddr, 8u, false);                  \
-    PS2X_LANE_DIFF_LOAD(_faddr, 8u);                     \
+    ZX_LANE_WATCH(_faddr, 8u, false);                  \
+    ZX_LANE_DIFF_LOAD(_faddr, 8u);                     \
     return Ps2FastRead64(rdram, _faddr); }())
 #define FAST_READ128(addr) ([&]() -> __m128i {               \
     const uint32_t _faddr = (uint32_t)(addr);              \
-    PS2X_LANE_WATCH(_faddr, 16u, false);                  \
-    PS2X_LANE_DIFF_LOAD(_faddr, 16u);                     \
+    ZX_LANE_WATCH(_faddr, 16u, false);                  \
+    ZX_LANE_DIFF_LOAD(_faddr, 16u);                     \
     return Ps2FastRead128(rdram, _faddr); }())
 #define FAST_WRITE8(addr, val)                              \
     do                                                     \
     {                                                      \
         const uint32_t _faddr = (uint32_t)(addr);          \
-        PS2X_LANE_WATCH(_faddr, 1u, true);               \
+        ZX_LANE_WATCH(_faddr, 1u, true);               \
         Ps2FastWrite8(rdram, _faddr, (uint8_t)(val));                 \
-        PS2X_LANE_DIFF_STORED(_faddr, 1u);               \
+        ZX_LANE_DIFF_STORED(_faddr, 1u);               \
     } while (0)
 #define FAST_WRITE16(addr, val)                              \
     do                                                     \
     {                                                      \
         const uint32_t _faddr = (uint32_t)(addr);          \
-        PS2X_LANE_WATCH(_faddr, 2u, true);               \
+        ZX_LANE_WATCH(_faddr, 2u, true);               \
         Ps2FastWrite16(rdram, _faddr, (uint16_t)(val));                 \
-        PS2X_LANE_DIFF_STORED(_faddr, 2u);               \
+        ZX_LANE_DIFF_STORED(_faddr, 2u);               \
     } while (0)
 #define FAST_WRITE32(addr, val)                              \
     do                                                     \
     {                                                      \
         const uint32_t _faddr = (uint32_t)(addr);          \
-        PS2X_LANE_WATCH(_faddr, 4u, true);               \
+        ZX_LANE_WATCH(_faddr, 4u, true);               \
         Ps2FastWrite32(rdram, _faddr, (uint32_t)(val));                 \
-        PS2X_LANE_DIFF_STORED(_faddr, 4u);               \
+        ZX_LANE_DIFF_STORED(_faddr, 4u);               \
     } while (0)
 #define FAST_WRITE64(addr, val)                              \
     do                                                     \
     {                                                      \
         const uint32_t _faddr = (uint32_t)(addr);          \
-        PS2X_LANE_WATCH(_faddr, 8u, true);               \
+        ZX_LANE_WATCH(_faddr, 8u, true);               \
         Ps2FastWrite64(rdram, _faddr, (uint64_t)(val));                 \
-        PS2X_LANE_DIFF_STORED(_faddr, 8u);               \
+        ZX_LANE_DIFF_STORED(_faddr, 8u);               \
     } while (0)
 #define FAST_WRITE128(addr, val)                              \
     do                                                     \
     {                                                      \
         const uint32_t _faddr = (uint32_t)(addr);          \
-        PS2X_LANE_WATCH(_faddr, 16u, true);               \
+        ZX_LANE_WATCH(_faddr, 16u, true);               \
         Ps2FastWrite128(rdram, _faddr, (val));                 \
-        PS2X_LANE_DIFF_STORED(_faddr, 16u);               \
+        ZX_LANE_DIFF_STORED(_faddr, 16u);               \
     } while (0)
 #else
 #define FAST_READ8(addr) Ps2FastRead8(rdram, (uint32_t)(addr))
@@ -992,40 +992,40 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
 
 #define READ8(addr) ([&]() -> uint8_t {                       \
     uint32_t _addr = (uint32_t)(addr);                        \
-    PS2X_LANE_WATCH(_addr, 1u, false);                     \
-    PS2X_LANE_DIFF_LOAD(_addr, 1u);                       \
+    ZX_LANE_WATCH(_addr, 1u, false);                     \
+    ZX_LANE_DIFF_LOAD(_addr, 1u);                       \
     return PS2Runtime::isSpecialAddress(_addr)                \
         ? runtime->Load8(rdram, ctx, _addr)                   \
         : Ps2FastRead8(rdram, _addr); }())
 
 #define READ16(addr) ([&]() -> uint16_t {                     \
     uint32_t _addr = (uint32_t)(addr);                        \
-    PS2X_LANE_WATCH(_addr, 2u, false);                     \
-    PS2X_LANE_DIFF_LOAD(_addr, 2u);                       \
+    ZX_LANE_WATCH(_addr, 2u, false);                     \
+    ZX_LANE_DIFF_LOAD(_addr, 2u);                       \
     return PS2Runtime::isSpecialAddress(_addr)                \
         ? runtime->Load16(rdram, ctx, _addr)                  \
         : Ps2FastRead16(rdram, _addr); }())
 
 #define READ32(addr) ([&]() -> uint32_t {                     \
     uint32_t _addr = (uint32_t)(addr);                        \
-    PS2X_LANE_WATCH(_addr, 4u, false);                     \
-    PS2X_LANE_DIFF_LOAD(_addr, 4u);                       \
+    ZX_LANE_WATCH(_addr, 4u, false);                     \
+    ZX_LANE_DIFF_LOAD(_addr, 4u);                       \
     return PS2Runtime::isSpecialAddress(_addr)                \
         ? runtime->Load32(rdram, ctx, _addr)                  \
         : Ps2FastRead32(rdram, _addr); }())
 
 #define READ64(addr) ([&]() -> uint64_t {                     \
     uint32_t _addr = (uint32_t)(addr);                        \
-    PS2X_LANE_WATCH(_addr, 8u, false);                     \
-    PS2X_LANE_DIFF_LOAD(_addr, 8u);                       \
+    ZX_LANE_WATCH(_addr, 8u, false);                     \
+    ZX_LANE_DIFF_LOAD(_addr, 8u);                       \
     return PS2Runtime::isSpecialAddress(_addr)                \
         ? runtime->Load64(rdram, ctx, _addr)                  \
         : Ps2FastRead64(rdram, _addr); }())
 
 #define READ128(addr) ([&]() -> __m128i {                     \
     uint32_t _addr = (uint32_t)(addr);                        \
-    PS2X_LANE_WATCH(_addr, 16u, false);                    \
-    PS2X_LANE_DIFF_LOAD(_addr, 16u);                       \
+    ZX_LANE_WATCH(_addr, 16u, false);                    \
+    ZX_LANE_DIFF_LOAD(_addr, 16u);                       \
     return PS2Runtime::isSpecialAddress(_addr)                \
         ? runtime->Load128(rdram, ctx, _addr)                 \
         : Ps2FastRead128(rdram, _addr); }())
@@ -1034,7 +1034,7 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
     do                                                                               \
     {                                                                                \
         uint32_t _addr = (addr);                                                     \
-        PS2X_LANE_WATCH(_addr, 1u, true);                                     \
+        ZX_LANE_WATCH(_addr, 1u, true);                                     \
         if (PS2Runtime::isSpecialAddress(_addr))                                     \
             runtime->Store8(rdram, ctx, _addr, (val));                               \
         else                                                                         \
@@ -1042,14 +1042,14 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
             ps2TraceGuestWrite(rdram, _addr, 1u, (uint8_t)(val), 0u, "WRITE8", ctx); \
             Ps2FastWrite8(rdram, _addr, (uint8_t)(val));                                            \
         }                                                                            \
-        PS2X_LANE_DIFF_STORED(_addr, 1u);                                       \
+        ZX_LANE_DIFF_STORED(_addr, 1u);                                       \
     } while (0)
 
 #define WRITE16(addr, val)                                                             \
     do                                                                                 \
     {                                                                                  \
         uint32_t _addr = (addr);                                                       \
-        PS2X_LANE_WATCH(_addr, 2u, true);                                       \
+        ZX_LANE_WATCH(_addr, 2u, true);                                       \
         if (PS2Runtime::isSpecialAddress(_addr))                                       \
             runtime->Store16(rdram, ctx, _addr, (val));                                \
         else                                                                           \
@@ -1057,14 +1057,14 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
             ps2TraceGuestWrite(rdram, _addr, 2u, (uint16_t)(val), 0u, "WRITE16", ctx); \
             Ps2FastWrite16(rdram, _addr, (uint16_t)(val));                                             \
         }                                                                              \
-        PS2X_LANE_DIFF_STORED(_addr, 2u);                                       \
+        ZX_LANE_DIFF_STORED(_addr, 2u);                                       \
     } while (0)
 
 #define WRITE32(addr, val)                                                             \
     do                                                                                 \
     {                                                                                  \
         uint32_t _addr = (addr);                                                       \
-        PS2X_LANE_WATCH(_addr, 4u, true);                                       \
+        ZX_LANE_WATCH(_addr, 4u, true);                                       \
         if (PS2Runtime::isSpecialAddress(_addr))                                       \
             runtime->Store32(rdram, ctx, _addr, (val));                                \
         else                                                                           \
@@ -1072,14 +1072,14 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
             ps2TraceGuestWrite(rdram, _addr, 4u, (uint32_t)(val), 0u, "WRITE32", ctx); \
             Ps2FastWrite32(rdram, _addr, (uint32_t)(val));                                             \
         }                                                                              \
-        PS2X_LANE_DIFF_STORED(_addr, 4u);                                       \
+        ZX_LANE_DIFF_STORED(_addr, 4u);                                       \
     } while (0)
 
 #define WRITE64(addr, val)                                                             \
     do                                                                                 \
     {                                                                                  \
         uint32_t _addr = (addr);                                                       \
-        PS2X_LANE_WATCH(_addr, 8u, true);                                       \
+        ZX_LANE_WATCH(_addr, 8u, true);                                       \
         if (PS2Runtime::isSpecialAddress(_addr))                                       \
             runtime->Store64(rdram, ctx, _addr, (val));                                \
         else                                                                           \
@@ -1087,14 +1087,14 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
             ps2TraceGuestWrite(rdram, _addr, 8u, (uint64_t)(val), 0u, "WRITE64", ctx); \
             Ps2FastWrite64(rdram, _addr, (uint64_t)(val));                                             \
         }                                                                              \
-        PS2X_LANE_DIFF_STORED(_addr, 8u);                                       \
+        ZX_LANE_DIFF_STORED(_addr, 8u);                                       \
     } while (0)
 
 #define WRITE128(addr, val)                                                          \
     do                                                                               \
     {                                                                                \
         uint32_t _addr = (addr);                                                     \
-        PS2X_LANE_WATCH(_addr, 16u, true);                                    \
+        ZX_LANE_WATCH(_addr, 16u, true);                                    \
         __m128i _value = (val);                                                      \
         if (PS2Runtime::isSpecialAddress(_addr))                                     \
             runtime->Store128(rdram, ctx, _addr, _value);                            \
@@ -1105,7 +1105,7 @@ static inline void Ps2FastWrite128(uint8_t *rdram, uint32_t addr, __m128i value)
             ps2TraceGuestWrite(rdram, _addr, 16u, _lo, _hi, "WRITE128", ctx);        \
             Ps2FastWrite128(rdram, _addr, _value);                                         \
         }                                                                            \
-        PS2X_LANE_DIFF_STORED(_addr, 16u);                                      \
+        ZX_LANE_DIFF_STORED(_addr, 16u);                                      \
     } while (0)
 
 // Packed Compare Greater Than (PCGT)
@@ -1505,7 +1505,7 @@ static inline void Ps2SetGprLow64(R5900Context *ctx, int reg, __m128i new_low)
             ctx_ptr->r[reg_idx] = (val);   \
     } while (0)
 
-#if defined(PS2X_GAME_MODULE)
+#if defined(ZX_GAME_MODULE)
 } // inline namespace game_module
 #endif
 

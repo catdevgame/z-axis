@@ -1,4 +1,4 @@
-// PS2X_TAILCALL_STATS=<file.csv>: the tail calls (a `j` to a function's
+// ZX_TAILCALL_STATS=<file.csv>: the tail calls (a `j` to a function's
 // start) generated code made to a function the table holds a replacement
 // for (PS2Runtime::tailCall): a readable version, a game override, the
 // recorder's shim. Written at exit and every 10 seconds of vsyncs:
@@ -65,7 +65,7 @@ namespace game::profile
 
     void installTailCallStats(PS2Runtime &runtime)
     {
-        const char *path = std::getenv("PS2X_TAILCALL_STATS");
+        const char *path = std::getenv("ZX_TAILCALL_STATS");
         if (!path || !*path)
             return;
         g_path = path;

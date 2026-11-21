@@ -11,7 +11,7 @@
 // The host makes the same words from the GEO file
 // (collision_setup_host.cpp applyLevelSetupOnHost; the tag mirrors carry
 // them); this is the game's own pass, which still writes them into RAM.
-// With collision on host data (PS2X_NATIVE_COLLISION) the faces' vertex
+// With collision on host data (ZX_NATIVE_COLLISION) the faces' vertex
 // indices come from the host part (zge::faceVertexIndex) like the
 // positions (vertexPosition) and the tag records (the accessors' mirrors).
 

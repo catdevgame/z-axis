@@ -7,7 +7,7 @@ editor, copied: zge/editor and game/bmx/editor), saved as a native file, and rid
     bmxpark.py ride NAME PARKS TICKS [SEED]  the saved park (PARKS: its Parks folder) ridden from PARK EDITOR > SESSION;
                                          dm2.Meter's numbers in $BMXCORPUS/sessions/NAME/park.json
 
-In by the app's main menu line (PS2X_BMX_PARK_EDITOR=1: PARK EDITOR third), as bmxedit.py's BMXEDIT_MENU=1. The editor
+In by the app's main menu line (ZX_BMX_PARK_EDITOR=1: PARK EDITOR third), as bmxedit.py's BMXEDIT_MENU=1. The editor
 is aipark.py's: the same core and tool set (EditCore, EditToolSet, EditSelection), at BMX XXX's addresses (the bind
 table's: AI's g_parkEditorCore and g_parkCost). SHOTS=1: pictures.
 """
@@ -118,7 +118,7 @@ def session(name, program, ticks=60000, env=None):
     import dm2  # noqa: F401  (the dm2 tools, bmxroutes among them, on the path)
     import bmxroutes
     menu = bmxroutes.Script()
-    e = dict(PS2X_EE_SCALE='4096', PS2X_BMX_PARK_EDITOR='1', PS2X_HEADLESS='1')
+    e = dict(ZX_EE_SCALE='4096', ZX_BMX_PARK_EDITOR='1', ZX_HEADLESS='1')
     e.update(env or {})
     cfg = bmx.run_config(name, menu.text(), env=e, max_secs=max(900, ticks // 12), gs=SHOTS)
     with core.Run(cfg) as run:

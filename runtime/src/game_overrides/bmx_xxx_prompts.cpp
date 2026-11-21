@@ -24,7 +24,7 @@
 // (zge_prompts.h PadPhoto): the Xbox release's buttons, the GameCube
 // release's letters for a Nintendo-style pad, key caps.
 //
-// With the app's settings (PS2X_GAME_SETTINGS_MENUS=1), as the Settings
+// With the app's settings (ZX_GAME_SETTINGS_MENUS=1), as the Settings
 // page: the redrawn pictures are the game's RAM.
 
 #include "bmx_xxx.h"
@@ -126,7 +126,7 @@ namespace bmx_xxx
 {
     void installPrompts(PS2Runtime &runtime)
     {
-        if (const char *on = ps2x::boot::text("PS2X_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
+        if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); !on || on[0] != '1')
             return;
         zge_host::prompts::install(runtime, prompts::kGame);
     }

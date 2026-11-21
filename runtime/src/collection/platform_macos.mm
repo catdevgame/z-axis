@@ -11,7 +11,7 @@ namespace
         return [NSString stringWithUTF8String:text.c_str()] ?: @"";
     }
 
-    std::unique_ptr<ps2x_app::platform::MenuActions> g_actions;
+    std::unique_ptr<zx_app::platform::MenuActions> g_actions;
     std::function<void()> g_openSettings;
     std::function<bool()> g_openSettingsAvailable;
 
@@ -29,10 +29,10 @@ namespace
     }
 }
 
-@interface PS2XAppMenuTarget : NSObject <NSMenuItemValidation>
+@interface ZXAppMenuTarget : NSObject <NSMenuItemValidation>
 @end
 
-@implementation PS2XAppMenuTarget
+@implementation ZXAppMenuTarget
 - (void)toggleIntegerScaling:(id)sender
 {
     (void)sender;
@@ -122,7 +122,7 @@ namespace
 
 namespace
 {
-    PS2XAppMenuTarget *g_target = nil;
+    ZXAppMenuTarget *g_target = nil;
 
     NSMenuItem *addItem(NSMenu *menu, NSString *title, SEL action, NSString *key, NSEventModifierFlags modifiers, id target)
     {
@@ -133,7 +133,7 @@ namespace
     }
 }
 
-namespace ps2x_app::platform
+namespace zx_app::platform
 {
     std::filesystem::path resourceFolder(const char *argv0)
     {
@@ -180,7 +180,7 @@ namespace ps2x_app::platform
         @autoreleasepool
         {
             g_actions = std::make_unique<MenuActions>(actions);
-            g_target = [[PS2XAppMenuTarget alloc] init];
+            g_target = [[ZXAppMenuTarget alloc] init];
             NSMenu *bar = [NSApp mainMenu];
             if (!bar)
             {

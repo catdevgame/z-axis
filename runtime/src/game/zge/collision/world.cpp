@@ -62,7 +62,7 @@ namespace zge
         // face tests, dropped again if no face was hit. True if a face was.
         bool testFaces(ee::Ptr<Node> node, ee::Ptr<CollisionFrame> frame, ee::Ptr<ZgePart> part, ee::Ptr<SphereQuery> query)
         {
-            // Host side (not under ps2xFnCheck): PS2X_NATIVE_COLLISION_CHECK
+            // Host side (not under zx-fncheck): ZX_NATIVE_COLLISION_CHECK
             // compares this frame's data with the GEO file's (ZGE3's layouts: ZGE2's leaf has no offset word).
             if (!game::readable::kIsDm2 && native::hostExtrasOn() && native::collisionCheckEnabled())
                 native::checkCollisionFrameOnce(frame, part);

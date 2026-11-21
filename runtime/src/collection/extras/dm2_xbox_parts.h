@@ -8,7 +8,7 @@
 #include "collection/extras/dm2_xbox.h"
 #include "dm2_files.h"
 
-namespace ps2x::app::extras::dm2
+namespace zx::app::extras::dm2
 {
     // The files written, by their path below the output folder.
     using Made = std::vector<std::pair<std::string, Bytes>>;

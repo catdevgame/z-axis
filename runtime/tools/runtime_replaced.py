@@ -11,11 +11,11 @@ runtime's own implementation, with no instruction of the game's left. Two forms:
     runtime_replaced.py GENERATED_DIR [--names]   one address a line (0x%08x), sorted; --names adds the callee
                                                   (ps2_stubs::NAME, ps2_syscalls::NAME or syscall 0xN)
 
-game.cmake leaves these out of a corpus game's record-only registrations (PS2X_GAME_CORPUS): such a function is
+game.cmake leaves these out of a corpus game's record-only registrations (ZX_GAME_CORPUS): such a function is
 not the game's code, has no readable form (sce/not_ported.tsv, "the runtime replaces it", "the runtime is the
 kernel"), and its replay would run the runtime's code on a recording that never saw what it reads or writes: the
 stub's and the kernel's guest accesses are the host's, outside the trace, and the kernel's state (the syscall
-table's handlers, threads, semaphores) is the runtime's, not guest RAM. ps2xFnCheck's runtime has no memory of its
+table's handlers, threads, semaphores) is the runtime's, not guest RAM. zx-fncheck's runtime has no memory of its
 own (BMX XXX's sceDmaSend crashed the checker on 36 files) nor the game's kernel state (BMX XXX's SetSyscall wrote
 its table's mirror outside the recording on 74 files, the TLB set-up's syscall 0x5B read it on 37). A caller's
 recording keeps what such a call changed as its callee's effects, so the callers are judged as before.

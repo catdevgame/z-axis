@@ -8,7 +8,7 @@
 
 #include <map>
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     namespace
     {
@@ -642,11 +642,12 @@ namespace ps2x::app::extras::panel_maps
             return std::move(*data);
         }
 
-        // `xboxScript`: the Xbox release's .BIN of the level (which the career
-        // scripts setting runs), for a second goal set where it differs.
-        void buildLevel(const LevelReader &read, const std::string &level, const std::string &title,
-                        const std::filesystem::path &out, const std::optional<Bytes> &xboxScript,
-                        std::vector<std::string> &log)
+        // The level's file. `xboxScript`: the Xbox release's .BIN of the
+        // level (which the career scripts setting runs), for a second goal
+        // set where it differs (a custom map's: its free skate script; the
+        // log line still says Xbox).
+        Bytes levelBytes(const LevelReader &read, const std::string &level, const std::string &title,
+                         const std::optional<Bytes> &xboxScript, std::vector<std::string> &log)
         {
             const Bytes geoBytes = need(read, level, "GEO"), insBytes = need(read, level, "INS"),
                         txrBytes = need(read, level, "TXR"), datBytes = need(read, level, "DAT");
@@ -686,10 +687,17 @@ namespace ps2x::app::extras::panel_maps
                                          xbox.counted, xbox.targets));
                 }
             }
-            const Bytes file = levelFile(title, frame, picture, goals);
-            writeMade(out / (level + ".pmap"), file);
+            Bytes file = levelFile(title, frame, picture, goals);
             log.push_back(formatted("%s: file %.1f MB, %d goals, %d placed, %d counted, %d targets", level.c_str(),
                                  double(file.size()) / 1e6, stats.goals, stats.placed, stats.counted, stats.targets));
+            return file;
+        }
+
+        void buildLevel(const LevelReader &read, const std::string &level, const std::string &title,
+                        const std::filesystem::path &out, const std::optional<Bytes> &xboxScript,
+                        std::vector<std::string> &log)
+        {
+            writeMade(out / (level + ".pmap"), levelBytes(read, level, title, xboxScript, log));
         }
 
         // ---- UI.pmap ---------------------------------------------------------------------
@@ -944,6 +952,32 @@ namespace ps2x::app::extras::panel_maps
                 return data;
             };
         }
+    }
+
+    Bytes aggressiveInlineMapFile(const SourceFiles &files, const std::string &folder, const std::string &title,
+                                  std::vector<std::string> &log)
+    {
+        const LevelReader read = [&files, folder](const std::string &ext) -> std::optional<Bytes> {
+            Bytes data;
+            if (!files.readAny("ASSETS/LEVELS/" + folder + "/" + folder + "." + ext, data))
+                return std::nullopt;
+            return data;
+        };
+        // The free skate script (<folder>T.BIN, which the slot runs) as a
+        // second goal set, where it has goals of its own (an Estate's lessons).
+        std::optional<Bytes> freeSkate;
+        if (Bytes data; files.readAny("ASSETS/LEVELS/" + folder + "/" + folder + "T.BIN", data))
+            freeSkate = std::move(data);
+        if (freeSkate)
+            try
+            {
+                return levelBytes(read, folder, title, freeSkate, log);
+            }
+            catch (const PanelError &e)
+            {
+                log.push_back(folder + ": the free skate script's goals not read (" + e.what() + ")");
+            }
+        return levelBytes(read, folder, title, std::nullopt, log);
     }
 
     void makeAggressiveInlineMaps(const SourceFiles &disc, const PanelExtras &extras, const std::filesystem::path &out,

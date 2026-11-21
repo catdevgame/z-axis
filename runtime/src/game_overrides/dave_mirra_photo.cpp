@@ -22,7 +22,7 @@
 //
 // Widgets: zgui's widget draw is wrapped in dave_mirra_gameplay.cpp
 // (hidesUi); with no widget drawn the pause menu stands still. On with the
-// app's settings (PS2X_GAME_SETTINGS_MENUS=1), as the gameplay pages.
+// app's settings (ZX_GAME_SETTINGS_MENUS=1), as the gameplay pages.
 
 #include "dave_mirra.h"
 #include "sym/game_overrides/dave_mirra_photo.cpp.h"
@@ -46,8 +46,8 @@ namespace dave_mirra::photo
     namespace
     {
         namespace hi = ps2_host_input;
-        namespace ph = ps2x::photo;
-        namespace st = ps2x::settings;
+        namespace ph = zx::photo;
+        namespace st = zx::settings;
 
         // DM2's camera (game/dm2/camera/camera.h), as the host reads it.
         struct Vec4
@@ -133,7 +133,7 @@ namespace dave_mirra::photo
             CameraState savedState{};
             CameraState savedApplied{};
         };
-        Photo &photo() { return ps2x::session::state<Photo>(); }
+        Photo &photo() { return zx::session::state<Photo>(); }
 
         // ---- memory -----------------------------------------------------------
 
@@ -374,7 +374,7 @@ namespace dave_mirra::photo
         }
         p.hotkeySeen = PSPadBackend::hotkeyPresses(hi::kHotkeyPhotoMode);
         runtime.addVSyncHook(&onVsync);
-        // For tests and the app menu: `set photo.mode 1` on PS2X_CONTROL.
+        // For tests and the app menu: `set photo.mode 1` on ZX_CONTROL.
         st::Setting open;
         open.key = "photo.mode";
         open.label = "Photo Mode";
@@ -384,7 +384,7 @@ namespace dave_mirra::photo
             if ((value != 0) != (photo().state.load() == State::Active))
                 PSPadBackend::triggerHotkey(hi::kHotkeyPhotoMode);
         };
-        ps2x::session::addSetting(open);
+        zx::session::addSetting(open);
         restart::addPhotoLine(runtime);
         std::cout << "[dave-mirra] photo mode: the pause menu line and the photo_mode key" << std::endl;
         return true;

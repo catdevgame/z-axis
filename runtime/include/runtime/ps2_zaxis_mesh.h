@@ -45,7 +45,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2x::zaxis
+namespace zx::zaxis
 {
     // Field offsets of the run-time part (TGPT).
     namespace part

@@ -5,14 +5,14 @@
 // stepMovie, endMovie and the movie's sound, over the movie decoding of
 // game/host/movies.h), installed over the PS2 form (zge/movie/ps2/: Sony's
 // MPEG stream sample with its demuxer and decoder threads, the IPU, the sound
-// through the IOP into the SPU2) by its own switch, whatever PS2X_READABLE
+// through the IOP into the SPU2) by its own switch, whatever ZX_READABLE
 // says. SDRDRV.IRX is then not loaded at all. What a game adds is its row of
 // game/host/movies.h's Game (aggressive_inline_movies.cpp: the Xbox movies;
 // dave_mirra_movies.cpp: the intro movies; bmx_xxx_native.cpp: nothing).
 //
-// The switch: PS2X_MOVIES=hle runs the PS2 form over the emulated MPEG
+// The switch: ZX_MOVIES=hle runs the PS2 form over the emulated MPEG
 // decoder and the IOP's sound driver, as on the console.
-// PS2X_TRACE_MOVIES=1 logs movie starts, ends and dropped frames.
+// ZX_TRACE_MOVIES=1 logs movie starts, ends and dropped frames.
 #include "zge_host.h"
 
 #include "../game/ee/game_id.h"
@@ -34,14 +34,14 @@ namespace zge_host
 {
     bool installNativeMovies(PS2Runtime &runtime, game::Game id, const game::host::movies::Game &game)
     {
-        const char *mode = std::getenv("PS2X_MOVIES");
+        const char *mode = std::getenv("ZX_MOVIES");
         if (mode && std::string(mode) == "hle")
         {
             setMovieForm(movieFormFor(true, false));
-            std::cout << "[movie] libmpeg HLE and the IOP sound path (PS2X_MOVIES=hle)" << std::endl;
+            std::cout << "[movie] libmpeg HLE and the IOP sound path (ZX_MOVIES=hle)" << std::endl;
             return false;
         }
-        const char *trace = std::getenv("PS2X_TRACE_MOVIES");
+        const char *trace = std::getenv("ZX_TRACE_MOVIES");
         game::host::movies::configure(game, trace && trace[0] == '1');
         if (!game::host::install(runtime, id, "movies"))
         {
@@ -53,7 +53,7 @@ namespace zge_host
         }
         setMovieForm(movieFormFor(false, true));
         game::host::movies::attach();
-        std::cout << "[movie] movies decoded on the host (PS2X_MOVIES=hle for the libmpeg HLE)" << std::endl;
+        std::cout << "[movie] movies decoded on the host (ZX_MOVIES=hle for the libmpeg HLE)" << std::endl;
         return true;
     }
 }

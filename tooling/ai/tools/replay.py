@@ -2,7 +2,7 @@
 """replay.py: the player's own play sessions (runtime/play_recording.h), replayed here.
 
 A recording (.zrec) is one boot of one game made by the app's Settings > Game > Record Play Sessions
-(or ZAXIS_RECORD=<folder> on any run): what the game's thread read from the host (the pads as the
+(or ZX_RECORD=<folder> on any run): what the game's thread read from the host (the pads as the
 game saw them, mouse-look, shortcuts, dates, the picture's aspect), the boot's settings, the saves at
 boot, state checksums every 60 vsyncs and each host frame's telemetry, all on the guest's vsync clock.
 Nothing is asked of the player while playing: the moments worth a look are found here, from the
@@ -21,14 +21,14 @@ telemetry.
                                         app made (header front_end=app) replays through the app's front end
                                         (RUNNER --game GAME, this Mac's disc folder of the game), as it boots
                                         differently from a runner given the ELF. --from V: the
-                                        traces and profiles in --env start there (PS2X_*_FROM=V), a window.
+                                        traces and profiles in --env start there (ZX_*_FROM=V), a window.
                                         --record: the replay records too (to compare with `compare`).
                                         An AI recording from before b128 (no settings room in zgui's
                                         heap) is compared with that heap's two links and the room as its
                                         build had them, every other word as it is (SettingsRoomView;
                                         --as-is: the runtime's own comparison alone).
                                         The readable functions on are the ones the recording's build ran
-                                        (its commit's Verified rows and its own PS2X_READABLE, by address):
+                                        (its commit's Verified rows and its own ZX_READABLE, by address):
                                         the readable code does not charge the original's EE cycles, so a
                                         function promoted since moves the vsync a read falls in. --readable
                                         SPEC: the runner's set with SPEC applied; --readable runner: as it is.
@@ -37,16 +37,16 @@ telemetry.
                                         byte for byte (and both against the recording's checksums)
     replay.py compare A.zrec B.zrec     the two recordings' checksums at every vsync both have
     replay.py route FILE OUT_DIR [--runner R] [--to V]
-                                        a corpus recording run over the session (PS2X_FNREC=all into
-                                        OUT_DIR, readable off), for ps2xFnCheck and the coverage tools
+                                        a corpus recording run over the session (ZX_FNREC=all into
+                                        OUT_DIR, readable off), for zx-fncheck and the coverage tools
     replay.py extend FILE OUT --to V [PRESS ...]
                                         a recording cut short (a crash, a hang the app was killed in) given what
                                         it lost: port 0's presses after its last input (NAME@VSYNC:HOLD, e.g.
                                         DOWN@59765:4 CROSS@59810:4; one pad read a vsync, as at its end) and a
                                         last vsync V, so `run --to V` replays past its end, its inputs held
                                         (the runtime replays a cut-short file past its end; an ended one stops)
-    replay.py script FILE OUT           port 0 as a PS2X_PAD_SCRIPT (vsync clock), for tools that take a
-                                        pad script (full pressure; ZAXIS_REPLAY is the exact route)
+    replay.py script FILE OUT           port 0 as a ZX_PAD_SCRIPT (vsync clock), for tools that take a
+                                        pad script (full pressure; ZX_REPLAY is the exact route)
     replay.py pull [--serial S] [--to DIR]
                                         the Thor's recordings (adb, our package's external files folder)
     replay.py list [DIR]                the recordings in a folder (default: the Mac app's)
@@ -347,8 +347,8 @@ def cmd_telemetry(args):
 
 
 def default_runner():
-    return os.environ.get('RUNNER') or os.path.join(zpaths.get('ZAXIS_MAIN'), 'out', 'build-coll', 'ps2xRuntime',
-                                                    'ps2EntryRunner')
+    return os.environ.get('RUNNER') or os.path.join(zpaths.get('ZAXIS_MAIN'), 'out', 'build-coll', 'runtime',
+                                                    'zx-runner')
 
 
 def game_elf(game):
@@ -363,17 +363,17 @@ def game_elf(game):
 
 
 # What a replay sets itself (paths of the replay's own, the checks' switches) and never takes from the recording.
-OWN = {'PS2X_SAVES_DIR', 'PS2X_GAMEPLAY_INI', 'PS2X_CONTROLS_INI', 'PS2X_SCREENSHOT_DIR', 'PS2X_GS_PIPELINE_CACHE',
-       'PS2X_MODS_DIR', 'PS2X_GAMEPAD_MAPPINGS', 'PS2X_PAD_SCRIPT', 'PS2X_PAD_SCRIPT_CLOCK', 'PS2X_HOST_INPUT',
-       'PS2X_HOST_INPUT_SCRIPT', 'PS2X_STATE_LOG_FILE', 'PS2X_DUMP_PREFIX', 'PS2X_GS_BACKEND', 'PS2X_GS_SCALE',
-       'PS2X_GS_FULL_HEIGHT', 'ZAXIS_RECORD', 'ZAXIS_RECORD_CHECKSUMS', 'ZAXIS_REPLAY', 'ZAXIS_REPLAY_STOP'}
+OWN = {'ZX_SAVES_DIR', 'ZX_GAMEPLAY_INI', 'ZX_CONTROLS_INI', 'ZX_SCREENSHOT_DIR', 'ZX_GS_PIPELINE_CACHE',
+       'ZX_MODS_DIR', 'ZX_GAMEPAD_MAPPINGS', 'ZX_PAD_SCRIPT', 'ZX_PAD_SCRIPT_CLOCK', 'ZX_HOST_INPUT',
+       'ZX_HOST_INPUT_SCRIPT', 'ZX_STATE_LOG_FILE', 'ZX_DUMP_PREFIX', 'ZX_GS_BACKEND', 'ZX_GS_SCALE',
+       'ZX_GS_FULL_HEIGHT', 'ZX_RECORD', 'ZX_RECORD_CHECKSUMS', 'ZX_REPLAY', 'ZX_REPLAY_STOP'}
 # Process switches of the recording that only change host time or what is shown; a replay sets its own.
-HOST_ONLY = {'PS2X_UNPACED', 'PS2X_PERF_LOG', 'PS2X_PERF_FRAMES', 'PS2X_GS_NULL', 'PS2X_DEBUG_UI', 'PS2X_APP_GAME',
-             'PS2X_APP_SUPPORT_DIR', 'PS2X_APP_LOG_DIR', 'PS2X_MC_ROOT', 'PS2X_VSYNC_PHASE', 'PS2X_HEADLESS',
-             'ZAXIS_AUDIO'}
+HOST_ONLY = {'ZX_UNPACED', 'ZX_PERF_LOG', 'ZX_PERF_FRAMES', 'ZX_GS_NULL', 'ZX_DEBUG_UI', 'ZX_APP_GAME',
+             'ZX_APP_SUPPORT_DIR', 'ZX_APP_LOG_DIR', 'ZX_MC_ROOT', 'ZX_VSYNC_PHASE', 'ZX_HEADLESS',
+             'ZX_AUDIO'}
 # Folders of bundled files: kept if they exist here, else looked up under --resources.
-BUNDLED = {'PS2X_XBOX_DIR': 'xbox', 'PS2X_XBOX_CONVERTED': 'xbox-converted', 'PS2X_ESTATE_DIR': 'estate',
-           'PS2X_DM2_XBOX_LEVELS_DIR': 'xbox-levels', 'PS2X_BMX_RELEASES_DIR': 'releases', 'PS2X_XBOX_PACK': 'xbox-pack'}
+BUNDLED = {'ZX_XBOX_DIR': 'xbox', 'ZX_XBOX_CONVERTED': 'xbox-converted', 'ZX_ESTATE_DIR': 'estate',
+           'ZX_DM2_XBOX_LEVELS_DIR': 'xbox-levels', 'ZX_BMX_RELEASES_DIR': 'releases', 'ZX_XBOX_PACK': 'xbox-pack'}
 
 
 def prepare(rec, d, args, stop=None):
@@ -399,9 +399,9 @@ def prepare(rec, d, args, stop=None):
             f.write(data)
     env = dict(os.environ)
     for k in list(env):
-        if k.startswith('PS2X_') or k.startswith('ZAXIS_'):
+        if k.startswith('ZX_') or k.startswith('ZAXIS_'):
             del env[k]
-    env['ZAXIS_AUDIO'] = os.environ.get('ZAXIS_AUDIO', 'off')  # the shared environment's (zpaths: no sound)
+    env['ZX_AUDIO'] = os.environ.get('ZX_AUDIO', 'off')  # the shared environment's (zpaths: no sound)
     warnings = []
     for k, v in rec.env_values().items():
         if k not in HOST_ONLY and k not in OWN:
@@ -418,21 +418,21 @@ def prepare(rec, d, args, stop=None):
                 continue
         env[k] = v
     env.update({
-        'HOME': os.path.join(d, 'home'), 'PS2X_APP_SUPPORT_DIR': os.path.join(d, 'app'),
-        'PS2X_APP_LOG_DIR': os.path.join(d, 'app'), 'PS2X_SCREENSHOT_DIR': os.path.join(d, 'shots'),
-        'PS2X_DEBUG_UI': '0', 'PS2X_MC_ROOT': os.path.join(d, 'mc0'), 'PS2X_SAVES_DIR': os.path.join(d, 'saves'),
-        'PS2X_MODS_DIR': os.path.join(d, 'mods'), 'PS2X_CONTROLS_INI': os.path.join(d, 'controls.ini'),
-        'PS2X_UNPACED': '1', 'PS2X_HOST_INPUT': '0', 'ZAXIS_REPLAY': os.path.abspath(rec.path),
-        'PS2X_GS_BACKEND': 'cpu', 'PS2X_DUMP_PREFIX': os.path.join(d, 'dumps', 'ram'),
+        'HOME': os.path.join(d, 'home'), 'ZX_APP_SUPPORT_DIR': os.path.join(d, 'app'),
+        'ZX_APP_LOG_DIR': os.path.join(d, 'app'), 'ZX_SCREENSHOT_DIR': os.path.join(d, 'shots'),
+        'ZX_DEBUG_UI': '0', 'ZX_MC_ROOT': os.path.join(d, 'mc0'), 'ZX_SAVES_DIR': os.path.join(d, 'saves'),
+        'ZX_MODS_DIR': os.path.join(d, 'mods'), 'ZX_CONTROLS_INI': os.path.join(d, 'controls.ini'),
+        'ZX_UNPACED': '1', 'ZX_HOST_INPUT': '0', 'ZX_REPLAY': os.path.abspath(rec.path),
+        'ZX_GS_BACKEND': 'cpu', 'ZX_DUMP_PREFIX': os.path.join(d, 'dumps', 'ram'),
     })
     if gameplay:
-        env['PS2X_GAMEPLAY_INI'] = gameplay
+        env['ZX_GAMEPLAY_INI'] = gameplay
     if not getattr(args, 'picture', False):
-        env['PS2X_GS_NULL'] = '1'
+        env['ZX_GS_NULL'] = '1'
     if stop:
-        env['ZAXIS_REPLAY_STOP'] = str(stop)
+        env['ZX_REPLAY_STOP'] = str(stop)
     if getattr(args, 'record', False):
-        env['ZAXIS_RECORD'] = os.path.join(d, 'recorded')
+        env['ZX_RECORD'] = os.path.join(d, 'recorded')
     readable = getattr(args, 'readable', None)
     if readable is None:
         readable, why = recording_readable(rec)
@@ -442,22 +442,22 @@ def prepare(rec, d, args, stop=None):
         else:
             print('readable: %s' % why)
     elif readable == 'runner':
-        readable = None  # (the recording's own PS2X_READABLE, if it had one, on the runner's statuses, as above)
+        readable = None  # (the recording's own ZX_READABLE, if it had one, on the runner's statuses, as above)
     if readable:
-        env['PS2X_READABLE'] = readable
+        env['ZX_READABLE'] = readable
     for kv in getattr(args, 'env', None) or []:
         k, _, v = kv.partition('=')
         env[k] = v
     if getattr(args, 'from_', None) is not None:
         # A window: every tracer's and profiler's start at the window's first vsync.
         for k in list(env):
-            if k in ('PS2X_FNREC', 'PS2X_FNPROF', 'PS2X_FNCYCLES') and k + '_FROM' not in env:
+            if k in ('ZX_FNREC', 'ZX_FNPROF', 'ZX_FNCYCLES') and k + '_FROM' not in env:
                 env[k + '_FROM'] = str(args.from_)
     return env, warnings
 
 
 def app_log(d):
-    """The app's own log in a replay's folder (PS2X_APP_LOG_DIR is its app folder): the newest."""
+    """The app's own log in a replay's folder (ZX_APP_LOG_DIR is its app folder): the newest."""
     logs = glob.glob(os.path.join(d, 'app', '**', '*.log'), recursive=True)
     return max(logs, key=os.path.getmtime) if logs else None
 
@@ -470,7 +470,7 @@ def launch(rec, env, d, name, runner, max_secs, watch=None):
     elf = game_elf(rec.game)
     t0 = time.time()
     if rec.from_app:
-        env = dict(env, PS2X_APP_DISC_DIR=os.path.dirname(elf), PS2X_HEADLESS=env.get('PS2X_HEADLESS', '1'))
+        env = dict(env, ZX_APP_DISC_DIR=os.path.dirname(elf), ZX_HEADLESS=env.get('ZX_HEADLESS', '1'))
         for old in glob.glob(os.path.join(d, 'app', '**', '*.log'), recursive=True):
             os.remove(old)
         command = [runner, '--game', rec.game]
@@ -621,12 +621,12 @@ def build_registrations(commit):
 
 
 def recording_readable(rec):
-    """PS2X_READABLE for a replay of rec: the readable functions its build ran, by address ('off,+ADDR,...'), and
+    """ZX_READABLE for a replay of rec: the readable functions its build ran, by address ('off,+ADDR,...'), and
     what it is; or (None, why not). The readable code charges none of the original's loop cycles (32 at each branch
     back), so EE time, which decides the vsync each read falls in, depends on which functions are on: a replay on a
     runner that promoted some since (b131's sixteen: strcpy alone moved the boot's prompt-generation read from vsync 4
     to 3) parts from the recording on its first such read, though no function's result changed. The set is the
-    commit's Verified rows of the recording's game with the recording's own PS2X_READABLE applied as that build
+    commit's Verified rows of the recording's game with the recording's own ZX_READABLE applied as that build
     applied it (game/ee/readable.cpp applySwitch). A function the runner has not got stays off (the runtime names it)."""
     commit = rec.header.get('commit', '').split('+')[0]
     if not commit or commit == 'unknown':
@@ -639,7 +639,7 @@ def recording_readable(rec):
         return None, 'the recording\'s build %s registers no %s function' % (commit[:9], rec.game)
     rank = {'Draft': 0, 'Tested': 1, 'Verified': 2}
     on = {r['addr'] for r in rows if r['status'] == 'Verified'}
-    spec = rec.boot_values().get('PS2X_READABLE') or rec.env_values().get('PS2X_READABLE') or ''
+    spec = rec.boot_values().get('ZX_READABLE') or rec.env_values().get('ZX_READABLE') or ''
     by_key = {}
     for r in rows:
         by_key.setdefault(r['name'], r['addr'])
@@ -670,7 +670,7 @@ def recording_readable(rec):
         return 'off', 'the recording\'s build %s ran none readable' % commit[:9]
     return ('off,' + ','.join('+' + a for a in sorted(on)),
             'the %d functions the recording\'s build %s ran (%s%s)' % (
-                len(on), commit[:9], 'its Verified rows', ', its PS2X_READABLE=%s' % spec if spec else ''))
+                len(on), commit[:9], 'its Verified rows', ', its ZX_READABLE=%s' % spec if spec else ''))
 
 
 def game_symbol(name, game):
@@ -686,14 +686,14 @@ def game_symbol(name, game):
 
 class SettingsRoomView:
     """A replay of an AI recording from before b128's settings room, on a build with it: the RAM dumped at each of
-    the recording's checksums (PS2X_DUMP_EXTENDED: the 64 MB the checksums cover), zgui's two heap links put back and
+    the recording's checksums (ZX_DUMP_EXTENDED: the 64 MB the checksums cover), zgui's two heap links put back and
     the room cleared as the recording's build had them, the megabytes they are in checksummed here; every other
     megabyte compared as the runtime took it (the replay's own recording)."""
 
     @staticmethod
     def needed(rec):
         """Why rec needs the view (None: it does not), or a warning when it cannot be compared word for word."""
-        if rec.game != 'ai' or rec.boot_values().get('PS2X_GAME_SETTINGS_MENUS') != '1':
+        if rec.game != 'ai' or rec.boot_values().get('ZX_GAME_SETTINGS_MENUS') != '1':
             return None    # (the room comes with the settings pages only)
         commit = rec.header.get('commit', '')
         has = commit_has(commit, SETTINGS_ROOM_COMMIT)
@@ -713,8 +713,8 @@ class SettingsRoomView:
 
     def env(self, recorded):
         every = self.rec.header.get('checksum_every', '60')
-        return {'PS2X_DUMP_WHEN': ','.join('c%d:tick>=%d' % (v, v) for v in self.vsyncs),
-                'PS2X_DUMP_EXTENDED': '1', 'ZAXIS_RECORD': recorded, 'ZAXIS_RECORD_CHECKSUMS': every}
+        return {'ZX_DUMP_WHEN': ','.join('c%d:tick>=%d' % (v, v) for v in self.vsyncs),
+                'ZX_DUMP_EXTENDED': '1', 'ZX_RECORD': recorded, 'ZX_RECORD_CHECKSUMS': every}
 
     def watch(self):
         """Each whole dump taken in and removed (64 MB a dump: a long session's would not fit on the disk)."""
@@ -780,7 +780,7 @@ class SettingsRoomView:
     def report(self, made):
         short = glob.glob(os.path.join(self.dumps, 'ram-c*.ram'))
         if short and not self.sums:
-            print('  settings room: the runner\'s dumps hold the 32 MB only (a build before PS2X_DUMP_EXTENDED): '
+            print('  settings room: the runner\'s dumps hold the 32 MB only (a build before ZX_DUMP_EXTENDED): '
                   'nothing compared')
             for path in short:
                 os.remove(path)
@@ -865,7 +865,7 @@ def cmd_twice(args):
         name = '%s-twice-%s' % (os.path.splitext(os.path.basename(args.file))[0], side)
         d = run_dir(name)
         shutil.rmtree(os.path.join(d, 'dumps'), ignore_errors=True)
-        args.env = (args.env or []) + ['PS2X_DUMP_WHEN=' + ','.join('v%d:tick>=%d' % (v, v) for v in ats)]
+        args.env = (args.env or []) + ['ZX_DUMP_WHEN=' + ','.join('v%d:tick>=%d' % (v, v) for v in ats)]
         env, warnings = prepare(rec, d, args, stop)
         args.env = args.env[:-1]
         log, why, secs = launch(rec, env, d, name, args.runner or default_runner(), args.max_secs)
@@ -925,7 +925,7 @@ def cmd_compare(args):
 def cmd_route(args):
     rec = Recording(args.file)
     os.makedirs(args.out, exist_ok=True)
-    args.env = (args.env or []) + ['PS2X_FNREC=all', 'PS2X_FNREC_DIR=' + os.path.abspath(args.out)]
+    args.env = (args.env or []) + ['ZX_FNREC=all', 'ZX_FNREC_DIR=' + os.path.abspath(args.out)]
     args.readable = 'off'
     args.record = False
     args.picture = False
@@ -974,7 +974,7 @@ def cmd_script(args):
     items.sort()
     with open(args.out, 'w') as f:
         f.write(','.join(text for _, text in items) + '\n')
-    print('%d entries -> %s (PS2X_PAD_SCRIPT=@%s PS2X_PAD_SCRIPT_CLOCK=vsync)' % (len(items), args.out, args.out))
+    print('%d entries -> %s (ZX_PAD_SCRIPT=@%s ZX_PAD_SCRIPT_CLOCK=vsync)' % (len(items), args.out, args.out))
 
 
 def varint(n):

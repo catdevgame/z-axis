@@ -18,7 +18,7 @@ namespace zge
     {
         uint32_t ready;           // +0x00 1 from initDmaChannels to shutDownDmaChannels
         uint32_t channels[10];    // +0x04 sceDmaGetChan(0 .. 9): each channel's registers
-#if !PS2X_GAME_DM2
+#if !ZX_GAME_DM2
         uint32_t interrupts;      // +0x2C the channels whose completion interrupt is enabled (bit n: channel n)
         uint32_t enabledInterrupts() const { return interrupts; }
         void setEnabledInterrupts(uint32_t mask) { interrupts = mask; }

@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::collection
+namespace zx::collection
 {
     // ---- pictures ----------------------------------------------------------
 
@@ -48,6 +48,10 @@ namespace ps2x::collection
         return static_cast<uint32_t>(r) | static_cast<uint32_t>(g) << 8 | static_cast<uint32_t>(b) << 16 |
                static_cast<uint32_t>(a) << 24;
     }
+
+    // The colour of a page's help line (the chosen row's one line under the
+    // rows), and of the player's messages over a game (PS2DebugPanel::setNoticeStyle).
+    constexpr uint32_t kHelpColour = rgba(170, 170, 180);
 
     struct Rect
     {
@@ -216,6 +220,7 @@ namespace ps2x::collection
         Mod,            // one mod: what it is, its switch in each game, its place in the order
         FreeplayPlayer, // Custom Freeplay: a player from one of the games (its tile)
         FreeplayMap,    // then a custom map for it
+        Recordings,     // the player's recordings, each played back (Settings > Recordings)
     };
 
     // What the menu asks for after a frame's input.
@@ -226,9 +231,11 @@ namespace ps2x::collection
             None,
             Boot,
             Quit,
+            Play, // a recording played back (the Recordings page's row)
         } kind = None;
         int game = -1;
         int map = -1; // Boot: the custom map (the index the app gave its row), -1 the game as it is
+        int recording = -1; // Play: the recording (the index the app gave its row)
     };
 
     // A row of the menu's own pages (the app's Settings before any game has
@@ -358,6 +365,7 @@ namespace ps2x::collection
             bool read = true;    // the game reads it
             std::string why;     // not read: why ("Off", "needs base-pack")
             std::string winners; // where it and another have the same file: "wins 3 over HD Rails" ("" none)
+            std::vector<std::string> entriesNotRead; // archive entries it gives that the game does not read (Mod's)
         };
         std::vector<Game> games; // the games it is for
     };
@@ -438,8 +446,11 @@ namespace ps2x::collection
     // page in the menu (MenuPage::Settings): its input moves over the page's
     // rows and changes them until Back. A Page row opens its page
     // (MenuPage::Mods, and from it MenuPage::Mod), whose Back comes back to it. The Custom Freeplay tile
-    // opens the player page (the games' tiles again: Left, Right, Enter),
-    // then the map page (rows: a map's Enter is a Boot with that map).
+    // opens the player page (the tiles of the games whose custom maps
+    // start: Left, Right, Enter), then the map page (rows: a map's Enter
+    // is a Boot with that map). The Recordings page's rows are each a Play:
+    // play() runs the game with the recording, and its end comes back to the
+    // page on the same row.
     class Shell
     {
     public:
@@ -469,10 +480,18 @@ namespace ps2x::collection
         // page's selection is on Back.
         int freeplayGame() const { return m_freeplayGame; }
         bool freeplayOnBack() const { return m_playerOnBack; }
+        // The games the player page offers (their indices, in tile order):
+        // those whose custom maps start with the setup as it is (every game
+        // until set). A player no longer offered is left for the first one
+        // offered, or Back when there is none.
+        const std::vector<int> &freeplayPlayers() const { return m_players; }
+        void setFreeplayPlayers(std::vector<int> games);
         // The custom map the running (or last) game was booted with, -1 none.
         int map() const { return m_map; }
         // Games booted so far.
         int boots() const { return m_boots; }
+        // The recording the running game plays back (play()), else -1.
+        int playback() const { return m_state == State::Game ? m_playback : -1; }
         // The Mods page's row that opened the mod page shown (its mod's index).
         int modsRow() const { return m_modsRow; }
         // The bottom screen's buttons (collection/menu_bottom.h): a game's
@@ -514,6 +533,9 @@ namespace ps2x::collection
         // Menu -> Game, with a custom map (the Boot action's) or none. False
         // if not on the menu or no such game.
         bool boot(int game, int map = -1);
+        // Menu -> Game, playing back a recording (the Play action's): the
+        // page and its row stay as they are for the menu after it.
+        bool play(int game, int recording);
         // Game -> Menu (ExitToMenu, Failed) or Quit.
         void gameEnded(GameEnd end);
         // Anything -> Quit.
@@ -534,6 +556,7 @@ namespace ps2x::collection
         int m_game = -1;
         int m_lastGame = -1;
         int m_map = -1;
+        int m_playback = -1;
         int m_selection = 0;
         int m_boots = 0;
         MenuPage m_page = MenuPage::Tiles;
@@ -543,10 +566,15 @@ namespace ps2x::collection
         int m_modsRow = 0;     // the Mods page's row while the mod page it opened is shown
         int m_freeplayGame = 0;
         bool m_playerOnBack = false;
+        std::vector<int> m_players; // the player page's games
+        // The player page's place of `game` among its players, -1 if not offered.
+        int playerPlace(int game) const;
+        // The chosen player offered still: else the first one, or Back with none.
+        void keepPlayerOffered();
         int m_revision = 0;
     };
 
-    // ---- scripted menu input (PS2X_MENU_SCRIPT) ----------------------------
+    // ---- scripted menu input (ZX_MENU_SCRIPT) ----------------------------
 
     // Comma-separated steps, one every `framesPerStep` menu frames, across
     // every visit to the menu (a visit starts its count again): a key name
@@ -667,7 +695,8 @@ namespace ps2x::collection
     // Freeplay tile after the games' when the shell has it: the games'
     // pictures side by side), or on a page (MenuPage::Settings, Mods,
     // FreeplayMap) the page of `rows` laid out as `page`, or the player page
-    // (the games' tiles as `layout` places them, with their players' names).
+    // (the tiles of the shell's players as `layout` places them, with their
+    // players' names).
     // `notice`: a line over the hint ("" none), e.g. why a game did not start.
     // `device`: whose buttons the bottom line names (buttonHint).
     // `backdrop`: what moves behind it all (Backdrop).

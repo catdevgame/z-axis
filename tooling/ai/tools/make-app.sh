@@ -16,8 +16,8 @@
 #                                     # (exit 0: FROM_BUILD would build nothing; 1: it would build); nothing built
 #
 # Environment:
-#   PS2RECOMP    z-axis checkout to build (default: the one this tooling is in)
-#   BUILD_DIR    release build dir (default: $PS2RECOMP/out/build-release)
+#   ZAXIS_TREE    z-axis checkout to build (default: the one this tooling is in)
+#   BUILD_DIR    release build dir (default: $ZAXIS_TREE/out/build-release)
 #   ELF          the ELF the code was recompiled from (default: recomp/config.game.toml's input);
 #                its SHA-256 is built in, and the disc image's must match it
 #   ISO          your disc image (default: $GAME_DISCS/aggressive inline/Aggressive Inline-ps2.iso),
@@ -34,21 +34,21 @@
 #                $DIST/.xbox-cache when XBOX_DIR is not set (tools/xbox_files.py). The
 #                files the app reads as they are (tools/xbox-files.txt) and the Zoo's
 #                flythrough (made with ffmpeg if there is one) go into Resources/xbox;
-#                the Zoo and the Ape, made into the PS2's formats here (PS2Recomp
-#                ps2xXboxConvert), into Resources/xbox-converted
+#                the Zoo and the Ape, made into the PS2's formats here
+#                (zx-xbox-convert), into Resources/xbox-converted
 #   DM2_XBOX_ISO in a collection with dm2: your Dave Mirra Freestyle BMX 2 Xbox disc image (default
 #                $GAME_DISCS/Dave Mirra Freestyle BMX 2 (USA)/Dave Mirra Freestyle BMX 2
-#                (USA)-xbox.iso), read only: DM2's Xbox-only levels, Venice and Greenville (PS2Recomp
-#                tools/dm2_xbox.py), into Resources/games/dm2/xbox-levels, for its Free Ride
+#                (USA)-xbox.iso), read only: DM2's Xbox-only levels, Venice and Greenville
+#                (tooling/dm2/tools/dm2_xbox.py), into Resources/games/dm2/xbox-levels, for its Free Ride
 #                (Settings > Game > Xbox Levels), with the park editor's Desert and Highway and the
 #                gallery's Retro movie (Xbox Themes, Retro Movie); DM2_XBOX_LEVELS=0 leaves them out; and its
-#                levels' Xbox textures (ps2xExtras xbox-pack) into Resources/games/dm2/xbox-pack (Xbox Textures),
+#                levels' Xbox textures (zx-extras xbox-pack) into Resources/games/dm2/xbox-pack (Xbox Textures),
 #                DM2_XBOX_PACK=0 leaves them out. The app never reads
 #                the image. Each game runs on its own riders and levels: none is made into another's.
 #   GC_IMAGE     optional: your Aggressive Inline GameCube disc image (RVZ or GCM/ISO; default
 #                $GAME_DISCS/aggressive inline/Aggressive Inline-gc.rvz), read
 #                only: tools/gc_disc.py extracts its TUT/Estate (an earlier Tutorial left on that
-#                disc) once into $DIST/.gc-cache, PS2Recomp ps2xGcConvert makes the files the game
+#                disc) once into $DIST/.gc-cache, zx-gc-convert makes the files the game
 #                loads (one 24-bit texture made 8-bit; its level-select icon and still drawn
 #                from the level's own files) into Resources/estate, for Free Skate
 #                (Settings > Game > Estate Level, off by default). ESTATE=0 leaves it out. The
@@ -58,7 +58,7 @@
 #                --setup <disc image>). No disc image is read; the ELF is still needed for the SHA-256 built in
 #   APP_VERSION  CFBundleShortVersionString (default 1.0)
 #   OPT_FLAGS    extra C++ flags for the release build (e.g. -O2), LTO=OFF to skip LTO
-#                (the app is the build's app flavour, ZAXIS_DEV_CHECKS=OFF: none of the checkers' machinery; the
+#                (the app is the build's app flavour, ZX_DEV_CHECKS=OFF: none of the checkers' machinery; the
 #                batch proves it against the dev build, checks/flavour_ab.py)
 #   DIST         output dir (default: <repo>/dist)
 #   FROM_BUILD   a release build of this tree made with these same arguments (BUILD_ONLY's, or a
@@ -70,14 +70,14 @@
 #                (pace1: the batch packs the binary its flavour A/B judged, not a second build). It
 #                names no path, so a build from another checkout and tooling packs (pace2).
 #   NINJA_JOBS   ninja -j for the builds (default: ninja's own)
-#   DEPS_DIR     fetched third-party sources to reuse (default: $PS2RECOMP/out/build-macos/_deps)
+#   DEPS_DIR     fetched third-party sources to reuse (default: $ZAXIS_TREE/out/build-macos/_deps)
 #   MIN_MACOS    deployment target for everything built (default 11.0; 15.0 with PUBLIC)
 #   PUBLIC       1: the app players download (the release's build): the minimal static FFmpeg (FFMPEG=static, no
 #                dylib bundled), MIN_MACOS 15.0 (the oldest macOS the release supports) for the code and
 #                LSMinimumSystemVersion alike, and NO_GAME_DATA=1; it stops if anything bundled or built needs
 #                a newer macOS than MIN_MACOS
 #   VU1_AOT_DIR  ahead-of-time compiled VU1 microprograms (default: recomp/generated-vu1
-#                if it holds ps2xVu1Aot output; see z-axis runtime/tools/VU1_AOT.md)
+#                if it holds zx-vu1aot output; see z-axis runtime/tools/VU1_AOT.md)
 #   FFMPEG       static (default: build/reuse the minimal static FFmpeg) or
 #                system (pkg-config, e.g. Homebrew; its dylibs are copied in
 #                and raise the minimum macOS to theirs)
@@ -86,9 +86,9 @@
 #                GCM; defaults $GAME_DISCS/BMX XXX (USA)/BMX XXX-xbox.iso and
 #                BMX XXX-gc.rvz), read only: their challenge scripts, fuller French, German and
 #                Spanish, level-select previews, Z-Axis logo movie and the GameCube's Secret Level and
-#                test levels (PS2Recomp tools/bmx_releases.py),
+#                test levels (tools/bmx_releases.py),
 #                into Resources/games/bmx/releases, each behind its setting; BMX_RELEASES=0 leaves them out;
-#                and from the Xbox image its levels' and props' Xbox textures (ps2xExtras xbox-pack) into
+#                and from the Xbox image its levels' and props' Xbox textures (zx-extras xbox-pack) into
 #                Resources/games/bmx/xbox-pack (Xbox Textures), BMX_XBOX_PACK=0 leaves them out
 #   GAMES        several games in one app, e.g. GAMES="ai dm2 bmx" (default: Aggressive
 #                Inline alone, as above). dm2 is Dave Mirra Freestyle BMX 2 from the
@@ -111,8 +111,8 @@
 set -euo pipefail
 
 ROOT=${0:A:h:h}
-PS2RECOMP=${PS2RECOMP:-${ROOT:h:h}}  # the z-axis checkout this tooling sits in
-BUILD_DIR=${BUILD_DIR:-$PS2RECOMP/out/build-release}
+ZAXIS_TREE=${ZAXIS_TREE:-${ROOT:h:h}}  # the z-axis checkout this tooling sits in
+BUILD_DIR=${BUILD_DIR:-$ZAXIS_TREE/out/build-release}
 DIST=${DIST:-$ROOT/dist}
 APP_NAME="Aggressive Inline"
 GAMES=(${=GAMES:-ai})
@@ -120,7 +120,7 @@ COLLECTION=0
 if [[ ${#GAMES} -gt 1 || ${GAMES[1]} != ai ]]; then
   COLLECTION=1
   APP_NAME=${COLLECTION_NAME:-Z-Axis Collection}
-  BUILD_DIR=${BUILD_DIR_COLLECTION:-$PS2RECOMP/out/build-release-collection}
+  BUILD_DIR=${BUILD_DIR_COLLECTION:-$ZAXIS_TREE/out/build-release-collection}
   BUNDLE_ID=rest.src.cat.z-axis-collection
 fi
 APP=$DIST/$APP_NAME.app
@@ -332,7 +332,7 @@ data_print() {
   local x
   local -a dirs
   for x in "${CMAKE_ARGS[@]}"; do
-    [[ $x == -D*=* && $x != -DFETCHCONTENT_* && $x != -DPS2X_FFMPEG_PREFIX=* ]] || continue
+    [[ $x == -D*=* && $x != -DFETCHCONTENT_* && $x != -DZX_FFMPEG_PREFIX=* ]] || continue
     dirs+=("${x%%=*}=${x#*=}")
   done
   python3 -I - "${dirs[@]}" <<'PY'
@@ -395,7 +395,7 @@ PY
 stamp_key() { print -r -- "$1" | sed -E 's/ \([0-9a-f]+\)$//' }   # (the stamp but the commit it names)
 if [[ -z ${SKIP_BUILD:-} ]]; then
   DEPS_ARGS=()
-  DEPS=${DEPS_DIR:-$PS2RECOMP/out/build-macos/_deps}
+  DEPS=${DEPS_DIR:-$ZAXIS_TREE/out/build-macos/_deps}
   if [[ -d $DEPS ]]; then # reuse fetched sources: no network
     for n in elfio fmt imgui libdwarf miniz nlohmann_json rabbitizer sdl3 sse2neon toml11; do
       if [[ -d $DEPS/$n-src ]]; then
@@ -404,7 +404,7 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
     done
   fi
   LTO_ARGS=()
-  [[ ${LTO:-ON} == OFF ]] && LTO_ARGS=(-DPS2X_ENABLE_LTO=OFF)
+  [[ ${LTO:-ON} == OFF ]] && LTO_ARGS=(-DZX_ENABLE_LTO=OFF)
   [[ -n $PUBLIC && $FFMPEG != static ]] && die "PUBLIC builds with FFMPEG=static (not $FFMPEG)"
   case $FFMPEG in
     static) FFMPEG_PREFIX=$(MIN_MACOS=$BUILD_MIN_MACOS $ROOT/tools/build-ffmpeg.sh) || die "FFmpeg build failed" ;;
@@ -413,10 +413,10 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
   esac
   say "FFmpeg: ${FFMPEG_PREFIX:-system (pkg-config)}"
   VU1_AOT_DIR=${VU1_AOT_DIR:-$ROOT/recomp/generated-vu1}
-  VU1_AOT_ARGS=(-DPS2X_VU1_AOT_DIR=)
+  VU1_AOT_ARGS=(-DZX_VU1_AOT_DIR=)
   # (its micro memory image, which recompile.sh makes and the build makes the code from, or code made from one)
   if [[ -n $(print -l $VU1_AOT_DIR/*.vu1code(N) $VU1_AOT_DIR/vu1_aot_*.cpp(N)) ]]; then
-    VU1_AOT_ARGS=(-DPS2X_VU1_AOT_DIR=$VU1_AOT_DIR)
+    VU1_AOT_ARGS=(-DZX_VU1_AOT_DIR=$VU1_AOT_DIR)
     say "VU1 ahead-of-time code: $VU1_AOT_DIR"
   else
     say "no VU1 ahead-of-time code in $VU1_AOT_DIR (VU1 runs on the interpreter)"
@@ -447,42 +447,42 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
         say "no BMX XXX VU1 micro memory image in $BMX_RECOMP/generated-vu1: BMX XXX's VU1 runs on the interpreter"
       fi
     fi
-    (( ${#EXTRA_GENERATED} )) && COLLECTION_ARGS+=("-DPS2X_RUNNER_EXTRA_GENERATED_DIRS=${(j:;:)EXTRA_GENERATED}")
-    (( ${#EXTRA_VU1} )) && COLLECTION_ARGS+=("-DPS2X_VU1_AOT_EXTRA_DIRS=${(j:;:)EXTRA_VU1}")
-    COLLECTION_ARGS+=("-DPS2X_APP_GAMES=$APP_GAMES")
+    (( ${#EXTRA_GENERATED} )) && COLLECTION_ARGS+=("-DZX_RUNNER_EXTRA_GENERATED_DIRS=${(j:;:)EXTRA_GENERATED}")
+    (( ${#EXTRA_VU1} )) && COLLECTION_ARGS+=("-DZX_VU1_AOT_EXTRA_DIRS=${(j:;:)EXTRA_VU1}")
+    COLLECTION_ARGS+=("-DZX_APP_GAMES=$APP_GAMES")
     # The other games' bind tables: without them each game's instance of the shared readable engine is not compiled, and
     # DM2 and BMX XXX run the engine as recompiled code (the batch's build-coll binds them). The checkout's own,
-    # runtime/tools/bind (committed since tools39; game.cmake builds with those whatever PS2X_BIND_DIR names), else the
+    # runtime/tools/bind (committed since tools39; game.cmake builds with those whatever ZX_BIND_DIR names), else the
     # shared folder of a commit from before (zbind, paths.sh: paths.env GAME_BIND_LEGACY), else BIND_DIR.
-    BIND_DIR=${BIND_DIR:-$(source ${0:A:h:h:h}/paths.sh && zbind $PS2RECOMP)}
-    [[ -f $PS2RECOMP/runtime/tools/bind/dm2.tsv ]] && BIND_DIR=$PS2RECOMP/runtime/tools/bind
+    BIND_DIR=${BIND_DIR:-$(source ${0:A:h:h:h}/paths.sh && zbind $ZAXIS_TREE)}
+    [[ -f $ZAXIS_TREE/runtime/tools/bind/dm2.tsv ]] && BIND_DIR=$ZAXIS_TREE/runtime/tools/bind
     [[ -n $BIND_DIR && -d $BIND_DIR ]] || die "no bind tables for the collection (BIND_DIR, or the checkout's runtime/tools/bind)"
-    COLLECTION_ARGS+=("-DPS2X_BIND_DIR=$BIND_DIR")
+    COLLECTION_ARGS+=("-DZX_BIND_DIR=$BIND_DIR")
     say "collection: ${GAMES[*]} (bind tables $BIND_DIR)"
   fi
   CMAKE_ARGS=(-G Ninja -DCMAKE_BUILD_TYPE=Release "${COLLECTION_ARGS[@]}" \
-    -DPS2X_RUNNER_GENERATED_DIR=$(gen $ROOT/recomp/generated) "${DEPS_ARGS[@]}" "${LTO_ARGS[@]}" "${VU1_AOT_ARGS[@]}" \
+    -DZX_RUNNER_GENERATED_DIR=$(gen $ROOT/recomp/generated) "${DEPS_ARGS[@]}" "${LTO_ARGS[@]}" "${VU1_AOT_ARGS[@]}" \
     -DCMAKE_CXX_FLAGS="${OPT_FLAGS:-}" \
-    -DPS2X_BUILD_RECOMPILER=OFF -DPS2X_BUILD_TEST=OFF -DZAXIS_DEV_CHECKS=OFF \
-    -DPS2X_ENABLE_RUNTIME_LOGS=OFF -DPS2X_ENABLE_AGRESSIVE_LOGS=OFF -DPS2X_ENABLE_IOP_RPC_TRACE=OFF \
-    -DCMAKE_OSX_DEPLOYMENT_TARGET=$BUILD_MIN_MACOS -DPS2X_FFMPEG_PREFIX=$FFMPEG_PREFIX \
-    "-DPS2X_APP_NAME=$APP_NAME" "-DPS2X_APP_GAME_TITLE=Aggressive Inline (USA)" \
-    -DPS2X_APP_ELF=$ELF_NAME -DPS2X_APP_ELF_SHA256=$ELF_SHA256 \
-    -DPS2X_APP_SAVE_DIR=BASLUS-20327CEAIGAME -DPS2X_APP_VERSION=$APP_VERSION)
+    -DZX_BUILD_RECOMPILER=OFF -DZX_BUILD_TEST=OFF -DZX_DEV_CHECKS=OFF \
+    -DZX_ENABLE_RUNTIME_LOGS=OFF -DZX_ENABLE_AGRESSIVE_LOGS=OFF -DPS2X_ENABLE_IOP_RPC_TRACE=OFF \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=$BUILD_MIN_MACOS -DZX_FFMPEG_PREFIX=$FFMPEG_PREFIX \
+    "-DZX_APP_NAME=$APP_NAME" "-DZX_APP_GAME_TITLE=Aggressive Inline (USA)" \
+    -DZX_APP_ELF=$ELF_NAME -DZX_APP_ELF_SHA256=$ELF_SHA256 \
+    -DZX_APP_SAVE_DIR=BASLUS-20327CEAIGAME -DZX_APP_VERSION=$APP_VERSION)
   # The stamp a build with these arguments of this tree carries: the build's inputs as committed (CMakeLists.txt,
   # runtime, iop: the app builds no tests and no recompiler, so a commit that differs only in the tooling pointer or
   # the docs, the integration lane's judged head and the batch's merge, is the same build), none when they have an
   # uncommitted or untracked change (then nothing is taken from FROM_BUILD); the arguments with no path (args_print;
   # -S and -B are not in CMAKE_ARGS); and the data folders by content (data_print).
   STAMP=
-  if [[ -z "$(git -C $PS2RECOMP status --porcelain -- CMakeLists.txt runtime iop 2>/dev/null)" ]] \
-      && TREE=$(git -C $PS2RECOMP rev-parse HEAD:CMakeLists.txt HEAD:runtime HEAD:iop 2>/dev/null); then
-    STAMP="tree $(print -r -- $TREE | shasum -a 256 | cut -c1-16) ($(git -C $PS2RECOMP rev-parse --short HEAD))
+  if [[ -z "$(git -C $ZAXIS_TREE status --porcelain -- CMakeLists.txt runtime iop 2>/dev/null)" ]] \
+      && TREE=$(git -C $ZAXIS_TREE rev-parse HEAD:CMakeLists.txt HEAD:runtime HEAD:iop 2>/dev/null); then
+    STAMP="tree $(print -r -- $TREE | shasum -a 256 | cut -c1-16) ($(git -C $ZAXIS_TREE rev-parse --short HEAD))
 args $(args_print | shasum -a 256 | cut -c1-16)
 data $(data_print | shasum -a 256 | cut -c1-16)"
   fi
   if [[ -n $STAMP_CHECK ]]; then
-    print -r -- "${STAMP:-no stamp: uncommitted changes to CMakeLists.txt, runtime or iop in $PS2RECOMP}"
+    print -r -- "${STAMP:-no stamp: uncommitted changes to CMakeLists.txt, runtime or iop in $ZAXIS_TREE}"
     [[ -z ${FROM_BUILD:-} ]] && exit 0
     if [[ -n $STAMP && -f $FROM_BUILD/.make-app-stamp && "$(stamp_key "$(<$FROM_BUILD/.make-app-stamp)")" == "$(stamp_key "$STAMP")" ]]; then
       say "the release build in $FROM_BUILD ($(head -1 $FROM_BUILD/.make-app-stamp), these arguments): nothing built"; exit 0
@@ -496,14 +496,14 @@ data $(data_print | shasum -a 256 | cut -c1-16)"
   else
     [[ -n ${FROM_BUILD:-} ]] && say "FROM_BUILD $FROM_BUILD is not this tree's build with these arguments$([[ -z $STAMP ]] && print ' (uncommitted changes to the build here)'): building"
     rm -f $BUILD_DIR/.make-app-stamp
-    cmake -S $PS2RECOMP -B $BUILD_DIR "${CMAKE_ARGS[@]}" >/dev/null
+    cmake -S $ZAXIS_TREE -B $BUILD_DIR "${CMAKE_ARGS[@]}" >/dev/null
     # (BUILD_ONLY: the tools the bundle runs too, so FROM_BUILD needs nothing built)
-    TARGETS=(ps2EntryRunner); [[ -n $BUILD_ONLY ]] && TARGETS+=(ps2xNativeAssets ps2xXboxConvert ps2xGcConvert ps2xExtras)
+    TARGETS=(zx-runner); [[ -n $BUILD_ONLY ]] && TARGETS+=(zx-native-assets zx-xbox-convert zx-gc-convert zx-extras)
     $NINJA -C $BUILD_DIR $TARGETS
     [[ -n $STAMP ]] && print -r -- "$STAMP" > $BUILD_DIR/.make-app-stamp
   fi
 fi
-RUNNER=$TOOLS_DIR/ps2xRuntime/ps2EntryRunner
+RUNNER=$TOOLS_DIR/runtime/zx-runner
 [[ -x $RUNNER ]] || die "no runner at $RUNNER"
 if [[ -n $BUILD_ONLY ]]; then
   say "built $RUNNER$([[ -f $BUILD_DIR/.make-app-stamp ]] && print " ($(head -1 $BUILD_DIR/.make-app-stamp))")"
@@ -514,34 +514,34 @@ tool() {
   if [[ $TOOLS_DIR == $BUILD_DIR ]]; then
     $NINJA -C $BUILD_DIR $1 >/dev/null || die "$1 build failed"
   fi
-  [[ -x $TOOLS_DIR/ps2xRuntime/$1 ]] || die "no $1 in $TOOLS_DIR"
-  print -r -- $TOOLS_DIR/ps2xRuntime/$1
+  [[ -x $TOOLS_DIR/runtime/$1 ]] || die "no $1 in $TOOLS_DIR"
+  print -r -- $TOOLS_DIR/runtime/$1
 }
 
 # ---- Xbox skaters (optional) ----------------------------------------------
 # The Xbox release's more detailed skaters, made here into the PS2's model
-# format (the PS2 file with the Xbox geometry; ps2xNativeAssets --xbox-models,
-# PS2Recomp src/game/zge/native/xbox_models.h) under the pack's models/; the
+# format (the PS2 file with the Xbox geometry; zx-native-assets --xbox-models,
+# runtime/src/game/zge/native/xbox_models.h) under the pack's models/; the
 # app only loads them (Settings > Display > Xbox Skaters).
 if [[ -z $NO_GAME_DATA && -d $XBOX_DIR && -d $XBOX_PACK ]]; then
-  PS2XNATIVEASSETS=$(tool ps2xNativeAssets)
+  ZX_NATIVE_ASSETS=$(tool zx-native-assets)
   rm -rf $XBOX_PACK/models
-  $PS2XNATIVEASSETS --xbox-models $XBOX_PACK --ps2 $DISC_CACHE --xbox $XBOX_DIR \
-    | sed 's/^/[make-app] /' || die "ps2xNativeAssets --xbox-models failed"
+  $ZX_NATIVE_ASSETS --xbox-models $XBOX_PACK --ps2 $DISC_CACHE --xbox $XBOX_DIR \
+    | sed 's/^/[make-app] /' || die "zx-native-assets --xbox-models failed"
 fi
 
 # ---- the Zoo and the Ape (optional) -----------------------------------------
 # The Xbox release's Zoo (level, split screen, ambient NPCs) and Ape made here
 # into the PS2's formats, with the Xbox originals of their textures for the
-# GPU renderer (ps2xXboxConvert, PS2Recomp runtime/ps2_zaxis_zoo.h and
+# GPU renderer (zx-xbox-convert, runtime/ps2_zaxis_zoo.h and
 # ps2_zaxis_ape.h); the app only loads them (Resources/xbox-converted).
 # Without the Xbox files the Zoo is the PS2 disc's prototype and there is no Ape.
 XBOX_CONVERTED=$DIST/.xbox-converted
 rm -rf $XBOX_CONVERTED
 if [[ -z $NO_GAME_DATA && -d $XBOX_DIR ]]; then
-  PS2XXBOXCONVERT=$(tool ps2xXboxConvert)
-  $PS2XXBOXCONVERT --xbox $XBOX_DIR --ps2 $DISC_CACHE --out $XBOX_CONVERTED \
-    | sed 's/^/[make-app] /' || die "ps2xXboxConvert could not make the Zoo and the Ape from $XBOX_DIR"
+  ZX_XBOX_CONVERT=$(tool zx-xbox-convert)
+  $ZX_XBOX_CONVERT --xbox $XBOX_DIR --ps2 $DISC_CACHE --out $XBOX_CONVERTED \
+    | sed 's/^/[make-app] /' || die "zx-xbox-convert could not make the Zoo and the Ape from $XBOX_DIR"
 fi
 
 # ---- bundle layout -------------------------------------------------------
@@ -612,7 +612,7 @@ say "minimum macOS $MIN_MACOS"
 # (runtime/resources/app-icon.png); NO_GAME_DATA always the repository's.
 ICON_SRC_DIR=$ROOT/baseline/icon
 ICON_PNG=$ICON_SRC_DIR/square.png
-[[ -n $NO_GAME_DATA || ! -f $ICON_PNG ]] && ICON_PNG=$PS2RECOMP/runtime/resources/app-icon.png
+[[ -n $NO_GAME_DATA || ! -f $ICON_PNG ]] && ICON_PNG=$ZAXIS_TREE/runtime/resources/app-icon.png
 ICON_OK=0
 TMP=$(mktemp -d)
 trap 'rm -rf $TMP' EXIT
@@ -623,7 +623,7 @@ if [[ -f $ICON_PNG ]]; then
     sips -z $s $s $ICON_PNG --out $ICONSET/icon_${s}x${s}.png >/dev/null
     sips -z $((s*2)) $((s*2)) $ICON_PNG --out $ICONSET/icon_${s}x${s}@2x.png >/dev/null
   done
-  iconutil -c icns $ICONSET -o $APP/Contents/Resources/AppIcon.icns && ICON_OK=1 && say "icon: ${ICON_PNG#$PS2RECOMP/}"
+  iconutil -c icns $ICONSET -o $APP/Contents/Resources/AppIcon.icns && ICON_OK=1 && say "icon: ${ICON_PNG#$ZAXIS_TREE/}"
 elif [[ -f "$ROOT/baseline/Aggressive Inline.app/Contents/Resources/AppIcon.icns" ]]; then
   cp "$ROOT/baseline/Aggressive Inline.app/Contents/Resources/AppIcon.icns" $APP/Contents/Resources/AppIcon.icns && ICON_OK=1
 fi
@@ -631,9 +631,9 @@ fi
 
 # ---- the app's own font (no game data) ---------------------------------------
 # Michroma (runtime/resources/fonts, SIL Open Font License 1.1: the TTF unchanged, its licence beside it), the
-# collection menu's text before Aggressive Inline's disc is set up (PS2Recomp runtime/include/collection/vector_font.h).
+# collection menu's text before Aggressive Inline's disc is set up (runtime/include/collection/vector_font.h).
 mkdir -p $APP/Contents/Resources/fonts
-cp $PS2RECOMP/runtime/resources/fonts/Michroma-Regular.ttf $PS2RECOMP/runtime/resources/fonts/Michroma-OFL.txt \
+cp $ZAXIS_TREE/runtime/resources/fonts/Michroma-Regular.ttf $ZAXIS_TREE/runtime/resources/fonts/Michroma-OFL.txt \
   $APP/Contents/Resources/fonts/
 
 if [[ -z $NO_GAME_DATA ]]; then
@@ -668,14 +668,14 @@ if (( COLLECTION )) && (( ${GAMES[(Ie)dm2]} )); then
   else
     say "no DM2 Xbox image ($DM2_XBOX_ISO) or DM2_XBOX_LEVELS=0: no Venice and Greenville in DM2"
   fi
-  # DM2's Xbox textures: its levels' from the Xbox disc image, made as the extras' setup makes them (ps2xExtras
+  # DM2's Xbox textures: its levels' from the Xbox disc image, made as the extras' setup makes them (zx-extras
   # xbox-pack --no-movies; collection/extras/setup.cpp), into Resources/games/dm2/xbox-pack, where the app reads a
   # bundled game's pack (Xbox Textures). DM2_XBOX_PACK=0 leaves them out.
   if [[ ${DM2_XBOX_PACK:-1} != 0 && -f $DM2_XBOX_ISO ]]; then
-    PS2XEXTRAS=$(tool ps2xExtras)
+    ZX_EXTRAS=$(tool zx-extras)
     rm -rf $DIST/.dm2-xbox-pack
-    $PS2XEXTRAS xbox-pack --ps2 $DM2_CACHE --xbox "$DM2_XBOX_ISO" --out $DIST/.dm2-xbox-pack --no-movies \
-      | sed 's/^/[make-app] /' || die "ps2xExtras xbox-pack could not make DM2's Xbox textures from $DM2_XBOX_ISO"
+    $ZX_EXTRAS xbox-pack --ps2 $DM2_CACHE --xbox "$DM2_XBOX_ISO" --out $DIST/.dm2-xbox-pack --no-movies \
+      | sed 's/^/[make-app] /' || die "zx-extras xbox-pack could not make DM2's Xbox textures from $DM2_XBOX_ISO"
     cp -cR $DIST/.dm2-xbox-pack $APP/Contents/Resources/games/dm2/xbox-pack 2>/dev/null \
       || cp -R $DIST/.dm2-xbox-pack $APP/Contents/Resources/games/dm2/xbox-pack
     say "DM2's Xbox textures: $(du -sh $APP/Contents/Resources/games/dm2/xbox-pack | cut -f1)"
@@ -689,9 +689,10 @@ if (( COLLECTION )) && (( ${GAMES[(Ie)bmx]} )); then
   # BMX XXX's Xbox and GameCube releases' content made into its PS2 formats
   # (tools/bmx_releases.py; the app never reads the images): their challenge
   # scripts, the fuller French, German and Spanish string tables, the level
-  # select's preview movies and the Z-Axis logo movie (with ffmpeg), the
-  # GameCube's Secret Level and three test levels, each behind its own
-  # setting. BMX_RELEASES=0 leaves them out.
+  # select's preview movies, the Z-Axis logo movie, the Turok and Vexx
+  # trailers and the unused songs (with ffmpeg), the GameCube's Secret Level
+  # and three test levels, create-a-rider's textures and parts, each behind
+  # its own setting. BMX_RELEASES=0 leaves them out.
   BMX_XBOX_ISO=${BMX_XBOX_ISO:-$GAME_DISCS/BMX XXX (USA)/BMX XXX-xbox.iso}
   BMX_GC_IMAGE=${BMX_GC_IMAGE:-$GAME_DISCS/BMX XXX (USA)/BMX XXX-gc.rvz}
   if [[ ${BMX_RELEASES:-1} != 0 && ( -f $BMX_XBOX_ISO || -f $BMX_GC_IMAGE ) ]]; then
@@ -705,7 +706,8 @@ if (( COLLECTION )) && (( ${GAMES[(Ie)bmx]} )); then
       BMX_GC_CACHE=$DIST/.bmx-gc-cache
       # (the files taken are in the stamp: a cache of fewer is read again)
       BMX_GC_FILES=(assets/string.zal assets/editor/object.obj 'assets/levels/*/objctv.txt' assets/levels/cmp_scrt
-                    assets/levels/tst_flat assets/levels/tst_grnd assets/levels/tst_vert)
+                    assets/levels/tst_flat assets/levels/tst_grnd assets/levels/tst_vert assets/create/parts.zal
+                    'assets/create/texture?.zal')
       BMX_GC_STAMP="$(stat -f '%z %m' "$BMX_GC_IMAGE") ${BMX_GC_IMAGE:t} ${BMX_GC_FILES[*]}"
       if [[ ! -f $BMX_GC_CACHE/.stamp || "$(<$BMX_GC_CACHE/.stamp)" != "$BMX_GC_STAMP" ]]; then
         rm -rf $BMX_GC_CACHE
@@ -724,13 +726,13 @@ if (( COLLECTION )) && (( ${GAMES[(Ie)bmx]} )); then
     say "no BMX XXX Xbox or GameCube image, or BMX_RELEASES=0: BMX XXX as its PS2 release alone"
   fi
   # BMX XXX's Xbox textures: its levels' and their props' (the ZAL archives) from the Xbox disc image, made as the
-  # extras' setup makes them (ps2xExtras xbox-pack --no-movies --archives), into Resources/games/bmx/xbox-pack, where
+  # extras' setup makes them (zx-extras xbox-pack --no-movies --archives), into Resources/games/bmx/xbox-pack, where
   # the app reads a bundled game's pack (Xbox Textures). BMX_XBOX_PACK=0 leaves them out.
   if [[ ${BMX_XBOX_PACK:-1} != 0 && -f $BMX_XBOX_ISO ]]; then
-    PS2XEXTRAS=$(tool ps2xExtras)
+    ZX_EXTRAS=$(tool zx-extras)
     rm -rf $DIST/.bmx-xbox-pack
-    $PS2XEXTRAS xbox-pack --ps2 $BMX_CACHE --xbox "$BMX_XBOX_ISO" --out $DIST/.bmx-xbox-pack --no-movies --archives \
-      | sed 's/^/[make-app] /' || die "ps2xExtras xbox-pack could not make BMX XXX's Xbox textures from $BMX_XBOX_ISO"
+    $ZX_EXTRAS xbox-pack --ps2 $BMX_CACHE --xbox "$BMX_XBOX_ISO" --out $DIST/.bmx-xbox-pack --no-movies --archives \
+      | sed 's/^/[make-app] /' || die "zx-extras xbox-pack could not make BMX XXX's Xbox textures from $BMX_XBOX_ISO"
     cp -cR $DIST/.bmx-xbox-pack $APP/Contents/Resources/games/bmx/xbox-pack 2>/dev/null \
       || cp -R $DIST/.bmx-xbox-pack $APP/Contents/Resources/games/bmx/xbox-pack
     say "BMX XXX's Xbox textures: $(du -sh $APP/Contents/Resources/games/bmx/xbox-pack | cut -f1)"
@@ -748,7 +750,7 @@ if [[ -d $XBOX_CONVERTED ]]; then
 fi
 # TUT/Estate, an earlier Tutorial left on the GameCube disc, for Free Skate:
 # extracted from your GameCube image (tools/gc_disc.py; once per image) and
-# made into the files the game loads (ps2xGcConvert); the app never reads the
+# made into the files the game loads (zx-gc-convert); the app never reads the
 # image.
 GC_IMAGE=${GC_IMAGE:-$GAME_DISCS/aggressive inline/Aggressive Inline-gc.rvz}
 if [[ ${ESTATE:-1} != 0 && -f $GC_IMAGE ]]; then
@@ -760,17 +762,17 @@ if [[ ${ESTATE:-1} != 0 && -f $GC_IMAGE ]]; then
       || die "could not extract TUT/Estate from the GameCube image $GC_IMAGE"
     print -r -- "$GC_STAMP" > $GC_CACHE/.stamp
   fi
-  PS2XGCCONVERT=$(tool ps2xGcConvert)
+  ZX_GC_CONVERT=$(tool zx-gc-convert)
   rm -rf $DIST/.estate
-  $PS2XGCCONVERT --gc $GC_CACHE --out $DIST/.estate | sed 's/^/[make-app] /' \
-    || die "ps2xGcConvert could not make Estate from $GC_IMAGE"
+  $ZX_GC_CONVERT --gc $GC_CACHE --out $DIST/.estate | sed 's/^/[make-app] /' \
+    || die "zx-gc-convert could not make Estate from $GC_IMAGE"
   cp -R $DIST/.estate $GAME_RES/estate
   say "Estate (the GameCube disc's earlier Tutorial) for Free Skate: $(du -sh $GAME_RES/estate | cut -f1)"
 else
   say "no GameCube image ($GC_IMAGE) or ESTATE=0: no Estate level in Free Skate"
 fi
 
-# The Thor's bottom screen (PS2Recomp panel_map.py): each level's top-down map
+# The Thor's bottom screen (panel_map.py): each level's top-down map
 # and goals, the game's fonts and icons, from the files bundled above. The
 # running game reads them and converts nothing; game data, never committed.
 PANEL_ARGS=()

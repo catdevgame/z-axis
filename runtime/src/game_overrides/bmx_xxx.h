@@ -3,6 +3,8 @@
 // BMX XXX (SLUS-20415) game modules. Each install function returns true
 // when its hooks are in place; bmx_xxx.cpp calls them only for that ELF.
 
+#include "zge_sound.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -23,7 +25,7 @@ namespace bmx_xxx
     // over them (unless [host] disc = ps2; zge/host/disc_device.cpp, zge_disc.cpp).
     bool installNativeDisc(PS2Runtime &runtime);
 
-    // Movies decoded on the host (unless PS2X_MOVIES=hle;
+    // Movies decoded on the host (unless ZX_MOVIES=hle;
     // bmx_xxx_native.cpp, zge_movies.cpp).
     bool installNativeMovies(PS2Runtime &runtime);
 
@@ -32,25 +34,35 @@ namespace bmx_xxx
     // (zge/host/class_draws.cpp, game/host/native_draws.h). True when on.
     bool installNativeDraw(PS2Runtime &runtime);
 
-    // The ZAudio sound driver on the host (unless PS2X_SOUND=spu2;
+    // The ZAudio sound driver on the host (unless ZX_SOUND=spu2;
     // bmx_xxx_sound.cpp).
     bool installNativeSound(PS2Runtime &runtime);
 
     // The gameplay pages (Camera) and keys (Hide HUD), Aggressive Inline's
-    // at BMX XXX's code; with the app's settings (PS2X_GAME_SETTINGS_MENUS=1;
+    // at BMX XXX's code; with the app's settings (ZX_GAME_SETTINGS_MENUS=1;
     // bmx_xxx_gameplay.cpp).
     void installGameplay(PS2Runtime &runtime);
     // The field of view a level's view camera is drawn with for the game's
     // own (degrees): the Field of View setting's scale of it, the game's at
     // the game's 62 (zge_view.h Widescreen::drawnFieldOfView).
     float drawnFieldOfView(const uint8_t *rdram, float gameDegrees);
+    // Camera Distance and Height change the follow mode's tables (the behind types' offsets, their swing distance,
+    // the air heights): the action cameras' hidden twin (bmx_xxx_view.cpp) runs with the game's own values, which
+    // holdGameCameraTuning(rdram, true) puts in the tables until holdGameCameraTuning(rdram, false) puts the
+    // settings' back.
+    bool cameraTuningChanged();
+    void holdGameCameraTuning(uint8_t *rdram, bool game);
     // The Restart key's hook (with the gameplay keys; bmx_xxx_restart.cpp).
     bool installRestartKey(PS2Runtime &runtime);
 
-    // From boot straight into a HARDCORE TOUR level (PS2X_DEV_START_LEVEL:
+    // From boot straight into a HARDCORE TOUR level (ZX_DEV_START_LEVEL:
     // developers, the collection's Custom Freeplay; bmx_xxx_devstart.cpp).
     void installDevStart(PS2Runtime &runtime);
-    // The levels' own NPC riders left out (PS2X_BMX_LEVEL_NPCS=0: a Custom
+    // A game save about to be written (the client's buffer, copied): the
+    // devstart's kept record of the row's level in its saved game, while a
+    // custom map is played (ZX_BMX_KEEP_LEVEL_GOALS); else as it is.
+    void keepLevelRecordInSave(const uint8_t *rdram, std::vector<uint8_t> &save);
+    // The levels' own NPC riders left out (ZX_BMX_LEVEL_NPCS=0: a Custom
     // Freeplay map that does not keep its slot's; bmx_xxx_npcs.cpp).
     void installLevelNpcs(PS2Runtime &runtime);
 
@@ -58,23 +70,27 @@ namespace bmx_xxx
     // (bmx_xxx_view.cpp, zge_view.cpp).
     bool installView(PS2Runtime &runtime);
 
-    // Native save files in place of the memory card (unless PS2X_SAVES=card;
+    // Native save files in place of the memory card (unless ZX_SAVES=card;
     // bmx_xxx_saves.cpp, zge_saves.cpp).
     bool installNativeSaves(PS2Runtime &runtime);
 
-    // Mouse-look (controls.ini [mouse] mode = look; unless PS2X_MOUSELOOK=0;
+    // Mouse-look (controls.ini [mouse] mode = look; unless ZX_MOUSELOOK=0;
     // bmx_xxx_mouselook.cpp).
     bool installMouseLook(PS2Runtime &runtime);
 
     // The developer menu: F1 turns the game's debug display on and off
-    // (PS2X_DEV_MENU=1; bmx_xxx_devtools.cpp).
+    // (ZX_DEV_MENU=1; bmx_xxx_devtools.cpp).
     void installDevTools(PS2Runtime &runtime);
+    // The GameCube release's developer tuning table on the PS2's values:
+    // Mods/tuning.ini set at the start, tuning-reference.ini written with the
+    // developer menu on (bmx_xxx_tuning.cpp). Nothing without either.
+    void installTuning(PS2Runtime &runtime);
 
     // Exit to Collection in the main menu and the pause menu, in the
     // collection only, and the pause menu's RESTART line (unless
-    // PS2X_RESTART=0; bmx_xxx_exit.cpp, zge_exit.cpp); first the main menu's
+    // ZX_RESTART=0; bmx_xxx_exit.cpp, zge_exit.cpp); first the main menu's
     // PARK EDITOR line, the game's own park editor menu
-    // (PS2X_BMX_PARK_EDITOR=1, installParkEditorLine).
+    // (ZX_BMX_PARK_EDITOR=1, installParkEditorLine).
     bool installExitToCollection(PS2Runtime &runtime);
     // The engine's table of script functions in BMX XXX (bmx_xxx_exit.cpp):
     // the host's go in after the menus' bmxuiHandler.
@@ -85,18 +101,20 @@ namespace bmx_xxx
     void installPrompts(PS2Runtime &runtime);
     bool installParkEditorLine(PS2Runtime &runtime);
     // The pause and game over lines the game's builders leave out, with
-    // their own handlers (PS2X_BMX_MENU_LINES=1, bmx_xxx_exit.cpp).
+    // their own handlers (ZX_BMX_MENU_LINES=1, bmx_xxx_exit.cpp).
     bool installMenuLines(PS2Runtime &runtime);
     // Every multiplayer mode whose rules work in SELECT GAME
-    // (PS2X_BMX_ALL_MP_MODES=1, bmx_xxx_modes.cpp).
+    // (ZX_BMX_ALL_MP_MODES=1, bmx_xxx_modes.cpp).
     bool installAllMultiplayerModes(PS2Runtime &runtime);
     // The Xbox and GameCube releases' content, each behind its setting
-    // (PS2X_BMX_RELEASES_DIR, made at build time; bmx_xxx_releases.cpp):
+    // (ZX_BMX_RELEASES_DIR, made at build time; bmx_xxx_releases.cpp):
     // their challenge scripts, the fuller French, German and Spanish, the
     // level select's preview movies, the Z-Axis logo movie in the gallery,
-    // the intro movie at boot.
+    // the intro movie and the GameCube's logo at boot, the GameCube's
+    // levels, the Xbox's trailers and unused songs, create-a-rider's
+    // textures and parts and its Green Skin and Topless Girl modes.
     void installReleases(PS2Runtime &runtime);
-    // The GS texture memory audit (PS2X_GSMEM_AUDIT=1, developers; off by
+    // The GS texture memory audit (ZX_GSMEM_AUDIT=1, developers; off by
     // default, nothing hooked): the texture cache's allocations per level,
     // the peak block, overruns (runtime/ps2_gs_texture_audit.h;
     // bmx_xxx_gsmem.cpp).
@@ -104,6 +122,10 @@ namespace bmx_xxx
     // A park's file written (native saves): beside it, whether it holds the
     // other releases' editor pieces (bmx_xxx_releases.cpp).
     void releasesParkSaved(const std::filesystem::path &file);
+    // A stream of one of the Xbox's unused songs (MUSIC.ZSD's waves 20-27,
+    // bmx_xxx_releases.cpp): the song from its file, for the native sound's
+    // resolve. No reader: none of them.
+    zge_host::sound::Replacement releasesSong(const zge_host::sound::StreamSource &source);
 }
 
 // The menu edits, apart for the tests (tests/ ps2_exit_menu_tests.cpp).

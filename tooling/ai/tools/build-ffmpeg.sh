@@ -7,8 +7,10 @@
 # need swresample); for the Xbox movies (tools/xbox_pack.py) the Bink
 # demuxer and the Bink video and audio decoders, and for the other
 # releases' movies the games play as their discs have them (BMX XXX's
-# level previews and logo movie: collection/extras) the XMV demuxer and
-# the WMV2 decoder. No
+# level previews, logo movie and trailers: collection/extras) the XMV
+# demuxer, the WMV2 decoder and the Xbox ADPCM decoder (a trailer's
+# sound); for BMX XXX's Xbox songs, which the setup copies as the disc has
+# them, the ASF demuxer and the WMA 2 decoder. No
 # programs, no avdevice/avfilter/swresample, no network, no external or
 # autodetected libraries (no VideoToolbox, iconv, zlib, ...), LGPL only (no
 # --enable-gpl / --enable-nonfree).
@@ -17,7 +19,7 @@
 #
 # The release tarball is pinned by version and SHA-256 and cached with the
 # build under third_party-cache/ (git-ignored); a second run just prints the
-# prefix. Pass the prefix to CMake as -DPS2X_FFMPEG_PREFIX=<prefix>.
+# prefix. Pass the prefix to CMake as -DZX_FFMPEG_PREFIX=<prefix>.
 #
 # Environment:
 #   FFMPEG_CACHE   cache dir (default: <repo>/third_party-cache)
@@ -88,9 +90,10 @@ CONFIGURE=(
   --enable-decoder=mpeg2video
   --enable-parser=mpegvideo
   --enable-protocol=file
-  --enable-demuxer=ogg,flac,mp3,bink,xmv
+  --enable-demuxer=ogg,flac,mp3,bink,xmv,asf
   --enable-decoder=vorbis,flac,mp3,mp3float
   --enable-decoder=bink,binkaudio_dct,binkaudio_rdft,wmv2
+  --enable-decoder=adpcm_ima_xbox,wmav2
   --enable-parser=vorbis,flac,mpegaudio
   --enable-static --disable-shared --enable-pic
   --arch=$FF_ARCH --cc=$CC

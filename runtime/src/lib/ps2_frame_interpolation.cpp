@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <string>
 
-namespace ps2x
+namespace zx
 {
     namespace gi = gs_interpolate;
 
@@ -25,7 +25,7 @@ namespace ps2x
         {
             static const bool unpaced = []
             {
-                const char *v = std::getenv("PS2X_UNPACED");
+                const char *v = std::getenv("ZX_UNPACED");
                 return v && v[0] == '1';
             }();
             return !unpaced;

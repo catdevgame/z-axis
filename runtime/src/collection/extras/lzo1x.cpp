@@ -25,7 +25,7 @@
 // addresses out of tracked files; it is in lzo1x_d.ch.)
 #include "lzo1x.h"
 
-namespace ps2x::app::extras
+namespace zx::app::extras
 {
     namespace
     {

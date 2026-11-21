@@ -4,7 +4,7 @@
   flavour_ab.py run --dir DIR --dev RUNNER --app RUNNER [--game ai|dm2|bmx] [--clock K] [--inputs a,b,...]
                     [--jobs N] [--secs S] [--keep]
 
-The dev build (ZAXIS_DEV_CHECKS ON, runtime/CMakeLists.txt) is what every check runs; the app's flavour (OFF: what
+The dev build (ZX_DEV_CHECKS ON, runtime/CMakeLists.txt) is what every check runs; the app's flavour (OFF: what
 make-app.sh, make-windows.ps1 and the Android build ship) has none of the checkers' machinery and its hooks are
 constant nulls, and the gate never runs it. Its proof is this: each of the game's A/B inputs (career_ab.py's
 GATE_INPUTS, or the game's `gate` list) runs on both binaries with the defaults on both sides, at one clock (default
@@ -15,11 +15,11 @@ may differ. One line per input; exit 0 only if every input passes. A pass delete
 
 Run from the game's workspace, as career_ab.py gate is (AI's for ai, DM2's for dm2 and bmx). Each run is
 career_ab.py run's: unpaced, the null GS, a scratch HOME of its own, at most --jobs at a time while memory allows,
-with PS2X_MC_FIXED_TIME=1 on both sides: the memory card's dates are otherwise the host's clock when a run writes
+with ZX_MC_FIXED_TIME=1 on both sides: the memory card's dates are otherwise the host's clock when a run writes
 its card, which two runs started seconds apart see differently (AI's editor input: the card job's date, left in
 its stack, 23:15:57 against 23:15:59), as any two runs of one binary would.
 
-Not compared: the scratchpad (career_ab.py hashes it through PS2X_FNCYCLES_WATCH, the cycle tracer's, which the
+Not compared: the scratchpad (career_ab.py hashes it through ZX_FNCYCLES_WATCH, the cycle tracer's, which the
 app's flavour does not have); what it holds reaches RAM, the streams and the fields, which are.
 """
 import argparse
@@ -56,7 +56,7 @@ def run(args):
     root = os.path.abspath(args.dir)
     os.makedirs(root, exist_ok=True)
     inputs = inputs_of(args.game, args.inputs)
-    os.environ['PS2X_MC_FIXED_TIME'] = '1'  # (the card's dates: see the top)
+    os.environ['ZX_MC_FIXED_TIME'] = '1'  # (the card's dates: see the top)
     jobs = []
     for name, ticks in inputs:
         for side, runner in (('dev', args.dev), ('app', args.app)):
@@ -106,8 +106,8 @@ def main():
     sub = ap.add_subparsers(dest='command', required=True)
     r = sub.add_parser('run')
     r.add_argument('--dir', required=True)
-    r.add_argument('--dev', required=True, help='the dev build\'s ps2EntryRunner')
-    r.add_argument('--app', required=True, help='the app flavour\'s ps2EntryRunner (ZAXIS_DEV_CHECKS OFF)')
+    r.add_argument('--dev', required=True, help='the dev build\'s zx-runner')
+    r.add_argument('--app', required=True, help='the app flavour\'s zx-runner (ZX_DEV_CHECKS OFF)')
     r.add_argument('--game', default='ai', choices=('ai',) + tuple(career_ab.GAMES))
     r.add_argument('--clock', type=int, default=career_ab.GATE_CLOCK)
     r.add_argument('--inputs')

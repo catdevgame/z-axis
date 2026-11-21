@@ -64,7 +64,9 @@ and copies that game's files into its support folder (`~/Library/Application Sup
 own Set Up From Image. Setting up takes a few minutes a game: the app also builds the game's code for your machine
 (on Android, on the device). A game's Xbox or GameCube disc can be added later (Settings > Games: Add Xbox Disc, Add
 GameCube Disc). Settings > Games checks, repairs or removes a game's files. Your settings and saves live in the same
-folder: deleting the app leaves them, and a new version finds them.
+folder: deleting the app leaves them, and a new version finds them. A new version that makes some of a game's extras
+differently makes those again at its first start, from the Xbox and GameCube images where you set them up from (the
+Games page shows it); if one is not there, the extras made from it stay as they were and the app asks for it.
 
 Keys, mouse and gamepads are `CONTROLS.md`; the Settings pages in each game's menus are `SETTINGS.md`; mods,
 texture packs and custom maps are `docs/MODS.md`.
@@ -101,7 +103,7 @@ rebuilt at each push: each game's functions by what runs for them, the plan's st
 | `tests` | unit tests |
 | `android/` | the Android build (dual-screen handhelds: the game made for two screens) |
 | `docs/` | the guides: `docs/README.md` lists them for players, modders and contributors |
-| `tooling/` | each game's workspace (`ai/`, `dm2/`), the recompiler that makes the generated code (`recompiler/`), the checks (`checks/`), the Xbox tools |
+| `tooling/` | each game's workspace (`ai/`, `dm2/`, `bmx/`), the recompiler that makes the generated code (`recompiler/`), the checks (`checks/`), the Xbox tools |
 | `CONTROLS.md`, `SETTINGS.md` | keyboard, mouse and gamepad; the settings in each game's own menus |
 
 ## Building
@@ -131,7 +133,7 @@ tooling/recompile.sh --ai <AI disc image> --dm2 <DM2 disc image> --bmx <BMX XXX 
 NO_GAME_DATA=1 GAMES="ai dm2 bmx" tooling/ai/tools/make-app.sh    # tooling/ai/dist/Z-Axis Collection.app
 ```
 
-`recompile.sh` takes each game's program from your disc image (read by the app's own reader, `ps2x_disc`, which it
+`recompile.sh` takes each game's program from your disc image (read by the app's own reader, `zx-disc`, which it
 builds with the recompiler) and turns it into the C++ the app is built from (a few seconds a game).
 `make-app.sh` builds the app (about ten minutes the first time).
 With `NO_GAME_DATA=1` the app holds no game data: the first time it starts it opens on Settings > Games, where Find
@@ -163,5 +165,6 @@ Bugs, readable-code reports and ideas go through the issue forms.
 GPL-3.0 (`LICENSE`). The runtime's host layer and the recompiler descend from PS2Recomp (ran-j/PS2Recomp, forked
 at eb8688b), the IOP's sound from PCSX2's SPU2 (at 091ab68), and the system libraries the games link are ported from
 newlib 1.8.2 and GCC 2.95.2's libgcc with their notices kept. Uses ELFIO, toml11, fmt, libdwarf, rabbitizer,
-nlohmann/json, SDL3, Dear ImGui, sse2neon, FFmpeg, miniz, xxHash and zstd, each downloaded by CMake as an archive checked by SHA-256.
+nlohmann/json, SDL3, Dear ImGui, sse2neon, FFmpeg, miniz, xxHash, zstd, libchdr, LZ4, stb_truetype and bcdec, each downloaded at build time
+and checked by SHA-256 (FFmpeg's source by the app scripts' `build-ffmpeg.sh`, the rest by CMake).
 `NOTICE` lists every third-party part, its licence and its notices.

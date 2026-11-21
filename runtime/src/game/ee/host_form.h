@@ -20,7 +20,7 @@
 // readable install, so it stands in place of the PS2 form there; a form can
 // still hand a call on to it: continueInPs2Form). The
 // system's own switch calls it (the disc's: [host] disc = native, the
-// default), never PS2X_READABLE, so a run with the readable game off runs
+// default), never ZX_READABLE, so a run with the readable game off runs
 // the same host forms as one with it on. A form is not recorded or replayed:
 // its proof is the run's (the files it served and the guest state after).
 //

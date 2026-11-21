@@ -8,7 +8,7 @@
 //
 // While an original runs, every port's table slot is hooked, so each port it calls on the way is compared too,
 // from the state the original reached there (strtod's calls of _multadd, vfprintf's of _dtoa_r). Callees run as
-// their originals in both runs, so each port is checked on its own, as ps2xFnCheck checks a recorded call. The
+// their originals in both runs, so each port is checked on its own, as zx-fncheck checks a recorded call. The
 // system, the heap and fflush under the library are the test's own (write, read, malloc and kin), with their
 // state in guest memory, so that both runs see the same. Coverage is the original's basic blocks (its block
 // markers) that the compared calls ran.
@@ -218,20 +218,20 @@ namespace
             for (const void *source : kLibrarySources)
                 if (!source)
                     why = "a library source is not linked";
-#ifndef PS2X_LIBRARY_ORIGINALS
-            why = "this build has no recompiled originals (no AI generated code: PS2X_RUNNER_GENERATED_DIR)";
+#ifndef ZX_LIBRARY_ORIGINALS
+            why = "this build has no recompiled originals (no AI generated code: ZX_RUNNER_GENERATED_DIR)";
             return;
 #else
             std::string elf;
-            if (const char *path = std::getenv("PS2X_TEST_AI_ELF"); path && path[0])
+            if (const char *path = std::getenv("ZX_TEST_AI_ELF"); path && path[0])
                 elf = path;
-#ifdef PS2X_TEST_AI_ELF
+#ifdef ZX_TEST_AI_ELF
             if (elf.empty())
-                elf = PS2X_TEST_AI_ELF;
+                elf = ZX_TEST_AI_ELF;
 #endif
             if (elf.empty())
             {
-                why = "no AI ELF (PS2X_TEST_AI_ELF)";
+                why = "no AI ELF (ZX_TEST_AI_ELF)";
                 return;
             }
             if (!loadElf(elf))
@@ -536,8 +536,8 @@ namespace
         void compare(R5900Context *ctx, uint32_t address, bool inPlace)
         {
             PortStats &p = ports.at(address);
-            // PS2X_LIBRARY_TRACE=1: each compared call on stderr as it starts
-            static const bool trace = [] { const char *v = std::getenv("PS2X_LIBRARY_TRACE"); return v && v[0] == '1'; }();
+            // ZX_LIBRARY_TRACE=1: each compared call on stderr as it starts
+            static const bool trace = [] { const char *v = std::getenv("ZX_LIBRARY_TRACE"); return v && v[0] == '1'; }();
             if (trace)
             {
                 std::fprintf(stderr, "[library] %s%s: %s (%s)\n", depth ? "  " : "", label.c_str(), p.symbol->name,
@@ -720,8 +720,8 @@ namespace
         Library &lib = *g_library;
         const uint32_t address = ctx->pc;
         PortStats &p = lib.ports.at(address);
-        static const bool trace = [] { const char *v = std::getenv("PS2X_LIBRARY_TRACE"); return v && v[0] == '1' && v[1] == '+'; }();
-        if (trace) // PS2X_LIBRARY_TRACE=1+: every call of a port too, as the table gets it
+        static const bool trace = [] { const char *v = std::getenv("ZX_LIBRARY_TRACE"); return v && v[0] == '1' && v[1] == '+'; }();
+        if (trace) // ZX_LIBRARY_TRACE=1+: every call of a port too, as the table gets it
             std::fprintf(stderr, "[library]       %s %s %s\n", lib.readableRuns ? "port's" : "original's", p.symbol->name,
                          Library::arguments(*ctx).c_str());
         if (lib.hooks && lib.depth == 1 && lib.readableRuns == 0 && p.caseCalls < Library::kInPlacePerCase &&

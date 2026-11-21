@@ -33,13 +33,13 @@ code), so its behaviour is the original's by construction:
 
 What is left to the author: names, types (structs instead of offsets), the
 structure (gotos where the control flow did not fit if/else and loops), and
-the house style's single ee::chargeLoop(n) per loop. ps2xFnCheck proves each
+the house style's single ee::chargeLoop(n) per loop. zx-fncheck proves each
 step (`readable_draft_check.py` builds and checks a draft against recordings).
 
 Options:
   --workspace DIR   the bring-up workspace (default: the parent of this z-axis
                     checkout), for recomp/generated and recomp/ghidra-functions.csv
-  --generated DIR   recompiled sources (default PS2X_RUNNER_GENERATED_DIR or
+  --generated DIR   recompiled sources (default ZX_RUNNER_GENERATED_DIR or
                     <workspace>/recomp/generated)
   --decomp FILE     Ghidra's C (default tooling/dm2/ai-decomp.c of the main checkout)
   --namespace NS    namespace of the drafts (default draft)
@@ -71,8 +71,8 @@ except ImportError:
     readable_names = None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PS2RECOMP = os.path.dirname(os.path.dirname(HERE))
-GAME_SRC = os.path.join(PS2RECOMP, "runtime", "src", "game")
+ZAXIS_TREE = os.path.dirname(os.path.dirname(HERE))
+GAME_SRC = os.path.join(ZAXIS_TREE, "runtime", "src", "game")
 
 GP = 0x0027A8F0  # the game's _gp (gp-0x6DB0 is 0x273B40, zge::g_stringTable)
 
@@ -242,7 +242,7 @@ class Workspace:
 
     def result_readers(self):
         """{function: (GPRs, FPRs)} some caller reads after calling it
-        (fncheck_traced_gen.py's scan of recomp/generated, as ps2xFnCheck's
+        (fncheck_traced_gen.py's scan of recomp/generated, as zx-fncheck's
         ResultReader table has it)."""
         if getattr(self, '_result_readers', None) is None:
             import fncheck_traced_gen
@@ -2186,7 +2186,7 @@ def decide_args_round(lifter, callees, depth, sites, read_after):
         # call (not the caller's value, which would become a parameter, nor
         # a callee's leftover on some path: those gave wrong values, 8
         # functions of the corpus); a chain through calls that leave it is
-        # left to ps2xFnCheck, which now sees it (fn_128A98).
+        # left to zx-fncheck, which now sees it (fn_128A98).
         if op_id is not None:
             def set_here(r):
                 return written_since_call(lifter, state, r)
@@ -2518,7 +2518,7 @@ class Draft:
                 # Ghidra says void, but the code leaves a value in v0 at a
                 # return (a callee's result handed on: fn_138080's jalr, the
                 # heap's realloc): the callers read it, so the draft returns it
-                # (ps2xFnCheck does not compare the v0 of a void function).
+                # (zx-fncheck does not compare the v0 of a void function).
                 if self.v0_set_at_return():
                     ret = 'v0'
                     self.todo.append('Ghidra declares it void, but v0 at its return is set (a callee\'s result): '
@@ -2531,7 +2531,7 @@ class Draft:
             ret = 'v0' if v0_set else None
         # Ghidra types some float results as integers (undefined4): the f0 the
         # function sets is what its callers read (the sweep's int_f0 class;
-        # ps2xFnCheck compares only v0 of an integer function, so the check
+        # zx-fncheck compares only v0 of an integer function, so the check
         # passes and the caller fails, as FUN_001DAD50 called a null callback
         # with FUN_001DB2B8's f0 stale).
         if ret != 'f0' and self.returns_float_unlike_ghidra(ret):
@@ -2562,7 +2562,7 @@ class Draft:
         self.structure()
         # A 64-bit result: the v0 at a return is a 64-bit value (rider3's spawn
         # functions return a whole FaceRef, which resetPhysics stores with sd):
-        # returned as uint64_t, not cut to its low word (ps2xFnCheck then
+        # returned as uint64_t, not cut to its low word (zx-fncheck then
         # compares all of v0, as for any 64-bit result).
         self.ret_wide = ret == 'v0' and any(
             L.blocks[k].term[0] == 'ret' and getattr(L.blocks[k], 'retx', None) is not None and
@@ -5913,7 +5913,7 @@ def source_mentions(ws, address):
     host's and readable code's calls by address."""
     if getattr(ws, '_source_literals', None) is None:
         lits = set()
-        root = os.path.join(PS2RECOMP, 'runtime', 'src')
+        root = os.path.join(ZAXIS_TREE, 'runtime', 'src')
         hexlit = re.compile(r'\b0x0*([0-9A-Fa-f]{5,6})u?\b')
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d != 'sweep']
@@ -6220,7 +6220,7 @@ def draft_batch(ws, addresses, args, skip_failures=False):
         out.append('// Draft by runtime/tools/readable_draft.py (%s) of %s, lifted from recomp/generated;' %
                    (today, ', '.join('0x%06X' % a for a in addresses)))
     out.append('// calls, EE cycles, the stack frame and float order are the original\'s. Names, types and')
-    out.append('// structure are the author\'s; ps2xFnCheck proves each step (docs/READABLE.md, "Drafts and')
+    out.append('// structure are the author\'s; zx-fncheck proves each step (docs/READABLE.md, "Drafts and')
     out.append('// the sweep").')
     out.append('')
     out.append('#include "ee/abi.h"')
@@ -6688,7 +6688,7 @@ def main():
     if not os.path.isdir(os.path.join(args.workspace or '', 'recomp')):
         # A worktree's own tooling, without the data links: the main checkout's workspace.
         args.workspace = main_ws
-    generated = args.generated or os.environ.get('PS2X_RUNNER_GENERATED_DIR') or os.path.join(args.workspace, 'recomp', 'generated')
+    generated = args.generated or os.environ.get('ZX_RUNNER_GENERATED_DIR') or os.path.join(args.workspace, 'recomp', 'generated')
     if not os.path.isdir(generated):
         die('no recompiled sources at %s (--generated)' % generated)
     if args.ghidra_csv:

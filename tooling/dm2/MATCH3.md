@@ -431,7 +431,8 @@ it); the database is disc derived and stays in scratch.
 python3 -I tools/workdb.py build                       # rebuild (sources: `tables` lists them)
 python3 -I tools/workdb.py tables                      # tables and views, row counts, when built
 python3 -I tools/workdb.py query "SELECT * FROM carry_by_layer"   [--csv|--json]
-python3 -I tools/workdb.py card 0x18D678 [NAME ...] [--json] [--prefix '// '] [--width 100]
+python3 -I tools/workdb.py card 0x18D678 [NAME ...] [--build B] [--json] [--prefix '// '] [--width 100]
+python3 -I tools/workdb.py notes [TOPIC|ADDR|NAME] [--build B] [--json]
 python3 -I tools/workdb.py emit FILE KIND key=value ...   # one sweep result line
 python3 -I tools/workdb.py check-results [FILE ...]
 duckdb -readonly $ZAXIS_SCRATCH/workdb/work.duckdb   # or the CLI
@@ -445,7 +446,7 @@ function CSVs and SCE scans; `match3.json` and `modmap.json`; the three XBE expo
 xmatch pairings and `__FILE__` uses; the three DOL exports with their gcmatch pairings; the
 readable sources (`runtime/src/game`: registrations, `ee::Global` and `k...` address
 constants, the `// FUN_xxxxxxxx:` doc comments, lines per file); every `index.json` of the
-recording corpus; the PS2X_FNPROF profile; main's commit messages ("N of M ... on"); the string
+recording corpus; the ZX_FNPROF profile; main's commit messages ("N of M ... on"); the string
 tables (AI and DM2, PS2 and Xbox) with the `KSTR_*` names the builds and the UI files spell out;
 the sweep's result files.
 
@@ -464,7 +465,7 @@ Tables (layer 1):
 | counterparts | per AI function and build: the counterpart, direct or through DM2's or BMX XXX's PS2 build (confidence the lower of the two links), or the functions it is inlined into |
 | readable, readable_symbols, readable_files | registrations (status, file, line, WAITS/VU0, doc comment); named addresses; C++ lines |
 | corpus, corpus_routes, corpus_uncovered | per corpus version, route and function: calls kept, callee calls, vsyncs |
-| profile, progress | the PS2X_FNPROF profile; Verified counts over main's history |
+| profile, progress | the ZX_FNPROF profile; Verified counts over main's history |
 | tuning | AI's tuning table (category, name, value, range, step) |
 | string_keys, key_names | string table keys with their text and name; KSTR names by hash and where seen |
 | names | name candidates per build and function with source, kind, confidence and evidence |
@@ -586,10 +587,10 @@ engine does not pair (section 4) and MSVC's inlining hides the bodies. Build dat
 executables: DM2 Xbox XBE Nov 9 2001; DM2 GameCube Dolphin OS Sep 8 2001; AI GameCube Dolphin OS
 Jun 5 2002; AI Xbox XBE Jul 2 2002; BMX XXX PS2 Oct 16 2002, Xbox Oct 22 2002, GameCube Nov 3 2002.
 
-A `check` line names what the pass was made against (ps2xFnCheck's result line,
+A `check` line names what the pass was made against (zx-fncheck's result line,
 docs/READABLE.md "How a function is proven"): `impl` the readable function's source digest
 (`runtime/tools/readable_digest.py`), `orig` the generated original's, `rec` the recording's
-recorder version and corpus folder (`6:v5/lc`), `checker` the ps2xFnCheck executable's. A
+recorder version and corpus folder (`6:v5/lc`), `checker` the zx-fncheck executable's. A
 `coverage` line (`tooling/checks/fncheck_corpus.py emit`) gives a function's path coverage over a
 corpus: the original's basic blocks, how many the replayed calls ran, the uncovered blocks'
 addresses. The build also runs readable_digest.py on the readable sources (source
@@ -608,7 +609,9 @@ evidence), evidence (how a fact was established), caveat (a trap, or why it stay
 (a past change worth knowing). Notes are appended, never edited; the same text twice is shown once.
 They go to `func_notes`; `workdb.py card` shows the first twelve under the function and
 `workdb.py notes TOPIC|ADDR|NAME [--build B]` lists them all (`notes` alone counts them per topic).
-Schema version 4.
+Schema version 4. The notes' text, keyed by function name (no addresses of its own, the sources left out), is exported to
+`tools/workdb_notes.jsonl` (`workdb.py export-notes`); `card` and `notes` read that export when there is no
+database or no duckdb module, or with `WORKDB_PUBLIC=1` (`tools/workdb_notes.py`).
 
 `workdb.py emit FILE KIND key=value ...` writes one checked line (values parsed as JSON when they
 parse, `ts` filled in); from Python, `workdb.append_result(path, record)` (a locked append of one
@@ -634,7 +637,7 @@ inside a function finds the function; a name is looked up in every build's candi
 readable_draft.py" line and before Ghidra's decompilation comment (`--workdb PATH`, default
 `tooling/dm2/tools/workdb.py` or WORKDB_PY; `--no-workdb`; with the database missing, or an address that is not an
 AI function, it drafts without the card). The card names the database's build time; it is a comment, so
-ps2xFnCheck results do not depend on it.
+zx-fncheck results do not depend on it.
 
 Not checked: the GameCube pairs read side by side by hand (the holdout is the only precision measure); the tuning
 candidates read through the category pointer (a displacement in a function that also reads the category could be
@@ -649,7 +652,7 @@ scratch only (`$ZAXIS_SCRATCH/ghidranames`).
 
 | tool | what it does |
 |---|---|
-| `readable_ghidra.py` | the input. `scan`: clang over the 131 readable translation units (flags from a `compile_commands.json` under the checkout's `out/`; 45 s, cached by a digest of the sources): `-fdump-record-layouts-complete` for every struct's offsets and size, and the JSON AST of the namespaces aggressive, zge and sce for the registrations (address, the registered function's C++ signature and parameter names), the ee::Global variables, enums and typedefs. `gen BUILD DIR`: `readable-BUILD.h` (the guest structs, packed with every gap spelled out so the offsets are clang's; the prototypes; the globals' types) and `readable-BUILD.jsonl` (a meta line with the header's SHA-256, the readable commit and the work database's build time; then the expected layouts, the names, the signatures with their EABI registers, the globals). `all DIR`: the five builds. `stats BEFORE.c AFTER.c`: counts over two decompilations |
+| `readable_ghidra.py` | the input. `scan`: clang over the readable translation units (every `runtime/src/game` source in a `compile_commands.json` under the checkout's `out/`, with its flags; cached by a digest of the sources): `-fdump-record-layouts-complete` for every struct's offsets and size, and the JSON AST of the namespaces aggressive, zge and sce for the registrations (address, the registered function's C++ signature and parameter names), the ee::Global variables, enums and typedefs. `gen BUILD DIR`: `readable-BUILD.h` (the guest structs, packed with every gap spelled out so the offsets are clang's; the prototypes; the globals' types) and `readable-BUILD.jsonl` (a meta line with the header's SHA-256, the readable commit and the work database's build time; then the expected layouts, the names, the signatures with their EABI registers, the globals). `all DIR`: the nine builds. `stats BEFORE.c AFTER.c`: counts over two decompilations |
 | `tooling/ai/ghidra/scripts/ApplyReadable.java` | the stage. The header goes through Ghidra's C parser into the category `/readable`. Function names: the analysis name is kept in the `ReadableOriginalName` property map; a name a loader, Function ID or the SCE scan gave (the libraries' own) stays, and the readable one becomes a label beside it. Signatures: ApplyFunctionSignatureCmd with the compiler spec's default convention. Globals: typed data, larger first (a global inside a struct global stays a label). Each function gets a plate comment saying where its name came from. Then everything is read back: struct sizes and each field's offset, name and size; names; parameter types, names and registers against the EABI (a0-a3, t0-t3, f12-f19); return types. Any mismatch fails the stage. The input's and the header's SHA-256 go into Program Information. `verify` runs the read-back alone (read only) |
 | `ghidra/readable_pass.sh` | `readable_pass.sh <ps2\|xbe\|gc> <name> <work dir> <program> <readable-BUILD.jsonl>`: copies `<work>/project` to `<work>/project-readable` and applies there. The base project stays as analysed: its CSV names the recompiled functions and its jsonl feeds the pairings. Then, read only: verify, the export again (xbe/gc) and the decompilation, into `<work>/readable/` |
 | `ExportXbe.java`, `ExportDecomp.java` | on a readable copy, ExportXbe writes the analysis name as `"n"` (so xmatch, gcmatch and workdb read what they always read) and the readable one as `"rn"`. ExportDecomp starts with a line that names the input and its SHA-256 |
@@ -863,5 +866,5 @@ The scratch folder holds `run-all.sh` (the six, one Ghidra at a time, about 13 m
   DM2 Xbox (6 names: its pairing with DM2 PS2 holds 523 high pairs, 53 of them with an AI
   counterpart); readable_draft.py's `--decomp` default.
 - The three-way match is static. "Identical" means the masked machine code is equal, not that a
-  readable function was checked there: that is each game's own recording corpus and ps2xFnCheck
+  readable function was checked there: that is each game's own recording corpus and zx-fncheck
   (docs/READABLE.md "How a function is proven").

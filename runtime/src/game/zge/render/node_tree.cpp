@@ -543,34 +543,28 @@ namespace zge
         // The root's flags in the game's view for the next drawNodeTree (ZGE4's listed node gives them; else its
         // flags are the drawn view's).
         std::optional<uint32_t> t_nextRootGameCullFlags;
-
-        // drawNodeTree's walk, with the root's flags in the game's view.
-        void queueNodeTreeAs(ee::Ptr<Node> root, uint32_t cullFlags, uint32_t gameCullFlags)
-        {
-            ee::Local<TreeStack> stack;
-            ee::Local<BoxCorners> box;
-            const ee::Ptr<Camera> camera(*g_currentCamera);
-            TreeWalk walk{};
-            walk.root = root;
-            walk.cullFlags = cullFlags;
-            walk.frameStamp = static_cast<int32_t>((*g_collisionWorld)->frameStamp);
-            walk.noCulling = (root->flags & kNodeTreeIsOneUnit) != 0;
-            walk.gameCullFlags = gameCullFlags;
-            ViewCulling culling;
-            std::optional<GameCulling> game;
-            if (const host::GameFrustum *frustum = host::gameFrustum(camera))
-                game.emplace(*camera, *frustum);
-            queueTree(walk, culling, game ? &*game : nullptr, *camera, stack, box);
-        }
     }
 
     // drawNodeTree (drawSky): the tree under `root` queued (queueTree). The
     // second argument is not read (the sky passes -1).
     void drawNodeTree(ee::Ptr<Node> root, uint32_t, uint32_t cullFlags)
     {
-        const uint32_t gameCullFlags = t_nextRootGameCullFlags.value_or(cullFlags);
+        ee::Local<TreeStack> stack;
+        ee::Local<BoxCorners> box;
+        const ee::Ptr<Camera> camera(*g_currentCamera);
+        TreeWalk walk{};
+        walk.root = root;
+        walk.cullFlags = cullFlags;
+        walk.frameStamp = static_cast<int32_t>((*g_collisionWorld)->frameStamp);
+        walk.noCulling = (root->flags & kNodeTreeIsOneUnit) != 0;
+        // (the root's flags in the game's view: ZGE4's listed node gives them, else they are the drawn view's)
+        walk.gameCullFlags = t_nextRootGameCullFlags.value_or(cullFlags);
         t_nextRootGameCullFlags.reset();
-        queueNodeTreeAs(root, cullFlags, gameCullFlags);
+        ViewCulling culling;
+        std::optional<GameCulling> game;
+        if (const host::GameFrustum *frustum = host::gameFrustum(camera))
+            game.emplace(*camera, *frustum);
+        queueTree(walk, culling, game ? &*game : nullptr, *camera, stack, box);
     }
     READABLE_FUNCTION_WAITS(drawNodeTree, Verified);
 
@@ -873,7 +867,11 @@ namespace zge
             return 1;
         const uint32_t frameStamp = world->frameStamp + 1;
         world->frameStamp = frameStamp;
+        // (the view centres and the levels of detail from the game's own camera: what the game decides by its parts;
+        // the drawn camera's when it is the game's)
+        const host::GameFrustum *gameView = host::gameFrustum(ee::Ptr<Camera>(*g_currentCamera));
         const ee::Ptr<Matrix> fromWorld = cachedMatrix(ee::Ptr<Camera>(*g_currentCamera), 0);
+        const Matrix &viewFromWorld = gameView && gameView->elsewhere ? gameView->fromWorld : *fromWorld;
         if (*sceneProfileTimer == 0)
             *sceneProfileTimer = newProfileBar(kSceneBarDisplay, 0, sym::bmx::sceneTimerColour, sym::bmx::sceneTimerName);
         startProfileBar(*sceneProfileTimer);
@@ -910,7 +908,7 @@ namespace zge
                 };
                 if (node && regionInView(area, sector->region) && inView())
                     for (; node; node = nextListedNode(*sector->nodes))
-                        drawListedNodeTree(node, frameStamp, area, *fromWorld, level, distancePast);
+                        drawListedNodeTree(node, frameStamp, area, viewFromWorld, level, distancePast);
                 sector = sector + 1;
             } while (--left != 0);
         }

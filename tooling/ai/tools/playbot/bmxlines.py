@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BMX XXX: a played run with the menu lines the game's builders leave out (routes1; PS2X_BMX_MENU_LINES=1, [extras]
+"""BMX XXX: a played run with the menu lines the game's builders leave out (routes1; ZX_BMX_MENU_LINES=1, [extras]
 menu_lines, game_overrides/bmx_xxx_exit.cpp): bmx.py's player rides the level, the pause's TRICK LIST is opened now
 and then (its tricks and categories walked), and at the end the run is ended from the pause and the game over's VIEW
 REPLAY watched, then its TRICK LIST.
@@ -48,7 +48,7 @@ def play(name, level, ticks=4800, seed=1, max_secs=2400):
     menu = bmx.menu_script(level)
     d = bmx.session_dir(name)
     os.makedirs(d, exist_ok=True)
-    env = {'PS2X_EE_SCALE': '4096', 'PS2X_BMX_MENU_LINES': '1'}
+    env = {'ZX_EE_SCALE': '4096', 'ZX_BMX_MENU_LINES': '1'}
     cfg = bmx.run_config(name, menu.text(), env=env, max_secs=max_secs, gs=os.environ.get('GS') == '1')
     meter, log = dm2.Meter(), player_dm2.Log(os.path.join(d, 'play.log'))
     pl = bmx.player_of(dm2map.Level(bmx.LEVELS[level][0]), seed, log)

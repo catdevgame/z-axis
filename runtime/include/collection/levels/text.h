@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace ps2x::app::levels
+namespace zx::app::levels
 {
     // Whether a Latin-1 character is a letter or a digit (Python's
     // str.isalnum for that character).

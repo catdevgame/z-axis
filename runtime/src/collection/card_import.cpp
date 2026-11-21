@@ -10,7 +10,7 @@
 #include <fstream>
 #include <system_error>
 
-namespace ps2x::app
+namespace zx::app
 {
     // ---- PCSX2 memory card images -----------------------------------------------
     // Layout as in tools/ps2mc.py (mymc/PCSX2): 512-byte pages (+16 spare bytes
@@ -286,7 +286,7 @@ namespace ps2x::app
                 *error = file.string() + " already exists";
             return false;
         }
-        return ps2x::saves::writeFileAtomic(file, data->second.data(), data->second.size(), error);
+        return zx::saves::writeFileAtomic(file, data->second.data(), data->second.size(), error);
     }
 
     std::vector<std::filesystem::path> findPcsx2CardsWithSave(const std::string &saveDir, const GetEnv &getEnv)

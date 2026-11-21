@@ -11,7 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <vector>
-#if defined(PS2X_FPU_TRAP)
+#if defined(ZX_FPU_TRAP)
 #include <dlfcn.h>
 #endif
 
@@ -53,7 +53,7 @@ namespace
     }
 }
 
-namespace ps2x::packets
+namespace zx::packets
 {
     bool g_on = false;
 
@@ -110,12 +110,12 @@ namespace ps2x::packets
 
     void configureFromEnvironment()
     {
-        const char *path = std::getenv("PS2X_PACKET_LOG");
+        const char *path = std::getenv("ZX_PACKET_LOG");
         if (!path || !path[0])
             return;
         g_path = path;
         g_out = std::fopen(path, "w");
-        if (const char *dump = std::getenv("PS2X_PACKET_DUMP"); dump && dump[0])
+        if (const char *dump = std::getenv("ZX_PACKET_DUMP"); dump && dump[0])
         {
             unsigned long long from = 1, to = 0;
             if (std::sscanf(dump, "%llu:%llu", &from, &to) == 2)
@@ -132,7 +132,7 @@ namespace ps2x::packets
     // quaternionToMatrix does not write). The UNPACK V4-32 and its data word:
     // camera->forward.w to VU1 0x3F3 (beginViewDraws), and the w of qwords 7 to 10
     // (the view's rows) in the 14 quadwords to VU1 1 before MSCAL 0x24's chain:
-    // the program at 0x1FD0 loads them LQ.xyz. tools27, playfix: ps2xVu1Check
+    // the program at 0x1FD0 loads them LQ.xyz. tools27, playfix: zx-vu1check
     // --reads, --poke. And a UV-transform material's block (14 quadwords to
     // TOPS: 8 of GS state, the matrix routine 0x581 with its four rows, the
     // end): the w of the last row (data word 51), animateTextures' stack as
@@ -141,7 +141,7 @@ namespace ps2x::packets
     // And BMX XXX's block for the program at 0xC0 (5 quadwords to TOPS, then
     // MSCAL 0x18): the w of its fourth quadword (data word 15), the stack's
     // where the original's drawScreenBatch left a register's upper half; no run
-    // of that program reads it (ps2xVu1Check --chain --poke-range 3 3 3 --poke-top
+    // of that program reads it (zx-vu1check --chain --poke-range 3 3 3 --poke-top
     // --poke-pc 0xC0 over the A/B input pe-session's VU1 corpora: no run's
     // PATH1, cycles or registers change, its x, y and z change PATH1). bmxbot1.
     struct DeadWords
@@ -161,14 +161,14 @@ namespace ps2x::packets
                                         {0x6C0E0000u, 51u, 1u, 0u, 32u, kUvTransformRoutine},
                                         {0x6C050000u, 15u, 1u, 0u, 0u, 0u, kMscalBmxProgramC0}};
 
-    // PS2X_PACKET_DEAD_W=1 (career_ab.py --game dm2): DM2's particle batches, a V4-32 UNPACK to VU1 0x20 and its
+    // ZX_PACKET_DEAD_W=1 (career_ab.py --game dm2): DM2's particle batches, a V4-32 UNPACK to VU1 0x20 and its
     // continuation at 0xA0 after an STCYCL 4, 4, carry what the stack held in each vertex's w, and no microprogram
-    // reads it (ps2xVu1Check --poke over the 756 images holding one such value: registers, flags, cycles, data and
+    // reads it (zx-vu1check --poke over the 756 images holding one such value: registers, flags, cycles, data and
     // PATH1 all the same). Those lanes are left out of the second hash too.
     constexpr uint32_t kStcycl44 = 0x01000404u, kUnpackV432 = 0x6C000000u;
     bool deadParticleLanes()
     {
-        static const bool on = std::getenv("PS2X_PACKET_DEAD_W") != nullptr;
+        static const bool on = std::getenv("ZX_PACKET_DEAD_W") != nullptr;
         return on;
     }
 
@@ -236,11 +236,11 @@ namespace ps2x::packets
         bool m_zguiDefault = false, m_oneTexel = false, m_wrapsInside = true; // (CLAMP_1 0 at reset: REPEAT)
     };
 
-    // PS2X_PACKET_PASSTHROUGH=<program>[,<program>...] (career_ab.py --game dm2: 0x1C): microprograms that send the GS
+    // ZX_PACKET_PASSTHROUGH=<program>[,<program>...] (career_ab.py --game dm2: 0x1C): microprograms that send the GS
     // their TOPS buffer as it is (DM2's image at 0x1C * 8: XTOP vi1, XGKICK vi1, end; vudis.py). The GIF packets they
     // kick are built in VU1 memory by the TOPS-relative V4-32 UNPACKs (after STCYCL 4, 4) since the MSCAL before, and a
     // PACKED qword's bits its register does not read are no output: ST's fourth word, RGBAQ's upper 24 bits of each
-    // word, XYZ2's unused bits and the rest of the GS manual's PACKED formats (the masks of ps2xVu1Check --chain's
+    // word, XYZ2's unused bits and the rest of the GS manual's PACKED formats (the masks of zx-vu1check --chain's
     // packedMask, which proves the lanes it is asked about: tested2). Those bits are left out of the live hash: the
     // stream's chunks since the last MSCAL are held, and at an MSCAL of such a program the GIF packets in the image the
     // UNPACKs built are parsed from TOPS + 0 and the bits masked in the held copies; then the chunks are hashed in order,
@@ -253,7 +253,7 @@ namespace ps2x::packets
             static const std::vector<uint32_t> list = []()
             {
                 std::vector<uint32_t> out;
-                if (const char *text = std::getenv("PS2X_PACKET_PASSTHROUGH"))
+                if (const char *text = std::getenv("ZX_PACKET_PASSTHROUGH"))
                     for (const char *p = text; *p;)
                     {
                         char *end = nullptr;
@@ -577,12 +577,12 @@ namespace
 void StateProbe::publishScriptTime(int64_t vsyncs)
 {
     s_scriptTime.store(vsyncs, std::memory_order_release);
-    s_scriptTimeBoot.store(ps2x::boot::generation(), std::memory_order_release);
+    s_scriptTimeBoot.store(zx::boot::generation(), std::memory_order_release);
 }
 
 int64_t StateProbe::scriptTime()
 {
-    if (s_scriptTimeBoot.load(std::memory_order_acquire) != ps2x::boot::generation())
+    if (s_scriptTimeBoot.load(std::memory_order_acquire) != zx::boot::generation())
         return -1;
     return s_scriptTime.load(std::memory_order_acquire);
 }
@@ -695,12 +695,12 @@ bool StateProbe::parseLogSpec(const std::string &spec, std::string *error)
 void StateProbe::configure(const char *dumpVariable, const char *logVariable)
 {
     std::string error;
-    if (const char *value = ps2x::boot::text(dumpVariable); value && value[0])
+    if (const char *value = zx::boot::text(dumpVariable); value && value[0])
     {
         if (!parseDumpSpec(value, &error))
             std::fprintf(stderr, "[probe] %s ignored: %s\n", dumpVariable, error.c_str());
     }
-    if (const char *value = ps2x::boot::text(logVariable); value && value[0])
+    if (const char *value = zx::boot::text(logVariable); value && value[0])
     {
         if (!parseLogSpec(value, &error))
             std::fprintf(stderr, "[probe] %s ignored: %s\n", logVariable, error.c_str());
@@ -709,21 +709,21 @@ void StateProbe::configure(const char *dumpVariable, const char *logVariable)
 
 void StateProbe::configureFromEnvironment()
 {
-    configure("PS2X_DUMP_WHEN", "PS2X_STATE_LOG");
+    configure("ZX_DUMP_WHEN", "ZX_STATE_LOG");
 }
 
 void StateProbe::configurePadReadFromEnvironment()
 {
-    configure("PS2X_PAD_DUMP", "PS2X_PAD_LOG");
+    configure("ZX_PAD_DUMP", "ZX_PAD_LOG");
 }
 
 void StateProbe::writeRamDump(const uint8_t *rdram, const std::string &label, uint64_t tick)
 {
-    const char *prefixEnv = ps2x::boot::text("PS2X_DUMP_PREFIX");
-    const std::string path = std::string((prefixEnv && prefixEnv[0]) ? prefixEnv : "ps2x-dump") + "-" + label + ".ram";
-    // The PS2's 32 MB; with PS2X_DUMP_EXTENDED=1 all the guest RAM a play recording's checksums cover
+    const char *prefixEnv = zx::boot::text("ZX_DUMP_PREFIX");
+    const std::string path = std::string((prefixEnv && prefixEnv[0]) ? prefixEnv : "zx-dump") + "-" + label + ".ram";
+    // The PS2's 32 MB; with ZX_DUMP_EXTENDED=1 all the guest RAM a play recording's checksums cover
     // (PS2_RAM_SIZE: the extended memory above the 32 MB too, where the Zoo's textures and zgui's settings room are).
-    const char *extendedEnv = ps2x::boot::text("PS2X_DUMP_EXTENDED");
+    const char *extendedEnv = zx::boot::text("ZX_DUMP_EXTENDED");
     const size_t bytes = (extendedEnv && extendedEnv[0] == '1') ? PS2_RAM_SIZE : PS2_LEGACY_RAM_SIZE;
     FILE *file = std::fopen(path.c_str(), "wb");
     const bool ok = file && rdram && std::fwrite(rdram, 1, bytes, file) == bytes;
@@ -735,8 +735,8 @@ void StateProbe::writeRamDump(const uint8_t *rdram, const std::string &label, ui
 
 void StateProbe::writeThreadStacks(const std::string &label, const std::string &text)
 {
-    const char *prefixEnv = ps2x::boot::text("PS2X_DUMP_PREFIX");
-    const std::string path = std::string((prefixEnv && prefixEnv[0]) ? prefixEnv : "ps2x-dump") + "-" + label + ".sp";
+    const char *prefixEnv = zx::boot::text("ZX_DUMP_PREFIX");
+    const std::string path = std::string((prefixEnv && prefixEnv[0]) ? prefixEnv : "zx-dump") + "-" + label + ".sp";
     if (FILE *file = std::fopen(path.c_str(), "w"))
     {
         std::fwrite(text.data(), 1, text.size(), file);
@@ -768,7 +768,7 @@ void StateProbe::probe(const uint8_t *rdram, uint64_t tick, const DumpWriter &wr
         m_logPrimed = true;
         if (changed)
         {
-            // One write, and a copy in PS2X_STATE_LOG_FILE when set: other
+            // One write, and a copy in ZX_STATE_LOG_FILE when set: other
             // threads' log text gets spliced into stderr's lines (a line built
             // by pieces always, a whole one when theirs are built by pieces),
             // and only the file's are sure to be whole.
@@ -782,9 +782,9 @@ void StateProbe::probe(const uint8_t *rdram, uint64_t tick, const DumpWriter &wr
             line += '\n';
             // Each boot its own file (the one before closed).
             using File = std::unique_ptr<std::FILE, int (*)(std::FILE *)>;
-            static ps2x::boot::PerBoot<File> fileOfBoot([]() -> File
+            static zx::boot::PerBoot<File> fileOfBoot([]() -> File
             {
-                const char *path = ps2x::boot::text("PS2X_STATE_LOG_FILE");
+                const char *path = zx::boot::text("ZX_STATE_LOG_FILE");
                 std::FILE *opened = (path && path[0]) ? std::fopen(path, "w") : nullptr;
                 if (opened)
                     std::setvbuf(opened, nullptr, _IOLBF, 1u << 16);
@@ -792,10 +792,10 @@ void StateProbe::probe(const uint8_t *rdram, uint64_t tick, const DumpWriter &wr
             });
             // A child forked at a spot (runtime/ps2_spot_fork.h): its own file, by its environment.
             static uint32_t fileEpoch = 0;
-            if (fileEpoch != ps2x::spot::forkEpoch())
+            if (fileEpoch != zx::spot::forkEpoch())
             {
-                fileEpoch = ps2x::spot::forkEpoch();
-                const char *path = ps2x::boot::text("PS2X_STATE_LOG_FILE");
+                fileEpoch = zx::spot::forkEpoch();
+                const char *path = zx::boot::text("ZX_STATE_LOG_FILE");
                 std::FILE *opened = (path && path[0]) ? std::fopen(path, "w") : nullptr;
                 if (opened)
                     std::setvbuf(opened, nullptr, _IOLBF, 1u << 16);
@@ -827,19 +827,19 @@ void StateProbe::probe(const uint8_t *rdram, uint64_t tick, const DumpWriter &wr
         writeDump(trigger.label, tick);
 }
 
-#if defined(PS2X_FPU_TRAP)
-// See PS2_FTRAP in ps2_runtime_macros.h. PS2X_FPU_TRAP_FROM=<pad script vsync> starts reporting there
-// (default 0), PS2X_FPU_TRAP_LIMIT=<n> stops after n reports (default 200).
-__attribute__((noinline)) void ps2x_fpu_trap_report(const char *op, uint32_t a, uint32_t b, uint32_t r)
+#if defined(ZX_FPU_TRAP)
+// See PS2_FTRAP in ps2_runtime_macros.h. ZX_FPU_TRAP_FROM=<pad script vsync> starts reporting there
+// (default 0), ZX_FPU_TRAP_LIMIT=<n> stops after n reports (default 200).
+__attribute__((noinline)) void zx_fpu_trap_report(const char *op, uint32_t a, uint32_t b, uint32_t r)
 {
     static const int64_t from = []()
     {
-        const char *value = std::getenv("PS2X_FPU_TRAP_FROM");
+        const char *value = std::getenv("ZX_FPU_TRAP_FROM");
         return value ? std::strtoll(value, nullptr, 0) : 0;
     }();
     static long remaining = []()
     {
-        const char *value = std::getenv("PS2X_FPU_TRAP_LIMIT");
+        const char *value = std::getenv("ZX_FPU_TRAP_LIMIT");
         return value ? std::strtol(value, nullptr, 0) : 200;
     }();
     const int64_t now = StateProbe::scriptTime();
@@ -854,7 +854,7 @@ __attribute__((noinline)) void ps2x_fpu_trap_report(const char *op, uint32_t a, 
 }
 #endif
 
-#if defined(PS2X_FLOAT_CENSUS)
+#if defined(ZX_FLOAT_CENSUS)
 // See PS2_CENSUS_* in ps2_runtime_macros.h (devdep1). Each EE FPU / VU0 macro-mode operation is sorted by what
 // the R5900 does differently from the host's IEEE arithmetic, so the count says how often each difference bites
 // on a real route. Counted on the EE thread without locks (the other threads do no guest float work); printed at
@@ -897,7 +897,7 @@ namespace
     }
 }
 
-void ps2x_float_census(int kind, uint32_t a, uint32_t b, uint32_t r)
+void zx_float_census(int kind, uint32_t a, uint32_t b, uint32_t r)
 {
     static const bool registered = []
     {

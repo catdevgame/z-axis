@@ -2,7 +2,7 @@
 """Speed sweep: guest vsyncs per second while skating, per level/mode (native build).
 
 Like sweep.py (same navigation), but the skate routine is measured from the
-runner's PS2X_PERF_LOG lines (start the runner with PS2X_PERF_LOG=2):
+runner's ZX_PERF_LOG lines (start the runner with ZX_PERF_LOG=2):
 
     speedsweep.py NAME career K TAG              main menu (cursor on CAREER) -> career level K, measure, back to level select
     speedsweep.py NAME level K TAG [exit|levelselect]   from the level select screen
@@ -10,7 +10,7 @@ runner's PS2X_PERF_LOG lines (start the runner with PS2X_PERF_LOG=2):
     speedsweep.py NAME all PREFIX                the whole sweep from boot (card: mc-sweep-park)
     speedsweep.py NAME boot                      boot to the main menu
     speedsweep.py NAME mp TAG [skate]            main menu -> multiplayer split screen (Most Points), [measure]
-                                                 (the runner started with PS2X_PAD_PORT1=mirror: without a
+                                                 (the runner started with ZX_PAD_PORT1=mirror: without a
                                                  second gamepad port 1 is empty and the game skips the icon)
     speedsweep.py NAME report                    print the table of everything measured in this session
 

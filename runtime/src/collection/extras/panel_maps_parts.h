@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-namespace ps2x::app::extras::panel_maps
+namespace zx::app::extras::panel_maps
 {
     // A file that does not read as the maker expects, said in plain words.
     class PanelError : public std::runtime_error
@@ -347,6 +347,11 @@ namespace ps2x::app::extras::panel_maps
                            std::vector<std::string> &log);
     void makeBmxXxxMaps(const SourceFiles &disc, const PanelExtras &extras, const std::filesystem::path &out,
                         std::vector<std::string> &log);
+    // One level's file for a custom map (panel_maps.h makeMapPanelFile).
+    Bytes aggressiveInlineMapFile(const SourceFiles &files, const std::string &folder, const std::string &title,
+                                  std::vector<std::string> &log);
+    Bytes daveMirraMapFile(const SourceFiles &files, const std::string &folder, const std::string &title, std::vector<std::string> &log);
+    Bytes bmxXxxMapFile(const SourceFiles &files, const std::string &folder, const std::string &title, std::vector<std::string> &log);
 
     // Writes a made file; throws PanelError when it cannot.
     void writeMade(const std::filesystem::path &path, const Bytes &data);

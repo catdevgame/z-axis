@@ -92,11 +92,11 @@ namespace zge::editor
         uint32_t accepts;     // +0x70 what may sit on it
         ee::Ptr<EditObjectPart> attached;    // +0x74 the part sitting on it
         ee::Ptr<EditObjectPart> owner;       // +0x78 the piece it is on
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint32_t nameHash;    // +0x7C the name of the locator it was made from, hashed (the rail places table finds anchors by it)
 #endif
         uint32_t reserved;    // +0x7C held, not part of the park (BMX XXX: +0x80)
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         uint8_t _84[0xC];
 #endif
     };

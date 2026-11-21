@@ -87,7 +87,7 @@ namespace ee
     // register first (holdEnter hands skaterStat the a3 that orthonormalize
     // left; trafficCarVelocity's QMTC2 after a call moves t0's upper half as
     // the callee left it). Every ee::call and ee::tailCall sets them, from the
-    // guest context where the callee returned (under ps2xFnCheck, from the
+    // guest context where the callee returned (under zx-fncheck, from the
     // recording); a readable callee called directly (game::call) does not
     // model its temporaries and leaves them as they were.
     struct LeftRegisters
@@ -162,7 +162,7 @@ namespace ee
         static float toReg(Float v) { return v.raw(); }
     };
 
-    // How a function's result is compared by ps2xFnCheck.
+    // How a function's result is compared by zx-fncheck.
     enum class ReturnKind : uint8_t
     {
         Void,    // nothing (v0 is dead)
@@ -199,7 +199,7 @@ namespace ee
     // ---- the register image of a call -------------------------------------
 
     // What a caller hands over and gets back. A readable caller sets only
-    // the arguments it passes (intCount, floatCount); ps2xFnCheck compares
+    // the arguments it passes (intCount, floatCount); zx-fncheck compares
     // those with the recorded call.
     // VU0's vector registers as a callee left them (ee::callKeepingVu0).
     struct Vu0Registers
@@ -274,7 +274,7 @@ namespace ee
         // callSuspending); 0: the runtime's own return slot (drafter25).
         uint32_t returnAddress = 0;
         // Made by game::call / game::tailCall for a readable callee (under
-        // ps2xFnCheck, where it is answered from the recording): its
+        // zx-fncheck, where it is answered from the recording): its
         // signature is all a direct caller gives it, so an argument register
         // its original reads that the call leaves out is noted apart
         // (direct_left; drafter25: freeLoadedFile's signature without the a0
@@ -291,19 +291,19 @@ namespace ee
     };
 
     // Who carries out a readable function's calls. Null in the game: the
-    // call runs (callGuest). ps2xFnCheck answers them from a recording.
+    // call runs (callGuest). zx-fncheck answers them from a recording.
     struct CallHandler
     {
         virtual ~CallHandler() = default;
         virtual void call(CallRegs &regs) = 0;
-        // Cycles the readable code charged (ps2xFnCheck counts them).
+        // Cycles the readable code charged (zx-fncheck counts them).
         virtual void cycles(uint64_t count) { (void)count; }
-        // The --safepoints interruptions so far in this replay (ps2xFnCheck:
+        // The --safepoints interruptions so far in this replay (zx-fncheck:
         // after one, a self-call's return goes on as the scheduler's dispatch
         // of the return address has it; leaveSelfCall, SliceEmu).
         virtual uint32_t interruptions() const { return 0; }
         // A function calling itself. Generated code runs that call inline, so a recording holds the calls made inside
-        // it and none for the call itself: ps2xFnCheck says true when this call of `target` is one, and the caller
+        // it and none for the call itself: zx-fncheck says true when this call of `target` is one, and the caller
         // runs the body directly (game::detail::Route), its calls answered and checked in the recording's order.
         virtual bool callsItself(uint32_t target) const
         {
@@ -312,7 +312,7 @@ namespace ee
         }
         // A tail call of `target` that is a jump inside the function replayed: generated code runs a `j` into its
         // own extent as a goto, so a recording holds the calls made after it as the function's own and none for the
-        // jump (BMX's ghostRideMove, which releases its frame and jumps into the riderless bike's move). ps2xFnCheck
+        // jump (BMX's ghostRideMove, which releases its frame and jumps into the riderless bike's move). zx-fncheck
         // says true when `target` lies in the replayed function's extent and the recording's next call is not one
         // of it; the caller then runs the body there directly (game::tail, game::tailCall), its calls answered.
         virtual bool jumpsInside(uint32_t target) const
@@ -324,7 +324,7 @@ namespace ee
         // left it (ee::callerRegister, ee::callerFloat: GPR r, or 32 + FPR)
         // or as its last callee left it (ee::leftByCall: `left`). A replay
         // keeps the recorded registers there whoever called the function, so
-        // ps2xFnCheck notes a read that a direct caller (game::call) would
+        // zx-fncheck notes a read that a direct caller (game::call) would
         // not answer.
         virtual void registerRead(int r, bool left)
         {
@@ -332,24 +332,24 @@ namespace ee
             (void)left;
         }
     };
-    // The build's flavour (runtime/CMakeLists.txt ZAXIS_DEV_CHECKS): true in the dev build, false in the app's.
-    inline constexpr bool kDevChecks = ZAXIS_DEV_CHECKS != 0;
+    // The build's flavour (runtime/CMakeLists.txt ZX_DEV_CHECKS): true in the dev build, false in the app's.
+    inline constexpr bool kDevChecks = ZX_DEV_CHECKS != 0;
 
     struct Frame;
     struct FrameRow;
     struct Suspendable;
 
-    // The host thread that runs guest code (the game's EE thread, ps2xFnCheck's replay thread): what its readable
+    // The host thread that runs guest code (the game's EE thread, zx-fncheck's replay thread): what its readable
     // functions and the calls between them share, one object per thread. One thread_local object, so a function
     // that reaches several of these looks it up once (in a loaded library, Android's dynamic TLS resolves each
     // thread_local variable with a call of its own).
     struct ThreadState
     {
         Frame *frame = nullptr;             // the readable function running now (set by ee::entry)
-        // Who carries out its calls: null in the game (they run), ps2xFnCheck's or a unit test's while it replays
+        // Who carries out its calls: null in the game (they run), zx-fncheck's or a unit test's while it replays
         // a call. The app's flavour has no checker, so there it is a constant null: every test of it is decided
         // when the code compiles, and a call reads no thread-local for it.
-#if ZAXIS_DEV_CHECKS
+#if ZX_DEV_CHECKS
         CallHandler *callHandler = nullptr;
 #else
         static constexpr CallHandler *callHandler = nullptr;
@@ -363,8 +363,8 @@ namespace ee
         LeftRegisters left; // the caller-saved registers as the last call left them (ee::leftByCall)
 
         // abi.cpp's: the safe-point marks and the hooks of ee/markers.h, the last call's results.
-        // (The checker's hooks: ps2xFnCheck sets them; in the app's flavour they are constant nulls.)
-#if ZAXIS_DEV_CHECKS
+        // (The checker's hooks: zx-fncheck sets them; in the app's flavour they are constant nulls.)
+#if ZX_DEV_CHECKS
         MarkerHook markerHook = nullptr;
         SafePointHook safePointHook = nullptr;
 #else
@@ -594,7 +594,7 @@ namespace ee
     // of their saves). A tail call releases the caller's frame first (the
     // callee runs at the caller's sp, as after the original's epilogue).
     // A StackFrame inside still places locals and callees below its own
-    // size. PS2X_READABLE_FRAMES=0: none of this (the model before round 22:
+    // size. ZX_READABLE_FRAMES=0: none of this (the model before round 22:
     // callees kCalleeStackGap below a table entry's sp, a direct callee in
     // its caller's place).
     struct FrameRow
@@ -621,23 +621,23 @@ namespace ee
     // The table's rows: [frameRow(1), frameRow(frameRowCount())].
     uint32_t frameRowCount();
     const FrameRow &frameRow(uint32_t number);
-    // PS2X_READABLE_FRAMES (default 1).
+    // ZX_READABLE_FRAMES (default 1).
     bool framesOn();
-    // PS2X_READABLE_LEAN (default 0; the app's boot sets 1 for AI, gameBootConfig): the proof scaffolding the game can
+    // ZX_READABLE_LEAN (default 0; the app's boot sets 1 for AI, gameBootConfig): the proof scaffolding the game can
     // run without. 1 is the held-register table off (held::on): about a third of the EE thread in AI's and BMX
     // XXX's levels (lean1). Its values only make the callee-saved registers a guest callee gets, and so the saves
     // it writes into dead stack, the original's; what they change is the RAM words listed in lean1's report (the
     // bits a guest function reads from a register it never set, records copied from stack nobody wrote). The
     // A/B, the replay and the logic checks run with it 0.
-    // PS2X_READABLE_LEAN=held,saves,registers: those parts alone. `saves`: none of the original's register saves
+    // ZX_READABLE_LEAN=held,saves,registers: those parts alone. `saves`: none of the original's register saves
     // written into the frames (enterFrame, StackFrame::saveEntry); the original's code times itself by such
     // stack (a quadword strcmp past its NUL), so EE time and with it the heap's layout change (AI's career).
     // `registers`: guest callees get the context's callee-saved registers (applySaves). abi.cpp.
     constexpr uint32_t kLeanHeld = 1u, kLeanSaves = 2u, kLeanRegisters = 4u;
     // The boot's switches, one word: the lean parts, kBootHeldOn (the held-register table on: held::on) and
     // kBootSwitchesRead. readBootSwitches() reads them at each boot (game::readable::install: a collection plays
-    // its games in one process, and the app sets PS2X_READABLE_LEAN per game, gameBootConfig); a run that installs
-    // nothing (ps2xFnCheck, the unit tests) reads them at its first use. Every call asks: a plain load after.
+    // its games in one process, and the app sets ZX_READABLE_LEAN per game, gameBootConfig); a run that installs
+    // nothing (zx-fncheck, the unit tests) reads them at its first use. Every call asks: a plain load after.
     constexpr uint32_t kBootHeldOn = 1u << 30, kBootSwitchesRead = 1u << 31;
     inline std::atomic<uint32_t> g_bootSwitches{0u};
     uint32_t readBootSwitches();
@@ -704,7 +704,7 @@ namespace ee
     // from the entry registers' model (Frame::view) where it has a value, else
     // the context; an argument register's from the call's arguments for a
     // readable callee called directly (ee::t_ee.directArguments; a self-call's,
-    // not known, none). Nothing with PS2X_READABLE_FRAMES=0. abi.cpp. `thread`: this
+    // not known, none). Nothing with ZX_READABLE_FRAMES=0. abi.cpp. `thread`: this
     // thread's state (t_ee), from a caller that has it.
     void enterFrame(FunctionScope &scope, Frame &frame, const FrameRow *layout, uint32_t sp, ThreadState &thread = t_ee);
     void leaveFrame(Frame &frame, const FunctionScope &scope);
@@ -759,7 +759,7 @@ namespace ee
     // original's (drafter24: paths6's movie functions left a heap pointer in
     // three stack words of the card thread and main). abi.cpp.
     void calleeSaves(std::initializer_list<CalleeSave> saves);
-    // PS2X_READABLE_RETURNS (default 1): guest calls return through the
+    // ZX_READABLE_RETURNS (default 1): guest calls return through the
     // published ra as above. 0: every guest call through the runtime's slots
     // (the model before drafter25).
     // (Inline: every placed call asks.)
@@ -767,13 +767,13 @@ namespace ee
     {
         static const bool on = []
         {
-            const char *v = std::getenv("PS2X_READABLE_RETURNS");
+            const char *v = std::getenv("ZX_READABLE_RETURNS");
             return !(v && v[0] == '0');
         }();
         return on;
     }
     // The return address published for the next call (Frame::next's ra), 0
-    // if none (or PS2X_READABLE_RETURNS=0).
+    // if none (or ZX_READABLE_RETURNS=0).
     uint32_t publishedReturn(const Frame &frame);
     // The return address of a call to `target` from the running function:
     // the published one, else the call-site table's (siteReturn, the
@@ -896,7 +896,7 @@ namespace ee
     // through the same dispatch. Each install starts the list again (clearLibraryLeaves). suspend.cpp.
     void noteLibraryLeaf(PS2Runtime::RecompiledFunction entry);
     void clearLibraryLeaves();
-    // PS2X_STACK_POISON_STORES, PS2X_STACK_POISON_FRAMES (abi.cpp): the table's
+    // ZX_STACK_POISON_STORES, ZX_STACK_POISON_FRAMES (abi.cpp): the table's
     // functions get their fill at every entry through the function table. Before
     // the readable functions take their slots (readable.cpp), so `off` and the
     // defaults fill alike.
@@ -906,7 +906,7 @@ namespace ee
     // function's caller left them (a kernel call's wrapper: addiu v1, N;
     // syscall; jr ra), the result is v0. It leaves a fiber as a guest call
     // does, so a kernel call that waits suspends the function (suspend.cpp);
-    // under ps2xFnCheck it is a call of target 0, which no recording holds.
+    // under zx-fncheck it is a call of target 0, which no recording holds.
     int32_t kernelCall(uint32_t number);
 
     namespace detail
@@ -1039,7 +1039,7 @@ namespace ee
     // Emulated EE time. Generated code charges 32 cycles at every backward
     // branch (a loop's safe point) and 8 for every call it dispatches;
     // emulated time decides when vsyncs and interrupts fall, so a readable
-    // function charges what the original would (ps2xFnCheck compares them).
+    // function charges what the original would (zx-fncheck compares them).
     // abi.cpp.
     void chargeCycles(uint64_t cycles);
 
@@ -1060,7 +1060,7 @@ namespace ee
     // scheduler too (8 and a check at the return address).
     //
     // A readable function on a fiber (ee/suspend.cpp: every readable
-    // function in the game while PS2X_READABLE_SAFEPOINTS is on) does the
+    // function in the game while ZX_READABLE_SAFEPOINTS is on) does the
     // same: at the original's safe points it checks, and when a checkpoint is
     // due its fiber leaves (the guest thread unwinds to the scheduler as the
     // original does) and is entered again from the scheduler; from there it
@@ -1069,10 +1069,10 @@ namespace ee
     // they follow the original in both modes; a hand-written function
     // (ee::chargeLoop) gets the checks at its loops and calls and the whole
     // function's charges (exact when its loops are one entry block each).
-    // Under ps2xFnCheck, and with the setting off, only the charges remain:
+    // Under zx-fncheck, and with the setting off, only the charges remain:
     // the model of a call that runs straight through.
     constexpr uint8_t kWhole = 0, kBlocks = 1;
-    // PS2X_READABLE_SAFEPOINTS (default 1): readable functions in the game
+    // ZX_READABLE_SAFEPOINTS (default 1): readable functions in the game
     // honour checkpoints as above. 0: they run each call through, safe
     // points held off (the model before; abi.cpp).
     bool safePointsOn();
@@ -1158,7 +1158,7 @@ namespace ee
     //     ee::selfCall([&] { walkFaceTree(tree, next); });
     //
     // The readable version calls itself in C++ inside selfCall. Under
-    // ps2xFnCheck the inner return's dispatch is charged (8) and, with
+    // zx-fncheck the inner return's dispatch is charged (8) and, with
     // --safepoints, is a safe point, as its replay of the original has it
     // (drafter20); with safe points off only the cycles are charged.
     // When the return address starts an entry block (an entry_ function in
@@ -1169,7 +1169,7 @@ namespace ee
     {
         DirectCall saved;
         bool dispatched; // from an entry block: a dispatched call
-        uint32_t interruptions; // (ps2xFnCheck: CallHandler::interruptions at the call)
+        uint32_t interruptions; // (zx-fncheck: CallHandler::interruptions at the call)
         SavedRegs view;  // the caller's Frame::view (a self-call's callee is modelled from its published values)
         FunctionScope scope; // the inner call's frame (below the caller's, as the original's jal)
     };
@@ -1208,7 +1208,7 @@ namespace ee
     {
         // ee::call and ee::tailCall; `direct`: made by game::call (or
         // game::tailCall) for a readable callee answered from the recording
-        // (ps2xFnCheck), whose signature is all its callers can give it.
+        // (zx-fncheck), whose signature is all its callers can give it.
         template <typename R, typename... A>
         R callWith(uint32_t target, bool tail, bool direct, A... args)
         {
@@ -1307,7 +1307,7 @@ namespace ee
     }
 
     // The RecompiledFunction for a readable function whose callees can wait:
-    // as entry<Fn>, on a fiber (see Suspendable). Under ps2xFnCheck, whose
+    // as entry<Fn>, on a fiber (see Suspendable). Under zx-fncheck, whose
     // calls are answered from a recording, it runs directly.
     template <auto Fn>
     void entrySuspendable(uint8_t *rdram, R5900Context *ctx, PS2Runtime *runtime);

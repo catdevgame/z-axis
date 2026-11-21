@@ -14,7 +14,7 @@
 // frames and on the newer one; otherwise one game frame plus the time the renderer takes to make a frame after its
 // vblank (measured), so the next frame is there when the display time reaches the latched one.
 //
-// PS2X_PERF_LOG=<seconds> prints an [interp] line per interval: pictures between, the refreshes that showed a
+// ZX_PERF_LOG=<seconds> prints an [interp] line per interval: pictures between, the refreshes that showed a
 // frame as it is and why (gs_interpolate::Skip), the refresh intervals, and how long after a frame was made it was
 // first seen moving (first) and shown whole (whole).
 
@@ -27,7 +27,7 @@
 
 class PS2Runtime;
 
-namespace ps2x
+namespace zx
 {
     class FrameInterpolation
     {

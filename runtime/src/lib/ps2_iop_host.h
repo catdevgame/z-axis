@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ps2x/iop/iop_host.h"
-#include "ps2x/iop/iso9660.h"
+#include "zx/disc/iso9660.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -120,7 +120,7 @@ private:
         std::FILE *stream = nullptr;
         uint64_t size = 0u;
         // A file inside the disc image (cdrom0: with IoPaths::cdFromImage).
-        std::shared_ptr<const ps2x::iop::Iso9660Image> image;
+        std::shared_ptr<const zx::disc::Iso9660Image> image;
         uint64_t imageOffset = 0u;
         // Contents changed in memory by a game override (runtime/ps2_disc_patch.h).
         std::shared_ptr<const std::vector<uint8_t>> patched;

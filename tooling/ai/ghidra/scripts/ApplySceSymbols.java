@@ -2,7 +2,7 @@
 // sce_symbol_scanner) as primary labels + entry points, so auto-analysis creates
 // functions there and the PS2Recomp export can classify them as stubs.
 // Arg 0: path to sce-matches.csv (Address,Size,Name,Library,Hash)
-// @category PS2Recomp
+// @category Z-Axis
 
 import ghidra.app.cmd.disassemble.DisassembleCommand;
 import ghidra.app.script.GhidraScript;

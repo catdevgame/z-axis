@@ -8,7 +8,7 @@ class PS2Runtime;
 
 namespace aggressive_inline
 {
-    // The Ape, the Xbox release's secret skater (PS2X_APE=1 and the Xbox
+    // The Ape, the Xbox release's secret skater (ZX_APE=1 and the Xbox
     // files): select screen entry, model, stats, unlock, career record.
     void installApe(PS2Runtime &runtime);
 

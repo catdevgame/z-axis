@@ -61,7 +61,7 @@ namespace fncheck
             {
                 tracer->cycles(cycles);
                 if (tracer->safePointDue(cycles))
-                    return t_chunkLeft = true; // unwinds (ps2xFnCheck --safepoints)
+                    return t_chunkLeft = true; // unwinds (zx-fncheck --safepoints)
             }
             const bool due = PS2Runtime::eeCheckpointDue(cycles);
             if (due)
@@ -81,7 +81,7 @@ namespace fncheck
         // I/O registers (the macros' accesses to special addresses, and the
         // generated code's direct runtime->LoadN / StoreN at constant I/O
         // addresses): kept with their values (fncheck::ioLoad / ioStore), or
-        // answered by ps2xFnCheck.
+        // answered by zx-fncheck.
 #define FNCHECK_IO_ACCESSORS(N, T)                                                                                 \
         T Load##N(uint8_t *rdram, R5900Context *ctx, uint32_t address)                                             \
         {                                                                                                          \
@@ -144,7 +144,7 @@ namespace fncheck
     // safe point). A chunk left any other way (its return, a jump or tail
     // call out, a call that did not come back, a due checkpoint, the hop's
     // included) ends it there, as a whole function's
-    // traced code ends, and the recorder and ps2xFnCheck go on from that pc
+    // traced code ends, and the recorder and zx-fncheck go on from that pc
     // as they do for any traced original (a resume point comes back here, to
     // the chunk that holds it).
     struct TracedChunk
@@ -177,7 +177,7 @@ namespace fncheck
             }
             // The scheduler's dispatch of the next chunk (EeScheduler's slice dispatch: its 8 cycles and a
             // checkpoint): due there, the function unwinds with pc at the chunk, as the game's does, and is resumed
-            // there (ps2xFnCheck --safepoints: an interruption at the hop).
+            // there (zx-fncheck --safepoints: an interruption at the hop).
             if (runtime->eeCheckpointDue(EeScheduler::kGuestDispatchCycles))
                 return;
             chunk = next;
@@ -265,7 +265,7 @@ namespace fncheck
 // From here on the included generated function sees the traced runtime.
 #define PS2Runtime ::fncheck::TracedRuntime
 
-// (a name of its own in each use: PS2X_TRACED_UNITY puts many in one translation unit)
+// (a name of its own in each use: ZX_TRACED_UNITY puts many in one translation unit)
 #define FNCHECK_CONCAT2(a, b) a##b
 #define FNCHECK_CONCAT(a, b) FNCHECK_CONCAT2(a, b)
 #define FNCHECK_UNIQUE(name) FNCHECK_CONCAT(name, __COUNTER__)

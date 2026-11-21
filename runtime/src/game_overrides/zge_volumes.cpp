@@ -29,7 +29,7 @@ namespace zge_host::volumes
             std::array<std::atomic<int>, kMaxVolumes> pending{-1, -1, -1, -1}; // percent, by row
             PS2Runtime::RecompiledFunction frame = nullptr;
         };
-        Volumes &volumes() { return ps2x::session::state<Volumes>(); }
+        Volumes &volumes() { return zx::session::state<Volumes>(); }
 
         // The byte the game's options show.
         uint32_t shown(const Volume &volume) { return volume.saved ? volume.saved : volume.heard; }
@@ -98,7 +98,7 @@ namespace zge_host::volumes
 
         void addRows()
         {
-            namespace st = ps2x::settings;
+            namespace st = zx::settings;
             const Game &game = *volumes().game;
             for (uint32_t row = 0; row < game.count; ++row)
             {
@@ -114,7 +114,7 @@ namespace zge_host::volumes
                 setting.help = volume.help;
                 setting.current = [&game, row]() { return percent(game, row); };
                 setting.apply = [row](int value) { volumes().pending[row].store(std::clamp(value, 0, 100)); };
-                ps2x::session::addSetting(setting);
+                zx::session::addSetting(setting);
             }
         }
     }
@@ -132,7 +132,7 @@ namespace zge_host::volumes
             std::cerr << game.tag << " the volume rows' hook not installed" << std::endl;
             return false;
         }
-        ps2x::settings::post(&addRows);
+        zx::settings::post(&addRows);
         return true;
     }
 }

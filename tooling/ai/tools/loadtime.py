@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Load times of the native build: boot and level loads, wall clock and vsyncs.
 
-    RUNNER=<ps2EntryRunner> loadtime.py NAME [KEY=VAL ...]
+    RUNNER=<zx-runner> loadtime.py NAME [KEY=VAL ...]
 
 Starts the runner (nctl, CPU renderer) on a fresh copy of the unlocked card
 with a saved park (recomp/run/mc-sweep-park, copied to recomp/run/mc-NAME)
@@ -18,7 +18,7 @@ and measures:
 0x231CAC (0 during the loading screen) is past 2, or a message box is up
 (mode 3). Level fly-throughs after it are not counted.
 Polled every 3 vsyncs (LOADTIME_SHOTS=<s>: a screenshot every s seconds of a load). Results: recomp/logs/loadtime-NAME.json and a table.
-KEY=VAL pairs go to the runner's environment (e.g. PS2X_IOP_WAKE=0).
+KEY=VAL pairs go to the runner's environment (e.g. ZX_IOP_WAKE=0).
 """
 import json
 import os
@@ -79,11 +79,11 @@ def main(argv):
     shutil.copytree(os.path.join(run, "mc-sweep-park"), card)
     scratch = os.path.join(run, "scratch-" + name)
     os.makedirs(scratch, exist_ok=True)
-    # PS2X_PAD_PORT1=mirror: `split` reaches MULTIPLAYER with one input
+    # ZX_PAD_PORT1=mirror: `split` reaches MULTIPLAYER with one input
     # (without a second gamepad port 1 is empty and the game skips the icon).
-    env = [f"PS2X_MC_ROOT={card}", f"PS2X_APP_SUPPORT_DIR={scratch}",
-           f"PS2X_APP_LOG_DIR={scratch}", f"PS2X_CONTROLS_INI={scratch}/controls.ini",
-           "PS2X_PAD_PORT1=mirror"] + extra
+    env = [f"ZX_MC_ROOT={card}", f"ZX_APP_SUPPORT_DIR={scratch}",
+           f"ZX_APP_LOG_DIR={scratch}", f"ZX_CONTROLS_INI={scratch}/controls.ini",
+           "ZX_PAD_PORT1=mirror"] + extra
     d = LoadDriver(name)
     results = {}
     t0 = time.time()

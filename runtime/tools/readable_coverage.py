@@ -7,7 +7,7 @@ recompiled game is named, replaced by readable C++, and where the time goes.
 --workspace   the AI workspace (default: AI_WORKSPACE, tooling/paths.env), for
               recomp/ghidra-functions.csv and recomp/generated; the docs are
               this checkout's docs/*.md
---profile     a PS2X_FNPROF profile (address,calls,inclusive_ns,self_ns)
+--profile     a ZX_FNPROF profile (address,calls,inclusive_ns,self_ns)
 --top         how many hot functions to list (default 30)
 
 Counts:
@@ -35,9 +35,9 @@ import readable_symbols
 from collections import Counter, defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PS2RECOMP = os.path.dirname(os.path.dirname(HERE))
-GAME_SRC = os.path.join(PS2RECOMP, "runtime", "src", "game")
-OVERRIDES = os.path.join(PS2RECOMP, "runtime", "src", "game_overrides")
+ZAXIS_TREE = os.path.dirname(os.path.dirname(HERE))
+GAME_SRC = os.path.join(ZAXIS_TREE, "runtime", "src", "game")
+OVERRIDES = os.path.join(ZAXIS_TREE, "runtime", "src", "game_overrides")
 
 # Address ranges of the retail ELF (decomp/README.md).
 AREAS = [
@@ -104,7 +104,7 @@ def documented_addresses(workspace, functions):
     starts = {a for a, _, _ in functions}
     texts = []
     for name in ("BRINGUP.md", "NATIVE.md", "DEVTOOLS.md", "SPU2.md"):
-        path = os.path.join(PS2RECOMP, "docs", name)
+        path = os.path.join(ZAXIS_TREE, "docs", name)
         if os.path.exists(path):
             texts.append(readable_symbols.literal_view(open(path, errors="replace").read()))
     for root, _, files in os.walk(OVERRIDES):

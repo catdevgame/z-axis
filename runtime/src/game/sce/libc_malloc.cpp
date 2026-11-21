@@ -28,7 +28,7 @@
 // __malloc_av_ (initialTop), the page size 4096.
 //
 // The runtime replaces all of it (config.game.toml's stubs: a host allocator over
-// the guest heap, and no recompiled function here), so with nothing for ps2xFnCheck
+// the guest heap, and no recompiled function here), so with nothing for zx-fncheck
 // to compare them with these stay Draft and the runtime's handlers stay the game's.
 
 #include "ee/abi.h"

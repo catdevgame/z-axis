@@ -8,7 +8,7 @@
 //      after an instruction that falls through into it).
 // A candidate is kept only when its flow disassembles without errors. Then auto-analysis runs
 // over the changes. Args: [dry]
-// @category PS2Recomp
+// @category Z-Axis
 import ghidra.app.cmd.disassemble.DisassembleCommand;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.*;

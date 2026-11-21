@@ -1,6 +1,6 @@
 // For recording only (docs/DEVTOOLS.md): a memory card job ends by deleting its
 // thread, so it never returns and the recorder keeps none of it. Under
-// PS2X_JOB_RETURNS, with endSaveJob switched on, the end returns instead,
+// ZX_JOB_RETURNS, with endSaveJob switched on, the end returns instead,
 // so that the job's call comes to its end. Nothing follows that call in a job
 // but the return, except at the auto-load job's usual end, whose code after the
 // call never runs in the game and would walk the slots again. There the first
@@ -18,7 +18,7 @@ namespace zge
 {
     bool saveJobReturnsForRecording()
     {
-        static const bool jobReturns = std::getenv("PS2X_JOB_RETURNS") != nullptr;
+        static const bool jobReturns = std::getenv("ZX_JOB_RETURNS") != nullptr;
         if (!jobReturns)
             return false;
         constexpr uint32_t kAutoLoadFirstSlotFits = 0x20; // its frame's saveFits

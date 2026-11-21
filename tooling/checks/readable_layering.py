@@ -11,8 +11,8 @@ the game's own sources (./src/com, ../GameTools), so where a function sits in ea
 counterparts sit in the others', says which it is (readable_layering_games.tsv). What is counted, in every
 folder but ee/ (the dispatch, which keys its tables by game):
 
-  pp_game         #if / #ifdef / #elif groups whose condition names a game (PS2X_GAME_DM2, PS2X_GAME_BMX,
-                  PS2X_GAME_INSTANCE): one source that is two sources
+  pp_game         #if / #ifdef / #elif groups whose condition names a game (ZX_GAME_DM2, ZX_GAME_BMX,
+                  ZX_GAME_INSTANCE): one source that is two sources
   pp_lines        code lines such a group leaves out of at least one game (ee/game_id.h's games), in a .cpp
   layout_lines    the same in a header: mostly a struct's shape in one game
   one_game_lines  of pp_lines and layout_lines, the lines only one game compiles: its code in a shared file
@@ -50,7 +50,7 @@ The collection (the third layer: runtime/src/collection and include/collection, 
 app and its game picker, the shared settings, the bottom screen, mods) is counted over runtime/src and
 runtime/include by the headers each file includes (a "..." include resolved against the file's folder and the
 runtime's include folders), and by the collection's namespaces a file declares or names in its code (namespace
-ps2x_app / ps2x_android, ps2x_app::, ps2x_android::, ps2x::app::, ps2x::collection::: a collection function declared
+zx_app / zx_android, zx_app::, zx_android::, zx::app::, zx::collection::: a collection function declared
 by hand and called is a reach as an include is): the engine and the games never include the collection, and the
 collection reaches the engine and the games only through their interfaces:
 
@@ -144,14 +144,14 @@ def games_of(root):
 
 # ---------------------------------------------------------------- the preprocessor's game groups
 
-GAME_MACRO = re.compile(r'\bPS2X_GAME_(?!DIR\b|SOURCES\b)\w+')
+GAME_MACRO = re.compile(r'\bZX_GAME_(?!DIR\b|SOURCES\b)\w+')
 
 
 def macros_for(game):
     """The game macros a source of GAME's is compiled with (game.cmake: the instance's definitions)."""
     if game == 'ai':
         return {}
-    return {'PS2X_GAME_INSTANCE': game, 'PS2X_GAME_' + game.upper(): '1'}
+    return {'ZX_GAME_INSTANCE': game, 'ZX_GAME_' + game.upper(): '1'}
 
 
 def evaluate(expr, game):
@@ -164,7 +164,7 @@ def evaluate(expr, game):
 
     def value(m):
         name = m.group(0)
-        if name.startswith('PS2X_GAME_'):
+        if name.startswith('ZX_GAME_'):
             v = defined.get(name, '0')
             return v if v.isdigit() else '1'
         raise KeyError(name)
@@ -496,7 +496,7 @@ def layout_use(code, at):
 # ---------------------------------------------------------------- the collection layer
 
 INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]+"([^"]+)"', re.M)
-COLLECTION_NAMESPACE = re.compile(r'\bnamespace\s+(?:ps2x_app|ps2x_android)\b|\b(?:ps2x_app|ps2x_android|ps2x::app|ps2x::collection)::')
+COLLECTION_NAMESPACE = re.compile(r'\bnamespace\s+(?:zx_app|zx_android)\b|\b(?:zx_app|zx_android|zx::app|zx::collection)::')
 
 
 def runtime_layer(rel):

@@ -1,12 +1,12 @@
-// ps2xGcConvert: what Aggressive Inline takes from its GameCube release and
+// zx-gc-convert: what Aggressive Inline takes from its GameCube release and
 // needs in the PS2's formats, made at build time from the files
 // tools/gc_disc.py extracted from the user's GameCube disc: TUT/Estate, the
 // leftover earlier Tutorial (runtime/ps2_zaxis_estate.h). The packaging step
 // runs it (tools/make-app.sh, tools/make-windows.ps1) and bundles the output
 // folder as Resources/estate (Windows: estate\ next to disc\); the game
-// override serves those files (PS2X_ESTATE_DIR) and converts nothing.
+// override serves those files (ZX_ESTATE_DIR) and converts nothing.
 //
-//   ps2xGcConvert --gc <dir> --out <dir>
+//   zx-gc-convert --gc <dir> --out <dir>
 //
 //   --gc <dir>    the GameCube files, extracted from your own disc
 //                 (tools/gc_disc.py extract --out <dir> assets/levels/TUT/Estate):
@@ -33,8 +33,8 @@ namespace
 
     int usage(const char *why)
     {
-        std::cerr << "ps2xGcConvert: " << why << "\n"
-                  << "usage: ps2xGcConvert --gc <GameCube files> --out <folder> [--picture <file.bmp>]\n";
+        std::cerr << "zx-gc-convert: " << why << "\n"
+                  << "usage: zx-gc-convert --gc <GameCube files> --out <folder> [--picture <file.bmp>]\n";
         return 2;
     }
 
@@ -113,35 +113,35 @@ int main(int argc, char **argv)
     const fs::path estate = findEstate(gcDir);
     if (estate.empty())
     {
-        std::cerr << "ps2xGcConvert: no assets/levels/TUT/Estate in " << gcDir << std::endl;
+        std::cerr << "zx-gc-convert: no assets/levels/TUT/Estate in " << gcDir << std::endl;
         return 1;
     }
-    const ps2x::zaxis::estate::Reader reader = [&estate](const std::string &name, std::vector<uint8_t> &out)
+    const zx::zaxis::estate::Reader reader = [&estate](const std::string &name, std::vector<uint8_t> &out)
     {
         const fs::path file = child(estate, name);
         return !file.empty() && readFile(file, out);
     };
-    ps2x::zaxis::estate::Made made;
+    zx::zaxis::estate::Made made;
     std::string error;
-    if (!ps2x::zaxis::estate::build(reader, made, std::cout, &error))
+    if (!zx::zaxis::estate::build(reader, made, std::cout, &error))
     {
-        std::cerr << "ps2xGcConvert: " << error << std::endl;
+        std::cerr << "zx-gc-convert: " << error << std::endl;
         return 1;
     }
     for (const auto &[name, contents] : made.files)
         if (!writeFile(fs::path(outDir) / name, contents))
         {
-            std::cerr << "ps2xGcConvert: cannot write " << (fs::path(outDir) / name).string() << std::endl;
+            std::cerr << "zx-gc-convert: cannot write " << (fs::path(outDir) / name).string() << std::endl;
             return 1;
         }
     if (!pictureFile.empty())
     {
-        ps2x::zaxis::estate::Picture picture;
-        if (!ps2x::zaxis::estate::renderPicture(made.files["TUT.GEO"], made.files["TUT.INS"], made.files["TUT.TXR"], 256,
+        zx::zaxis::estate::Picture picture;
+        if (!zx::zaxis::estate::renderPicture(made.files["TUT.GEO"], made.files["TUT.INS"], made.files["TUT.TXR"], 256,
                                                 picture, nullptr, &error) ||
-            !writeFile(pictureFile, ps2x::zaxis::estate::pictureBmp(picture)))
+            !writeFile(pictureFile, zx::zaxis::estate::pictureBmp(picture)))
         {
-            std::cerr << "ps2xGcConvert: the picture: " << (error.empty() ? "cannot write " + pictureFile : error) << std::endl;
+            std::cerr << "zx-gc-convert: the picture: " << (error.empty() ? "cannot write " + pictureFile : error) << std::endl;
             return 1;
         }
     }

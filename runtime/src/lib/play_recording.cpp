@@ -19,10 +19,10 @@
 #include "runtime/ps2_settings.h"
 
 #if __has_include("play_recording_commit.h")
-#include "play_recording_commit.h" // ZAXIS_BUILD_COMMIT, written by the build (cmake/BuildCommit.cmake)
+#include "play_recording_commit.h" // ZX_BUILD_COMMIT, written by the build (cmake/BuildCommit.cmake)
 #endif
-#ifndef ZAXIS_BUILD_COMMIT
-#define ZAXIS_BUILD_COMMIT "unknown"
+#ifndef ZX_BUILD_COMMIT
+#define ZX_BUILD_COMMIT "unknown"
 #endif
 
 #include <algorithm>
@@ -32,6 +32,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <sstream>
@@ -473,7 +474,7 @@ namespace play_recording
             s.bytesWritten = sizeof(kMagic);
 
             std::string header;
-            header += "commit=" ZAXIS_BUILD_COMMIT "\n";
+            header += "commit=" ZX_BUILD_COMMIT "\n";
             header += "game=" + info.game + "\n";
             header += std::string("front_end=") + (info.fromApp ? "app" : "runner") + "\n";
             header += "started=" + stamp() + "\n";
@@ -492,8 +493,8 @@ namespace play_recording
             header += deviceLines();
             // Everything a boot reads: the BootConfig's names as this boot
             // reads them, and the process's switches.
-            for (const std::string &name : ps2x::BootConfig::names())
-                if (const char *value = ps2x::boot::text(name.c_str()); value && value[0])
+            for (const std::string &name : zx::BootConfig::names())
+                if (const char *value = zx::boot::text(name.c_str()); value && value[0])
                     header += "boot." + name + "=" + value + "\n";
             for (char **env = environ; env && *env; ++env)
             {
@@ -502,16 +503,16 @@ namespace play_recording
                 if (eq == std::string::npos)
                     continue;
                 const std::string name = entry.substr(0, eq);
-                if ((name.rfind("PS2X_", 0) == 0 || name.rfind("ZAXIS_", 0) == 0) && !ps2x::BootConfig::carries(name))
+                if ((name.rfind("ZX_", 0) == 0 || name.rfind("ZAXIS_", 0) == 0) && !zx::BootConfig::carries(name))
                     header += "env." + entry + "\n";
             }
             // The saves at boot, copied whole: the replay starts from them.
             std::string files;
             copySaves(s, "card1", info.memcardSlot1, files);
             copySaves(s, "card2", info.memcardSlot2, files);
-            if (const char *saves = ps2x::boot::text("PS2X_SAVES_DIR"); saves && saves[0])
+            if (const char *saves = zx::boot::text("ZX_SAVES_DIR"); saves && saves[0])
                 copySaves(s, "saves", saves, files);
-            if (const char *gameplay = ps2x::boot::text("PS2X_GAMEPLAY_INI"); gameplay && gameplay[0])
+            if (const char *gameplay = zx::boot::text("ZX_GAMEPLAY_INI"); gameplay && gameplay[0])
                 copySaves(s, "gameplay.ini", gameplay, files);
             header += files;
             std::string record;
@@ -521,26 +522,34 @@ namespace play_recording
             std::fprintf(stderr, "[record] recording to %s\n", path.string().c_str());
         }
 
-        bool loadReplay(State &s, const std::string &file)
+        // Each whole record of a recording's bytes, in order (a file cut
+        // short by a crash ends at its last whole record). False when the
+        // bytes are not a recording.
+        bool walkRecords(const std::string &bytes, const std::function<void(uint8_t type, Cursor &record)> &each)
         {
-            std::string bytes;
-            if (!readWhole(file, bytes) || bytes.size() < sizeof(kMagic) ||
-                std::memcmp(bytes.data(), kMagic, sizeof(kMagic)) != 0)
-            {
-                std::fprintf(stderr, "[replay] %s is not a recording\n", file.c_str());
+            if (bytes.size() < sizeof(kMagic) || std::memcmp(bytes.data(), kMagic, sizeof(kMagic)) != 0)
                 return false;
-            }
             Cursor c{reinterpret_cast<const uint8_t *>(bytes.data()) + sizeof(kMagic),
                      reinterpret_cast<const uint8_t *>(bytes.data()) + bytes.size()};
-            uint64_t inputs = 0, lastVsync = 0;
             while (c.p < c.end)
             {
                 const uint8_t type = *c.p++;
                 const uint64_t size = c.varint();
                 if (!c.ok || static_cast<uint64_t>(c.end - c.p) < size)
                     break; // cut short: a crash or a kill
-                Cursor r{c.p, c.p + size};
+                Cursor record{c.p, c.p + size};
                 c.p += size;
+                each(type, record);
+            }
+            return true;
+        }
+
+        bool loadReplay(State &s, const std::string &file)
+        {
+            std::string bytes;
+            uint64_t inputs = 0, lastVsync = 0;
+            auto each = [&](uint8_t type, Cursor &r)
+            {
                 switch (type)
                 {
                 case kInput:
@@ -610,6 +619,11 @@ namespace play_recording
                 default:
                     break;
                 }
+            };
+            if (!readWhole(file, bytes) || !walkRecords(bytes, each))
+            {
+                std::fprintf(stderr, "[replay] %s is not a recording\n", file.c_str());
+                return false;
             }
             if (!s.ended)
                 s.endVsync = lastVsync;
@@ -622,6 +636,8 @@ namespace play_recording
     }
 
     Mode mode() { return g_mode.load(std::memory_order_relaxed); }
+
+    const char *buildCommit() { return ZX_BUILD_COMMIT; }
 
     void noteElfImage(const uint8_t *bytes, size_t size)
     {
@@ -648,9 +664,9 @@ namespace play_recording
         s.lastFlushVsync = 0;
         s.vsyncTick = info.vsyncTick;
         s.mode = Mode::Off;
-        const char *replay = ps2x::boot::text("ZAXIS_REPLAY");
-        const char *record = ps2x::boot::text("ZAXIS_RECORD");
-        if (const char *every = ps2x::boot::text("ZAXIS_RECORD_CHECKSUMS"); every && every[0])
+        const char *replay = zx::boot::text("ZX_REPLAY");
+        const char *record = zx::boot::text("ZX_RECORD");
+        if (const char *every = zx::boot::text("ZX_RECORD_CHECKSUMS"); every && every[0])
             s.checksumEvery = std::max<uint64_t>(1u, std::strtoull(every, nullptr, 0));
         else
             s.checksumEvery = kDefaultChecksumEvery;
@@ -659,7 +675,7 @@ namespace play_recording
             if (loadReplay(s, replay))
             {
                 s.mode = Mode::Replay;
-                const char *stopAt = ps2x::boot::text("ZAXIS_REPLAY_STOP");
+                const char *stopAt = zx::boot::text("ZX_REPLAY_STOP");
                 s.stopVsync = stopAt && stopAt[0] ? std::strtoull(stopAt, nullptr, 0) : s.endVsync;
                 // A recording cut short (a crash, a hang the app was killed
                 // in) can be replayed past its last vsync, its inputs held as
@@ -906,7 +922,7 @@ namespace play_recording
         }
         lock.unlock();
         for (const SettingChange &change : apply)
-            ps2x::settings::set(change.key, change.value);
+            zx::settings::set(change.key, change.value);
     }
 
     bool stopRequested()
@@ -969,7 +985,23 @@ namespace play_recording
         results.inputsMisplaced = s.inputMisplaced;
         results.endVsync = s.endVsync;
         results.recordingEnded = s.ended;
+        results.vsync = s.lastVsync;
         return results;
+    }
+
+    void noteEvent(const std::string &kind, const std::string &text)
+    {
+        if (mode() == Mode::Off)
+            return;
+        State &s = state();
+        std::lock_guard<std::mutex> lock(s.mutex);
+        if (!s.file)
+            return;
+        std::string payload;
+        putVarint(payload, nowVsync(s));
+        putString(payload, kind);
+        putString(payload, text);
+        putRecord(s.pending, kEvent, payload);
     }
 
     void noteError(const std::string &text)
@@ -999,5 +1031,90 @@ namespace play_recording
             if (it->path().extension() == ".zrec")
                 ++count;
         return count;
+    }
+    std::string Summary::value(const std::string &key) const
+    {
+        for (const auto &[name, text] : header)
+            if (name == key)
+                return text;
+        return {};
+    }
+
+    bool summarize(const std::filesystem::path &file, Summary &out)
+    {
+        out = {};
+        std::string bytes;
+        uint64_t lastVsync = 0;
+        auto each = [&](uint8_t type, Cursor &r)
+        {
+            switch (type)
+            {
+            case kHeader:
+            {
+                const std::string text(reinterpret_cast<const char *>(r.p), static_cast<size_t>(r.end - r.p));
+                std::istringstream lines(text);
+                for (std::string line; std::getline(lines, line);)
+                    if (const size_t eq = line.find('='); eq != std::string::npos)
+                        out.header.emplace_back(line.substr(0, eq), line.substr(eq + 1));
+                break;
+            }
+            case kFile:
+                if (std::string name = r.string(); r.ok)
+                    out.files.push_back(std::move(name));
+                break;
+            case kInput:
+            {
+                r.varint(); // channel
+                r.varint(); // key
+                r.varint(); // reads since
+                const uint64_t vsync = r.varint();
+                if (r.ok)
+                    lastVsync = std::max(lastVsync, vsync);
+                break;
+            }
+            case kChecksum:
+            case kFrame:
+                if (const uint64_t vsync = r.varint(); r.ok)
+                    lastVsync = std::max(lastVsync, vsync);
+                break;
+            case kEvent:
+            {
+                Summary::Event event;
+                event.vsync = r.varint();
+                event.kind = r.string();
+                event.text = r.string();
+                if (r.ok)
+                    out.events.push_back(std::move(event));
+                break;
+            }
+            case kEnd:
+                out.endVsync = r.varint();
+                out.ended = true;
+                break;
+            default:
+                break;
+            }
+        };
+        if (!readWhole(file, bytes) || !walkRecords(bytes, each))
+            return false;
+        if (!out.ended)
+            out.endVsync = lastVsync;
+        return true;
+    }
+
+    bool readFiles(const std::filesystem::path &file,
+                   const std::function<void(const std::string &name, const std::string &bytes)> &each)
+    {
+        std::string bytes;
+        auto record = [&](uint8_t type, Cursor &r)
+        {
+            if (type != kFile)
+                return;
+            const std::string name = r.string();
+            const std::string contents = r.string();
+            if (r.ok)
+                each(name, contents);
+        };
+        return readWhole(file, bytes) && walkRecords(bytes, record);
     }
 }

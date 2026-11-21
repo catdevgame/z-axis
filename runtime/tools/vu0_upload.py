@@ -3,7 +3,7 @@
 
     vu0_upload.py --game bmx --elf SLUS_204.15 --out GENERATED_DIR/vu0_upload.vif
 
-ps2xFnCheck replays recorded calls with VU0's code memory as the game had uploaded it (ee/fncheck.h
+zx-fncheck replays recorded calls with VU0's code memory as the game had uploaded it (ee/fncheck.h
 Vu0Upload): it sends this stream through the runtime's VIF0 (PS2Memory::processVIF0Data) before its
 replays, so a VCALLMS runs the game's microprogram. game.cmake builds a game's vu0_upload.vif in from
 the folder of its generated code, which goes with the generated code to every host that builds the

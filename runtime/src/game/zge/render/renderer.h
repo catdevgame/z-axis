@@ -19,7 +19,7 @@
 
 namespace zge
 {
-#if !PS2X_GAME_DM2 && !PS2X_GAME_BMX
+#if !ZX_GAME_DM2 && !ZX_GAME_BMX
     // AI's renderer, 0x1B0 bytes.
     struct Renderer
     {
@@ -55,7 +55,7 @@ namespace zge
         Vec4 globalLightDirections[4];   // +0x130 the scene's lights (zge/scene/light.h)
         Vec4 globalLightColours[4];      // +0x170
     };
-#elif PS2X_GAME_DM2
+#elif ZX_GAME_DM2
     // DM2's renderer, 0x130 bytes: no clear packet, no statistics, of the scene lights only their colours. AI's words it
     // does not have stand past the end, for the functions with no DM2 counterpart.
     struct Renderer
@@ -154,7 +154,7 @@ namespace zge
                                           offsetof(Renderer, globalLightColours) == 0x1F0) &&
                   game::readable::perGame(offsetof(Renderer, frame) == 0x0C, offsetof(Renderer, frame) == 0x10,
                                           offsetof(Renderer, frame) >= kRendererBytes));
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
     static_assert(offsetof(Renderer, firstBucketNormalLightMatrix) == 0xB0 && offsetof(Renderer, normalLightMatrix) == 0x130 &&
                   offsetof(Renderer, lightColourMatrix) == 0x170);
 #endif
@@ -193,7 +193,7 @@ namespace zge
     // (beginFramePackets), ZGE2 and ZGE3 take the queue of the frame being built.
     inline ee::Ptr<uint32_t> frameRequestQueue(const Renderer &renderer)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return renderer.frameRequestQueue;
 #else
         return renderer.requestQueues[renderer.frame];
@@ -201,7 +201,7 @@ namespace zge
     }
     inline void startFrameRequestQueue([[maybe_unused]] Renderer &renderer, [[maybe_unused]] ee::Ptr<uint32_t> queue)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         renderer.frameRequestQueue = queue;
 #endif
     }
@@ -210,7 +210,7 @@ namespace zge
     // for the nodes of the first draw bucket; ZGE2 and ZGE3 start every node from the one pair.
     inline Matrix &firstBucketNormalLights(Renderer &renderer)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return renderer.firstBucketNormalLightMatrix;
 #else
         return renderer.normalLightMatrix;
@@ -218,7 +218,7 @@ namespace zge
     }
     inline Matrix &firstBucketLightColours(Renderer &renderer)
     {
-#if PS2X_GAME_BMX
+#if ZX_GAME_BMX
         return renderer.firstBucketLightColourMatrix;
 #else
         return renderer.lightColourMatrix;
