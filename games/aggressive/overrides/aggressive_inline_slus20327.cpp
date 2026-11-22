@@ -336,6 +336,7 @@ namespace
         PS2Machine::RecompiledFunction updateObjectCamera = nullptr;
         PS2Machine::RecompiledFunction behindCamera = nullptr;
         bool running = false; // the hidden camera is running
+        std::unordered_map<uint32_t, uint32_t> levelFrames; // by follow camera: the level's frame count at its last run
     };
     HiddenCameras &hiddenCameras() { return zx::session::state<HiddenCameras>(); }
 
@@ -344,6 +345,25 @@ namespace
     void runHiddenCamera(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime, uint32_t followCamera,
                          PS2Machine::RecompiledFunction update)
     {
+        // A level loaded since the twin's last frame (the level's frame count went back): its cameras were set up
+        // anew, most often at the same addresses (the same level again, or the next one on the same heap), where
+        // the twin would take only the bytes that differ from what the last level's player run left and keep the
+        // rest of the last level's camera (the Cannery after the Boardwalk with Camera Distance 110 %: the view
+        // upside down under the level). So the twin starts afresh from the new camera.
+        uint32_t levelFrame = 0;
+        readU32(rdram, sym::g_levelFrame, levelFrame);
+        uint32_t &lastFrame = hiddenCameras().levelFrames[followCamera];
+        if (levelFrame < lastFrame)
+        {
+            auto stale = hiddenCameras().byFollowCamera.find(followCamera);
+            if (stale != hiddenCameras().byFollowCamera.end())
+            {
+                if (stale->second.valid() && stale->second.blocks().size() == 3)
+                    zge_host::view::dropTwinPose(stale->second.blocks()[2].address);
+                hiddenCameras().byFollowCamera.erase(stale);
+            }
+        }
+        lastFrame = levelFrame;
         zge_host::view::CameraTwin &twin = hiddenCameras().byFollowCamera[followCamera];
         uint32_t object = 0, camera = 0;
         if (!readU32(rdram, followCamera + kCameraNode, object) || !object || !readU32(rdram, object + kSceneObjectScene, camera) ||

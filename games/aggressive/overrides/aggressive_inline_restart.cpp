@@ -529,11 +529,78 @@ namespace aggressive_inline::restart
         };
         Requests &requests() { return zx::session::state<Requests>(); }
 
+        // ---- the level's UI leaving ---------------------------------------------
+        //
+        // The front end gives the level's UI the time it takes to leave; the
+        // level again, from the level through the loader to the level, gave it
+        // none. A level with the in-game editor (the Cannery, the Airfield,
+        // Industrial) loads ParkEditor.zsc beside InGameUI, and its tree goes
+        // 2 seconds after the level ends: shutdownParkEditor plays its
+        // OnDestroyParkEditor ACTION (StartDelay 2: DESTROY Root.ParkEditor).
+        // So the next level's UI was read while the old tree still held its
+        // 124 KB of zgui's 768 KB heap: InGame's libraries found no room
+        // (heapTake answered 0 and zgui made them at guest address 0, the HUD's
+        // boxes then drawn untextured and its text gone), and the old tree's
+        // DESTROY then came and took the ParkEditor library the new tree had
+        // found already loaded. Not the disc's speed: zgui's ACTIONs do not
+        // step while loadLevel runs, so the 2 seconds would start in the new
+        // level on the PS2 too; the shipped game never goes from a level to a
+        // level without the front end (its one such path,
+        // inlinePauseRestartFromLoad, no page calls). The loader now waits, as
+        // the front end would, until zgui has no ACTION playing and no node
+        // queued to go.
+        constexpr uint32_t kZguiPlaying = sym::g_playing;                // zge::List of the ACTIONs playing
+        constexpr uint32_t kZguiDestroyQueue = sym::g_zgui + 0x284u;     // Zgui::destroyQueue (zge/zgui/widget.h)
+        constexpr uint32_t kListCount = 0x08u;                           // zge::List::count
+        constexpr uint32_t kLoaderCountdown = sym::g_frameCountdown;     // byte: the loader's frames so far
+        constexpr uint32_t kTopStateLoader = sym::topStates + 2u * 0x14u; // state 2, the loader (records of 0x14 bytes)
+        // At most 10 seconds (the ACTION's own wait is 2): a UI that never
+        // stops playing still gets its level.
+        constexpr uint32_t kTeardownFramesMax = 600u;
+
+        struct Teardown
+        {
+            std::atomic<bool> waiting{false};
+            uint32_t frames = 0;
+        };
+        Teardown &teardown() { return zx::session::state<Teardown>(); }
+
+        // At VBlank while the level again waits in the loader: its frame
+        // count held at 0 while zgui is still busy with the level's UI.
+        void waitForUiTeardown(uint8_t *rdram)
+        {
+            Teardown &t = teardown();
+            const uint32_t state = readWord(rdram, kTopState);
+            if (state != kTopStateLoader)
+            {
+                if (state == kTopStateLevel && t.frames == 0)
+                    return; // (the restart's frame: the loader not entered yet)
+                t.waiting = false;
+                return;
+            }
+            const uint32_t playing = readWord(rdram, kZguiPlaying + kListCount);
+            const uint32_t queued = readWord(rdram, kZguiDestroyQueue + kListCount);
+            if ((playing != 0u || queued != 0u) && t.frames < kTeardownFramesMax)
+            {
+                if (uint8_t *p = getMemPtr(rdram, kLoaderCountdown))
+                    *p = 0u;
+                ++t.frames;
+                return;
+            }
+            std::cout << "[restart] the level's UI gone after " << t.frames << " frames in the loader";
+            if (playing != 0u || queued != 0u)
+                std::cout << " (still " << playing << " playing, " << queued << " queued: loaded anyway)";
+            std::cout << std::endl;
+            t.waiting = false;
+        }
+
         void prepareLevelLoad(uint8_t *rdram)
         {
             writeWord(rdram, kLoaderTarget, kStateLevel);
             if (uint8_t *p = getMemPtr(rdram, kLoaderDelay))
                 *p = 1u;
+            teardown().frames = 0;
+            teardown().waiting = true;
         }
     }
 
@@ -602,8 +669,10 @@ namespace aggressive_inline::restart
         return true;
     }
 
-    void onVsync(const uint8_t *rdram)
+    void onVsync(uint8_t *rdram)
     {
+        if (teardown().waiting.load())
+            waitForUiTeardown(rdram);
         if (readWord(rdram, kTopState) == kTopStateLevel)
             return;
         requests().pending = Request::None;

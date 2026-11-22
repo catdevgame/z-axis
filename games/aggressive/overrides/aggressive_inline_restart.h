@@ -40,8 +40,9 @@ namespace aggressive_inline::restart
     // True if it ran (the caller returns without updating).
     bool runPending(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime);
     // At VBlank: out of the level (the top-level state is the front end or
-    // the loader), pending requests and the challenge record are dropped.
-    void onVsync(const uint8_t *rdram);
+    // the loader), pending requests and the challenge record are dropped;
+    // the level again waits in the loader until the level's UI has gone.
+    void onVsync(uint8_t *rdram);
 
     // Career: a challenge was given in this level and can be given again
     // (its attempt is running, or failed back to its giver).
