@@ -4,6 +4,8 @@
 // elsewhere a console fallback). All calls are made on the window thread
 // once the host window exists (ps2_host::initialize).
 
+#include "collection/updater.h"
+
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -45,7 +47,7 @@ namespace zx_app::platform
     // macOS: the View menu (full screen, scaling, widescreen, renderer, pause
     // in background) and the File menu (folder shortcuts, Switch Game...),
     // next to the window library's own app and Window menus. Windows: the
-    // folder shortcuts and Switch Game... in the window's system menu.
+    // same items in the window's system menu.
     void installMenus(const MenuActions &actions);
 
     // Native full screen where there is one; false: use the window library.
@@ -62,6 +64,12 @@ namespace zx_app::platform
     // settings page of its own).
     void setOpenSettingsAction(std::function<void()> action, std::function<bool()> available);
 
+    // Frame Interpolation (the Display setting) turned on or off. Android: the
+    // screen is asked for collection/refresh_rate.h's rate (120 Hz while it is
+    // on, where the screen has 120; the game's 60 otherwise). Elsewhere
+    // nothing: the display keeps the refresh the player gave it.
+    void frameInterpolationChanged(bool on);
+
     // The system's own picker for a disc image or a disc's folder, where the
     // app reads picks as documents and not paths (Android: its documents
     // UI, a folder picked whole; collection/game_setup.h DocumentAccess).
@@ -69,7 +77,25 @@ namespace zx_app::platform
     // any thread, none when the player backs out. False: no such picker
     // here (the window library's dialogs give paths).
     bool pickDocuments(bool folder, std::function<void(std::vector<std::string>)> picked);
+    // The same for documents read once, now (a mod copied into the app's
+    // folder): no permission to read them is kept past this run. False: no
+    // such picker here.
+    bool pickDocumentsOnce(bool folder, std::function<void(std::vector<std::string>)> picked);
     // The same for a new document the player names (`name` suggested) and
     // places: its URI to `created`. False: no such picker here.
     bool createDocument(const std::string &name, const std::string &mimeType, std::function<void(std::string)> created);
+    // The system's one picker for a folder or a file of the type
+    // `extension` ("zip": a mod's folder or its .zip), where it has one
+    // (macOS: an open panel that takes both). The picked paths come to
+    // `picked` on the window thread, none when the player backs out.
+    // False: no picker here takes both (Windows' and Android's pick one or
+    // the other: the caller asks which first).
+    bool pickFolderOrFile(const std::string &extension, std::function<void(std::vector<std::string>)> picked);
+
+    // The app's own update (collection/updater.h): how this platform
+    // downloads, unpacks, puts a release's package in place and starts the
+    // app again (macOS: the .app bundle swapped whole; Windows: the app
+    // folder's files; Android: the system's package installer). Install::None
+    // where there is none (the console builds, a runner outside a bundle).
+    zx::collection::UpdatePlatform updatePlatform(const char *argv0);
 }

@@ -1896,6 +1896,7 @@ class Log:
     """Each read as a line of samples, for `report`."""
 
     def __init__(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)   # (a fresh scratch folder has no measure/ yet)
         self.f = gzip.open(path, 'wt', compresslevel=3)
         self.n = 0
 

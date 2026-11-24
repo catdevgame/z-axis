@@ -223,6 +223,14 @@ namespace ps2_host
     // (frames shown as soon as they are ready, if the GPU driver can).
     void setVsync(bool vsync);
     bool vsync();
+    // Frame interpolation on or off (the window loop, when it changes). Android: one presented picture in flight
+    // while it is on (SDL's default two otherwise). Its present waits until the GPU has drawn the picture before,
+    // the system's throttle, and SDL waits there holding the lock every submit takes: at 120 Hz the GS worker's
+    // submits waited behind it (the game at 55.6 frames a second on the Thor). With one in flight that wait comes
+    // at the acquire, before the lock (59.8). On Direct3D 12 SDL's acquire waits holding that lock too: while it
+    // is on, waitForRefresh asks for the swapchain picture without waiting until it is ready. Elsewhere nothing
+    // changes (ZX_FRAMES_IN_FLIGHT=1..3 sets it anywhere, for measuring).
+    void setInterpolatedPresents(bool on);
     // Variable refresh (G-Sync, FreeSync, adaptive sync, ProMotion): the
     // window shows each game frame when it is ready, and the display
     // follows; off, the window shows the newest frame at each refresh of a
@@ -231,6 +239,10 @@ namespace ps2_host
     // phase lock). ZX_VRR=1 at start, or the app's setting.
     void setVariableRefresh(bool on);
     bool variableRefresh();
+    // The refresh period of the display the window is on, in ns, from its display mode (a variable refresh display:
+    // its top rate); 0 when not known (no window). Window thread. Frame interpolation starts by it while no
+    // refresh is measured yet.
+    int64_t displayRefreshNs();
 
     // Writes the top-left width x height of an RGBA8 image as an opaque
     // PNG, scaled (bilinear) to outWidth x outHeight if those are not 0.
@@ -279,4 +291,35 @@ namespace ps2_host
     };
     std::vector<MapPointerEvent> takeMapEvents();
     bool takeMapWindowClosed();
+
+    // ---- a picture over the game's -------------------------------------------
+    // One RGBA picture drawn over the game's at every present (the
+    // collection's bottom screen on one screen, collection/panel_overlay.h),
+    // in a place of the window, opaque, under the player's messages. While
+    // it is placed, the pointer over it is its own: a left press inside it,
+    // the moves until the release and the release, a direct touch screen's
+    // fingers that go down inside it, and the wheel over it come back from
+    // takeOverlayPointerEvents and the game's input does not see them (a
+    // captured cursor, which has no place, stays the game's). Window thread.
+    // The picture (RGBA8, stride in bytes), copied now; shown from the next
+    // present while placed.
+    void setOverlayPicture(const uint8_t *rgba, uint32_t width, uint32_t height, uint32_t stride);
+    // Where it is drawn, as fractions of the window's width and height; an
+    // empty place hides it (and lets go of the pointer).
+    void placeOverlay(float x, float y, float width, float height);
+    struct OverlayPointerEvent
+    {
+        enum Kind
+        {
+            Down,
+            Move,
+            Up,
+            Wheel,
+        } kind = Down;
+        int pointer = 0;    // the mouse 0, a finger its own number from 1
+        float x = 0.0f;     // in the picture's pixels
+        float y = 0.0f;
+        float wheel = 0.0f; // Wheel: up positive
+    };
+    std::vector<OverlayPointerEvent> takeOverlayPointerEvents();
 }

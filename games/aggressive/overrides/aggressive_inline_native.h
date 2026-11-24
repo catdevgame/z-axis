@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <functional>
 

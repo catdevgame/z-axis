@@ -162,7 +162,7 @@ namespace zx_android
         AndroidDocuments g_documents;
     }
 
-    bool pickDocuments(bool folder, std::function<void(std::vector<std::string>)> picked)
+    bool pickDocuments(bool folder, bool keep, std::function<void(std::vector<std::string>)> picked)
     {
         JNIEnv *env = jniEnv();
         if (!env || !g_class)
@@ -171,7 +171,10 @@ namespace zx_android
             std::lock_guard lock(g_pickedMutex);
             g_picked = std::move(picked);
         }
-        return inFrame(env, [&]() { return env->CallStaticBooleanMethod(g_class, g_pick, static_cast<jboolean>(folder)) == JNI_TRUE; });
+        return inFrame(env, [&]()
+        {
+            return env->CallStaticBooleanMethod(g_class, g_pick, static_cast<jboolean>(folder), static_cast<jboolean>(keep)) == JNI_TRUE;
+        });
     }
 
     bool createDocument(const std::string &name, const std::string &mimeType, std::function<void(std::string)> created)
@@ -199,7 +202,7 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_catdevgame_zaxiscollection_Docu
     if (!g_class)
     {
         g_class = static_cast<jclass>(env->NewGlobalRef(documents));
-        g_pick = env->GetStaticMethodID(documents, "pick", "(Z)Z");
+        g_pick = env->GetStaticMethodID(documents, "pick", "(ZZ)Z");
         g_create = env->GetStaticMethodID(documents, "create", "(Ljava/lang/String;Ljava/lang/String;)Z");
         g_stat = env->GetStaticMethodID(documents, "stat", "(Ljava/lang/String;)[Ljava/lang/String;");
         g_list = env->GetStaticMethodID(documents, "list", "(Ljava/lang/String;)[Ljava/lang/String;");

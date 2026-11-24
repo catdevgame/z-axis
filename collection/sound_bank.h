@@ -21,9 +21,9 @@
 // The sound is made as the games' own driver makes it: the voice's pitch is
 // the sample's times the reference's pitch base (0x1000 = 44.1 kHz), its
 // envelope the sample's rates in the SPU2's ADSR words, and it plays on an
-// SPU2 voice (runtime/spu_voice.h) at 48 kHz.
+// SPU2 voice (zge/native/spu_voice.h) at 48 kHz.
 
-#include "runtime/spu_voice.h"
+#include "zge/native/spu_voice.h"
 
 #include <array>
 #include <cstddef>

@@ -98,7 +98,7 @@ namespace zx::app
         }
 
         // The Xbox files' assets folder: the folder given is the disc's root,
-        // its media folder or the assets folder (runtime/xbox_disc.h).
+        // its media folder or the assets folder (runtime/xbox_files.h).
         fs::path xboxAssets(const fs::path &root)
         {
             if (root.empty())

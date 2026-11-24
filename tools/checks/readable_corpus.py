@@ -113,7 +113,7 @@ ROUTES = {
     'levels-4': ('route', 'boot; freeskate 4; skate 1', None, FRONT_END_SKIPPED, 'free skate in level 4, one round of skating (a segment of the old levels route)'),
     'levels-5': ('route', 'boot; freeskate 5; skate 1', None, FRONT_END_SKIPPED, 'free skate in level 5, one round of skating (a segment of the old levels route)'),
     'levels-6': ('route', 'boot; freeskate 6; skate 1', None, FRONT_END_SKIPPED, 'free skate in level 6, one round of skating (a segment of the old levels route)'),
-    'levels-8': ('route', 'boot; freeskate 8; skate 1', None, FRONT_END_SKIPPED, 'free skate in level 8, one round of skating (a segment of the old levels route)'),
+    'levels-8': ('route', 'boot; freeskate 8; skate 2', None, FRONT_END_SKIPPED, 'free skate in level 8, the Estate, two rounds of skating (its round is shorter than the others\': 2,241 frames)'),
     'gs': ('route', 'boot; tutorial; skate 1', None, dict(FRONT_END_SKIPPED, ZX_GS_NULL=None, ZX_VU1_SKIP=None),
            'the Tutorial with the GS on (the CPU renderer): the renderers the null GS never calls'),
     # Round 12 (engine): routes to the functions the ten above never reached.
@@ -143,11 +143,16 @@ ROUTES = {
 # juice kept up, the approach's velocity on a teleport, every trick unlocked
 # (tweaks, logged in the route's mash-SEED.jsonl).
 MASH_TWEAKS = 'tweaks=juice,push,tricks'
-APP_RESOURCES = os.path.join(WORKSPACE, 'dist', 'Aggressive Inline.app', 'Contents', 'Resources')
+# (routes5) the collection app's AI files (Resources/games/ai): the AI-only app's Resources, which this named before, is
+# gone, so ZOO_ON and ESTATE_ON pointed nowhere
+APP_RESOURCES = os.path.join(WORKSPACE, 'dist', 'Z-Axis Collection.app', 'Contents', 'Resources', 'games', 'ai')
 ZOO_ON = {'ZX_ZOO': '1', 'ZX_XBOX_CONVERTED': os.path.join(APP_RESOURCES, 'xbox-converted')}
 # Estate's files: the app's when it was built with a GameCube image, else READABLE_ESTATE_DIR.
 ESTATE_ON = dict(ZOO_ON, ZX_ESTATE='1',
                  ZX_ESTATE_DIR=os.environ.get('READABLE_ESTATE_DIR') or os.path.join(APP_RESOURCES, 'estate'))
+# (routes5) levels-8's entry 8 is the Estate, there only with it on (as mash-estate's): without it the route never
+# reached the Estate
+ROUTES['levels-8'] = ROUTES['levels-8'][:3] + (dict(FRONT_END_SKIPPED, **ESTATE_ON),) + ROUTES['levels-8'][4:]
 for _k, _name in enumerate(('Tutorial', 'Movie Lot', 'Civic Center', 'Industrial', 'Boardwalk', 'Cannery',
                             'Airfield', 'Museum')):
     ROUTES['mash-%d' % _k] = ('route', 'boot; career %d; mash 10800 %d %s; mash 10800 %d %s' % (

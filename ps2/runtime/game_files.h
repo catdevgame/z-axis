@@ -186,6 +186,8 @@ namespace zx::game_files
     // it is; the bytes after them are the file's own, and a head longer than
     // the file makes it that long. Asked once a boot for each file found at
     // the path (by its source and size); the boot's, as providers are.
+    // Several heads for one path are made in the order they were registered,
+    // each from the file as those before it left it.
     using Head = std::function<std::shared_ptr<const std::vector<uint8_t>>(GameFile &file)>;
     void registerHead(const std::string &path, Head make, std::string name = {});
     void removeHeads(const std::string &name);

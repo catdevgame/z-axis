@@ -25,7 +25,8 @@ you have not added, the readable code, or something the platform lacks (a second
 The collection menu has its own Settings page for what spans the games: the window and sound rows every game shares,
 the games' discs (Settings > Games), Mods, Save Profiles (each game's careers: Save Profile picks the one it plays
 from its next start, New Save Profile starts another, Copy Save Profile copies the chosen one's save and time played),
-Record Play and its Recordings, Custom Freeplay, and the menu's intro movie and music. Settings > Recordings lists
+Record Play and its Recordings, Custom Freeplay, the menu's intro movie and music, and last Check for Updates and
+Roll Back Update (the app's own update and the version it replaced: README.md "Updates"). Settings > Recordings lists
 every game's recordings with their level, date and length. Choosing one plays it back exactly as it was played, from
 the saves it was recorded with, which stay apart from yours (docs/CONTROLS.md "Watching a recording").
 
@@ -33,7 +34,9 @@ the saves it was recorded with, which stay apart from yours (docs/CONTROLS.md "W
 
 **Display**: Display Mode (window, full screen, and on macOS and Windows borderless; Android is always full screen and
 has no Display Mode row), Scaling (smooth, integer), VSync, Variable Refresh, Frame Interpolation (pictures between
-the game's frames on a display faster than 60 Hz, GPU renderer, off by default), Widescreen (drawn only: the game
+the game's frames on a display faster than 60 Hz, GPU renderer, off by default; on Android it puts a 120 Hz
+screen at 120 Hz while it is on, the screen otherwise at the game's 60; only with Variable Refresh off: with it on,
+each game frame is shown when it is ready and no picture between is made), Widescreen (drawn only: the game
 plays as at 4:3, so what only the sides show stays still, as just off a 4:3 screen), Wide Aspect (16:9, 16:10, 21:9,
 32:9, the window's), Show Frame Rate, Pause in Background, Map Window (the bottom screen in a second window; not on
 Android), Always on Top (the Map Window kept above other windows; off by default), Clean Top Screen (only while a
@@ -56,7 +59,8 @@ distances with it. In Aggressive Inline: split screen's 100 to 250 or 1000, and 
 level's, single player's too.
 
 **Sound**: Master Volume, Music Volume, Effects Volume, Speech Volume (Aggressive Inline and BMX XXX; Dave Mirra
-BMX 2 has none), Movie Volume, French Voices (Aggressive Inline with the Xbox files, below), Mute in Background. The
+BMX 2 has none), Movie Volume, French Voices (Aggressive Inline with the Xbox files, below), Mute in Background, Shuffle (the soundtrack in
+a random order, all three games, off by default: below, "Shortcuts"). The
 game volumes are the game's own Options > Sound values, read from and set through the game, so both pages show the
 same.
 
@@ -118,7 +122,7 @@ In the collection's support folder (README "Your discs"):
 - `settings.ini` at its root, what every game shares: `[display]` (window, full screen, scaling, vsync, aspect,
   the frame rate, the map window, Clean Top Screen, Xbox textures, skaters and movies, texture dump), `[graphics]` (renderer,
   resolution, full height, motion blur, the picture quality rows, depth test, render path), `[audio]` (master and
-  movie volume, mute in background), `[general]` (pause in background, skip intro movies, log file, record play,
+  movie volume, mute in background, shuffle), `[general]` (pause in background, skip intro movies, log file, record play,
   Custom Freeplay), `[host] disc`, `[menu]` (the collection menu's intro movie and music) and `[mod order]`.
 - `games/<id>/settings.ini`, the game's own options: `[general] language`, `french_voices`, `developer_menu`,
   `[gameplay]` (draw distance, tuning, career scripts), `[extras]` (each extra's switch), `[saves] profile` (the
@@ -132,7 +136,13 @@ Each file's comments say what each key takes. The developer runner reads the sam
 
 - PC shortcuts, the same in all three games (`controls.ini` `[hotkeys]`): Restart (Backspace; gamepad L3+R3), Hide
   HUD (F9), Screenshot (F12), Photo Mode (P), Switch Game (F8: back to the collection menu; it has no row, change it
-  in `controls.ini`). Each has a `<name>_pad` chord.
+  in `controls.ini`), Previous Track (F5; gamepad L3+L1), Next Track (F6; gamepad L3+R1), Shuffle (F7; on a handheld: Settings > Sound > Shuffle). Each has a `<name>_pad` chord.
+- Next Track and Previous Track, in a level with music: the song after or before the one playing, of the songs the
+  game has on (Aggressive Inline's pause menu Playlist; every song in Dave Mirra BMX 2 and BMX XXX) and the songs
+  mods add (docs/MODS.md "Songs"), as the game's own Next Track asks for one (in play, or paused). With Shuffle on,
+  Next Track is a song at random and Previous Track the song played before. Shuffle (the key, or Settings > Sound):
+  when a song ends, a song at random instead of the next, none twice until each has played; the level's first song
+  too. With Shuffle off the game picks as it always has; a game set to repeat its song keeps repeating it.
 - Restart does what fits the mode, and acts only in play. Aggressive Inline: the challenge you were given again
   (Career; else the level), the lesson (Tutorial), the level (Free Skate) or the run (Timed Run, split screen). Dave
   Mirra BMX 2: the run again from its start (a free ride's or a timed one's). BMX XXX: the turn from its start. The
@@ -144,6 +154,26 @@ Each file's comments say what each key takes. The developer runner reads the sam
 - Exit to Collection, in each game's main menu and pause menu, goes back to the collection menu without restarting
   the app (Aggressive Inline's Quit to Desktop item becomes it). Aggressive Inline asks "Are you sure?" first before
   Level Select, Exit Game and that item, as its Xbox release does.
+
+## Practice (Settings > Game > Practice)
+
+Off by default. On, the `practice_point` key (F2; on a gamepad L3+L2, `practice_point_pad`) sets a
+restart point where the player is, and Restart goes back to it instead of restarting; with no point Restart does what
+it did. A point can be set only on the ground. Each try is timed in the game's seconds of play from the point (not
+while paused), shown top left as it runs; going back shows its time and the best ("Try 3: 2.47   Best 1.48"). The
+point goes when the level is left. What comes back:
+
+- Aggressive Inline: the skater where the point was, heading and speed as there, and the juice: through the game's own
+  respawn (as its challenge retry), then rolling on at the point's speed. The level's own state (score, goals,
+  pickups, a Timed Run's clock) goes on as played.
+- Dave Mirra BMX 2 and BMX XXX (single player in DM2): the rider stopped, on the ground face nearest the point, heading
+  as there: the games' own respawn (as after a bail) aimed at the point. Their speed lives in the wheels, which no
+  placement of the game's sets, so the rider starts again from rest.
+
+The setting is the app's (`[general] practice` in the root settings.ini); a developer run without the app turns it on
+with `ZX_PRACTICE=1`. Code: `engine/overrides/zge_practice.cpp` (keys, clock, lines), `zge_practice_rider.cpp`,
+`aggressive_inline_practice.cpp`, `dave_mirra_practice.cpp`, `bmx_xxx_practice.cpp`; the row is
+`collection/practice.cpp`.
 
 ## Photo mode
 
@@ -262,7 +292,7 @@ unless its variable is set.
 is English only; the Xbox release has French, German and Spanish. Its files come from your Xbox disc, copied once when
 it is set up (Settings > Games), or at build time: platform/mac/make-app.sh (`XBOX_ISO`) and make-windows.ps1
 (`-XboxIso`) extract the image and bundle what tools/modding/xbox-files.txt lists into Resources/xbox (`ZX_XBOX_DIR`,
-read through `ps2_xbox_disc`). The game never reads an image.
+read through `zx::xbox_files`). The game never reads an image.
 
 **Rows** (only when the files are there): Game > Language (English, Français, Deutsch, Español; next start;
 settings.ini `language = english|french|german|spanish`) and Sound > French Voices (live; `french_voices =
@@ -418,6 +448,7 @@ The players' guide is docs/MODS.md. Mods are folders or zips (read in place, nev
 | `ASSETS/...`, `MOVIES/...`, any disc path (names compared without case) | that file of the game's disc, through the engine's file system (`runtime/game_files.h`; the game's own in-memory patches, such as the Settings menus' scripts, still apply on top) |
 | `ASSETS/<NAME>.ZAL/<entry>` (a folder named as an archive) | just those entries of that archive, put in the archive the game reads (below it on the disc or a mod's), the lowest mod's first, so mods with other entries combine (`zal/zal_archive.h`; MODS.md "Archives", `zal`) |
 | `Music/NN*.ogg` (`.wav`, `.opus`, `.flac`, `.mp3`) | song NN of the soundtrack, in all three games (AI 01 to 13, DM2 01 to 10, BMX XXX 01 to 20; `zge_sound.cpp`) |
+| `Music/<any other song>` | a song added after the soundtrack's (MUSIC.ZSD served with a wave more for each; `zge_sound.cpp`, `zge_soundtrack.cpp`; MODS.md "Songs") |
 | `tuning.ini` | Aggressive Inline's tuning overrides, and BMX XXX's GameCube TUNING rows on BMX XXX's and on Dave Mirra BMX 2's own values (docs/MODS.md "tuning.ini", `docs/DEVTOOLS.md`) |
 | `Textures/<game>/` (or the disc serial, or `Textures/` for a mod of one game) | the GPU renderer's replacement pictures (`ZX_TEXTURE_PACKS`) |
 | `[map]` in `mod.ini`, or `map.ini` | a custom map (Custom Freeplay, below), read by no other start |

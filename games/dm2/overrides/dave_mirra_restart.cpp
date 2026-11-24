@@ -42,6 +42,7 @@
 // table (the line's index is kept here), so the game's own state is as
 // without it but for the Items text and VisibleCount.
 #include "dave_mirra.h"
+#include "dave_mirra_practice.h"
 #include "sym/game_overrides/dave_mirra_restart.cpp.h"
 #include "overrides/zge_host.h"
 #include "overrides/zge_settings_open.h"
@@ -322,6 +323,20 @@ namespace dave_mirra::restart
     void actionFrame(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
     {
         State &st = state();
+        // Practice (dave_mirra_practice.cpp): a restart point made or gone
+        // back to while a turn runs and play is live, the return in place of
+        // the frame; the frame's time to the try's clock.
+        {
+            const uint8_t *phase = getConstMemPtr(rdram, kRoundPhase);
+            const uint8_t *step = getConstMemPtr(rdram, kActionStep);
+            if (phase && step && *step == kPlayPausable && (*phase == kFreeTurnPhase || *phase == kTurnRunningPhase) &&
+                practice::playFrame(rdram, ctx, runtime))
+            {
+                setReturnU32(ctx, 0u);
+                ctx->pc = getRegU32(ctx, kRegRa);
+                return;
+            }
+        }
         if (st.keyPending)
         {
             st.keyPending = false;

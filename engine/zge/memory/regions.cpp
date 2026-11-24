@@ -10,10 +10,12 @@
 #include "ee/abi.h"
 #include "ee/dispatch.h"
 #include "ee/readable.h"
+#include "ee/readable_waits.h"
 #include "ee/plain.h"
 #include "ee/function_ptr.h"
 #include "pool.h"
 #include "zge/container/array.h"
+#include "zge/platform/platform.h"
 #include "zge/text/cstring.h"
 
 #include <cstdint>
@@ -206,6 +208,16 @@ namespace zge
         }
     }
     READABLE_FUNCTION(largestFreeBlock, Verified); // handed on: none: malloc and free take one
+
+    // freeHeapBytes (ZGE4 only, where ZGE3 has testHeapLimits and largestFreeBlock): the heap's free bytes, from
+    // the platform's count (mallocFreeBytes on the PS2). The GameCube build's prints them when its second word is
+    // set ("ZMEM: Free memory: %dKb", "> %dKb" from 128 MB up); the PS2 build's print is gone, and it reads
+    // neither of the two words its callers pass (1 KB, unread on the GameCube too, and 0).
+    inline uint32_t freeHeapBytes()
+    {
+        return mallocFreeBytes();
+    }
+    READABLE_FUNCTION_ONLY(bmx, freeHeapBytes);
 
     // newMemoryRegion: a region over `memory`, or over a block of its own taken
     // from the heap when that is 0.

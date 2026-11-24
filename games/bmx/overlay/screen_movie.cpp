@@ -101,7 +101,7 @@ namespace game::bmx
             return;
         }
     }
-    READABLE_FUNCTION(movieConfirmScreenMessage, Draft);
+    READABLE_FUNCTION(movieConfirmScreenMessage, Verified);
 
     // featureScreenMessage: the frame counts its captions in its
     // "FeatureNum". Each caption fades in with its text and, once it has

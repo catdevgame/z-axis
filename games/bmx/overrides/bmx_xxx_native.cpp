@@ -26,7 +26,7 @@
 #include "host/native_draws.h"
 
 #include "runtime/boot_config.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/gs_shots.h"
 
 #include <cstring>

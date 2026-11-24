@@ -350,11 +350,13 @@ namespace zge
     READABLE_FUNCTION(particleSpawnVelocity, Draft);
 
     // findEmitterDefinition: the emitter definition with that name's hash, 0
-    // if none.
+    // if none. ZGE3 walks the array's room (its capacity), ZGE4 (BMX XXX)
+    // only the definitions it holds (its count).
     ee::Ptr<EmitterDefinition> findEmitterDefinition(uint32_t nameHash)
     {
-        const int32_t capacity = cursorArrayCapacity(*g_emitterDefinitions);
-        for (int32_t index = 0; index < capacity; index++)
+        const int32_t walked = game::readable::kIsBmx ? pointerArrayCount(*g_emitterDefinitions)
+                                                      : cursorArrayCapacity(*g_emitterDefinitions);
+        for (int32_t index = 0; index < walked; index++)
         {
             const ee::Ptr<EmitterDefinition> definition(pointerArrayAt(*g_emitterDefinitions, index));
             if (definition->nameHash == nameHash)

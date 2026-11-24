@@ -19,6 +19,7 @@ namespace sce::libc
     uint32_t malloc(uint32_t nbytes);
     void free(uint32_t aptr);
     void malloc_stats();
+    ee::Ptr<MallocInfo> mallinfo(ee::Ptr<MallocInfo> result); // the record comes back through `result`
     void __malloc_lock(ee::Address ptr);   // stdlib/mlock.c: empty in this build
     void __malloc_unlock(ee::Address ptr);
     int64_t strtol(ee::Address s, ee::Address ptr, int32_t base);

@@ -593,6 +593,11 @@ class Player:
             return self.on_one_wheel(st)
         if st.physics in (GRIND_APPROACH, STALL_APPROACH, LIP_APPROACH):
             return core.NOTHING
+        # (draft2) a task that must not bail (a timed goal's run, AIR_QUIET=1, or the task's own quiet_air): no
+        # trick, spin, lip or grind ask in the air
+        if st.physics == AIR and (os.environ.get('AIR_QUIET') == '1' or getattr(self.task, 'quiet_air', False)):
+            self.cover(st)
+            return core.NOTHING
         answer = self.reflex(st)
         if answer:
             return answer

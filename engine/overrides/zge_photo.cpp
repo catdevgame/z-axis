@@ -6,7 +6,7 @@
 #include "runtime/host_input.h"
 #include "runtime/pad.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <algorithm>
 #include <cmath>

@@ -21,6 +21,11 @@
 
 namespace zx::app
 {
+    class DocumentAccess;
+}
+
+namespace zx::app
+{
     struct DropInstall
     {
         enum Kind
@@ -37,6 +42,7 @@ namespace zx::app
         std::filesystem::path to;   // where its copy goes: <folder>/<its file name>
         bool replaces = false;      // one of that name is there already
         bool inPlace = false;       // what was dropped is that one: nothing to copy
+        bool pickedCopy = false;    // `from` is the collection's own copy of a picked document: moved in, not copied
     };
 
     // What `dropped` is to the collection whose support folder is `supportDir`.
@@ -45,5 +51,23 @@ namespace zx::app
     // The copy: into <support>/.incoming, then moved to `to` (what was there
     // before replaced: the player said Replace). False and why, with what
     // was there before as it was.
+    // A picked copy (pickedCopy) is gone afterwards, put in or not.
     bool installDrop(const DropInstall &plan, const std::filesystem::path &supportDir, std::string *error = nullptr);
+
+    // A mod picked as a document (collection/game_setup.h DocumentAccess:
+    // a folder's tree or a .zip), copied into <support>/.picked/<its name>
+    // for planDropInstall to read as it reads a dropped path.
+    struct PickedCopy
+    {
+        bool ok = false;
+        std::string name;           // the document's, as the picker shows it
+        std::filesystem::path copy; // ok: where the copy is
+        std::string why;            // not ok: why there is none
+    };
+    // A folder with neither a mod.ini nor a map.ini at its top, or a file
+    // that is not a .zip, is no mod and is not copied (a folder of discs
+    // picked by mistake is gigabytes): not ok, and why.
+    PickedCopy copyPickedDocument(const DocumentAccess &documents, const std::string &uri, const std::filesystem::path &supportDir);
+    // A picked copy not installed (the player said Cancel, or it is no mod): removed.
+    void discardPickedCopy(const DropInstall &plan, const std::filesystem::path &supportDir);
 }

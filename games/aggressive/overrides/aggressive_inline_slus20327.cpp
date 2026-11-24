@@ -22,6 +22,7 @@
 #include "aggressive_inline_sound.h"
 #include "aggressive_inline_saves.h"
 #include "overrides/zge_view.h"
+#include "aggressive_inline_ghost.h"
 #include "overrides/zge_sites.h"
 #include "overrides/zge_xbox_textures.h"
 #include "game_overrides.h"
@@ -675,6 +676,8 @@ namespace
         // The bottom screen reads AI's state (aggressive_inline_panel.cpp); the
         // Estate is served in the Tutorial's folder's place.
         aggressive_inline::panel_state::install(+[]() -> const char * { return aggressive_inline::estateActive() ? "ESTATE" : nullptr; });
+        // Ghost riding (runtime/ghost_rider.h): its clock reads the panel's snapshot.
+        aggressive_inline::installGhost(runtime);
         aggressive_inline::installDevStart(runtime);
         aggressive_inline::installApe(runtime);
         aggressive_inline::installXboxTuning(runtime);

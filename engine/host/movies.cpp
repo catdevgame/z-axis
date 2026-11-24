@@ -10,7 +10,7 @@
 #include "runtime/game_files.h"
 #include "runtime/pss_movie.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/texture_replace.h"
 
 #include <algorithm>

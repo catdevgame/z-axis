@@ -2,7 +2,9 @@
 #include "collection/settings.h"
 #include "gs/gs_interpolate.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -11,6 +13,63 @@ namespace gi = zx::gs_interpolate;
 
 namespace
 {
+    // The window loop's frame interpolation as runtime/frame_interpolation.cpp has it, unlocked (a refresh of
+    // `refreshNs`, in no whole ratio to the game's): the game's frame n made frameLagNs(n) after its vblank n * P,
+    // each refresh showing the game at one frame plus FrameLag before it. After the first second: the refreshes,
+    // the pictures between, those past the shown frame with no next one, and the most frames waiting after a latch.
+    struct LoopRun
+    {
+        int refreshes = 0, between = 0, notReady = 0;
+        int64_t mostWaiting = 0;
+    };
+    template <class FrameLagNs>
+    LoopRun runLoop(int64_t refreshNs, FrameLagNs frameLagNs)
+    {
+        const int64_t period = 16683333;
+        gi::FrameLag lag;
+        LoopRun run;
+        int64_t shown = -1, measured = -1;
+        for (int64_t k = 1; k * refreshNs < 10'000'000'000LL; ++k)
+        {
+            const int64_t latch = k * refreshNs + 1234567;
+            const double displayTick = static_cast<double>(latch - period - lag.lagNs) / static_cast<double>(period);
+            auto made = [&](int64_t n) { return n * period + frameLagNs(n) <= latch; };
+            auto seen = [&](int64_t n)
+            {
+                if (n > measured)
+                {
+                    measured = n;
+                    lag.made(frameLagNs(n), period);
+                }
+            };
+            if (shown < 0)
+            {
+                if (made(0))
+                    seen(shown = 0);
+                continue;
+            }
+            // (one frame taken a latch, once the display time reaches it)
+            if (made(shown + 1) && displayTick >= static_cast<double>(shown + 1) - gi::kSnap)
+                seen(++shown);
+            if (shown < 60)
+                continue;
+            int64_t waiting = 0;
+            while (made(shown + 1 + waiting))
+                ++waiting;
+            run.mostWaiting = std::max(run.mostWaiting, waiting);
+            ++run.refreshes;
+            if (made(shown + 1))
+            {
+                seen(shown + 1);
+                const float t = gi::alphaBetween(static_cast<uint64_t>(shown), static_cast<uint64_t>(shown + 1), displayTick);
+                run.between += t > gi::kSnap && t < 1.0f - gi::kSnap;
+            }
+            else
+                run.notReady += displayTick > static_cast<double>(shown) + gi::kSnap;
+        }
+        return run;
+    }
+
     void identity(gi::Matrix &m)
     {
         std::memset(m, 0, sizeof(m));
@@ -167,6 +226,33 @@ void register_gs_interpolate_tests()
             t.IsTrue(std::fabs((orig[0] - moved[0]) - 333.67f / 50.0f) < 1e-2f, "6.67 pixels to the left");
         });
 
+        tc.Run("the warp's matrix: one camera's GS window to the other's", [](TestCase &t)
+        {
+            // presentWarp's toA = B's window inverse x A's window, used in warp_fs on a row vector (X, Y, Z, 1) and
+            // divided by its w: the same point as reproject gives, with no world point in between.
+            gi::Matrix cam, view, fromB, inverseB, toA, rows;
+            transform(cam, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+            gi::invert(cam, view);
+            window(view, fromB);
+            t.IsTrue(gi::invert(fromB, inverseB), "invertible");
+            transform(cam, 10.0f, 1.0f, 1.0f, 0.5f, -2.0f);
+            gi::invert(cam, view);
+            window(view, toA);
+            gi::multiply(inverseB, toA, rows);
+            const float p[4] = {2.0f, 1.0f, 50.0f, 1.0f};
+            float c[4];
+            for (int k = 0; k < 4; ++k)
+                c[k] = p[0] * fromB[0][k] + p[1] * fromB[1][k] + p[2] * fromB[2][k] + fromB[3][k];
+            float xyz[3] = {c[0] / c[3], c[1] / c[3], c[2] / c[3]};
+            float h[4];
+            for (int k = 0; k < 4; ++k)
+                h[k] = xyz[0] * rows[0][k] + xyz[1] * rows[1][k] + xyz[2] * rows[2][k] + rows[3][k];
+            float ratio = 0.0f;
+            t.IsTrue(h[3] > 0.0f && gi::reproject(inverseB, fromB, toA, xyz, ratio), "in front of both");
+            t.IsTrue(std::fabs(h[0] / h[3] - xyz[0]) < 1e-2f && std::fabs(h[1] / h[3] - xyz[1]) < 1e-2f,
+                     "where reproject puts it");
+        });
+
         tc.Run("display time in vblank ticks and alpha", [](TestCase &t)
         {
             gi::VblankClock c;
@@ -178,6 +264,55 @@ void register_gs_interpolate_tests()
             t.IsTrue(std::fabs(gi::alphaBetween(100, 102, 101.0) - 0.5f) < 1e-6f, "a 30 fps frame: half way at one tick");
             t.Equals(gi::alphaBetween(100, 101, 99.0), 0.0f, "clamped below");
             t.Equals(gi::alphaBetween(100, 101, 102.0), 1.0f, "clamped above");
+        });
+
+        tc.Run("the frames' lag: a slow-falling maximum, at most a quarter frame above the quickest recent", [](TestCase &t)
+        {
+            const int64_t period = 16000000;
+            gi::FrameLag lag;
+            for (int i = 0; i < 30; ++i)
+                lag.made(9000000, period);
+            t.Equals(lag.lagNs, int64_t{9000000}, "steady frames: their lag");
+            lag.made(8000000, period);
+            t.Equals(lag.lagNs, int64_t{9000000 - 9000000 / 64}, "a quicker frame: falls slowly");
+            lag.made(30000000, period);
+            t.Equals(lag.lagNs, int64_t{8000000 + period / 4}, "one late frame: a quarter frame above the quickest recent");
+            for (size_t i = 0; i < gi::FrameLag::kRecent; ++i)
+                lag.made(20000000, period);
+            t.Equals(lag.lagNs, int64_t{20000000}, "frames steadily later than a frame: no cap");
+            lag.made(3000000, period);
+            t.Equals(lag.lagNs, int64_t{3000000 + period / 4}, "then a quick one: a quarter frame above it");
+            lag.made(-500000, period);
+            t.Equals(lag.lagNs, int64_t{period / 4}, "made before its vblank's deadline: as at it");
+        });
+
+        tc.Run("75, 120 and 144 Hz unlocked: a picture between at nearly every refresh, no frame pushed out", [](TestCase &t)
+        {
+            for (const int64_t refreshNs : {int64_t{13333333}, int64_t{8333333}, int64_t{6944444}})
+            {
+                const std::string hz = std::to_string(1000000000 / refreshNs) + " Hz: ";
+                // (frames made 20 ms after their vblanks, later than a frame: the quarter-frame cap had 3 % between)
+                const LoopRun late = runLoop(refreshNs, [](int64_t) { return int64_t{20000000}; });
+                t.IsTrue(late.between * 10 > late.refreshes * 9 && late.notReady == 0, hz + "late frames: between");
+                t.IsTrue(late.mostWaiting <= 2, hz + "late frames: at most two waiting");
+                // (frames 3 and 15 ms late by turns: some refreshes show a frame as it is, none is pushed out)
+                const LoopRun uneven = runLoop(refreshNs, [](int64_t n) { return n % 2 ? int64_t{3000000} : int64_t{15000000}; });
+                t.IsTrue(uneven.between * 10 > uneven.refreshes * 7, hz + "uneven frames: mostly between");
+                t.IsTrue(uneven.mostWaiting <= 2, hz + "uneven frames: at most two waiting");
+            }
+        });
+
+        tc.Run("pictures between only on a fixed-refresh display faster than the game", [](TestCase &t)
+        {
+            const int64_t frame = 16683333;
+            for (const int64_t refreshNs : {int64_t{13333333}, int64_t{8333333}, int64_t{6944444}})
+            {
+                const std::string hz = std::to_string(1000000000 / refreshNs) + " Hz: ";
+                t.IsTrue(gi::interpolates(false, refreshNs, frame), hz + "fixed refresh: on");
+                t.IsTrue(!gi::interpolates(true, refreshNs, frame), hz + "variable refresh wins");
+            }
+            t.IsTrue(!gi::interpolates(false, 16666667, frame), "60 Hz: off");
+            t.IsTrue(!gi::interpolates(false, 0, frame), "refresh not known: off");
         });
 
         tc.Run("settings.ini [display] frame_interpolation", [](TestCase &t)

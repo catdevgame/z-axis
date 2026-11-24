@@ -68,7 +68,7 @@
 #include "machine.h"
 #include "runtime/disc_patch.h"
 #include "runtime/game_files.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/zaxis_ui.h"
 #include "runtime/zaxis_ape.h"
 #include "runtime/boot_config.h"
@@ -553,7 +553,7 @@ namespace aggressive_inline::ape
             std::vector<zx::zaxis::ArchiveEntry> entries, xboxEntries;
             std::vector<uint8_t> xbox;
             std::string error;
-            if (!zx::zaxis::readArchive(bytes, entries, &error) || !ps2_xbox_disc::readFile("uilib.zal", xbox) ||
+            if (!zx::zaxis::readArchive(bytes, entries, &error) || !zx::xbox_files::readFile("uilib.zal", xbox) ||
                 !zx::zaxis::readArchive(xbox, xboxEntries, &error))
             {
                 std::cerr << "[ape] UILIB.ZAL: " << (error.empty() ? "no Xbox uilib.zal" : error) << std::endl;
@@ -612,12 +612,12 @@ namespace aggressive_inline::ape
             std::cout << "[ape] off (ZX_APE=1 adds the Xbox release's Ape skater)" << std::endl;
             return;
         }
-        if (!aggressive_inline::converted::exists(zx::zaxis::ape::kModelPath) || !ps2_xbox_disc::init() ||
-            !ps2_xbox_disc::exists("uilib.zal"))
+        if (!aggressive_inline::converted::exists(zx::zaxis::ape::kModelPath) || !zx::xbox_files::init() ||
+            !zx::xbox_files::exists("uilib.zal"))
         {
             std::cout << "[ape] no Ape: no GOR.ZIT made at build time ("
                       << aggressive_inline::converted::description() << ") or no Xbox uilib.zal ("
-                      << ps2_xbox_disc::description() << ")" << std::endl;
+                      << zx::xbox_files::description() << ")" << std::endl;
             return;
         }
         uint8_t *rdram = runtime.memory().getRDRAM();
@@ -640,7 +640,7 @@ namespace aggressive_inline::ape
         zx::disc_patch::registerPatch("SCENE.TXT", &patchScene, "ai");
         zx::disc_patch::registerPatch("UILIB.ZAL", &patchUiLibrary, "ai");
         ape().on = true;
-        std::cout << "[ape] on: the Ape is skater 0 (" << ps2_xbox_disc::description()
+        std::cout << "[ape] on: the Ape is skater 0 (" << zx::xbox_files::description()
                   << "), unlocked with the Mummy (the Museum's hidden challenges)" << std::endl;
     }
 }

@@ -1,4 +1,4 @@
-# Xbox release files the native port reads at run time as they are (runtime/xbox_disc.h),
+# Xbox release files the native port reads at run time as they are (runtime/xbox_files.h),
 # bundled by tools/modding/xbox_files.py into Resources/xbox/assets/. Paths relative to
 # media/assets, any case, `*` and `?` allowed. Made from your own disc at build
 # time; never commit the result.

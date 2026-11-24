@@ -58,7 +58,7 @@
 #include "gs/gs_native.h"
 #include "gs/gs_types.h"
 #include "runtime/memory.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/zaxis_mesh.h"
 #include "runtime/boot_config.h"
 #include "runtime/gs_shots.h"

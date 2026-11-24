@@ -4,7 +4,11 @@
 #
 #   ANDROID_HOME=<sdk> JAVA_HOME=<jdk 17> [TEST=1] [APP_ID=<id>] [APP_LABEL=<name>] [EXTRA_LIBS="<file>..."] \
 #       [GAME_CODE_TOOLS=<folder>] [APP_VERSION=<x.y.z>] [RELEASE=1 KS_PASS=<apksigner form> KS_ALIAS=<alias>] \
-#       platform/android/build-apk.sh <build dir> <SDL3 source dir> <out.apk> [keystore] [icon]
+#       platform/android/build-apk.sh <build dir> <SDL3 source dir> <out.apk | out folder> [keystore] [icon]
+#
+# An out folder (one that exists) gets the APK named as the release's asset is (README.md "The release's files":
+# <name>-<version>-<platform>-<arch>.<ext>): Z-Axis-Collection-<version>-android-arm64.apk, the test flavour's
+# Z-Axis-Test-<version>-android-arm64.apk (APP_LABEL's name, spaces as -).
 #
 # APP_ID is the application id (the manifest's io.github.catdevgame.zaxiscollection
 # by default; the classes keep their package): another id is another app, with
@@ -62,6 +66,10 @@ fi
 if [ -n "${TEST:-}" ]; then
     APP_ID=${APP_ID:-io.github.catdevgame.zaxiscollection.test}
     APP_LABEL=${APP_LABEL:-Z-Axis Test}
+fi
+if [ -d "$OUT" ]; then
+    [ -n "$APP_VERSION" ] || { echo "build-apk: an out folder names the APK by its version, and $SO has none x.y.z" >&2; exit 1; }
+    OUT=$OUT/$(printf '%s' "${APP_LABEL:-Z-Axis Collection}" | tr ' ' '-')-$APP_VERSION-android-arm64.apk
 fi
 rm -rf "$STAGE"
 mkdir -p "$STAGE/classes" "$STAGE/lib/arm64-v8a"
@@ -175,3 +183,13 @@ else
         --out "$OUT" "$STAGE/aligned.apk"
 fi
 ls -l "$OUT"
+# The release APK and the test one, checked as release.sh checks them, now: one that can be refused is never installed,
+# tested or released (tools/checks/release_check.py; the test flavour by its own id and key, the rest the same).
+CHECK=
+[ -n "${RELEASE:-}" ] && CHECK=--apk
+[ -n "${TEST:-}" ] && [ -n "${APP_VERSION:-}" ] && CHECK="--test-apk --apk"
+if [ -n "$CHECK" ]; then
+    # shellcheck disable=SC2086
+    python3 -I "$HERE/../../tools/checks/release_check.py" $CHECK "$OUT" --version "$APP_VERSION" \
+        --tree "$HERE/../.." --build-path "$BUILD" || { echo "build-apk: release-check refuses $OUT (above)" >&2; exit 1; }
+fi

@@ -143,6 +143,13 @@ namespace zge
     inline ee::Global<ChunkParser, sym::g_chunkParser> g_chunkParser;
     // ZGE4's parser flag: a child no handler is registered for is stepped past by dispatchChunk itself (nextChunk).
     constexpr uint32_t kParserStepPastUnregistered = 0x4u;
+    // ZGE4's parser flag: includeChunkFile reports each file it includes (reportIncludedFile).
+    constexpr uint32_t kParserReportIncludes = 0x2u;
+    // Whether ZGE4's includeChunkFile reports the files it includes: on that flag (its steps are ZGE4's alone).
+    inline bool chunkIncludesReported(const ChunkParser &parser)
+    {
+        return (parser.traceEnabled & kParserReportIncludes) != 0;
+    }
     // Whether traceChunk walks each chunk entered: ZGE2 and ZGE3 trace on any setting but 0, ZGE4 on flag bit 0.
     inline bool chunkTraceOn(const ChunkParser &parser)
     {

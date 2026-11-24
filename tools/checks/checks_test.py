@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests of the checks here: fncheck_corpus's frame table keys and crash message, readable_args' formats and calls,
-readable_localscan's games. The z-axis tree's own tools (readable_digest, readable_symbols, readable_entries) are
+"""Tests of the checks here: fncheck_corpus's frame table keys, runtime keys (objcode) and crash message, readable_args' formats and calls,
+readable_localscan's games, release_check's build-machine paths. The z-axis tree's own tools (readable_digest, readable_symbols, readable_entries) are
 tested in the tree, tools/readable/readable_tools_test.py. The tree: ztree.py ($ZAXIS_TREE, the checkout the folder
 is in, ZAXIS_MAIN).
 
@@ -12,14 +12,18 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contextlib  # noqa: E402
+import io  # noqa: E402
 import shutil  # noqa: E402
 import tempfile  # noqa: E402
 import ztree  # noqa: E402
 import fncheck_corpus  # noqa: E402
+import objcode  # noqa: E402
 import fnrec_io  # noqa: E402
 import readable_digest  # noqa: E402
 import readable_args  # noqa: E402
 import career_ab  # noqa: E402
+import release_check  # noqa: E402
 import subprocess  # noqa: E402
 
 
@@ -97,6 +101,17 @@ class BaseScriptCommands(unittest.TestCase):
         with tempfile.TemporaryDirectory() as top:
             self.assertNotEqual(self.tree(top, 'slot4').commands(), self.tree(top, 'slot5', ' --try-close').commands())
 
+    def test_an_object_read_as_code_has_no_command_in_the_base(self):
+        # (cachekey2: its flags are in its bytes; ZX_VU1_GENERATOR_KEY, a digest of the VU1 sources, is one of them)
+        t = fncheck_corpus.Tree.__new__(fncheck_corpus.Tree)
+        t.build, t.home, t.links = '/b', '/h', []
+        t.ninja = lambda *args: ('c++ -DZX_VU1_GENERATOR_KEY=1234 -o runtime/vu1_aot_generator.cpp.o -c /h/ps2/vu1/a.cpp\n'
+                                 'c++ -DREADABLE -o runtime/readable/sky.cpp.o -c /h/engine/zge/sky.cpp\n')
+        kept = t.commands({'/b/runtime/vu1_aot_generator.cpp.o'}) - {''}
+        self.assertEqual(len(kept), 1)
+        self.assertIn('-DREADABLE', kept.pop())
+        self.assertEqual(len(t.commands() - {''}), 2)
+
 
 class BaseObjects(unittest.TestCase):
     """fncheck_corpus.Tree's base: the includes of the objects the checker's link takes and a replay can run (pace1:
@@ -131,6 +146,27 @@ class BaseObjects(unittest.TestCase):
             '/b/runtime/CMakeFiles/zx_runtime.dir/src/lib/gs_record.cpp.o',
             '/b/runtime/CMakeFiles/zx_runtime.dir/cmake_pch.hxx.cxx.o',
             '/b/_deps/sdl3-build/CMakeFiles/SDL3.dir/src/SDL.c.o'})
+
+    def test_a_prebuilt_library_is_no_object(self):
+        # (the Windows worker's FFmpeg: a .lib no edge makes, its query lists outputs only)
+        query = dict(self.QUERY)
+        query['runtime/zx-fncheck'] = query['runtime/zx-fncheck'].replace(
+            '    | _deps/sdl3-build/libSDL3.a\n', '    | _deps/sdl3-build/libSDL3.a\n    | /ffmpeg/lib/avutil.lib\n')
+        query['/ffmpeg/lib/avutil.lib'] = '/ffmpeg/lib/avutil.lib:\n  outputs:\n    runtime/zx-fncheck\n'
+        self.tree.ninja = lambda *args: query[args[-1]]
+        self.assertEqual(len(self.tree.linked_objects()), 5)
+        self.assertEqual(self.tree.prebuilt, {'/ffmpeg/lib/avutil.lib'})
+
+    def test_the_tables_are_the_base_on_every_host(self):
+        t = self.tree
+        t.build, t.home, t.generated = 'c:/w/out/b', 'c:/w/wt/h', []
+        saved = fncheck_corpus.ON_WINDOWS
+        self.addCleanup(setattr, fncheck_corpus, 'ON_WINDOWS', saved)
+        for windows in (False, True):
+            fncheck_corpus.ON_WINDOWS = windows
+            # (Windows: the labels as norm_path folds the paths; cachekey2's first desktop run had no table in its base)
+            self.assertTrue(t.is_table('c:/w/out/b/runtime/fncheck_build/readable_frames.cpp'))
+            self.assertFalse(t.is_table('c:/w/out/b/runtime/fncheck_traced/traced_100000.cpp'))
 
     def test_no_query_no_narrowing(self):
         def fails(*args):
@@ -261,6 +297,204 @@ class CopiedSourceKeys(unittest.TestCase):
         a, b = self.tree('return node;', 'elsewhere/tree.cpp'), self.tree('return node ^ 1;', 'elsewhere/tree.cpp')
         self.assertEqual([(g, n) for g, _, n, _ in a.unresolved], [('bmx', 'drawTree_')])
         self.assertNotEqual(a.closure_digest('bmx', 0x10ed78), b.closure_digest('bmx', 0x10ed78))
+
+
+class ObjectCode(unittest.TestCase):
+    """objcode: an object file's atoms and the references between them, in the three formats the hosts build (the
+    fixtures: FIXTURE compiled with clang -O1 -c for x86_64-linux-gnu, x86_64-pc-windows-msvc and arm64-apple-macos11,
+    zlib and base64)."""
+
+    FIXTURE = """
+static int __attribute__((noinline)) helper(int x) { return x * 3; }
+int unused(int x) { return x + 1; }
+extern int ext(int);
+int table[4] = {1, 2, 3, 4};
+const char *message(void) { return "hello"; }
+int entry(int x) { return helper(x) + ext(x) + table[x & 3]; }
+__attribute__((constructor)) static void start(void) { table[0] = ext(0); }
+"""
+    OBJECTS = {
+        'elf': (
+            'eNqtVM9rE0EUfptN2rU0Mf44BFS6oIg5dLoJvYggCajNIZSgFATRdE0maXQ3CbubkuqhxRQhYMCDhwoexJPe9D8QouDR/8CDl1w9'
+            'K8SZ6YyZjFl78YPZN/PNe2/emzdvd68Xb0Q0DQQ0uAqT1QSb0ck8x78JojlY04a1Wg0dX9pnbGEQo2Io1hu3Sv2fo4tk1v/c/zZi'
+            'R4x63/XCIE7nevRloffJuHOXGOxRYhDdnfJXyoyZUZ+5vT2ksUWoIRk0pC3sOC050Hy77WCz4tjNurmNPb/RaprZDLKQZV5i7HI2'
+            'Y1loFWVQJg1wWuT96CZo3aR2ZnHeeE4OSRLuLN8TqVPO4nODywtkXOPzNDs/kcwnUvmE2dOfRip0RtYGs3UUfyky9iTf1HY9YcC/'
+            '8ITZ/xjP2tPZzUwjy2oa+7Oe4/Iyu8cIlJSYznN+U46L4DEZJyX/Qt/nfFK5F43zpnw3BEuSTxkuGSdg8siEzikuRc1/jQ+xIsVx'
+            'TOKvSPoLEl8N0X8Qog9SHnRP3Icp6cu3varwIv6Cwgv7tsKLOuwrvDg3BrgZeDuAPOzYqNFsBGXb82xBBLgbgB/YXgCo0nJdogyo'
+            'iPzAox3Sxh6gZivAaG19Y5moVR4Ccpxtt2xXq6RF6twL3irXPNvFENj3HQwu9n27jqHT7Pi4CrVGN+h4GFWA+iUqRO64TFbtwCY+'
+            'WlTSTdJb8H/wjNddxTtOflB49d91jnNzCp9T6qC+O5B6NCrpC7zmxe/ydZzXy5DsKF7x89Uc3oecp67fcPuswn9U+lnNX8hFMhIz'
+            'zv+i9CuErOdD8k/p03nGeSxq/mkei6XYf+Vy5Yj4czNqSjEOeS+qbuWQa0dCFA+OyP9eSP6W/nf9F2bkT/taL45b0q+e4a0+HW88'
+            'JP4Xyn9G4IArGtrEbtb9/wZ0TrmC'),
+        'coff': (
+            'eNqFVE9rE0EUf5PZpIkojTbFtqDNIYf00HFTqidpNgloFIVSY+3JZNNM1uomDdlNiOJBiAg9BPwC6sFP4FVECi2IHsTP4EE8eKkn'
+            'PWidPzub3fbgwNt98+b33rw383vTeJaA2aj2YB4DnAM5iEsHLoxHn8ljBPATyXmMSRpWa6RhumYAl+S+EQgNA1Z3Sd1x4D/jCei7'
+            'ZBAOmGKyciyebpBuGMfzWTuKSyYNUlqrZDZKt5UtzmSD4WoeFol4hkEatN6zMrcUrsbk/vF9i6QT3neGySeG+xoZ58Hzu7Ac9uX7'
+            'nMdHCo4nYVRAe81mk0zOPxWm8ijKf3tqvn6nPPyR3fn8nU92PuwcCAX9Gn7D5dEprmPtTXm4n63eZT4GjLRr4XjMO/dRekelYT+7'
+            'N8WUE0w0WGDfs0Jb8qrRYIV9Z4Vm+baWb+OV8GKxmLFcYhhixUgHsSNDGgKtCHCP2vZ2qNQ5cQYcf8CkIvZHp9XqFbgs9C8w7VkO'
+            'D+W/0OnYNL1pm20r3addZ2u7nV7KEZ3o6aywLi7ldJ0skxzJLTBGAtwI3CBn7clAFlhkILW4d1vYR2DBXqml/NW5YCvw4jHqe4uV'
+            'S5l92Q/BNhCHg1Sot6/elyQ3gi2ABQZCqQlMgP6awKS89efTh+9k8kHqRwUm5mFeDBatKCjWnoExJgLBRhCFobhXj7LwKsZNMCEw'
+            'NW998uXU+oTEBBogLjAz6jnIvk7G/XrUQScERu3z6Hf9T0I2U5OaLtF1ddkYeu2eQxvqnNMs5xZ1HNOi4lqkhbbd7kPx9CgLo1qH'
+            'dgFWPQuG8MPFa3fNuk0DtxMBxzW7rkcS6UWaWz7mL8vHQs2tgdvrUrLpRyJcbLvfqpqNBuOiBfl8tWRU9Yul68VC6erNoiGYn88U'
+            'Cgb8A1cWpBw='),
+        'macho': (
+            'eNqVVDtvE0EQnr0722fsmEBSBKWxBEVASpRXEYlEsoURFEZB4CJU68M+Ykvns+VbC5CblCljiYKSEvMLoOFV0dEhSv4AFa6QDrGP'
+            'Od+dLxZipZ1vZ2fn29mZ3f36++efPAABUCLFe0vjogiyXeH9O4G5rYS2Uy2uZ7CncB2lzH7GQj9Ka7ePakm+Ewj5BOUXHSArJoyp'
+            'Cf2bFrOieqVcKyd5FhFNXfHNa5Q2PNZvu8dz4jtDTCOu6HF/LcHX6TZp220z+mTgNhLxvQziQixyPkG5aKg6ZJPxdTs9q8HowH3a'
+            'dpuUVitR+6sZXEO+FWNag1iI28KGNQfIceuqHG1gzkqGik3DdXe5viDGnKyuPOB+5AymLBFAfsr5n82ASx91+g1TPRLjyeH7sT8k'
+            'Y/8WjH7p8IbPv5hw/KEvyXErDZd5ns6uExitPWq9zcJyrkjMnD8sjyeHn19LPgNyAv3hh7Gvw4jfjAfC1xT7EHjnDz/JdQTPquM5'
+            'WrbjdM8J0zy/3NM65ufYlxErKj/GrP3oH/z14J4E2Zpp4mldAKj2FB44Kpb1fZzfw/lNnL+mNlnHelVNhQegclA4UXq6jlhCLCLi'
+            'f5HOaGY+o+3tP+R6gcTPW9DDd7OK9uCcC6gH57ondC18t3dm/MXTKRjhu7kp9FR438XWF0mY5xuoB3W5KvQI/w7ao/WL3Vtqu6z/'
+            'nAP/tajHrD4Dh27wPwIovxs9myOzHjs20I7tedYxHwzcgWc3wWGd3q6UO1JuS7kl5WZA/xdxeIdx'),
+    }
+
+    def read(self, fmt):
+        import base64
+        import zlib
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder)
+        path = os.path.join(folder, 'fixture.o')
+        with open(path, 'wb') as f:
+            f.write(zlib.decompress(base64.b64decode(''.join(self.OBJECTS[fmt]))))
+        return objcode.read(path)
+
+    def test_each_format(self):
+        for fmt in ('elf', 'coff', 'macho'):
+            with self.subTest(fmt=fmt):
+                o = self.read(fmt)
+                self.assertEqual(o.format, fmt)
+                prog = objcode.Program([('B/fixture.o', o)])
+                atom = dict((n.lstrip('_'), (0, i)) for i, a in enumerate(o.atoms) for n in a[1])
+                seen, labels = prog.walk([atom['entry']])
+                # (entry calls helper, which no other object can name; ext is no object's: the system's)
+                self.assertIn(atom['helper'], seen)
+                self.assertIn(atom['table'], seen)
+                self.assertTrue(any(l.startswith('ext ') and l.endswith('ext') for l in labels))
+                self.assertNotIn(atom['unused'], seen)
+                self.assertNotIn(atom['message'], seen)
+                # (the static initializer's pointer: the program's start runs start)
+                self.assertEqual(len(o.inits), 1)
+                self.assertIn(atom['start'], prog.refs((0, o.inits[0])))
+                # (message's string: the atom where its relocation points)
+                self.assertTrue(any(o.atoms[t[1]][0] in ('.rodata.str1.1', '.rdata', '__TEXT,__cstring')
+                                    for t in prog.refs(atom['message']) if t[0] != 'ext'))
+
+    def test_a_renumbered_local_label_is_no_change(self):
+        def build(first_string):
+            b = objcode._Builder('macho')
+            b.precise = True
+            text = {'name': '__TEXT,__text', 'data': b'\x01' * 8, 'size': 8, 'kind': 'code', 'init': False,
+                    'symbols': [(0, '_say', True, False), (4, '_other', True, False)],
+                    'relocs': [(0, 3, ('sym', (first_string, False, 1, 6)), 0)]}
+            strings = {'name': '__TEXT,__cstring', 'data': b'other\0hello\0', 'size': 12, 'kind': 'data',
+                       'init': False, 'symbols': [(0, 'l_.str', False, False), (6, first_string, False, False)],
+                       'relocs': []}
+            b.sections = [text, strings]
+            o = b.build()
+            return dict((a[1][0], a[2]) for a in o.atoms)
+        # (one string more before it in the file: the assembler names hello l_.str.2, not l_.str.1)
+        self.assertEqual(build('l_.str.1')['_say'], build('l_.str.2')['_say'])
+
+    def test_an_anonymous_namespace_is_no_path(self):
+        # (clang-cl names an anonymous namespace ?A0x<digest of the source's path>@: in its symbols and its RTTI names;
+        # two build dirs of one commit had two bases, cachekey2)
+        def build(digest):
+            b = objcode._Builder('coff')
+            data = b'.?AUProbeStop@?A0x%s@@\0' % digest
+            data += bytes(-len(data) % 8)          # (the section padded to 8 bytes: one more for the shorter name)
+            b.sections = [{'name': '.data', 'data': data, 'size': len(data), 'kind': 'data',
+                           'init': False, 'symbols': [(0, '??_R0?AUProbeStop@?A0x00000000@@@8', True, False)],
+                           'relocs': []}]
+            return b.build().atoms[0][2]
+        self.assertEqual(build(b'A9A9FE86'), build(b'5837FFF5'))
+        self.assertEqual(build(b'AFC28C3'), build(b'5837FFF5'))      # (a leading zero is not written)
+        self.assertEqual(objcode._ANON.sub('?A0x00000000@', '_TI1?AUProbeStop@?A0xA9A9FE86@@'),
+                         objcode._ANON.sub('?A0x00000000@', '_TI1?AUProbeStop@?A0x5837FFF5@@'))
+
+    def test_a_weak_copy_is_one_node(self):
+        a, b = objcode.Obj(), objcode.Obj()
+        for o in (a, b):
+            o.atoms = [('.text', ('inlineHelper',), 'same', False)]
+            o.refs = [set()]
+            o.defined = {'inlineHelper': [0]}
+            o.weak = {'inlineHelper'}
+        prog = objcode.Program([('B/a.o', a), ('B/b.o', b)])
+        self.assertEqual(prog.by_name['inlineHelper'], [(0, 0)])
+        b.atoms = [('.text', ('inlineHelper',), 'other', False)]
+        self.assertEqual(objcode.Program([('B/a.o', a), ('B/b.o', b)]).by_name['inlineHelper'], [(0, 0), (1, 0)])
+
+
+class RuntimeKeys(unittest.TestCase):
+    """fncheck_corpus.Code (cachekey2): the driver's reach is the base; a function's key has what its traced original
+    and its readable files' objects reach past it; a change outside both keeps its key."""
+
+    @staticmethod
+    def obj(atoms):
+        """atoms: [(name, digest, [referenced names], init)]"""
+        o = objcode.Obj()
+        for i, (name, digest, refs, init) in enumerate(atoms):
+            o.atoms.append(('.text', (name,), digest, False))
+            o.refs.append(set(('g', r) for r in refs))
+            o.defined[name] = [i]
+            if init:
+                o.inits.append(i)
+        return o
+
+    def code(self, read8='r1', decode='d1', traced_a='t1', table='x1'):
+        objs = [
+            ('/b/main.o', 'B/runtime/CMakeFiles/zx-fncheck.dir/ee/fncheck_main.cpp.o',
+             self.obj([('main', 'm', ['read8'], False)]), 'runtime'),
+            ('/b/memory.o', 'B/runtime/CMakeFiles/zx_runtime.dir/runtime/memory.cpp.o',
+             self.obj([('read8', read8, [], False)]), 'runtime'),
+            ('/b/pss.o', 'B/runtime/CMakeFiles/zx_runtime.dir/runtime/pss_movie.cpp.o',
+             self.obj([('decodeFrame', decode, [], False)]), 'runtime'),
+            ('/b/frames.o', 'B/runtime/CMakeFiles/zx_game_readable.dir/fncheck_build/readable_frames.cpp.o',
+             self.obj([('kRows', table, [], False)]), 'table'),
+            ('/b/movies.o', 'B/runtime/CMakeFiles/zx_game_readable.dir/movies.cpp.o',
+             self.obj([('playMovie', 'p', ['decodeFrame', 'read8'], False),
+                       ('registerMovies', 'reg', ['playMovie', 'registerFunction'], True)]), 'readable'),
+            ('/b/sky.o', 'B/runtime/CMakeFiles/zx_game_readable.dir/sky.cpp.o',
+             self.obj([('drawSky', 's', ['read8', 'kRows'], False)]), 'readable'),
+            ('/b/registry.o', 'B/runtime/CMakeFiles/zx_game_readable.dir/ee/readable.cpp.o',
+             self.obj([('registerFunction', 'rf', [], False)]), 'runtime'),
+            ('/b/traced.o', 'B/runtime/CMakeFiles/zx_game_traced.dir/Unity/unity_traced_0_cxx.cxx.o',
+             self.obj([('_Z21fncheck_traced_100000PhP12R5900Context', traced_a, ['read8', '__ZN12_GLOBAL__N_122g_fncheckBlocks_100000E'], False),
+                       ('__ZN12_GLOBAL__N_122g_fncheckBlocks_100000E', 'b', [], False),
+                       ('_Z21fncheck_traced_200000PhP12R5900Context', 't2', ['read8'], False)]), 'traced'),
+        ]
+        return fncheck_corpus.Code(objs)
+
+    def parts(self, **change):
+        c = self.code(**change)
+        return c.base, c.part('ai', 0x100000, ['/b/movies.o']), c.part('ai', 0x200000, ['/b/sky.o'])
+
+    def test_the_driver_is_the_base(self):
+        c = self.code()
+        names = set(c.prog.objs[n[0]][1].atoms[n[1]][1][0] for n in c.driver if n[0] != 'ext')
+        # (main, what it calls, and the registry a readable file's initializer calls; not the bodies it registers)
+        self.assertEqual(names, {'main', 'read8', 'registerFunction'})
+        base, a, b = self.parts()
+        self.assertNotEqual(self.parts(read8='r2')[0], base)
+
+    def test_a_change_only_one_function_reaches(self):
+        base, a, b = self.parts()
+        changed = self.parts(decode='d2')       # (pss_movie's decoder: only playMovie's file reaches it)
+        self.assertEqual(changed[0::2], (base, b))
+        self.assertNotEqual(changed[1], a)
+        # (its traced original, compiled: only its own key)
+        self.assertEqual(self.parts(traced_a='t9')[0::2], (base, b))
+        self.assertNotEqual(self.parts(traced_a='t9')[1], a)
+
+    def test_the_tables_are_not_code(self):
+        # (fncheck_build's tables are in the base as text, the frame table's locals per function: Tree._base)
+        self.assertEqual(self.parts(table='x2'), self.parts())
+
+    def test_a_traced_original_by_its_name(self):
+        c = self.code()
+        self.assertEqual(len(c.traced[('ai', 0x100000)]), 2)
+        m = fncheck_corpus.TRACED_ATOM.search('?fncheck_traced_dm2_1a2b3c@dm2@@YAXPEAEPEAUR5900Context@@@Z')
+        self.assertEqual((m.group(2), m.group(3)), ('dm2', '1a2b3c'))
+        m = fncheck_corpus.TRACED_ATOM.search('__ZN3bmx29fncheck_traced_bmx_10ed78_10ee00EPhP12R5900Context')
+        self.assertEqual((m.group(2), m.group(3)), ('bmx', '10ed78'))
 
 
 class FormatRowGame(unittest.TestCase):
@@ -547,6 +781,101 @@ class CareerAbFolders(unittest.TestCase):
             self.assertIsNone(career_ab.capped_room_mb())   # (the Mac: no cap, the host's 30% rule alone)
 
 
+class CareerAbReach(unittest.TestCase):
+    """career_ab compares two runs to their limit, not to the last state change, and the gate's limit covers its route
+    (gatecover1: DM2's frontend and editor-0 compared to ticks 2340 and 3126 of routes that went on to 8152 and 44709)."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.dir)
+
+    def side(self, name, lines, info):
+        d = os.path.join(self.dir, name)
+        os.makedirs(d)
+        with open(os.path.join(d, 'state.log'), 'w') as f:
+            f.write(''.join('[state] tick=%d 100=%x\n' % (t, v) for t, v in lines))
+        with open(os.path.join(d, 'run.txt'), 'w') as f:
+            f.write(info)
+        return d
+
+    def reach(self, a, b, whole_route=True):
+        report, problems = [], []
+        window, wanted = career_ab.check_reach(a, b, report.append, problems, whole_route)
+        return window, wanted, problems
+
+    def test_the_script_end(self):
+        self.assertEqual(career_ab.script_end('401v:START:10v,2406v:SYNC=0x259770==1,2564v:DOWN:6v,3000v:LX=0.5:20v'), (3020, 1))
+        self.assertEqual(career_ab.script_end('1:CROSS,2:WAIT=0x10==1'), (120, 1))   # (seconds; the anchor last)
+        self.assertEqual(career_ab.script_end('1:CROSS'), (75, 0))   # (0.25 s without a duration)
+
+    def test_the_route_end_follows_the_anchors(self):
+        log = os.path.join(self.dir, 'run.log')
+        with open(log, 'w') as f:
+            f.write('[gs:gif] idx=16 nloop=[pad] script origin at vsync tick 12\n[pad] sync 0 at script 2406v (tick 2346): clock +72 vsyncs\n')
+        self.assertEqual(career_ab.route_end_tick(log, 7912, 1), (7852, ''))
+        self.assertEqual(career_ab.route_end_tick(log, 7912, 2)[0], None)   # (it stood at the second anchor)
+        self.assertEqual(career_ab.route_end_tick(log, 500, 0), (2346 + 500 - 2406, ''))
+
+    def test_a_change_after_the_other_runs_last_is_compared(self):
+        info = 'to 5000\nevery 3000\nscript_end 900 0\nreached 5010 stopped\nroute_end 1000\n'
+        a = self.side('a', [(0, 1), (2340, 2), (4000, 3)], info)
+        b = self.side('b', [(0, 1), (2340, 2)], info)
+        window, wanted, problems = self.reach(a, b)
+        self.assertEqual((window, wanted, problems), (5000, ['t3000'], []))
+        report, problems = [], []
+        career_ab.compare_state(a, b, report.append, problems, window)
+        self.assertEqual(problems, ['state field 0x100'])
+        self.assertIn('compared at every tick to tick 5000', report[0])
+
+    def test_short_runs_and_short_limits_fail(self):
+        a = self.side('a', [(0, 1)], 'to 5000\nscript_end 900 0\nreached 4100 ran out of time\nroute_end 1000\n')
+        b = self.side('b', [(0, 1)], 'to 5000\nscript_end 900 0\nreached 5010 stopped\nroute_end 4900\n')
+        problems = self.reach(a, b)[2]
+        self.assertTrue(any(p.startswith('run A ended short') for p in problems), problems)
+        self.assertTrue(any(p.startswith('limit short of the route') for p in problems), problems)
+        self.assertFalse(any(p.startswith('limit short') for p in self.reach(a, b, whole_route=False)[2]))
+        c = self.side('c', [(0, 1)], 'to 5000\nscript_end 900 2\nreached 5010 stopped\nroute_end none it stood at anchor 2 of 2\n')
+        self.assertIn("run B's script short of its end", self.reach(b, c)[2])
+
+
+class CareerAbSplashRing(unittest.TestCase):
+    """SplashRing.pointW knows a freed ring by its points: 16 at one height, or what is left of them once a later record
+    took part of its memory, by the ring step (abdiff1: play-cannery t21000, 10 points left; a 16-sided sphere's
+    points turn by a sixteenth and are not a ring's)."""
+
+    def points(self, data, at, count, step, first=0, height=8.92, centre=(50.0, 23.0), radius=1.5):
+        import math
+        import struct
+        for k in range(count):
+            angle = (first + k) * step
+            struct.pack_into('<4f', data, at + 0x10 * k, centre[0] + radius * math.cos(angle), height,
+                             centre[1] + radius * math.sin(angle), -262143.98)
+
+    def owned(self, data):
+        return career_ab.splash_ring_w(career_ab.Dump(bytes(data), None))
+
+    def test_a_whole_ring_and_what_is_left_of_one(self):
+        data = bytearray(0x1000)
+        self.points(data, 0x100, 16, career_ab.SPLASH_RING_STEP)
+        ring = self.owned(data)
+        self.assertTrue(all(0x100 + 0x10 * k + 0xC in ring for k in range(16)))
+        self.assertNotIn(0x100 + 0x8, ring)   # (z: only w)
+        data[0x100:0x160] = bytes(range(0x60))   # a later record over its first 6 points
+        left = self.owned(data)
+        self.assertTrue(all(0x100 + 0x10 * k + 0xC in left for k in range(6, 16)))
+
+    def test_too_few_points_and_a_sixteenth_are_not_a_ring(self):
+        import math
+        data = bytearray(0x1000)
+        self.points(data, 0x100, 3, career_ab.SPLASH_RING_STEP)   # 3 points: one step
+        self.points(data, 0x400, 8, 2 * math.pi / 16, height=60.66, radius=23.0)   # a mesh of 16 sides
+        owned = self.owned(data)
+        self.assertFalse(any(a + 0xC in owned for a in range(0x100, 0x130, 0x10)))
+        self.assertFalse(any(a + 0xC in owned for a in range(0x400, 0x480, 0x10)))
+
+
 class LayeringUpRef(unittest.TestCase):
     """readable_layering's up_ref names a function by C++'s lookup (tools37): zge/host's movies::playAgain() is
     host/movies.h's, not aggressive::playAgain; the engine naming one of AI's own functions is still found."""
@@ -684,6 +1013,112 @@ class CompressedRecordings(unittest.TestCase):
             db.close()
         finally:
             shutil.rmtree(d)
+
+
+
+class ReleaseCheckPaths(unittest.TestCase):
+    """release_check: a path of the build machine in a program is found, in ASCII and UTF-16, in any case and slash;
+    the games' own strings that name their developers' drives are not (1.3.1's dry run: FFmpeg's assert paths)."""
+
+    def scan(self, data, build_paths=()):
+        d = tempfile.mkdtemp()
+        try:
+            f = os.path.join(d, 'program')
+            with open(f, 'wb') as out:
+                out.write(data)
+            c = release_check.Check('t', d, '0', list(build_paths), True)
+            c.machine_paths(f, 'program')
+            return len(c.problems)
+        finally:
+            shutil.rmtree(d)
+
+    def test_finds(self):
+        ffmpeg = 'C:\\work\\scratch\\lane\\third_party-cache\\build\\ffmpeg-9.0.2\\libavcodec\\bytestream.h'
+        self.assertEqual(self.scan(b'\0' + ffmpeg.encode() + b'\0'), 1)
+        self.assertEqual(self.scan(ffmpeg.encode('utf-16-le')), 1)
+        self.assertEqual(self.scan(b'x /ho' + b'me/someone/tree/x.cpp\0'), 1)
+        self.assertEqual(self.scan(b'D:/Build/Lane/x.cpp', ['d:\\build\\lane']), 1)
+
+    def test_leaves_the_games_strings(self):
+        game = b'D:\\bmx2\\riders\\createarider\\\0D:\\inline\\Art\\Interface\\FrontEnd\\background image\\\0'
+        self.assertEqual(self.scan(game + b'libavcodec/bytestream.h\0/tmp/%sXXXXXX\0'), 0)
+
+    def test_pe_kind(self):
+        head = bytearray(512)
+        head[0:2] = b'MZ'
+        head[0x3c:0x40] = (0x80).to_bytes(4, 'little')
+        head[0x80:0x84] = b'PE\0\0'
+        head[0x84:0x86] = (0x8664).to_bytes(2, 'little')
+        head[0x98:0x9a] = (0x20b).to_bytes(2, 'little')
+        head[0x98 + 68:0x98 + 70] = (2).to_bytes(2, 'little')
+        d = tempfile.mkdtemp()
+        try:
+            f = os.path.join(d, 'a.exe')
+            with open(f, 'wb') as out:
+                out.write(bytes(head))
+            self.assertEqual(release_check.pe_kind(f), 'gui x64')
+        finally:
+            shutil.rmtree(d)
+
+
+class ReleaseCheckText(unittest.TestCase):
+    """release_check: every text file of a package is the tree's byte for byte or made from it as declared (relsolid1:
+    1.3.1's Windows zip had a CRLF Michroma-OFL.txt, its APK's DM2 and BMX XXX configs a build machine's folder)."""
+
+    TREE = {'LICENSE': b'GPL\n', 'NOTICE': b'notice\n', 'third_party/licenses/FFmpeg-LGPL-2.1.txt': b'lgpl\n',
+            'collection/resources/fonts/Michroma-OFL.txt': b'ofl\nlines\n',
+            'platform/windows/README.txt': b'@APP_NAME@ @APP_VERSION@\nfor Windows\n'}
+    PACKAGE = {'LICENSE.txt': b'GPL\n', 'NOTICE.txt': b'notice\n', 'FFMPEG-LICENSE.txt': b'lgpl\n',
+               'fonts/Michroma-OFL.txt': b'ofl\nlines\n', 'README.txt': b'Z-Axis Collection 1.4.0\r\nfor Windows\r\n',
+               'fonts/Michroma-Regular.ttf': b'\0\1\0\0font', 'Z-Axis Collection.exe': b'MZ\0\0'}
+
+    def check(self, changes=None, game_data=False):
+        """The problems of a Windows folder (PACKAGE with CHANGES: name -> bytes, None removes it)."""
+        d = tempfile.mkdtemp()
+        try:
+            tree, root = os.path.join(d, 'tree'), os.path.join(d, 'Z-Axis Collection')
+            for files, top in ((self.TREE, tree), (dict(self.PACKAGE, **(changes or {})), root)):
+                for name, data in files.items():
+                    if data is None:
+                        continue
+                    p = os.path.join(top, *name.split('/'))
+                    os.makedirs(os.path.dirname(p), exist_ok=True)
+                    with open(p, 'wb') as f:
+                        f.write(data)
+            c = release_check.Check('t', tree, '1.4.0', [], game_data)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                release_check.text_files(c, 'windows', release_check.rel_names(root), release_check.folder_reader(root),
+                                         'Z-Axis Collection', game_data)
+            return c.problems
+        finally:
+            shutil.rmtree(d)
+
+    def test_the_trees(self):
+        self.assertEqual(self.check(), [])
+
+    def test_line_ends_and_encodings(self):
+        crlf = self.check({'fonts/Michroma-OFL.txt': b'ofl\r\nlines\r\n'})
+        self.assertEqual(len(crlf), 1)
+        self.assertIn('2 CRs', crlf[0])
+        self.assertEqual(len(self.check({'NOTICE.txt': b'\xef\xbb\xbfnotice\n'})), 1)
+        self.assertEqual(len(self.check({'README.txt': b'Z-Axis Collection 1.4.0\nfor Windows\n'})), 1)   # (LF)
+        self.assertEqual(len(self.check({'README.txt': b'Z-Axis Collection 1.3.1\r\nfor Windows\r\n'})), 1)
+
+    def test_missing_and_undeclared(self):
+        self.assertEqual(len(self.check({'LICENSE.txt': None})), 1)
+        self.assertEqual(len(self.check({'CHANGES.txt': b'a text file no one declared\n'})), 1)
+        self.assertEqual(self.check({'CHANGES.txt': b'\n', 'README.txt': b'a developer\'s\r\n'}, game_data=True), [])
+
+    def test_build_paths(self):
+        home = b'/ho' + b'me/someone/clone/games/dm2/workspace/recomp/config.toml'
+        found = self.check({'NOTICE.txt': b'from ' + home + b'\n'})
+        self.assertEqual(len(found), 2)   # (not the tree's, and a path of the build machine)
+        self.assertIn('paths of the machine', found[1])
+
+    def test_how_differs(self):
+        self.assertEqual(release_check.how_differs(b'ab\r\n', b'ab\n'),
+                         '4 bytes, 1 CRs; the tree\'s 3, 0 CRs; first difference at byte 2')
 
 
 if __name__ == '__main__':

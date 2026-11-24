@@ -10,7 +10,9 @@
 // the answers written as a ZX_PAD_SCRIPT replay the run tick for tick.
 //
 // <dir> holds two FIFOs the player made: `up` (game to player), `down`
-// (player to game). All numbers little endian.
+// (player to game). On Windows, which has no FIFOs, they are two named pipes
+// the player made: ZX_PLAY_LINK=\\.\pipe\<name> names \\.\pipe\<name>\up and
+// \\.\pipe\<name>\down. All numbers little endian.
 //   game:    'T', u64 vsync tick, i64 script time in vsyncs, u32 reads so far
 //   player:  'R', u32 address, u32 bytes     -> the bytes, on up
 //            'G', u16 buttons (PAD_ bits, added to the rest), u8 axes mask
@@ -18,7 +20,6 @@
 //                 u32 further reads to run with this same answer
 // When the player goes away (its end of `down` closes) the game exits: a
 // run driven by a player cannot outlive it.
-// Not built on Windows (no FIFOs): enabled() is false there.
 namespace ps2_play_link
 {
     bool enabled();

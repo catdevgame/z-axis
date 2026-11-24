@@ -188,11 +188,14 @@ public:
     {
         uint64_t frame = 0;  // the game frame's number (framesMade when it was made)
         int64_t madeNs = 0;  // when its picture was made, steady clock ns
+        int64_t makingNs = 0; // how long making its picture took (the renderer's flush, submit and present)
         uint32_t waiting = 0; // frames still waiting after it
         uint64_t vsync = 0;  // the guest's vblank tick it was made at
     };
     // Window thread: the oldest waiting frame, not taken (false: none waits).
     bool peekPresentationFrame(TakenFrame &out) const;
+    // Window thread: the newest waiting frame, not taken (false: none waits).
+    bool peekNewestPresentationFrame(TakenFrame &out) const;
     // Window thread: the latched picture's frame (frame 0: none, or latched without the queue).
     TakenFrame shownPresentationFrame() const;
     // Window thread, frame interpolation (gs/gs_interpolate.h): the picture `t` of the way from the
@@ -297,6 +300,8 @@ private:
     uint64_t m_kickBatchState = ~0ull; // the build of m_drawState in m_kickBatch
     mutable uint64_t m_drawStateChecks = 0, m_drawStateMismatches = 0;
     void drawNativeTriangles(const GSNativeDraw &draw, const GSPrimitiveBatch &base);
+    // drawNative's body, the state lock held (a see-through draw's blending and depth set around it).
+    void drawNativeLocked(const GSNativeDraw &draw);
     std::atomic<bool> m_nativeBackend{false};
     NativeDrawStats m_nativeStats;
     void updatePreferredDisplaySourceForDraw(const GSPrimitiveBatch &batch);
@@ -373,6 +378,7 @@ private:
         bool disturbed = false; // the display changed while it was copied
         uint64_t frame = 0;
         int64_t madeNs = 0;
+        int64_t makingNs = 0; // how long making it took
         uint64_t vsync = 0; // the guest's vblank tick it was made at
     };
     static constexpr uint32_t kMaxWaitingFrames = 2;

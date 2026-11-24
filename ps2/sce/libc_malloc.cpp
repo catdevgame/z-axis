@@ -676,21 +676,7 @@ namespace sce::libc
 
     namespace
     {
-        // struct mallinfo, the numbers mallinfo() and malloc_stats report.
-        struct MallocInfo
-        {
-            int32_t arena;    // all the heap
-            int32_t ordblks;  // free chunks
-            int32_t smblks;
-            int32_t hblks;
-            int32_t hblkhd;
-            int32_t usmblks;
-            int32_t fsmblks;
-            int32_t uordblks; // bytes in use
-            int32_t fordblks; // bytes free
-            int32_t keepcost; // what the top chunk could give back
-        };
-        static_assert(sizeof(MallocInfo) == 0x28);
+        // current_mallinfo (MallocInfo: sce/newlib.h).
         inline ee::Global<MallocInfo, sym::g_sbrkedMem> g_currentMallinfo;
 
         constexpr int kBinCount = 128; // NAV

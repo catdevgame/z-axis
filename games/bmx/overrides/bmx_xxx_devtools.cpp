@@ -11,7 +11,7 @@
 // debug drawing (setDebugMenuSelection: the debug markers, lines and text the
 // code adds). Nothing in the retail game sets it.
 //
-// With ZX_DEV_MENU=1 (the app's [general] developer_menu), F1 or
+// With ZX_DEV_MENU=1 (the app's [general] developer_menu), the developer_menu key (F1, Select+L3) or
 // `set dev.debug_menu 1` (ZX_CONTROL) turns it between 0 and 2. Off by
 // default: the byte is never written (zge_devtools.cpp, DM2's host side).
 

@@ -74,7 +74,7 @@ namespace game::bmx
         zge::moviePlay(*g_stateMovie, kNoLoop);
         return 1;
     }
-    READABLE_FUNCTION_WAITS(movieEnter, Draft);
+    READABLE_FUNCTION_WAITS(movieEnter, Verified);
 
     void movieExit()
     {
@@ -88,7 +88,7 @@ namespace game::bmx
         zge::setMaterialPicture(movieMaterial(), 0, 0);
         zge::movieClose(*g_stateMovie);
     }
-    READABLE_FUNCTION_WAITS(movieExit, Draft);
+    READABLE_FUNCTION_WAITS(movieExit, Verified);
 
     int32_t movieFrame()
     {
@@ -118,5 +118,5 @@ namespace game::bmx
         }
         return 1;
     }
-    READABLE_FUNCTION_WAITS(movieFrame, Draft);
+    READABLE_FUNCTION_WAITS(movieFrame, Verified);
 }

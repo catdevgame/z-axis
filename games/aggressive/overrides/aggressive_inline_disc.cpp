@@ -18,7 +18,7 @@
 #include "runtime/boot_config.h"
 #include "runtime/game_files.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <filesystem>
 #include <fstream>

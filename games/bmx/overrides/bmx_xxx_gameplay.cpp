@@ -78,13 +78,14 @@
 // game's support folder). On with the app's settings (ZX_GAME_SETTINGS_MENUS=1).
 
 #include "bmx_xxx.h"
+#include "bmx_xxx_practice.h"
 #include "sym/game_overrides/bmx_xxx_gameplay.cpp.h"
 #include "overrides/zge_gameplay.h"
 
 #include "machine.h"
 #include "runtime/boot_config.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <atomic>
 #include <chrono>
@@ -566,7 +567,11 @@ namespace bmx_xxx::gameplay
             State &s = state();
             s.keys.poll();
             hudOnVsync(rdram, s.keys.pressed(ps2_host_input::kHotkeyHideHud));
-            if (s.keys.pressed(ps2_host_input::kHotkeyRestart) && inLevel(rdram))
+            // With Practice on and a restart point, the Restart key goes back to it (bmx_xxx_practice.cpp).
+            const bool level = inLevel(rdram);
+            const bool restartKey = s.keys.pressed(ps2_host_input::kHotkeyRestart) && level;
+            if (!practice::onVsync(rdram, level, s.keys.pressed(ps2_host_input::kHotkeyPracticePoint) && level, restartKey) &&
+                restartKey)
                 restart::requestKey();
             applyCamera(rdram);
             applyAssists(rdram);

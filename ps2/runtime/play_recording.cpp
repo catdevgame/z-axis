@@ -16,7 +16,7 @@
 
 #include "runtime/boot_config.h"
 #include "runtime/memory.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #if __has_include("play_recording_commit.h")
 #include "play_recording_commit.h" // ZX_BUILD_COMMIT, written by the build (cmake/BuildCommit.cmake)
@@ -46,6 +46,14 @@
 #include <sys/sysctl.h>
 #elif defined(__ANDROID__)
 #include <sys/system_properties.h>
+#elif defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 #if defined(_WIN32)
@@ -222,6 +230,99 @@ namespace play_recording
             return true;
         }
 
+#if defined(_WIN32)
+        std::string utf8(const wchar_t *text)
+        {
+            const int n = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+            if (n <= 1)
+                return {};
+            std::string out(static_cast<size_t>(n - 1), '\0');
+            WideCharToMultiByte(CP_UTF8, 0, text, -1, out.data(), n, nullptr, nullptr);
+            return out;
+        }
+
+        // A text value under HKEY_LOCAL_MACHINE, "" when there is none.
+        std::string machineText(const wchar_t *key, const wchar_t *name)
+        {
+            wchar_t value[256] = {};
+            DWORD size = sizeof(value);
+            if (RegGetValueW(HKEY_LOCAL_MACHINE, key, name, RRF_RT_REG_SZ, nullptr, value, &size) != ERROR_SUCCESS)
+                return {};
+            std::string text = utf8(value);
+            while (!text.empty() && text.back() == ' ')
+                text.pop_back();
+            return text;
+        }
+
+        uint32_t machineNumber(const wchar_t *key, const wchar_t *name)
+        {
+            DWORD value = 0;
+            DWORD size = sizeof(value);
+            if (RegGetValueW(HKEY_LOCAL_MACHINE, key, name, RRF_RT_REG_DWORD, nullptr, &value, &size) != ERROR_SUCCESS)
+                return 0;
+            return value;
+        }
+
+        // The power plan in use, by the name Windows shows for it.
+        std::string powerPlan()
+        {
+            const wchar_t *schemes = L"SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes";
+            wchar_t active[64] = {};
+            DWORD size = sizeof(active);
+            if (RegGetValueW(HKEY_LOCAL_MACHINE, schemes, L"ActivePowerScheme", RRF_RT_REG_SZ, nullptr, active, &size) !=
+                ERROR_SUCCESS)
+                return {};
+            const std::wstring key = std::wstring(schemes) + L"\\" + active;
+            HKEY scheme = nullptr;
+            std::string name;
+            if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, key.c_str(), 0, KEY_READ, &scheme) == ERROR_SUCCESS)
+            {
+                wchar_t text[256] = {};
+                DWORD needed = 0;
+                if (RegLoadMUIStringW(scheme, L"FriendlyName", text, sizeof(text), &needed, 0, nullptr) == ERROR_SUCCESS)
+                    name = utf8(text);
+                RegCloseKey(scheme);
+            }
+            return name.empty() ? utf8(active) : name;
+        }
+
+        // The logical processors by efficiency class (a hybrid CPU's
+        // performance and efficient cores), "" on a CPU of one class.
+        std::string coreTiers()
+        {
+            ULONG size = 0;
+            GetSystemCpuSetInformation(nullptr, 0, &size, GetCurrentProcess(), 0);
+            if (size == 0)
+                return {};
+            std::vector<uint8_t> buffer(size);
+            auto *first = reinterpret_cast<SYSTEM_CPU_SET_INFORMATION *>(buffer.data());
+            if (!GetSystemCpuSetInformation(first, size, &size, GetCurrentProcess(), 0))
+                return {};
+            std::map<int, int> byClass; // efficiency class -> logical processors
+            for (ULONG at = 0; at + sizeof(DWORD) * 2 <= size;)
+            {
+                const auto *entry = reinterpret_cast<const SYSTEM_CPU_SET_INFORMATION *>(buffer.data() + at);
+                if (entry->Size == 0)
+                    break;
+                if (entry->Type == CpuSetInformation)
+                    ++byClass[entry->CpuSet.EfficiencyClass];
+                at += entry->Size;
+            }
+            if (byClass.size() < 2)
+                return {};
+            // A higher class is a faster, less efficient core: two classes
+            // are performance and efficient cores, more are listed by class.
+            if (byClass.size() == 2)
+                return std::to_string(byClass.rbegin()->second) + " performance, " +
+                       std::to_string(byClass.begin()->second) + " efficient";
+            std::string text;
+            for (auto tier = byClass.rbegin(); tier != byClass.rend(); ++tier)
+                text += (text.empty() ? "" : ", ") + std::to_string(tier->second) + " of class " +
+                        std::to_string(tier->first);
+            return text;
+        }
+#endif
+
         std::string deviceLines()
         {
             std::string lines;
@@ -285,7 +386,42 @@ namespace play_recording
             if (!battery.empty())
                 lines += "battery=" + battery + " " + firstLine("/sys/class/power_supply/battery/capacity") + "%\n";
 #elif defined(_WIN32)
-            lines += "device=Windows PC\n";
+            // The maker's names for the machine; a self-built PC's are the
+            // board's (its firmware leaves the system's as placeholders).
+            const wchar_t *bios = L"HARDWARE\\DESCRIPTION\\System\\BIOS";
+            std::string maker = machineText(bios, L"SystemManufacturer");
+            std::string product = machineText(bios, L"SystemProductName");
+            if (product.empty() || product == "System Product Name" || product == "To be filled by O.E.M.")
+            {
+                maker = machineText(bios, L"BaseBoardManufacturer");
+                product = machineText(bios, L"BaseBoardProduct");
+            }
+            lines += "device=PC " + (maker.empty() ? std::string() : maker + " ") + product + "\n";
+            const std::string cpu =
+                machineText(L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", L"ProcessorNameString");
+            if (!cpu.empty())
+                lines += "cpu=" + cpu + "\n";
+            // Windows 11 is build 22000 and later (its registry still says 10).
+            const wchar_t *version = L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+            const std::string build = machineText(version, L"CurrentBuildNumber");
+            const std::string release = machineText(version, L"DisplayVersion");
+            lines += std::string("os=Windows ") + (std::atoi(build.c_str()) >= 22000 ? "11" : "10") +
+                     (release.empty() ? "" : " " + release) + " build " + build + "." +
+                     std::to_string(machineNumber(version, L"UBR")) + "\n";
+            SYSTEM_POWER_STATUS status{};
+            const bool known = GetSystemPowerStatus(&status) != 0;
+            const std::string plan = powerPlan();
+            const bool saver = known && status.SystemStatusFlag == 1;
+            if (!plan.empty() || saver)
+                lines += "power=" + (plan.empty() ? std::string() : plan + " plan") +
+                         (saver ? std::string(plan.empty() ? "" : ", ") + "battery saver" : "") + "\n";
+            // (BatteryFlag 128: no battery; 255: unknown)
+            if (known && status.BatteryFlag != 128 && status.BatteryFlag != 255 && status.BatteryLifePercent <= 100)
+                lines += std::string("battery=") + (status.ACLineStatus == 1 ? "on mains" : "on battery") + " " +
+                         std::to_string(status.BatteryLifePercent) + "%\n";
+            const std::string tiers = coreTiers();
+            if (!tiers.empty())
+                lines += "core_tiers=" + tiers + "\n";
 #else
             lines += "device=Linux\n";
 #endif

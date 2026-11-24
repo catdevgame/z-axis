@@ -20,6 +20,11 @@
 #include <utility>
 #include <vector>
 
+namespace ps2_host_input
+{
+    struct GameControls;
+}
+
 namespace zx::app
 {
     using GetEnv = std::function<const char *(const char *name)>;
@@ -102,6 +107,7 @@ namespace zx::app
         bool cleanTopScreen = false;
         int volume = 100;               // master volume, percent (0-100)
         bool muteOnFocusLoss = false;   // silent while the window is in the background
+        bool shuffleMusic = false;      // the soundtrack in a random order (engine/overrides/zge_soundtrack.h)
         int movieVolume = 100;          // movie sound, percent (0-100)
         bool skipIntroMovies = false;   // start at the title screen
         int language = 0;               // kLanguages index: English, or French/German/Spanish from the Xbox release
@@ -142,6 +148,8 @@ namespace zx::app
         // Record each game's play to <support>/Recordings (runtime/play_recording.h): inputs, telemetry, the
         // saves at boot; a replay runs it again here. Off by default.
         bool recordPlay = false;
+        // Practice (collection/practice.h): a restart point and a timer in the games that have one. Off by default.
+        bool practice = false;
         // Custom Freeplay (collection/maps.h): the menu's fourth tile, a player from any game on a custom map from the
         // Mods folders. Off by default: the menu as it was, and no boot is given a map.
         bool customFreeplay = false;
@@ -297,6 +305,15 @@ namespace zx::app
     // Whether a settings.ini key belongs in a collection's root file (the
     // app's, the same in every game) rather than the game's own.
     bool appWideKey(std::string_view section, std::string_view key);
+    // The version that first read a key of a collection's root settings.ini,
+    // "" for one every release reads (the first, 1.1.0, did). A key added to
+    // the root (formatSettings, SettingsScope::App) gets its version in the
+    // table (settings.cpp, kAddedRootSettings): before the app restarts into
+    // an older version, the keys that version does not read are kept aside
+    // for it (collection/updater.h, setAsideNewerSettings).
+    std::string rootSettingSince(std::string_view section, std::string_view key);
+    // Whether this version writes the key in a collection's root settings.ini.
+    bool rootSettingKnown(std::string_view section, std::string_view key);
 
     // INI with [display], [graphics], [audio], [general], [gameplay], [extras], [saves] and [memcard] sections;
     // unknown keys and bad values keep their defaults and are reported in
@@ -344,6 +361,27 @@ namespace zx::app
     // Nothing happens when the root has neither. What was done goes to log.
     void migrateCollectionFiles(const std::filesystem::path &root, const std::string &keeperId,
                                 const std::vector<std::string> &gameIds, std::vector<std::string> *log = nullptr);
+    // A player's controls.ini given the defaults that changed since it was
+    // written (runtime/host_input.h: kControlsRevision, the file's
+    // "controls_version" line, the game's changedDefaults). For each default
+    // changed after the file's revision, a control still holding one of its
+    // earlier defaults (the player never rebound it) gets the new one; a
+    // control holding anything else is the player's and stays; a control the
+    // file lacks (one added since) already takes its default when the game
+    // reads the file. The file then says the current revision, so a control
+    // the player sets back later is theirs. A file of a later revision (a
+    // newer app's, before a downgrade) is left as it is. Everything else in
+    // the text (comments, order, other values, line ends) is kept. What was
+    // done goes to log.
+    std::string updateControlsDefaults(const std::string &text, const ps2_host_input::GameControls &game,
+                                       std::vector<std::string> *log = nullptr);
+    // The same on the file of game `gameId` (runtime/host_input.h,
+    // gameControls), rewritten only when something changed; a missing file
+    // is left to the game, which writes its defaults. A playback's copy is
+    // never given this: the recording plays with the controls it was made
+    // with. True when the file was rewritten.
+    bool updateControlsFile(const std::filesystem::path &file, const std::string &gameId,
+                            std::vector<std::string> *log = nullptr);
     // The settings of a game in a collection: its own file, then the
     // root's on top (the app's settings; before the root has them, those of
     // the game's file, e.g. copied from its single-game app). False if

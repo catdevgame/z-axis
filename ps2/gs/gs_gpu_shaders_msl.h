@@ -1057,4 +1057,84 @@ fragment float4 fxaa_fs(BlitOut in [[stage_in]], constant FxaaUniforms &u [[buff
         pos.y += pixelOffsetSubpix * lengthSign;
     return float4(tex.sample(s0, pos, level(0.0)).rgb, rgbM.a);
 }
+
+// Frame interpolation's warp: the picture at t between two finished pictures A and B, from the camera's motion at
+// each pixel's depth (gs_gpu_backend.cpp presentWarp, which says how a motion is chosen).
+struct WarpUniforms
+{
+    float4 toA[4];  // B's GS window (X, Y, Z, 1) to A's (X w, Y w, Z w, w): rows
+    float4 toB[4];  // A's to B's
+    float4 originA; // x, y: A's picture texel 0 in its target's texels; z, w: its draws' XYOFFSET (GS pixels)
+    float4 originB;
+    float4 cfg;     // x, y: texels per GS pixel; z: t; w: 1 = A's depth is there
+    float4 depth;   // x, y: A's and B's GS Z per depth unit; z, w: the pictures' size in texels
+};
+
+// Picture texel q of one frame (its origin, its depth, GS Z per depth unit) to the other's picture texel through
+// the world (rows: one frame's GS window to the other's); z <= 0: behind the other camera.
+static float3 warpThrough(float2 q, float4 from, float4 to, constant float4 *rows, float zScale, float2 scale,
+                          depth2d<float> depth)
+{
+    const float2 target = q + from.xy;
+    const int2 texel = clamp(int2(target), int2(0, 0), int2(int(depth.get_width()), int(depth.get_height())) - 1);
+    const float z = depth.read(uint2(texel)) * zScale;
+    const float2 gs = target / scale + from.zw;
+    const float4 h = gs.x * rows[0] + gs.y * rows[1] + z * rows[2] + rows[3];
+    if (h.w <= 1.0e-6)
+        return float3(0.0, 0.0, -1.0);
+    return float3((h.xy / h.w - to.zw) * scale - to.xy, 1.0);
+}
+
+// The motion from A to B (picture texels) of what B shows at q; z <= 0: none.
+static float3 warpMotionB(float2 q, constant WarpUniforms &u, depth2d<float> depthB)
+{
+    const float3 a = warpThrough(q, u.originB, u.originA, u.toA, u.depth.y, u.cfg.xy, depthB);
+    return float3(q - a.xy, a.z);
+}
+
+fragment float4 warp_fs(BlitOut in [[stage_in]], constant WarpUniforms &u [[buffer(0)]],
+                        texture2d<float> pictureA [[texture(0)]], texture2d<float> pictureB [[texture(1)]],
+                        depth2d<float> depthA [[texture(2)]], depth2d<float> depthB [[texture(3)]],
+                        sampler samplerA [[sampler(0)]], sampler samplerB [[sampler(1)]],
+                        sampler s2 [[sampler(2)]], sampler s3 [[sampler(3)]])
+{
+    const float2 p = in.position.xy;
+    const float t = u.cfg.z;
+    const float2 scale = u.cfg.xy;
+    const float2 texel = 1.0 / u.depth.zw;
+    float3 motions[7];
+    motions[0] = float3(0.0, 0.0, 1.0);
+    motions[1] = warpMotionB(p, u, depthB);
+    if (u.cfg.w != 0.0)
+    {
+        const float3 b = warpThrough(p, u.originA, u.originB, u.toB, u.depth.x, scale, depthA);
+        motions[2] = float3(b.xy - p, b.z);
+    }
+    else
+        motions[2] = float3(0.0, 0.0, -1.0);
+    const float reach = clamp(length(motions[1].xy) * 0.5, 2.0 * scale.x, 16.0 * scale.x);
+    motions[3] = warpMotionB(p + float2(reach, 0.0), u, depthB);
+    motions[4] = warpMotionB(p - float2(reach, 0.0), u, depthB);
+    motions[5] = warpMotionB(p + float2(0.0, reach), u, depthB);
+    motions[6] = warpMotionB(p - float2(0.0, reach), u, depthB);
+    float best = 1.0e9;
+    float3 colour = pictureB.sample(samplerB, p * texel, level(0.0)).rgb;
+    for (int k = 0; k < 7; ++k)
+    {
+        if (motions[k].z <= 0.0)
+            continue;
+        const float2 m = motions[k].xy;
+        const float3 ca = pictureA.sample(samplerA, (p - t * m) * texel, level(0.0)).rgb;
+        const float3 cb = pictureB.sample(samplerB, (p + (1.0 - t) * m) * texel, level(0.0)).rgb;
+        const float3 d = abs(ca - cb);
+        // (no motion only where it agrees clearly better: in a flat area every motion agrees)
+        const float e = d.r + d.g + d.b + (k == 0 ? 0.02 : 0.0);
+        if (e < best)
+        {
+            best = e;
+            colour = mix(ca, cb, t);
+        }
+    }
+    return float4(colour, 1.0);
+}
 )MSL";

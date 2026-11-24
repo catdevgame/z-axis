@@ -304,8 +304,8 @@ def cmd_info(args):
     print('%s: %s, %d bytes, vsync 0 to %d (%.1f min of game time), %s' % (
         args.file, rec.game, rec.size, last, last / 59.94 / 60.0,
         'ended: %s' % rec.end[1] if rec.end else 'no end record (crash or kill)'))
-    for k in ('commit', 'started', 'front_end', 'device', 'os', 'power', 'thermal', 'battery', 'elf', 'elf_hash',
-              'boot'):
+    for k in ('commit', 'started', 'front_end', 'device', 'cpu', 'os', 'power', 'thermal', 'battery', 'cores',
+              'core_tiers', 'elf', 'elf_hash', 'boot'):
         if k in rec.header:
             print('  %-9s %s' % (k, rec.header[k]))
     print('  size by part: ' + ', '.join('%s %d' % (names.get(k, k), v) for k, v in sorted(rec.bytes_by_type.items())))

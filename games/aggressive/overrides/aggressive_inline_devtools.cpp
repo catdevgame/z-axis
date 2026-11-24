@@ -17,8 +17,9 @@
 // split screen): Resume, Art Viewer, Tuning (the table's categories and
 // entries, left/right change a value: inlineTuneUp/Down), Respawn, Toggle
 // Debug; inlineDebugMenuSelect (0x1BC600) acts on the choice. Nothing in
-// the retail game enters mode 6. With ZX_DEV_MENU=1, F1 in a level (game
-// mode 2) or `set dev.debug_menu 1` (ZX_CONTROL) enters it from the
+// the retail game enters mode 6. With ZX_DEV_MENU=1, the developer_menu
+// key in a level (game mode 2: F1, Select+L3 on a gamepad, [hotkeys] in
+// controls.ini) or `set dev.debug_menu 1` (ZX_CONTROL) enters it from the
 // level's update (0x1ACA68), as func_001A70F0(6).
 //
 // Language. The game loads one string table at start, "assets\string.eus"
@@ -33,7 +34,7 @@
 
 #include "machine.h"
 #include "runtime/pad.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/tuning_ini.h"
 #include "runtime/zip_archive.h"
 #include "runtime/boot_config.h"
@@ -71,7 +72,6 @@ namespace aggressive_inline
         constexpr uint32_t kModeDebugMenu = 6u;
         constexpr uint32_t kSetGameMode = sym::enterGameMode;
         constexpr uint32_t kPlayUpdate = sym::updatePlayMode;
-        constexpr int kKeyF1 = 290;
 
         constexpr uint32_t kStringTableName = sym::g_stringTableName;
         constexpr const char *kStringTableUs = "assets\\string.eus";
@@ -86,7 +86,7 @@ namespace aggressive_inline
             PS2Machine::RecompiledFunction playUpdate = nullptr;
             PS2Machine::RecompiledFunction setGameMode = nullptr;
             std::atomic<bool> debugMenuRequest{false};
-            bool f1Latched = false;
+            uint32_t developerMenuPresses = 0; // the developer_menu key's presses as last seen
 
             std::vector<Pinned> pinned;
         };
@@ -274,10 +274,12 @@ namespace aggressive_inline
         // func_001A70F0(6) (the mode's exit, then the debug menu's enter).
         void playUpdateHook(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
         {
-            const bool f1 = PSPadBackend::keyPressedWithin(kKeyF1, 0.25);
-            if (f1 && !devTools().f1Latched)
+            const uint32_t presses = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeyDeveloperMenu);
+            if (presses != devTools().developerMenuPresses)
+            {
+                devTools().developerMenuPresses = presses;
                 devTools().debugMenuRequest = true;
-            devTools().f1Latched = f1;
+            }
             if (devTools().debugMenuRequest.exchange(false) && readWord(rdram, kGameMode) == kModePlay)
             {
                 std::cout << "[aggressive-inline] debug menu" << std::endl;
@@ -297,6 +299,7 @@ namespace aggressive_inline
                 std::cerr << "[aggressive-inline] debug menu hook not installed" << std::endl;
                 return;
             }
+            devTools().developerMenuPresses = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeyDeveloperMenu);
             zx::settings::Setting open;
             open.key = "dev.debug_menu";
             open.label = "Debug Menu";
@@ -308,7 +311,7 @@ namespace aggressive_inline
                     devTools().debugMenuRequest = true;
             };
             zx::session::addSetting(open);
-            std::cout << "[aggressive-inline] developer menu on: F1 in a level opens the game's debug menu" << std::endl;
+            std::cout << "[aggressive-inline] developer menu on: the developer_menu key in a level opens the game's debug menu" << std::endl;
         }
     }
 

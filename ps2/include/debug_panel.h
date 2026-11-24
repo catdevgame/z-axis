@@ -1,12 +1,19 @@
 #ifndef PS2_DEBUG_PANEL_H
 #define PS2_DEBUG_PANEL_H
 
+#include "notice_overlay.h"
+
+#include <atomic>
 #include <cstdint>
 #include <string>
+#include <utility>
+#include <vector>
 
 class PS2Machine;
-struct ImFont;
 
+// The runtime debugger (F1): CPU, threads, kernel, IOP, the pads, files,
+// GS, DMA and memory, in Dear ImGui windows over the game. It draws them in
+// the frame of the player's messages (notice_overlay.h), which it owns.
 class PS2DebugPanel
 {
 public:
@@ -17,33 +24,28 @@ public:
     bool isVisible() const { return m_visible; }
     void setVisible(bool visible) { m_visible = visible; }
     void toggleVisible() { m_visible = !m_visible; }
+    // The gamepad test: the panel shown at its PAD tab (what the game reads
+    // from each pad), or hidden again when it is up, at the next frame: for
+    // a device with no F1 key (Settings > Controls > Gamepad Test, with the
+    // Developer Menu on). Any thread.
+    void togglePadTest() { m_padTestToggle = true; }
     // A frame rate counter in the top right corner, also while the panel
     // is hidden (the app's Show Frame Rate setting).
-    void setShowFps(bool show) { m_showFps = show; }
-    // The player's messages (zx::settings::notify: a screenshot saved, a
-    // recording's playback line) in the app's own look: its menus' font (a
-    // TrueType file) and the colour of their help line (RGBA, R in the low
-    // byte). Before initialize; none: ImGui's font, in white. The debug
-    // windows keep ImGui's font.
-    void setNoticeStyle(std::string fontFile, uint32_t colour)
-    {
-        m_noticeFontFile = std::move(fontFile);
-        m_noticeColour = colour;
-    }
+    void setShowFps(bool show) { m_notices.setShowFps(show); }
+    // The player's messages (zx::settings::notify) in the app's own look
+    // (PS2NoticeOverlay::setNoticeStyle, setNoticeFont). Before initialize.
+    // The debug windows keep ImGui's font.
+    void setNoticeStyle(std::string fontFile, uint32_t colour) { m_notices.setNoticeStyle(std::move(fontFile), colour); }
+    void setNoticeFont(std::vector<uint8_t> ttf, uint32_t colour) { m_notices.setNoticeFont(std::move(ttf), colour); }
 
 private:
+    void drawWindows(PS2Machine &runtime);
+
+    PS2NoticeOverlay m_notices;
     bool m_initialized = false;
-    bool m_frameReady = false; // an ImGui frame to draw over this host frame
     bool m_visible = true;
-    bool m_showFps = false;
-    double m_fps = 0.0;
-    unsigned long long m_fpsFlips = 0;
-    double m_fpsSince = 0.0;
-    void drawFps();
-    void drawNotice(const std::string &text);
-    std::string m_noticeFontFile;
-    uint32_t m_noticeColour = 0xFFFFFFFFu;
-    ImFont *m_noticeFont = nullptr;
+    bool m_selectPadTab = false;          // the PAD tab chosen at the next frame
+    std::atomic<bool> m_padTestToggle{false}; // togglePadTest, for the window thread
     bool m_showRegisters = true;
     unsigned int m_memoryAddress = 0x00100000u;
     unsigned int m_memoryBytes = 0x100u;

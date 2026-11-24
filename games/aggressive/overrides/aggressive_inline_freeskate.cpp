@@ -21,7 +21,7 @@
 
 #include "machine.h"
 #include "runtime/game_files.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/boot_config.h"
 #include "runtime/session.h"
 
@@ -67,7 +67,7 @@ namespace aggressive_inline::freeskate
                 if (!made)
                 {
                     auto bytes = std::make_shared<std::vector<uint8_t>>();
-                    if (!ps2_xbox_disc::readFile(script.xbox, *bytes) || bytes->size() < 16u)
+                    if (!zx::xbox_files::readFile(script.xbox, *bytes) || bytes->size() < 16u)
                         return nullptr;
                     std::cout << "[freeskate] " << path << ": the Xbox release's free skate script" << std::endl;
                     made = bytes;
@@ -83,14 +83,14 @@ namespace aggressive_inline::freeskate
         const char *on = zx::boot::text("ZX_XBOX_FREESKATE");
         if (!on || on[0] != '1')
             return;
-        if (!ps2_xbox_disc::init())
+        if (!zx::xbox_files::init())
         {
-            std::cout << "[freeskate] no Xbox files (" << ps2_xbox_disc::description() << ")" << std::endl;
+            std::cout << "[freeskate] no Xbox files (" << zx::xbox_files::description() << ")" << std::endl;
             return;
         }
         size_t count = 0;
         for (const Script &script : kScripts)
-            if (ps2_xbox_disc::exists(script.xbox))
+            if (zx::xbox_files::exists(script.xbox))
             {
                 const std::string path(script.path);
                 gf::registerProvider(path.substr(0, path.rfind('/') + 1u), &provide, "freeskate");

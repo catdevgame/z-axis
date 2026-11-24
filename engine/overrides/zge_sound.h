@@ -17,13 +17,17 @@
 // aggressive_inline_sound.cpp, dave_mirra_sound.cpp, bmx_xxx_sound.cpp.
 //
 // The extras every game gets: the custom soundtrack (<mods>/Music/NN*.wav,
-// .ogg, .flac or .mp3 in place of MUSIC.ZSD's song NN) and its songs' titles
-// wherever the game shows them (its playlist's text, or its song info's
-// string keys). A game can add its own replacement of a stream's
-// source (Game::resolve: AI's French speech).
+// .ogg, .flac or .mp3 in place of MUSIC.ZSD's song NN), the songs a mod adds
+// after the game's own (the Music folder's other files: MUSIC.ZSD's waves
+// after its last, addedSongs) and their titles wherever the game shows them
+// (its playlist's text, or its song info's string keys). A game can add its
+// own replacement of a stream's source (Game::resolve: AI's French speech).
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
+#include <string>
+#include <vector>
 
 class PS2Machine;
 
@@ -60,6 +64,15 @@ namespace zge_host::sound
     {
         Handle,     // a sample's handle: the channel plays it from its start
         SpuAddress, // an SPU address: a sound anywhere inside an allocation (a bank kept as one)
+    };
+
+    // How a bank file's header lists its tables (after "ZSNDPS2 ", the
+    // file's size and the tables' end): ZGE3's (AI, DM2) a {count, offset}
+    // pair each, ZGE4's (BMX XXX) a {count, hash index, offset} triple.
+    enum class BankHeader
+    {
+        Pairs,
+        Triples,
     };
 
     // The buses the driver mixes, a stream's by its file's name.
@@ -121,6 +134,7 @@ namespace zge_host::sound
         uint32_t songs = 0;
         uint32_t bankWaveCount = 0x20u;
         uint32_t bankWaves = 0x24u;
+        BankHeader bankHeader = BankHeader::Pairs;
         // Their titles, where the game keeps them as text in its playlist:
         // setPlaylistEntry(soundtrack, index, title, artist) and the global
         // holding the game's own soundtrack (0: none).
@@ -138,6 +152,27 @@ namespace zge_host::sound
         // soundtrack's (null: none).
         Replacement (*resolve)(const StreamSource &source) = nullptr;
     };
+
+    // A song a mod adds after the game's own: a file of its Music folder
+    // that replaces none of the game's songs (a number past Game::songs, or
+    // none), played as MUSIC.ZSD's wave `wave` (one after the bank's last,
+    // in the mods' order and each folder's name order; zge_soundtrack.h).
+    struct AddedSong
+    {
+        std::filesystem::path file;
+        std::string title; // its tag, else its file's name
+        std::string artist;
+        std::string album;
+        double seconds = 0;
+        uint32_t wave = 0;
+        uint64_t start = 0; // its wave's offset in MUSIC.ZSD as served
+    };
+    // The added songs, once the game has opened MUSIC.ZSD (none before, with
+    // the native driver not installed, or with none).
+    std::vector<AddedSong> addedSongs();
+    // Whether this boot has added songs (the native driver installed, a mod
+    // with one): from install on, before the game opens MUSIC.ZSD.
+    bool hasAddedSongs();
 
     // The native driver, unless ZX_SOUND=spu2 or ZX_MOVIES=hle (then
     // ZAUDIO runs on the IOP with the emulated SPU2, and ZX_SOUND_LOG still

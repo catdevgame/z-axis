@@ -1,4 +1,4 @@
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/play_recording.h"
 
 #include <algorithm>

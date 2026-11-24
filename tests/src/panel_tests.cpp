@@ -914,6 +914,18 @@ void register_panel_tests()
                      "a trackpad's part of a notch, in proportion");
         });
 
+        tc.Run("the bottom screen over the game lies in the window's corner", [](TestCase &t) {
+            const Rect wide = overlayPlace(1920.0f, 1080.0f);
+            t.IsTrue(near(wide.height, 540.0f) && near(wide.width / wide.height, kScreen.width / kScreen.height),
+                     "half the height of a wide window, the screen's aspect kept");
+            t.IsTrue(near(wide.x + wide.width, 1920.0f - kEdge * 0.5f) && near(wide.y + wide.height, 1080.0f - kEdge * 0.5f),
+                     "its edge from the bottom right corner at the scale drawn");
+            const Rect tall = overlayPlace(600.0f, 1000.0f);
+            t.IsTrue(near(tall.width, 300.0f) && tall.x >= 0.0f && tall.y >= 0.0f, "a narrow window: half its width, inside it");
+            const Rect none = overlayPlace(0.0f, 1080.0f);
+            t.IsTrue(none.width == 0.0f && none.height == 0.0f, "no window: no place");
+        });
+
         tc.Run("the live screen's overlays stay apart and inside the screen", [](TestCase &t) {
             t.IsTrue(kGoalCardFrame.x + kGoalCardFrame.width < kClockTile.x, "the card ends before the clock");
             t.IsTrue(kClockTile.x + kClockTile.width <= kScreen.width - kEdge + 0.5f, "the clock keeps its edge");

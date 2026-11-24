@@ -1,7 +1,7 @@
 #pragma once
 
 // Aggressive Inline (SLUS-20327) in French, German or Spanish, with the
-// text of the game's Xbox release (runtime/xbox_disc.h: files bundled
+// text of the game's Xbox release (runtime/xbox_files.h: files bundled
 // when the app is built, never a disc image at run time).
 //
 // ZX_LANGUAGE = english (us) | french | german | spanish (uk: the PS2

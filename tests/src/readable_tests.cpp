@@ -785,6 +785,24 @@ namespace
     READABLE_PLANNED(0x00007600, "twoBlocksUntilPast");
     READABLE_PLANNED(0x00007680, "twoBlocksUntilAhead");
 
+    // (rec5) A function whose table entry someone keeps and calls later as
+    // the function from its start with pc elsewhere: a host form's
+    // continueInPs2Form runs the PS2 form after the form's return, pc at the
+    // caller's return address. It adds 1 to a0 into v0 and writes it to
+    // 0x7880, as generated code runs it (its switch on pc: anything but a
+    // label of its own is its start).
+    constexpr uint32_t kKeptEntry = 0x00007800u;
+    void keptEntryTraced(uint8_t *rdram, R5900Context *ctx, PS2Machine *)
+    {
+        ctx->pc = kKeptEntry;
+        const uint32_t value = static_cast<uint32_t>(ee::gpr64(ctx, ee::reg::a0)) + 1u;
+        fncheck::traceWrite(0x7880u, 4u);
+        *reinterpret_cast<uint32_t *>(rdram + 0x7880u) = value;
+        ee::setGpr64(ctx, ee::reg::v0, value);
+        ctx->pc = static_cast<uint32_t>(ee::gpr64(ctx, ee::reg::ra)); // jr ra
+    }
+    READABLE_PLANNED(0x00007800, "keptEntry");
+
     // Two games' functions at one address (ee/game_id.h): AI's Verified one
     // must never install over DM2's code there.
     volatile uint32_t g_gameProbe = 0; // (volatile: the store is the body)
@@ -2185,6 +2203,52 @@ void register_readable_tests()
             recording.close();
             // (The recorder keeps its files open to the end of the process:
             // Windows refuses to remove them yet.)
+            fs::remove_all(folder, ignored);
+        });
+
+        tc.Run("fncheck: the recorder's entry, kept and called with pc elsewhere, is its function's call", [](TestCase &t)
+        {
+            namespace fs = std::filesystem;
+            GuestRamFixture guest;
+            uint8_t *ram = guest.map.base();
+            PS2Machine runtime;
+            game::readable::Function *fn = game::readable::find(kKeptEntry);
+            t.IsTrue(fn != nullptr, "registered");
+            if (!fn)
+                return;
+            fn->traced = &keptEntryTraced;
+            runtime.replaceFunction(kKeptEntry, &keptEntryTraced);
+            const fs::path folder = uniqueTempFolder("zx_fnrec_kept_entry_test");
+            std::error_code ignored;
+            fs::remove_all(folder, ignored);
+            setEnvironment("ZX_FNREC", "keptEntry");
+            setEnvironment("ZX_FNREC_DIR", folder.string().c_str());
+            installTestRecorder(runtime);
+            setEnvironment("ZX_FNREC", "");
+            // As a host form's install keeps the function's PS2 form (host_form.cpp), after the recorder's install.
+            const PS2Machine::RecompiledFunction kept = runtime.lookupFunction(kKeptEntry);
+            t.IsTrue(kept != &keptEntryTraced, "the recorder has the slot");
+
+            // continueInPs2Form: the caller's registers, pc at its return address.
+            R5900Context ctx = callContext(0x00100040u);
+            ee::setGpr64(&ctx, ee::reg::a0, 41u);
+            ctx.pc = 0x00100040u;
+            kept(ram, &ctx, &runtime);
+            t.Equals(ctx.pc, 0x00100040u, "returned to the caller");
+            t.Equals(static_cast<uint32_t>(ee::gpr64(&ctx, ee::reg::v0)), 42u, "the function ran");
+            t.Equals(*reinterpret_cast<const uint32_t *>(ram + 0x7880u), 42u, "its write is in RAM");
+
+            fncheck::RecordingReader recording;
+            recording.open(folder / "00007800.fnrec");
+            std::istream &file = recording.stream();
+            fncheck::FileHeader header;
+            std::string error;
+            t.IsTrue(fncheck::readHeader(file, header, &error), "recorded");
+            fncheck::Record record;
+            const bool read = fncheck::readRecord(file, record, header.version);
+            t.IsTrue(read, "the call kept");
+            if (read)
+                t.Equals(record.entry.pc, kKeptEntry, "a call at the function's start, as a jal leaves pc");
             fs::remove_all(folder, ignored);
         });
 

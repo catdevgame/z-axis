@@ -4,7 +4,7 @@
 
 #include "machine.h"
 #include "runtime/game_files.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/boot_config.h"
 
 #include <algorithm>
@@ -96,7 +96,7 @@ namespace zge::native
             // Xbox assets folder (looked up in any case).
             const std::string relative = normalized.substr(std::string("ASSETS/").size());
             std::vector<uint8_t> ps2, xbox;
-            if (!readGameFile(normalized, ps2) || !ps2_xbox_disc::readFile(relative, xbox))
+            if (!readGameFile(normalized, ps2) || !zx::xbox_files::readFile(relative, xbox))
                 return;
             const FileTextures textures = texturesForFile(relative, ps2, xbox);
             if (s.trace)
@@ -137,12 +137,12 @@ namespace zge::native
                 return false;
             if (const char *v = std::getenv("ZX_TRACE_NATIVE_TEXTURES"))
                 s.trace = std::atoi(v);
-            if (!ps2_xbox_disc::init())
+            if (!zx::xbox_files::init())
                 return false;
             if (const char *pack = zx::boot::text("ZX_XBOX_PACK"); pack && *pack)
                 s.pack = (std::filesystem::path(pack) / "textures").string();
             std::thread(worker).detach();
-            std::cout << "[native-textures] the Xbox release's textures are read from " << ps2_xbox_disc::description()
+            std::cout << "[native-textures] the Xbox release's textures are read from " << zx::xbox_files::description()
                       << " as the game loads its libraries" << std::endl;
             return true;
         }

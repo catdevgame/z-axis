@@ -35,7 +35,7 @@
 #include "runtime/host_input.h"
 #include "runtime/pad.h"
 #include "runtime/pad_art.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/zaxis_ui.h"
 #include "runtime/session.h"
 
@@ -645,7 +645,7 @@ namespace ps2_aggressive_inline
                 if (!bytes)
                 {
                     std::vector<uint8_t> data;
-                    if (!ps2_xbox_disc::readFile("Loading/TUT/" + name, data))
+                    if (!zx::xbox_files::readFile("Loading/TUT/" + name, data))
                         return nullptr;
                     bytes = std::make_shared<const std::vector<uint8_t>>(std::move(data));
                     std::cout << "[prompts] Xbox controller loading screen " << name << std::endl;
@@ -938,7 +938,7 @@ namespace ps2_aggressive_inline
         runtime.replaceFunction(sym::drawText, &textLineHook);
         runtime.replaceFunction(sym::drawWrappedText, &textWrappedHook);
         // The Tutorial's loading screens show the pad (tutorialScreen).
-        const bool xboxScreens = ps2_xbox_disc::init() && ps2_xbox_disc::exists("Loading/TUT/TUT0.RAW");
+        const bool xboxScreens = zx::xbox_files::init() && zx::xbox_files::exists("Loading/TUT/TUT0.RAW");
         zx::game_files::registerProvider(
             "ASSETS/LOADING/TUT/", [xboxScreens](const std::string &path) { return tutorialScreen(path, xboxScreens); },
             "pad loading screens");

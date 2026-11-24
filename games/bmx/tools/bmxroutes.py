@@ -27,6 +27,7 @@ LEVEL_FRAME = 0x2A2DE0   # rider task frames since the level started; 0 in the f
 SESSION = 0x29D040
 RIDER_TABLE = 0x2F3A30
 GAME_SCREEN = 0x2A2D70   # g_gameScreen (bmx.py's): 22 the game over screen
+MENU = 0x2A2BB0          # g_menu: the front end menu's id (front_end_menus.h: 4 the main menu)
 base.MODE, base.LEVEL_FRAME, base.SESSION, base.RIDER_TABLE = MODE, LEVEL_FRAME, SESSION, RIDER_TABLE
 base.RIDER_POS, base.RIDER_VEL = 0x2650, 0x26C0
 
@@ -98,21 +99,27 @@ def played(name, tail=None):
 
 
 def pause_tour(s):
-    """The pause menu: VIEW CHALLENGES, VIEW BIKE PARTS, VIEW RECORDS, OPTIONS, each and back, then END RUN."""
+    """The pause menu: VIEW CHALLENGES, VIEW BIKE PARTS, VIEW RECORDS, OPTIONS, each and back, then END RUN: the run's
+    summary, GAME OVER, EXIT TO MAIN MENU (Yes). The pause menu keeps its cursor on the line a page was opened from
+    (routes4: the tour that went DOWN 1, 2, 3, 4 from the top reached VIEW RECORDS second and then wrapped to CONTINUE,
+    so no run of it ever ended: g-*-end, s-dam2-end, s-shep2-end), so each line is one DOWN from the last."""
     s.press('START', after=90)
-    for item in (1, 2, 3, 4):
-        s.presses(*['DOWN'] * item, after=25)
+    for _ in (1, 2, 3, 4):
+        s.press('DOWN', after=25)
         s.press('CROSS', after=150)
         s.presses('DOWN', 'DOWN', after=25)
         s.press('TRIANGLE', after=90)
-    s.press('UP', after=30)                # the cursor wraps to END RUN
-    s.press('CROSS', after=120)
-    s.press('DOWN', after=30)
-    s.press('CROSS', after=400)
-    s.press('CROSS', after=300)
-    s.presses('DOWN', 'DOWN', after=30)
-    s.press('CROSS', after=300)
-    s.press('CROSS', after=300)
+    s.press('DOWN', after=30)              # END RUN, the line after OPTIONS
+    s.press('CROSS', after=150)            # EXIT? NO
+    s.press('DOWN', after=40)
+    s.press('CROSS', after=400)            # YES: the run's summary
+    s.press('CROSS', after=400)            # GAME OVER
+    s.sync('0x%X==22' % GAME_SCREEN)        # (on the game over screen, whatever the summary took)
+    s.wait(60)
+    s.press('UP', after=40)                # (from its first line, wraps to EXIT)
+    s.press('CROSS', after=200)            # EXIT TO MAIN MENU: EXIT? NO
+    s.press('DOWN', after=40)
+    s.press('CROSS', after=900)            # YES: the main menu
 
 
 def gameover_save(s):
@@ -165,21 +172,26 @@ def gameover_save_game(s):
 
 
 def frontend():
-    """The main menu's screens: Rider Editor, Extras, Options."""
+    """The main menu's screens: Rider Editor, Extras, Options. (routes5) The main menu is HARDCORE TOUR, MULTIPLAYER
+    (greyed with one pad, but a stop), RIDER EDITOR, EXTRAS, OPTIONS: the route's one DOWN put its CROSSes on
+    MULTIPLAYER, so nothing opened until its later DOWNs reached OPTIONS (the rider editor and extras never ran)."""
     s = Script()
-    s.presses('DOWN', after=40)
-    s.press('CROSS', after=200)            # RIDER EDITOR: a custom rider, its screens and back
+    s.wait(200)                            # (the main menu takes presses a little after it shows)
+    s.presses('DOWN', 'DOWN', after=40)
+    s.press('CROSS', after=400)            # RIDER EDITOR: a custom rider, its screens and back
     s.press('CROSS', after=200)
     s.presses('RIGHT', 'RIGHT', 'DOWN', 'DOWN', after=40)
-    s.press('TRIANGLE', after=120)
-    s.press('TRIANGLE', after=120)
-    s.press('TRIANGLE', after=120)
+    for _ in range(5):
+        s.press('TRIANGLE', after=200)
+    s.hold('0x%X==4' % MENU)               # (held till the main menu, as fe_misc: a WAIT, not a SYNC)
+    s.wait(60)
     s.presses('DOWN', after=40)
     s.press('CROSS', after=150)            # EXTRAS
     for item in (0, 1, 3, 4, 5, 6):        # HIGH SCORE, MOVIES, CHEATS, SPECIAL MODES, COMPETITIVE EDGE, ACCLAIM DEMOS
         s.presses(*['DOWN'] * item, after=25)
         s.press('CROSS', after=200)
-        s.presses('DOWN', 'RIGHT', after=30)
+        if item != 5:                      # (routes5) COMPETITIVE EDGE plays a movie that any press closes: its DOWN
+            s.presses('DOWN', 'RIGHT', after=30)   # closed it, so the TRIANGLE after it left EXTRAS
         s.press('TRIANGLE', after=150)
         s.presses(*['UP'] * item, after=25)
     s.press('TRIANGLE', after=120)
@@ -270,6 +282,20 @@ def fe_card():
 
 
 ROUTES['vr-dam-save'] = (played('s-dam', gameover_save_game), 'verdmbx1: played session s-dam, then GAME OVER\'s SAVE GAME (saveGameScreenMessage)')
+
+
+def idle_end(s):
+    """(routes4) 7,200 vsyncs with no input, then the pause menu's tour and END RUN (pause_tour)."""
+    s.wait(7200)
+    pause_tour(s)
+
+
+# (routes4) The moments of folders whose sessions are gone (routes1's g-*-end, routes2's g6-shep, cov4's dam-idle),
+# from the sessions kept here: a session, then the run ended from the pause (END RUN), or GAME OVER's SAVE GAME.
+ROUTES['end-mnco'] = (played('s-mnco', pause_tour), "routes4: played session s-mnco, then the pause menu's tour and END RUN")
+ROUTES['end-nasa'] = (played('s-nasa', pause_tour), "routes4: played session s-nasa, then the pause menu's tour and END RUN")
+ROUTES['gos-shep'] = (played('s-shep', gameover_save_game), "routes4: played session s-shep, then GAME OVER's SAVE GAME")
+ROUTES['dam-idle'] = (played('s-dam', idle_end), 'routes4: played session s-dam, 7,200 idle vsyncs, then END RUN')
 def happy_bunny():
     """(verdmbx1) The FLUFFYBUNNY cheat (HAPPY BUNNY MODE: the rider's own gun), then HARDCORE TOUR, the Bronx, its
     challenge: riding with the fire button pressed again and again (riderProjectileEvent: the rider's shots; a shot
@@ -377,8 +403,13 @@ def fe_misc():
     s.press('CROSS', after=400)            # RIDER EDITOR
     for b in ('CROSS', 'RIGHT', 'CROSS', 'DOWN', 'RIGHT', 'CROSS', 'DOWN', 'LEFT', 'CROSS'):
         s.press(b, after=150)
-    for _ in range(4):
+    # (routes4) the editor's pages, its home and the custom rider select: five steps back to the main menu (four
+    # left the select up, so every press after it went to the editor again: its folders never reached CHEATS)
+    for _ in range(5):
         s.press('TRIANGLE', after=200)
+    s.hold('0x%X==4' % MENU)               # (held till the main menu, g_menu kMenuMainMenu: a WAIT, as a SYNC would
+                                           # take the main menu shown before the editor and jump the clock)
+    s.wait(60)
     s.press('DOWN', after=40)
     s.press('CROSS', after=400)            # EXTRAS
     s.presses('DOWN', 'DOWN', after=40)

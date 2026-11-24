@@ -9,7 +9,7 @@
 #include "runtime/zip_archive.h"
 #include "runtime/pad.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <atomic>
 #include <cstdlib>
@@ -22,23 +22,23 @@ namespace zge_host::devtools
 {
     namespace
     {
-        constexpr int kKeyF1 = 290;
-
         struct State
         {
             DebugDisplay display{};
             std::atomic<bool> request{false};
-            bool f1Latched = false;
+            uint32_t developerMenuPresses = 0; // the developer_menu key's presses as last seen
         };
         State &state() { return zx::session::state<State>(); }
 
         void onVsync(uint8_t *rdram, uint64_t)
         {
             State &d = state();
-            const bool f1 = PSPadBackend::keyPressedWithin(kKeyF1, 0.25);
-            if (f1 && !d.f1Latched)
+            const uint32_t presses = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeyDeveloperMenu);
+            if (presses != d.developerMenuPresses)
+            {
+                d.developerMenuPresses = presses;
                 d.request = true;
-            d.f1Latched = f1;
+            }
             if (!d.request.exchange(false))
                 return;
             uint8_t *shown = getMemPtr(rdram, d.display.flag);
@@ -54,6 +54,7 @@ namespace zge_host::devtools
         if (const char *on = zx::boot::text("ZX_DEV_MENU"); !on || on[0] != '1')
             return;
         state().display = display;
+        state().developerMenuPresses = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeyDeveloperMenu);
         zx::settings::Setting open;
         open.key = "dev.debug_menu";
         open.label = "Debug Display";
@@ -66,7 +67,7 @@ namespace zge_host::devtools
         };
         zx::session::addSetting(open);
         runtime.addVSyncHook(&onVsync);
-        std::cout << "[" << display.game << "] developer menu on: F1 turns the game's debug display on and off" << std::endl;
+        std::cout << "[" << display.game << "] developer menu on: the developer_menu key turns the game's debug display on and off" << std::endl;
     }
 
     bool readTuningText(const std::filesystem::path &file, std::string &text)

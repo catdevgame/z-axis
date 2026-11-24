@@ -120,6 +120,24 @@ namespace zx::gs_interpolate
         g_enabled.store(on ? 1 : 0, std::memory_order_relaxed);
     }
 
+    Method method()
+    {
+        static const Method chosen = []
+        {
+            const char *v = std::getenv("ZX_INTERP_METHOD");
+            if (v && std::strcmp(v, "replay") == 0)
+                return Method::Replay;
+            if (v && std::strcmp(v, "warp") == 0)
+                return Method::Warp;
+#if defined(__ANDROID__)
+            return Method::Warp;
+#else
+            return Method::Replay;
+#endif
+        }();
+        return chosen;
+    }
+
     namespace
     {
         std::atomic<uint64_t> g_vblankTick{0};
@@ -407,6 +425,7 @@ namespace zx::gs_interpolate
         case Skip::Budget: return "budget";
         case Skip::NotReady: return "not-ready";
         case Skip::NoPair: return "no-pair";
+        case Skip::Unwarpable: return "unwarpable";
         default: return "?";
         }
     }

@@ -3241,3 +3241,5 @@ loadZguiScriptNode	Tested
 memoryCardFormatted	Tested
 enableContact	Tested
 resolveBodyContact	Tested
+freeHeapBytes	Verified
+mallocFreeBytes	Verified

@@ -30,7 +30,7 @@
 // Never commit what this makes: it is your discs' data.
 
 #include "runtime/game_files.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/zaxis_ape.h"
 #include "runtime/zaxis_zoo.h"
 
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
         return usage("--xbox, --ps2 and --out are needed");
 
     const auto start = std::chrono::steady_clock::now();
-    if (!ps2_xbox_disc::openPath(xboxDir))
+    if (!zx::xbox_files::openPath(xboxDir))
     {
         std::cerr << "zx-xbox-convert: no Xbox assets folder in " << xboxDir << std::endl;
         return 1;
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
     zx::game_files::GameFileSystem disc(roots);
 
     const zoo::Reader xbox = [](const std::string &path, std::vector<uint8_t> &out)
-    { return ps2_xbox_disc::readFile(path, out); };
+    { return zx::xbox_files::readFile(path, out); };
     const zoo::Reader ps2 = [&disc](const std::string &path, std::vector<uint8_t> &out)
     {
         std::shared_ptr<zx::game_files::GameFile> file = disc.open(path);

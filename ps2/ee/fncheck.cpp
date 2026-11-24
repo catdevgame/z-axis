@@ -13,6 +13,7 @@
 #include "runtime/host_write.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <csignal>
 #include <cstddef>
@@ -29,6 +30,7 @@
 #include <memory>
 #include <sstream>
 #include <unordered_map>
+#include <utility>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -977,6 +979,16 @@ namespace fncheck
             // (on top: `below` intervals under it) taken off the tracker and
             // the copies of the pages written so far put back over RAM's.
             bool park(uint8_t *rdram, size_t below) { return openCallImage(rdram, below) != nullptr; }
+            // (draft2) The host memory it holds: its RAM images (a parked call's, kMemoryKeys each) and the record
+            // so far (its calls, effects and lines), what a parked session keeps while it waits.
+            uint64_t heldBytes() const
+            {
+                uint64_t bytes = m_bytes + m_lines.size() * 64u;
+                for (const auto &image : m_snapshots)
+                    if (image)
+                        bytes += kMemoryKeys;
+                return bytes;
+            }
             // The open call's before-image: RAM and the scratchpad (memory keys)
             // as they were at the call, or null.
             const uint8_t *openCallImage(uint8_t *rdram, size_t below)
@@ -1252,6 +1264,20 @@ namespace fncheck
                 // (A call parked at a wait has its whole before-image: park.)
                 const bool imaged = m_snapshotted == m_openCalls;
                 m_snapshotted = ~size_t(0);
+                // (draft2) With page protection the image is made only for a wait (park); once that call has come
+                // back and its diff is taken below, it is freed, so a session parked later between calls, or at
+                // a call with no wait, holds no RAM image.
+                struct FreeImage
+                {
+                    std::vector<std::unique_ptr<uint8_t[]>> &snapshots;
+                    size_t level;
+                    bool on;
+                    ~FreeImage()
+                    {
+                        if (on && snapshots.size() > level)
+                            snapshots[level].reset();
+                    }
+                } freeImage{m_snapshots, m_openCalls, imaged && g_trackPages};
                 const bool tracked = !imaged && g_trackPages && WriteTracker::instance().attach(rdram);
                 if (!returned)
                 {
@@ -1457,9 +1483,19 @@ namespace fncheck
             // and could not be parked (runSession): not kept, counted (paths1:
             // 1 of the 90 card functions kept before drafter23 parked them).
             uint64_t waited = 0;
+            // (draft2) Of waited: no room to park it (the parked calls' memory at ZX_FNREC_PARK_MB, or the oldest
+            // given up after kStaleVsyncs to make room): said in the summary, never dropped silently.
+            uint64_t noRoom = 0;
+            // (draft2) Of waited: parked, and another session parked later at the same return point, sp and
+            // thread (the thread came back there for that one: this one cannot come back).
+            uint64_t threadLeft = 0;
             // Calls not kept that ran traced for their reads of a recorded
             // caller's frame (Session::keep false).
             uint64_t watched = 0;
+            // Calls entered with pc elsewhere than the function's start: its
+            // entry kept and called later as the function (a host form's PS2
+            // form, recorderEntry).
+            uint64_t enteredElsewhere = 0;
             uint32_t firstElsewhere = 0;
             uint32_t thisVsync = 0, stride = 1;
             uint32_t max = 3000, perVsync = 64; // its caps (ZX_FNREC_MAX / _PER_VSYNC, or its line in @file)
@@ -1830,7 +1866,16 @@ namespace fncheck
                 r.stride *= 2u;
         }
 
-        constexpr size_t kMaxParked = 8;
+        // (draft2) How many sessions may wait parked is set by the memory they hold, not by a count: a session
+        // parked at a call that waited holds that call's RAM image (kMemoryKeys, 32 MB and the scratchpad) and its
+        // record so far; one parked between calls holds only its record. ZX_FNREC_PARK_MB (default 1024: 31 images
+        // at once, the corpus runs' peak was 1.4 GB with 8) bounds the sum; kMaxParked only bounds the list a
+        // resume searches. BMX XXX's quit-fe lost 47 waits at the old 8 (saveSystemTask 38, the card jobs).
+        constexpr size_t kMaxParked = 256;
+        uint64_t g_parkBudget = 1024ull << 20;
+        uint64_t g_parkedBytes = 0, g_parkedPeakBytes = 0;
+        size_t g_parkedPeak = 0;
+        uint64_t g_threadLeftCount = 0; // parked sessions given up: another parked later at their very point
         constexpr uint64_t kStaleVsyncs = 300; // five seconds
         uint64_t g_staleCount = 0;
         std::vector<std::unique_ptr<Session>> g_parked;
@@ -1841,7 +1886,7 @@ namespace fncheck
         uint64_t g_betweenParked = 0; // of g_parkedCount: parked between calls
         // Why a wait could not be parked (the recorder's summary line).
         uint64_t g_notParked[6] = {}; // off or full, not one open call, no table entry, the RAM image, the tracker
-        const char *const kNotParked[] = {"off or 8 parked", "not one open call (a wait in its own code)",
+        const char *const kNotParked[] = {"off, or no room (ZX_FNREC_PARK_MB)", "not one open call (a wait in its own code)",
                                           "no table entry at the return point", "the RAM image", "the tracker's interval"};
         void recorderResume(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime);
 
@@ -1952,16 +1997,26 @@ namespace fncheck
                     // Room for one more parked session (the oldest goes if it has
                     // waited kStaleVsyncs: its thread went on elsewhere or ended,
                     // counted as waited).
-                    bool room(uint64_t now)
+                    bool room(uint64_t now, uint64_t need)
                     {
-                        if (g_acrossWaits && g_parked.size() >= kMaxParked && g_parked.front()->parkedAt + kStaleVsyncs < now)
+                        auto full = [&] {
+                            return g_parked.size() >= kMaxParked || g_parkedBytes + need > g_parkBudget;
+                        };
+                        // the oldest given up when it has waited kStaleVsyncs (its thread went on elsewhere or
+                        // ended), counted as waited for want of room
+                        while (g_acrossWaits && !g_parked.empty() && full() && g_parked.front()->parkedAt + kStaleVsyncs < now)
                         {
-                            ++g_parked.front()->recorded->waited;
-                            ++g_parked.front()->recorded->skipped;
+                            Session &old = *g_parked.front();
+                            ++old.recorded->waited;
+                            ++old.recorded->noRoom;
+                            ++old.recorded->skipped;
+                            g_parkedBytes -= std::min(g_parkedBytes, old.recording->heldBytes());
                             g_parked.erase(g_parked.begin());
                             ++g_staleCount;
                         }
-                        return g_acrossWaits && g_parked.size() < kMaxParked;
+                        if (g_acrossWaits && full())
+                            ++session->recorded->noRoom;
+                        return g_acrossWaits && !full();
                     }
                     // Parked at pc (the thread comes back there with sp): the slot
                     // taken, the session moved away.
@@ -1982,8 +2037,30 @@ namespace fncheck
                             std::cerr << "[fncheck] parked " << session->recorded->function->name << " at 0x" << std::hex
                                       << pc << " sp 0x" << sp << std::dec << " thread " << session->thread
                                       << (session->openCall ? "" : " (between calls)") << std::endl;
+                        // (draft2) One parked earlier (an earlier vsync) at this very point, sp and thread can never
+                        // come back: its thread has been back here since and waits again for this one (BMX XXX's
+                        // saveSystemTask and wakeSaveJob, a tail call's pair parked at one return point every vsync, of which
+                        // a resume takes one: 15 piled up, 960 MB, until kStaleVsyncs). It goes now, counted.
+                        for (size_t i = 0; i < g_parked.size();)
+                        {
+                            Session &p = *g_parked[i];
+                            if (p.resumePc == pc && p.resumeSp == sp && p.thread == session->thread && p.parkedAt < now)
+                            {
+                                ++p.recorded->waited;
+                                ++p.recorded->threadLeft;
+                                ++p.recorded->skipped;
+                                g_parkedBytes -= std::min(g_parkedBytes, p.recording->heldBytes());
+                                g_parked.erase(g_parked.begin() + static_cast<std::ptrdiff_t>(i));
+                                ++g_threadLeftCount;
+                                continue;
+                            }
+                            ++i;
+                        }
+                        g_parkedBytes += session->recording->heldBytes();
                         g_parked.push_back(std::move(session));
                         ++g_parkedCount;
+                        g_parkedPeak = std::max(g_parkedPeak, g_parked.size());
+                        g_parkedPeakBytes = std::max(g_parkedPeakBytes, g_parkedBytes);
                     }
                     // At its open call's return point: the callee waits (what
                     // anyone changes meanwhile is the call's effects), or it went
@@ -1996,8 +2073,20 @@ namespace fncheck
                             return false;
                         uint32_t pc = 0, sp = 0;
                         const uint64_t now = runtime->eeScheduler().currentVSyncTick();
-                        if (!room(now))
+                        if (!room(now, rec.heldBytes() + kMemoryKeys))
+                        {
+                            static uint32_t s_full = 0;
+                            if (std::getenv("ZX_FNREC_WAITS_DEBUG") && s_full++ < 6)
+                            {
+                                std::cerr << "[fncheck] no room for " << session->recorded->function->name << " at vsync "
+                                          << now << "; parked:";
+                                for (const auto &p : g_parked)
+                                    std::cerr << " " << p->recorded->function->name << "@" << p->parkedAt
+                                              << (p->openCall ? "" : "(between)");
+                                std::cerr << std::endl;
+                            }
                             return ++g_notParked[0], false;
+                        }
                         if (!rec.parkable(pc, sp))
                             return ++g_notParked[1], false;
                         if (!runtime->hasFunction(pc))
@@ -2019,7 +2108,7 @@ namespace fncheck
                         if (!session->keep || !session->recording->betweenCalls())
                             return false;
                         const uint64_t now = runtime->eeScheduler().currentVSyncTick();
-                        if (!room(now))
+                        if (!room(now, session->recording->heldBytes()))
                             return ++g_notParked[0], false;
                         if (!runtime->hasFunction(pc))
                             return ++g_notParked[2], false;
@@ -2178,15 +2267,23 @@ namespace fncheck
             return ran;
         }
 
-        void recorderEntry(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
+        // A call of a recorded function: the entry of the table slot the
+        // recorder took (recorderEntryAt, one per function).
+        void recorderEntry(Recorded &r, uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
         {
-            const auto it = g_recorder->functions.find(ctx->pc);
-            if (it == g_recorder->functions.end())
+            // The entry is its function's whatever pc it is called with. One
+            // kept from the table and called later as the function from its
+            // start has pc elsewhere: a host form's continueInPs2Form runs the
+            // PS2 form after the form's return, pc at the caller's return
+            // address. That is a call of the function at its start, with pc
+            // where a jal leaves it. (rec5: found by pc, DM2's native save
+            // forms setUiFrame and uiFrameUpdate went on in nothing, and the
+            // intro never ended.)
+            if (ctx->pc != r.function->address)
             {
-                std::fprintf(stderr, "[fncheck] recorder entered at 0x%x\n", ctx->pc);
-                return;
+                ++r.enteredElsewhere;
+                ctx->pc = r.function->address;
             }
-            Recorded &r = *it->second;
             const uint64_t vsync = runtime->eeScheduler().currentVSyncTick();
             // A call made directly by a recorded call: its reads of the
             // caller's frame go to the caller's record (Call::reads), and a
@@ -2241,6 +2338,28 @@ namespace fncheck
             runSession(session, rdram, ctx, runtime, false);
         }
 
+        // A table entry per recorded function, each knowing its function
+        // (slot I: g_entryRecorded[I]), so that a call is its function's
+        // however pc stands (recorderEntry). Given out in install order; a
+        // function past kEntrySlots is not recorded (said at install).
+        constexpr size_t kEntrySlots = 8192;
+        Recorded *g_entryRecorded[kEntrySlots] = {};
+        size_t g_entriesUsed = 0;
+
+        template <size_t I>
+        void recorderEntryAt(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
+        {
+            recorderEntry(*g_entryRecorded[I], rdram, ctx, runtime);
+        }
+
+        template <size_t... I>
+        constexpr std::array<PS2Machine::RecompiledFunction, sizeof...(I)> entryTable(std::index_sequence<I...>)
+        {
+            return {{&recorderEntryAt<I>...}};
+        }
+        constexpr std::array<PS2Machine::RecompiledFunction, kEntrySlots> kEntries =
+            entryTable(std::make_index_sequence<kEntrySlots>{});
+
         // The table slot of a parked session's return point: the session whose
         // thread comes back there with its sp goes on; anything else runs what
         // ran there before.
@@ -2256,6 +2375,7 @@ namespace fncheck
                     continue;
                 std::unique_ptr<Session> session = std::move(g_parked[i]);
                 g_parked.erase(g_parked.begin() + static_cast<std::ptrdiff_t>(i));
+                g_parkedBytes -= std::min(g_parkedBytes, session->recording->heldBytes());
                 // Ended or given up right here: the game's code at pc runs now,
                 // for this one dispatch of it.
                 if (!runSession(session, rdram, ctx, runtime, true))
@@ -2290,10 +2410,14 @@ namespace fncheck
                           << " with a callee that did not return"
                           << (r->inEntryBlock ? ", " + std::to_string(r->inEntryBlock) + " parked where the game goes on in an entry block" : std::string())
                           << (r->interrupted ? ", " + std::to_string(r->interrupted) + " parked and interrupted (another thread or an interrupt ran meanwhile)" : std::string())
-                          << (r->waited ? ", " + std::to_string(r->waited) + " that waited (unwound to the scheduler)" : std::string())
+                          << (r->waited ? ", " + std::to_string(r->waited) + " that waited (unwound to the scheduler)" +
+                                              (r->noRoom ? " (" + std::to_string(r->noRoom) + " for want of room to park)" : std::string()) +
+                                              (r->threadLeft ? " (" + std::to_string(r->threadLeft) + " parked, then another at their point)" : std::string())
+                                        : std::string())
                           << (r->lostPages ? ", " + std::to_string(r->lostPages) + " with callee writes not kept" : std::string())
                           << (r->tooBig ? ", " + std::to_string(r->tooBig) + " given up past ZX_FNREC_MAX_MB" : std::string())
                           << (r->watched ? ", " + std::to_string(r->watched) + " more run for their caller's frame reads" : std::string())
+                          << (r->enteredElsewhere ? ", " + std::to_string(r->enteredElsewhere) + " entered as a kept table entry (pc elsewhere: a host form's PS2 form)" : std::string())
                           << (r->stopped ? "; " + std::to_string(r->stopped) + " of the recorded kept to a stop" : std::string())
                           << (r->blocks && g_recorder->newBlocks
                                   ? "; " + std::to_string(r->dull) + " recorded calls dropped (no new block), blocks " +
@@ -2315,7 +2439,9 @@ namespace fncheck
                 std::cout << "[fncheck] calls parked at a wait: " << g_parkedCount << " (" << g_unwoundParked
                           << " unwound at a safe point, not a wait, " << g_betweenParked << " between calls), " << g_resumedCount
                           << " kept after it, " << g_parked.size() << " still waiting, " << g_staleCount
-                          << " given up after " << kStaleVsyncs << " vsyncs; not parked:";
+                          << " given up after " << kStaleVsyncs << " vsyncs, " << g_threadLeftCount
+                          << " left by their thread; at most " << g_parkedPeak << " parked at once, holding "
+                          << (g_parkedPeakBytes >> 20) << " MB of " << (g_parkBudget >> 20) << " (ZX_FNREC_PARK_MB); not parked:";
                 for (int i = 0; i < 4; ++i)
                     std::cout << " " << g_notParked[i] << " " << kNotParked[i] << (i < 3 ? "," : "");
                 std::cout << std::endl;
@@ -2410,6 +2536,7 @@ namespace fncheck
             g_trackPages = std::string(effects) != "diff";
         // ZX_FNREC_WAITS=0: a call that waits is dropped (before drafter23).
         g_acrossWaits = envNumber("ZX_FNREC_WAITS", 1u) != 0u;
+        g_parkBudget = static_cast<uint64_t>(envNumber("ZX_FNREC_PARK_MB", 1024u)) << 20;
         g_unwindParking = envNumber("ZX_FNREC_UNWOUND", 0u) != 0u;
         g_maxRecordBytes = static_cast<uint64_t>(envNumber("ZX_FNREC_MAX_MB", 512u)) << 20;
 
@@ -2517,9 +2644,16 @@ namespace fncheck
                         }
                 }
             }
-            r->previous = runtime.lookupFunction(f->address);
-            if (!runtime.replaceFunction(f->address, &recorderEntry))
+            if (g_entriesUsed == kEntrySlots)
+            {
+                std::cerr << "[fncheck] " << f->name << " not recorded: the recorder has " << kEntrySlots
+                          << " entries, all taken (fncheck.cpp kEntrySlots)" << std::endl;
                 continue;
+            }
+            r->previous = runtime.lookupFunction(f->address);
+            if (!runtime.replaceFunction(f->address, kEntries[g_entriesUsed]))
+                continue;
+            g_entryRecorded[g_entriesUsed++] = r.get();
             state.functions[f->address] = std::move(r);
         }
         // ZX_FNREC_STOPS=1: the stop table's functions (fncheck_stops.h)

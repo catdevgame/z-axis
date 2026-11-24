@@ -12,6 +12,7 @@
 #include <thread>
 #include "runtime/frame_trace.h"
 #include "runtime/thread_cpu.h"
+#include "runtime/thread_priority.h"
 #if defined(_M_X64) || defined(__x86_64__)
 #include <immintrin.h>
 #endif
@@ -135,6 +136,8 @@ private:
         pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
         m_machThread.store(pthread_mach_thread_np(pthread_self()), std::memory_order_release);
 #elif defined(_WIN32)
+        // The same on Windows: above-normal priority, power throttling off (thread_priority.h).
+        zx::thread_priority::raiseFrameRateThread(m_name);
         m_cpuHandle.store(zx::currentThreadCpuHandle(), std::memory_order_release);
 #elif defined(__linux__)
         // Without a name the worker shows under its parent's (Linux threads

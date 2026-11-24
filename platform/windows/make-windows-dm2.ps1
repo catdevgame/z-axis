@@ -129,7 +129,7 @@ if (-not $SkipBuild) {
         "-DZX_SHOW_WINDOWS_CONSOLE=OFF", "-DZX_FFMPEG_PREFIX=$FFmpeg",
         "-DZX_APP_NAME=$AppName", "-DZX_APP_GAME_TITLE=Dave Mirra Freestyle BMX 2 (USA)",
         "-DZX_APP_ELF=$ElfName", "-DZX_APP_ELF_SHA256=$ElfSha",
-        "-DZX_APP_SAVE_DIR=BASLUS-20159BMX2GAME", "-DZX_APP_VERSION=$AppVersion")
+        "-DZX_APP_SAVE_DIR=BASLUS-20159BMX2GAME", "-DZX_APP_VERSION=$AppVersion", "-DZX_BUILD_COMMIT_STAMP=ON")
     $cxxFlags = "/DWIN32 /D_WINDOWS /EHsc"
     if ($ProfileData) {
         if (-not (Test-Path $ProfileData)) { Die "no profile $ProfileData" }

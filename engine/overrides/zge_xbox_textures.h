@@ -15,7 +15,7 @@
 // [display] xbox_textures) starts with them off or on; default on.
 
 #include "ee/game_id.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <cstdint>
 #include <functional>

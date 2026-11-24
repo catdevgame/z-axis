@@ -16,7 +16,7 @@ option(PS2X_ENABLE_IOP_RPC_TRACE "Log unhandled IOP/SIF RPC trace suggestions" O
 option(ZX_ENABLE_FUNCTION_LOG_TRACKER "Trace every generated function entry/exit to ps2_log.txt (very slow; needs ZX_ENABLE_AGRESSIVE_LOGS)" OFF)
 option(PS2X_STRICT_RETURN_DIAGNOSTICS "Route generated JR $ra returns through runtime branch diagnostics" OFF)
 option(ZX_SHOW_WINDOWS_CONSOLE "Show a console window for zx-runner on Windows release builds" ON)
-option(ZX_ENABLE_DEBUG_UI "Build the runtime debug UI (Mac and Windows)" ON)
+option(ZX_ENABLE_DEBUG_UI "Build the runtime debug panel (F1) into the runner" ON)
 
 if(ZX_ENABLE_SCCACHE)
     find_program(ZX_SCCACHE_PROGRAM sccache)
@@ -110,35 +110,35 @@ FetchContent_MakeAvailable(xxhash)
 add_library(zx_xxhash INTERFACE)
 target_include_directories(zx_xxhash SYSTEM INTERFACE "${xxhash_SOURCE_DIR}")
 
-if(ZX_ENABLE_DEBUG_UI)
-    FetchContent_Declare(
-        imgui
-        # v1.92.7-docking: the tag's source archive, checked by SHA-256 (no git clone).
-        URL https://github.com/ocornut/imgui/archive/refs/tags/v1.92.7-docking.tar.gz
-        URL_HASH SHA256=2c58e28c957497eba0ed01c48a0bc5f118ec5f10a1c3721ba9436253a623bd72
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
-    FetchContent_GetProperties(imgui)
+# Dear ImGui: the player's messages over the game (runtime/notice_overlay.cpp) on every platform, and the
+# debug panel's windows.
+FetchContent_Declare(
+    imgui
+    # v1.92.7-docking: the tag's source archive, checked by SHA-256 (no git clone).
+    URL https://github.com/ocornut/imgui/archive/refs/tags/v1.92.7-docking.tar.gz
+    URL_HASH SHA256=2c58e28c957497eba0ed01c48a0bc5f118ec5f10a1c3721ba9436253a623bd72
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_GetProperties(imgui)
 
-    if(NOT imgui_POPULATED)
-        FetchContent_Populate(imgui)
-    endif()
-
-    set(ZX_IMGUI_SOURCE_DIR "${imgui_SOURCE_DIR}")
-
-    # Dear ImGui with its SDL3 platform and SDL_GPU renderer backends.
-    add_library(imgui STATIC
-        "${ZX_IMGUI_SOURCE_DIR}/imgui.cpp"
-        "${ZX_IMGUI_SOURCE_DIR}/imgui_draw.cpp"
-        "${ZX_IMGUI_SOURCE_DIR}/imgui_tables.cpp"
-        "${ZX_IMGUI_SOURCE_DIR}/imgui_widgets.cpp"
-        "${ZX_IMGUI_SOURCE_DIR}/imgui_demo.cpp"
-        "${ZX_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
-        "${ZX_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp"
-    )
-    target_include_directories(imgui PUBLIC "${ZX_IMGUI_SOURCE_DIR}" "${ZX_IMGUI_SOURCE_DIR}/backends")
-    target_link_libraries(imgui PUBLIC zx::sdl3)
+if(NOT imgui_POPULATED)
+    FetchContent_Populate(imgui)
 endif()
+
+set(ZX_IMGUI_SOURCE_DIR "${imgui_SOURCE_DIR}")
+
+# Dear ImGui with its SDL3 platform and SDL_GPU renderer backends.
+add_library(imgui STATIC
+    "${ZX_IMGUI_SOURCE_DIR}/imgui.cpp"
+    "${ZX_IMGUI_SOURCE_DIR}/imgui_draw.cpp"
+    "${ZX_IMGUI_SOURCE_DIR}/imgui_tables.cpp"
+    "${ZX_IMGUI_SOURCE_DIR}/imgui_widgets.cpp"
+    "${ZX_IMGUI_SOURCE_DIR}/imgui_demo.cpp"
+    "${ZX_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
+    "${ZX_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdlgpu3.cpp"
+)
+target_include_directories(imgui PUBLIC "${ZX_IMGUI_SOURCE_DIR}" "${ZX_IMGUI_SOURCE_DIR}/backends")
+target_link_libraries(imgui PUBLIC zx::sdl3)
 
 add_library(zx_host_backend INTERFACE)
 
@@ -282,6 +282,33 @@ else()
         set(ENV{PKG_CONFIG_LIBDIR} "${ZX_FFMPEG_PREFIX}/lib/pkgconfig")
         set(ENV{PKG_CONFIG_PATH} "")
     endif()
+    # pkg_check_modules keeps its results in the cache and never looks again: a build dir first configured through a
+    # path that later goes away (a removed worktree's data link) kept FFmpeg's library paths there and failed to link
+    # (int44, 2026-11-23). Look again when the prefix (resolved) changed or a cached library is gone.
+    set(_zx_ff_key "${ZX_FFMPEG_PREFIX}")
+    if(_zx_ff_key)
+        get_filename_component(_zx_ff_key "${_zx_ff_key}" REALPATH)
+    endif()
+    set(_zx_ff_stale OFF)
+    if(NOT "${_zx_ff_key}" STREQUAL "${ZX_FFMPEG_CHECKED_PREFIX}")
+        set(_zx_ff_stale ON)
+    endif()
+    get_cmake_property(_zx_cache_vars CACHE_VARIABLES)
+    foreach(_zx_var IN LISTS _zx_cache_vars)
+        if(_zx_var MATCHES "^pkgcfg_lib_FFMPEG" AND NOT EXISTS "${${_zx_var}}")
+            set(_zx_ff_stale ON)
+        endif()
+    endforeach()
+    if(_zx_ff_stale)
+        foreach(_zx_var IN LISTS _zx_cache_vars)
+            if(_zx_var MATCHES "^(pkgcfg_lib_FFMPEG|FFMPEG_|__pkg_config_checked_FFMPEG|__pkg_config_arguments_FFMPEG)")
+                unset(${_zx_var} CACHE)
+            endif()
+        endforeach()
+        unset(__pkg_config_checked_FFMPEG CACHE)
+        unset(__pkg_config_checked_FFMPEG_FORMAT CACHE)
+    endif()
+    set(ZX_FFMPEG_CHECKED_PREFIX "${_zx_ff_key}" CACHE INTERNAL "the FFmpeg prefix (resolved) the cached pkg-config results are for")
     pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET GLOBAL
         libavcodec
         libavutil
@@ -372,6 +399,8 @@ add_library(zx_panel STATIC
     ${ZX_ROOT}/collection/panel_canvas.cpp
     ${ZX_ROOT}/collection/panel_file.cpp
     ${ZX_ROOT}/collection/panel_view.cpp
+    # (the bottom screen over the game on one screen: its painter's thread and pictures)
+    ${ZX_ROOT}/collection/panel_overlay.cpp
 )
 target_include_directories(zx_panel PUBLIC ${ZX_INCLUDE_ROOTS})
 # The harness: the snapshot registry and each game's capture compiled in
@@ -401,7 +430,7 @@ add_library(zx_runtime STATIC
     runtime/zip_archive.cpp
     runtime/games.cpp
     runtime/front_end.cpp
-    runtime/xbox_disc.cpp
+    runtime/xbox_files.cpp
     runtime/zaxis_estate.cpp
     runtime/zaxis_estate_icon.cpp
     runtime/zaxis_xbox.cpp
@@ -410,7 +439,7 @@ add_library(zx_runtime STATIC
     runtime/zaxis_mesh.cpp
     runtime/zaxis_shadow.cpp
     runtime/audio_mix.cpp
-    runtime/spu_voice.cpp
+    ${ZX_ROOT}/engine/zge/native/spu_voice.cpp
     runtime/audio_file.cpp
     runtime/pss_movie.cpp
     runtime/texture_replace.cpp
@@ -424,7 +453,7 @@ add_library(zx_runtime STATIC
     runtime/glyph_art.cpp
     runtime/pad_art.cpp
     runtime/photo.cpp
-    runtime/settings.cpp
+    runtime/settings_registry.cpp
     runtime/boot_config.cpp
     runtime/boot_sequence.cpp
     runtime/session.cpp
@@ -440,12 +469,14 @@ add_library(zx_runtime STATIC
     gs/gs_gpu_texture_check.cpp
     runtime/state_probe.cpp
     runtime/thread_cpu.cpp
+    runtime/thread_priority.cpp
     runtime/frame_trace.cpp
     runtime/debug_control.cpp
     runtime/lane_watch.cpp
     runtime/play_link.cpp
     runtime/spot_fork.cpp
     runtime/play_recording.cpp
+    runtime/ghost_rider.cpp
     runtime/rom_device.cpp
     runtime/save_store.cpp
     runtime/vfs.cpp
@@ -472,9 +503,14 @@ add_library(zx_runtime STATIC
     # The player's recordings: the list and the playback's boot (Settings > Recordings).
     ${ZX_ROOT}/collection/recordings.cpp
     ${ZX_ROOT}/collection/playback.cpp
+    # Ghost riding: a recording's rider beside the live one (the Recordings page's Ride Against).
+    ${ZX_ROOT}/collection/ghost.cpp
     ${ZX_ROOT}/collection/settings.cpp
     ${ZX_ROOT}/collection/offered.cpp
+    ${ZX_ROOT}/collection/refresh_rate.cpp
     ${ZX_ROOT}/collection/disc_check.cpp
+    # The app's own update (Settings > Check for Updates; platform.h updatePlatform).
+    ${ZX_ROOT}/collection/updater.cpp
     ${ZX_ROOT}/collection/game_setup.cpp
     # The search for every game's discs in a folder (the first run's Find Discs).
     ${ZX_ROOT}/collection/disc_finder.cpp
@@ -482,6 +518,7 @@ add_library(zx_runtime STATIC
     ${ZX_ROOT}/collection/show_folder.cpp
     ${ZX_ROOT}/collection/picture_file.cpp
     ${ZX_ROOT}/collection/save_profiles.cpp
+    ${ZX_ROOT}/collection/practice.cpp
     ${ZX_ROOT}/collection/card_import.cpp
     ${ZX_ROOT}/collection/game_code.cpp
     # The front end: the games' menu sound, pictures and movies from their
@@ -537,10 +574,15 @@ add_library(zx_runtime STATIC
     ${ZX_ROOT}/collection/extras/panel_ui.cpp
 )
 
-# The build's commit for the play recordings' header (cmake/BuildCommit.cmake).
+# The build's commit for the play recordings' header (cmake/BuildCommit.cmake). ZX_BUILD_COMMIT_STAMP OFF writes
+# "unknown" instead: the checker and corpus builds, whose replays must not depend on the commit they were built at
+# (the stamp is a string the checker's driver reaches, so every new commit moved the verdict cache's base). The app
+# and release builds keep it.
+option(ZX_BUILD_COMMIT_STAMP "Write the source tree's git commit into the build (play recordings, the app's recordings list)" ON)
 set(ZX_BUILD_COMMIT_HEADER "${CMAKE_CURRENT_BINARY_DIR}/build_commit/play_recording_commit.h")
 add_custom_target(zaxis_build_commit
     COMMAND ${CMAKE_COMMAND} -DSRC=${CMAKE_CURRENT_SOURCE_DIR} -DOUT=${ZX_BUILD_COMMIT_HEADER}
+            -DSTAMP=${ZX_BUILD_COMMIT_STAMP}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/BuildCommit.cmake
     BYPRODUCTS ${ZX_BUILD_COMMIT_HEADER}
     VERBATIM)
@@ -1102,11 +1144,14 @@ if(TARGET zx_gs_gpu)
     target_link_libraries(zx-runner PRIVATE zx_gs_gpu)
 endif()
 
-if(ZX_ENABLE_DEBUG_UI AND NOT ZX_IS_ANDROID)
+# The player's messages, the frame rate counter and photo mode's grid (every build), and the debug panel
+# that draws in their frame (F1; on Android too, for its gamepad test).
+target_sources(zx-runner PRIVATE runtime/notice_overlay.cpp)
+target_link_libraries(zx-runner PRIVATE imgui)
+if(ZX_ENABLE_DEBUG_UI)
     target_sources(zx-runner PRIVATE
         runtime/debug_panel.cpp
     )
-    target_link_libraries(zx-runner PRIVATE imgui)
     target_compile_definitions(zx-runner PRIVATE ZX_ENABLE_DEBUG_UI=1)
 endif()
 
@@ -1187,8 +1232,9 @@ if(ZX_APP_NAME)
         target_link_libraries(zx-runner PRIVATE "-framework AppKit")
     elseif(WIN32)
         list(APPEND ZX_APP_SOURCES ${ZX_ROOT}/platform/windows/platform_windows.cpp)
-        # (the system menu, the folders shown, the taskbar and the corners of Borderless)
-        target_link_libraries(zx-runner PRIVATE user32 shell32 ole32 dwmapi)
+        # (the system menu, the folders shown, the taskbar and the corners of Borderless; version: the update's
+        # check of a package's executable)
+        target_link_libraries(zx-runner PRIVATE user32 shell32 ole32 dwmapi version)
         # The executable's version resource (Properties > Details): the app's name and version, its numbers the app
         # version's when it is x.y.z, else the tree's (a test build named "firstrun" is still 1.3.0's).
         enable_language(RC)
@@ -1274,9 +1320,11 @@ endif()
 
 if(ZX_IS_ANDROID)
     target_sources(zx-runner PRIVATE ${ZX_ROOT}/platform/android/android_app.cpp ${ZX_ROOT}/platform/android/android_documents.cpp
-                                     ${ZX_ROOT}/platform/android/android_assets.cpp)
+                                     ${ZX_ROOT}/platform/android/android_assets.cpp ${ZX_ROOT}/platform/android/android_gallery.cpp
+                                     ${ZX_ROOT}/platform/android/android_updater.cpp)
     set_source_files_properties(${ZX_ROOT}/platform/android/android_app.cpp ${ZX_ROOT}/platform/android/android_documents.cpp
-                                ${ZX_ROOT}/platform/android/android_assets.cpp PROPERTIES
+                                ${ZX_ROOT}/platform/android/android_assets.cpp ${ZX_ROOT}/platform/android/android_gallery.cpp
+                                ${ZX_ROOT}/platform/android/android_updater.cpp PROPERTIES
         SKIP_UNITY_BUILD_INCLUSION ON)
     target_link_libraries(zx-runner PRIVATE android log)
     # The second screen's panel (no platform or game dependency).

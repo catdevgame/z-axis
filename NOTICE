@@ -27,8 +27,8 @@ ps2/spu2/ is a port of PCSX2's SPU2 emulation,
 https://github.com/PCSX2/pcsx2, at commit
 091ab68708a555198d80a7216965481c7ddd0d98, copyright 2002-2026 PCSX2 Dev Team,
 GPL-3.0-or-later; ps2/spu2/README.md lists each file's source
-and what changed. ps2/runtime/spu_voice.cpp and
-ps2/runtime/spu_gauss_table.h follow the same code (Mixer.cpp,
+and what changed. engine/zge/native/spu_voice.cpp and
+engine/zge/native/spu_gauss_table.h follow the same code (Mixer.cpp,
 ADSR.cpp, interpolate_table.h at that commit). Thanks to the PCSX2 team and to
 the people its sources credit (Dr. Hell, nocash, Near, Ryphecha and others).
 

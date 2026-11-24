@@ -2,7 +2,7 @@
 #include "machine.h"
 #include "runtime/disc_patch.h"
 #include "runtime/host_input.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/tuning_ini.h"
 #include "runtime/session.h"
 #include "runtime/zaxis_ui.h"

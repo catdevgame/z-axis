@@ -635,6 +635,7 @@ PresentationFrame GS::pictureOfDisplay(const GSPresentationRequest &display)
 void GS::makePresentationPicture(uint32_t slot, PresentationPicture &out, uint64_t frameNumber)
 {
     zx::ftrace::Scope traceLatch(zx::ftrace::kLatchBegin, zx::ftrace::kLatchEnd);
+    const auto started = std::chrono::steady_clock::now();
     GSPresentationRequest request{};
     PresentationFrame frame{};
     out = PresentationPicture{};
@@ -700,9 +701,9 @@ void GS::makePresentationPicture(uint32_t slot, PresentationPicture &out, uint64
     out.onGpu = out.has && frame.onGpu;
     out.pixels = std::move(frame.pixels);
     out.vsync = request.vsyncTick;
-    out.madeNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                     std::chrono::steady_clock::now().time_since_epoch())
-                     .count();
+    const auto made = std::chrono::steady_clock::now();
+    out.madeNs = std::chrono::duration_cast<std::chrono::nanoseconds>(made.time_since_epoch()).count();
+    out.makingNs = std::chrono::duration_cast<std::chrono::nanoseconds>(made - started).count();
     if (out.has)
     {
         const auto lock = lockForHost();
@@ -821,6 +822,7 @@ bool GS::takePresentationFrame(TakenFrame &out)
     const PresentationPicture &picture = m_pictures[m_shownSlot];
     out.frame = picture.frame;
     out.madeNs = picture.madeNs;
+    out.makingNs = picture.makingNs;
     out.waiting = m_waitingCount;
     out.vsync = picture.vsync;
     return true;
@@ -834,7 +836,22 @@ bool GS::peekPresentationFrame(TakenFrame &out) const
     const PresentationPicture &picture = m_pictures[m_waiting[0]];
     out.frame = picture.frame;
     out.madeNs = picture.madeNs;
+    out.makingNs = picture.makingNs;
     out.waiting = m_waitingCount - 1u;
+    out.vsync = picture.vsync;
+    return true;
+}
+
+bool GS::peekNewestPresentationFrame(TakenFrame &out) const
+{
+    std::lock_guard<std::mutex> presentationLock(m_presentationMutex);
+    if (m_waitingCount == 0)
+        return false;
+    const PresentationPicture &picture = m_pictures[m_waiting[m_waitingCount - 1u]];
+    out.frame = picture.frame;
+    out.madeNs = picture.madeNs;
+    out.makingNs = picture.makingNs;
+    out.waiting = 0;
     out.vsync = picture.vsync;
     return true;
 }
@@ -846,6 +863,7 @@ GS::TakenFrame GS::shownPresentationFrame() const
     TakenFrame out;
     out.frame = picture.has ? picture.frame : 0u;
     out.madeNs = picture.madeNs;
+    out.makingNs = picture.makingNs;
     out.waiting = m_waitingCount;
     out.vsync = picture.vsync;
     return out;
@@ -2155,6 +2173,31 @@ void GS::WriteVram(uint32_t psm, uint32_t base, uint32_t bw, uint32_t x, uint32_
 void GS::drawNative(const GSNativeDraw &draw)
 {
     std::lock_guard<std::recursive_mutex> lock(m_stateMutex);
+    if (draw.seeThrough < 0)
+    {
+        drawNativeLocked(draw);
+        return;
+    }
+    // See-through: the active context's ALPHA as Cs * FIX + Cd * (1 - FIX) ((A - B) * C + D with A = Cs, B = Cd,
+    // C = FIX, D = Cd), blending on, Z written nowhere; the registers as the stream left them again after it.
+    GSContext &context = m_ctx[m_prim.ctxt ? 1 : 0];
+    const GSPrimReg prim = m_prim;
+    const uint64_t alpha = context.alpha;
+    const bool zmask = context.zbuf.zmask;
+    constexpr uint64_t kSourceOverDestByFix = (0ull << 0) | (1ull << 2) | (2ull << 4) | (1ull << 6);
+    m_prim.abe = true;
+    context.alpha = kSourceOverDestByFix | (static_cast<uint64_t>(std::min(draw.seeThrough, 0xFF)) << 32);
+    context.zbuf.zmask = true;
+    m_drawStateDirty = true;
+    drawNativeLocked(draw);
+    m_prim = prim;
+    context.alpha = alpha;
+    context.zbuf.zmask = zmask;
+    m_drawStateDirty = true;
+}
+
+void GS::drawNativeLocked(const GSNativeDraw &draw)
+{
     if (!m_backend || !draw.mesh || draw.count < 3u || draw.first + draw.count > draw.mesh->vertices.size())
         return;
     GSPrimitiveBatch base = buildDrawBatch(0);

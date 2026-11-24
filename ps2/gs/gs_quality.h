@@ -17,7 +17,7 @@
 // and the game overrides read them per frame or per draw, so changes apply
 // at once.
 
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <array>
 #include <cstddef>

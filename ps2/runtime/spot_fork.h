@@ -6,8 +6,8 @@
 
 class PS2Machine;
 
-// ZX_SPOT_FORK=<dir> (Mac and Linux; off by default): a run that reaches a
-// spot becomes a server of copies of itself there. At the first VBlank start
+// ZX_SPOT_FORK=<dir> (Mac and Linux; off by default; not Windows, which has
+// no fork): a run that reaches a spot becomes a server of copies of itself there. At the first VBlank start
 // where the spot holds (ZX_SPOT_AT="tick>=N" or "script>=N" on the runtime
 // vsync tick or the pad script's clock, or the file <dir>/now made by the
 // player), the game thread stops at that guest moment: the graphics workers

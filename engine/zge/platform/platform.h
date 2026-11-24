@@ -112,6 +112,8 @@ namespace zge
     int32_t freeMemory(ee::Address memory);
     int32_t mainRegionFreeBytes();
     int32_t setMainRegion(uint32_t base, uint32_t bytes);
+    // mallocFreeBytes (ZGE4 only, memory.cpp): the C library heap's bytes left (freeHeapBytes's PS2 half).
+    uint32_t mallocFreeBytes();
 
     // platform.cpp
     uint64_t gameClock();

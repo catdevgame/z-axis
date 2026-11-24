@@ -3,7 +3,7 @@
 //
 // The SPU2's 4-tap gaussian interpolation table, copied unchanged from PCSX2
 // pcsx2/SPU2/interpolate_table.h (commit 091ab687) as iop/'s SPU2 port
-// has it, for the native sound voices (runtime/spu_voice.h), so the
+// has it, for the native sound voices (zge/native/spu_voice.h), so the
 // runtime does not depend on the IOP's internals.
 
 #pragma once

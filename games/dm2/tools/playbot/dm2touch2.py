@@ -356,13 +356,97 @@ def play(name, level, mode, plan, ticks=9000, seed=1, tier=None, max_secs=2400):
                 return core.pad('UP', lx=lx)
             return core.NOTHING     # (coasting to a stop: DM2 has no brake; the stick back or DOWN is a manual)
 
+    class Face(pd.Task):
+        """(draft2) Still, turned toward a point (the still turn), for `frames`."""
+        name = 'face'
+
+        def __init__(self, player, at, frames):
+            super().__init__(player)
+            self.at, self.limit = at, frames
+
+        def step(self, st):
+            self.frames += 1
+            if self.frames > self.limit:
+                return None
+            lx, err = pd.steer(st, self.at)
+            return core.pad(lx=lx) if abs(err) > 0.15 else core.NOTHING
+
+    class Jump(pd.Task):
+        """(draft2) boatjump's run: full speed from the run-up over the bank's edge, across the lane point, until 150
+        frames or a bail; the frame it reached the point corrects the step's run time (GO_FRAMES)."""
+        name = 'jump'
+        quiet_air = True
+
+        def __init__(self, player, step, boat, wanted):
+            super().__init__(player)
+            self.st, self.boat, self.wanted = step, boat, wanted
+            self.at, self.closest = None, 1e9
+            self.way = None
+            self.ended = False
+            step['jump'] = self
+
+        def end(self, st):
+            """The try's numbers (also when the player dropped the task at a bail), and the start-up time learned."""
+            if self.ended:
+                return
+            self.ended = True
+            g = self.st
+            self.p.log(st, 'boatjump: try %d ends after %d frames: the boat %x %.1f off at closest, the rider at the lane point at '
+                       'frame %s (the boat due at %d), %s, touched %x' % (g['tries'], self.frames, self.boat, self.closest, self.at,
+                                                                       self.wanted, 'bailed kind %d' % st.bail_kind if st.physics == pd.BAIL else 'riding', touched_now(st)))
+            if self.at and self.way:
+                # the start-up time it took, against the full-speed way from where it began
+                g['go'] = max(0, int(round(0.5 * g['go'] + 0.5 * (self.at - self.way / float(os.environ.get('JUMP_SPEED', '0.30'))))))
+
+        def step(self, st):
+            self.frames += 1
+            g, run = self.st, box['run']
+            if self.way is None:
+                self.way = goalsteer.flat(st.pos, g['L'])
+            near = math.dist(rider_drawn(run, st), struct.unpack('<3f', run.mem(self.boat + OBJECT_POSITION, 12)))
+            self.closest = min(self.closest, near)
+            if self.at is None and goalsteer.flat(st.pos, g['L']) < 1.5:
+                self.at = self.frames
+            if self.frames % 8 == 1:
+                b = struct.unpack('<3f', run.mem(self.boat + OBJECT_POSITION, 12))
+                self.p.log(st, 'jump %d: frame %d, the boat at (%.1f %.2f %.1f), %.1f off the drawn rider, %.1f from the lane point' % (
+                    g['tries'], self.frames, *b, near, goalsteer.flat(b, g['L'])))
+            if os.environ.get('GS') == '1' and self.frames in (1, 15, 30, 45, 60, 80):
+                self.p.log(st, 'shot', run.shot('jump%d-%d' % (g['tries'], self.frames)))
+            if self.frames > 150 or st.physics == pd.BAIL or touched_now(st) in g['boats']:
+                self.end(st)
+                return None
+            L, u = g['L'], g['u']
+            lx, _ = pd.steer(st, (L[0] + u[0] * 6, L[1], L[2] + u[1] * 6), gain=1.6)
+            if os.environ.get('JUMP_AT_BOAT') == '1':
+                # (a shallow lane: the rider in the water beside it) straight into the boat's side, led by its motion
+                b = struct.unpack('<3f', run.mem(self.boat + OBJECT_POSITION, 12))
+                prev = getattr(self, 'boat_prev', None)
+                self.boat_prev = b
+                if prev is not None:
+                    k = min(goalsteer.flat(st.pos, b) / max(st.speed, 0.15), 20.0)
+                    lead = (b[0] + (b[0] - prev[0]) * k, b[1], b[2] + (b[2] - prev[2]) * k)
+                    lx, _ = pd.steer(st, lead, gain=2.0)
+                # the wheels below the hull's bottom (the rider on the lane's bed, the hull over the water): a hop
+                # beside it lifts them to its side or onto its deck, which the wheels' probes meet (touchObject)
+                if st.physics == pd.GROUND and goalsteer.flat(st.pos, b) < float(os.environ.get('HOP_NEAR', '3.0')) and not getattr(self, 'hopping', 0):
+                    self.hopping = 12
+                    self.p.log(st, 'jump %d: hop beside the boat, %.1f off' % (self.st['tries'], goalsteer.flat(st.pos, b)))
+            # JUMP_HOP=1: a hop at the bank's edge (a low shore: the wheels up to the hull's side, not into the water)
+            if os.environ.get('JUMP_HOP') == '1' and st.physics == pd.GROUND and goalsteer.flat(st.pos, g['E']) < float(os.environ.get('HOP_AT', '1.5')):
+                self.hopping = 14
+            if getattr(self, 'hopping', 0):
+                self.hopping -= 1
+                return core.pad('UP', pd.HOP, lx=lx)
+            return core.pad('UP', lx=lx)
+
     class TouchPlayer(pd.Player):
         step_i = 0
         step_frames = 0
 
         def ride(self, st):
             # (an approach handles its own hold-ups: hops, rounding; the player's stuck turn would end it)
-            if isinstance(self.task, (goalsteer.Approach, Hold, Into)):
+            if isinstance(self.task, (goalsteer.Approach, Hold, Into, Face, Jump)):
                 self.slow = 0
             return super().ride(st)
 
@@ -497,6 +581,8 @@ def play(name, level, mode, plan, ticks=9000, seed=1, tier=None, max_secs=2400):
                     return self.boat_step(st, step)
                 if kind == 'boatpath':
                     return self.boatpath_step(st, step)
+                if kind == 'boatjump':
+                    return self.boatjump_step(st, step)
                 self.finish(st, 'unknown step')
             return super().next_task(st)
 
@@ -608,6 +694,8 @@ def play(name, level, mode, plan, ticks=9000, seed=1, tier=None, max_secs=2400):
             if st.script - step['t0'] < int(os.environ.get('TRACK', '1200')):
                 return Hold(self, lambda st2: st2.pos, 5.0, 30)
             if 'point' not in step:
+                # (draft2) the tracks as sampled (every 4th frame from the step's start), for a route's study
+                core.save_json(os.path.join(d, 'tracks.json'), {'%x' % a: tr for a, tr in step['tracks'].items()})
                 # the busiest place of the tracks (the boats take a junction's exits at random: no one loop), counted
                 # in 3-unit cells, on the map's main part, nearer ones first
                 cells = {}
@@ -641,7 +729,17 @@ def play(name, level, mode, plan, ticks=9000, seed=1, tier=None, max_secs=2400):
             me = rider_drawn(run, st)
             near = min((math.dist(me, struct.unpack('<3f', run.mem(a + OBJECT_POSITION, 12))), a) for a in step['tracks'])
             step['closest'] = min(step['closest'], near[0])
-            if near[0] < 1.5:
+            # (draft2) met: the game's own touch (the rider's touched object is one of them: touchObject, which sends
+            # the boat its touch), not a distance (a boat's origin is at its waterline, the rider's body over it)
+            if touched_now(st) in step['tracks']:
+                self.log(st, 'boatpath: object %x touched (the rider\'s touched object), %.1f off' % (touched_now(st), near[0]))
+                meter.s.count('boats_met')
+                step['met'] = step.get('met', 0) + 1
+                if step['met'] >= int(os.environ.get('BOATS', '1')):
+                    self.finish(st, 'touched %d' % step['met'])
+                    return self.next_task(st)
+                return Hold(self, lambda st2: st2.pos, 5.0, 60)
+            if near[0] < 1.5 and os.environ.get('BOAT_NEAR_MET') == '1':
                 self.log(st, 'boatpath: object %x met, %.1f off' % (near[1], near[0]))
                 meter.s.count('boats_met')
                 step['met'] = step.get('met', 0) + 1
@@ -649,12 +747,109 @@ def play(name, level, mode, plan, ticks=9000, seed=1, tier=None, max_secs=2400):
                     self.finish(st, 'met %d' % step['met'])
                     return self.next_task(st)
                 return Hold(self, lambda st2: st2.pos, 5.0, 60)
+            if near[0] < getattr(self, 'boat_logged', 1e9) - 1.0 or (near[0] < 6.0 and st.script % 8 == 0):
+                self.boat_logged = near[0]
+                self.log(st, 'boatpath: object %x %.1f off (the drawn rider at %.1f %.1f %.1f), touched %x' % (near[1], near[0], *me, touched_now(st)))
             if st.script - step['since'] > int(os.environ.get('BOAT_WAIT', '4000')):
                 self.finish(st, 'not met, closest %.1f' % step['closest'])
                 return self.next_task(st)
             if goalsteer.flat(st.pos, p) > 3.0:
                 return goalsteer.Approach(self, lambda st2, p=p: p, near=1.5, limit=1500, slow=0.15, label='boat place')
             return Hold(self, lambda st2, p=p: p, 0.8, 10)
+
+        def boatjump_step(self, st, step):
+            """(draft2) boatjump:X/Z: Swamp's fanboats keep to deep water, a bank's edge 3 units or more off their lanes
+            (the floors the rider stands on, level with a boat's deck). The rider waits on the bank RUNUP back from its
+            edge nearest the lane point (X, Z), facing it; each boat's place and motion read every frame give when it
+            will pass the point; when that is the rider's own time to it (its run at full speed, GO_FRAMES measured
+            and corrected from each miss), it pedals off the edge across the lane, onto the boat's deck or into its
+            side. Done when the game says the rider touched a boat (its touched object, touchObject's)."""
+            run = box['run']
+            if 'boats' not in step:
+                found = named_objects(run, sym, [n for n in objects if re.match('Boat_Fanboat', n, re.I)])
+                step['boats'] = [a for v in found.values() for a in v]
+                x, z = map(float, step['arg'].replace('/', ',').split(','))
+                L = (x, 4.06, z)
+                # the bank's edge: the main part's floor nearest the point that is over the water by 1 to 4
+                best = None
+                for di in range(-6, 7):
+                    for dk in range(-6, 7):
+                        key = (int(x // 2) + di, int(z // 2) + dk)
+                        for n, (h, _) in enumerate(lv.nodes.get(key, ())):
+                            if lv.part.get((key, n)) != main or not (L[1] - 4.0 <= h <= float(os.environ.get('BANK_MAX', L[1] - 1.0))):
+                                continue
+                            c = ((key[0] + 0.5) * 2, h, (key[1] + 0.5) * 2)
+                            d = goalsteer.flat(c, L)
+                            if best is None or d < best[0]:
+                                best = (d, c)
+                if best is None:
+                    self.finish(st, 'no bank near the lane point')
+                    return self.next_task(st)
+                E = best[1]
+                ux, uz = (L[0] - E[0]) / best[0], (L[2] - E[2]) / best[0]
+                # the run-up's start: level floor (DM2 has no brake: on a slope the rider rolls off while it waits)
+                # at about E's height, 6 to 14 back from the edge, with floor all the way to it
+                W = None
+                cands = []
+                for back in (8, 10, 6, 12, 14):
+                    for turn in (0.0, 0.3, -0.3, 0.6, -0.6):
+                        dx = -(ux * math.cos(turn) - uz * math.sin(turn))
+                        dz = -(ux * math.sin(turn) + uz * math.cos(turn))
+                        q = (E[0] + dx * back, E[2] + dz * back)
+                        key = (int(q[0] // 2), int(q[1] // 2))
+                        for n, (h, flatness) in enumerate(lv.nodes.get(key, ())):
+                            if lv.part.get((key, n)) == main and flatness > float(os.environ.get("RUNUP_FLAT", "0.97")) and abs(h - E[1]) < 0.8:
+                                cands.append((round(1.0 - flatness, 2), abs(turn), abs(back - 9), (q[0], h, q[1])))
+                if not cands:
+                    self.finish(st, 'no level run-up behind the bank edge')
+                    return self.next_task(st)
+                W = min(cands)[-1]
+                ux, uz = (L[0] - W[0]) / goalsteer.flat(W, L), (L[2] - W[2]) / goalsteer.flat(W, L)
+                step.update(L=L, E=E, W=W, u=(ux, uz), go=int(os.environ.get('GO_FRAMES', '15')), tries=0, last={}, since=st.script)
+                self.log(st, 'boatjump: lane point (%.1f %.1f %.1f), bank edge (%.1f %.1f %.1f) %.1f off it, run-up from (%.1f %.1f %.1f), %d boats' % (
+                    *L, *E, best[0], *W, len(step['boats'])))
+            if step.get('jump') is not None:
+                step.pop('jump').end(st)
+            if touched_now(st) in step['boats']:
+                self.log(st, 'boatjump: boat %x touched (the rider\'s touched object), try %d' % (touched_now(st), step['tries']))
+                meter.s.count('boats_touched')
+                s['touched'].append('boat %x' % touched_now(st))
+                self.finish(st, 'touched, try %d' % step['tries'])
+                return self.next_task(st)
+            if st.script - step['since'] > int(os.environ.get('BOAT_WAIT', '8000')) or step['tries'] >= int(os.environ.get('JUMP_TRIES', '8')):
+                self.finish(st, 'not touched in %d tries' % step['tries'])
+                return self.next_task(st)
+            L, E, W = step['L'], step['E'], step['W']
+            # each boat's arrival at the lane point: the frames to its closest pass, and how close
+            arrivals = []
+            for a in step['boats']:
+                q = struct.unpack('<3f', run.mem(a + OBJECT_POSITION, 12))
+                prev = step['last'].get(a)
+                step['last'][a] = (q, st.script)
+                if prev is None or st.script <= prev[1] or math.dist(prev[0], q) > 3.0 * (st.script - prev[1]):
+                    continue
+                dt = st.script - prev[1]       # (frames since the last look: a velocity a frame)
+                v = ((q[0] - prev[0][0]) / dt, (q[2] - prev[0][2]) / dt)
+                vv = v[0] * v[0] + v[1] * v[1]
+                if vv < 1e-6:
+                    continue
+                t = ((L[0] - q[0]) * v[0] + (L[2] - q[2]) * v[1]) / vv
+                miss = math.hypot(q[0] + v[0] * t - L[0], q[2] + v[1] * t - L[2])
+                if t > 0 and miss < 2.0:
+                    arrivals.append((t, a, miss))
+            if goalsteer.flat(st.pos, W) > 5.0:
+                return goalsteer.Approach(self, lambda st2, w=W: w, near=1.5, limit=1500, slow=0.12, label='boatjump run-up')
+            # the rider's own time to the point from where it is now (it coasts about the run-up: DM2 has no brake):
+            # a start-up `go` (learned from each try) and the way at full speed
+            mine = step['go'] + goalsteer.flat(st.pos, L) / float(os.environ.get('JUMP_SPEED', '0.30'))
+            due = [x for x in arrivals if abs(x[0] - mine) <= 2]
+            if due:
+                t, a, miss = min(due)
+                step['tries'] += 1
+                self.log(st, 'boatjump: try %d, boat %x due at the lane point in %d frames (passing %.1f off it), the run %d' % (
+                    step['tries'], a, t, miss, step['go']))
+                return Jump(self, step, a, int(t))
+            return Hold(self, lambda st2, w=W: w, 3.0, 3)
 
         def boat_step(self, st, step):
             """The named moving objects (the level objects' names: Swamp's fanboats) chased by their live places, led by
@@ -767,6 +962,16 @@ def play(name, level, mode, plan, ticks=9000, seed=1, tier=None, max_secs=2400):
         """Each frame of play: the NPCs' states (a meeting, a collision: an NPC put to bailing, or the rider's bail of
         kind 3) and what the rider touched."""
         run = box['run']
+        # (draft2) pictures every SHOT_EVERY frames of play (GS=1), to see what a route runs into
+        if os.environ.get('GS') == '1' and int(os.environ.get('SHOT_EVERY', '0')) and st.script % int(os.environ['SHOT_EVERY']) == 0:
+            log(st, 'shot', run.shot('play-%d' % st.script))
+        # (draft2) a stall (the rider still 120 frames while riding): logged, with a picture when GS=1
+        s['still'] = s.get('still', 0) + 1 if st.speed < 0.01 else 0
+        if s['still'] == 120:
+            log(st, 'still 120 frames: physics %d, bail kind %d, mode %d, screen %d' % (
+                st.physics, st.bail_kind, st.mode, run.mem(sym['g_gameScreen'], 1)[0]))
+            if os.environ.get('GS') == '1':
+                log(st, 'shot', run.shot('still-%d' % st.script))
         if st.script % 4 == 0 or st.physics == pd.BAIL:
             here = npcs(run, sym)
             prev = s.get('npc_states')

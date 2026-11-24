@@ -30,9 +30,12 @@ names, with a few differences ("The config file" below).
 | D-pad (menus; in a level same as the left stick) | arrow keys |
 | Restart (PC shortcut: the challenge, lesson, level, run or turn again) | Backspace; gamepad: L3+R3 (both sticks pressed in) |
 | Hide HUD (PC shortcut, on and off) | F9 |
-| Screenshot (PC shortcut, PNG to Pictures/Z-Axis Collection/<game>) | F12 |
+| Screenshot (PC shortcut, PNG to Pictures/Z-Axis Collection/<game>; Android: the Gallery, the same folder) | F12 |
 | Photo mode (PC shortcut: the game stops, a free camera; again to leave) | P |
 | Switch game (PC shortcut: back to the collection menu) | F8 |
+| Developer menu (with Settings > Game > Developer Menu on: the game's debug menu or display, in a level) | F1; gamepad: Select+L3 |
+| Previous / next track (PC shortcut: the soundtrack's song before or after the one playing, in a level) | F5 / F6; gamepad: L3+L1 / L3+R1 |
+| Shuffle (PC shortcut, on and off; also Settings > Sound > Shuffle) | F7 |
 
 The left stick also moves the menu cursors, so WASD works in menus too. I/J/K/L form the PS face-button diamond for
 keyboard-only play.
@@ -118,9 +121,18 @@ controls work the same.
 
 Window keys (not game buttons): Alt+Enter toggles full screen everywhere, F11 too on Windows (Cmd+Ctrl+F and Cmd+F are
 the macOS menu shortcuts); Cmd+, opens the settings on macOS (on Windows: Settings... in the window's system menu,
-Alt+Space then T). F1 shows the debug panel on Mac and Windows (with Settings > Game > Developer Menu on, the same
-press opens the game's own debug menu or display too). Do not bind these to game buttons. Android has none of these:
-the app is always full screen.
+Alt+Space then T). F1 shows the debug panel (with Settings > Game > Developer Menu on, the same press opens the game's
+own debug menu or display too: the developer_menu shortcut, Select+L3 on a gamepad). Do not bind these to game
+buttons. Android has none of the window keys: the app is always full screen. Where there is no F1 key (a handheld),
+Settings > Controls > Gamepad Test (with the Developer Menu on) shows the debug panel at its PAD tab, what the game
+reads from each pad; the same row, F1 or the window's close button hides it.
+
+The bottom screen on one screen: in a level, M (L3+R2 on a gamepad; the bottom_screen shortcut) shows a
+dual-screen handheld's bottom screen, the level's map with the goals and the tricks, in the window's bottom right
+corner over the game, and hides it again. A click, a drag or the wheel over it (a finger on a touch screen) works it
+as a touch works the handheld's; the game gets none of them and plays on. L3 does nothing in the three games; the R2
+of the chord reaches the game as R2 alone would, as the other L3 chords' shoulder buttons do. On a handheld whose
+second screen shows the bottom screen already (the Thor), the shortcut does nothing.
 
 ## Watching a recording
 
@@ -209,11 +221,21 @@ hide_hud   = F9
 screenshot = F12
 photo_mode = P
 switch_game = F8         # back to the collection menu
+developer_menu = F1      # with the Developer Menu on: the game's debug menu (AI) or debug display (DM2, BMX XXX)
+previous_track = F5      # the soundtrack's song before or after the one playing (in a level)
+next_track     = F6
+shuffle        = F7      # the songs in a random order, on and off (Settings > Sound > Shuffle)
+bottom_screen = M        # the bottom screen (map, goals, tricks) over the game on one screen, shown and hidden
 restart_pad    = L3+R3    # gamepad buttons held together (by position, joined with +)
 hide_hud_pad   =
 screenshot_pad =
 photo_mode_pad =
 switch_game_pad =
+developer_menu_pad = SELECT+L3
+previous_track_pad = L3+L1  # L3 is no game's button; the shoulder button reaches the game too
+next_track_pad     = L3+R1
+shuffle_pad        =
+bottom_screen_pad = L3+R2
 ```
 
 Binding a shortcut's key in the Settings screen takes it off the game controls and the other way round.

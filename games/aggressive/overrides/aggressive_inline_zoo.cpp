@@ -82,7 +82,7 @@
 #include "machine.h"
 #include "runtime/disc_patch.h"
 #include "runtime/game_files.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/zaxis_ui.h"
 #include "runtime/zaxis_zoo.h"
 #include "runtime/boot_config.h"
@@ -163,7 +163,7 @@ namespace aggressive_inline::zoo
         std::shared_ptr<const std::vector<uint8_t>> readXbox(const std::string &path)
         {
             auto bytes = std::make_shared<std::vector<uint8_t>>();
-            if (!ps2_xbox_disc::readFile(path, *bytes))
+            if (!zx::xbox_files::readFile(path, *bytes))
                 return nullptr;
             return bytes;
         }
@@ -861,9 +861,9 @@ namespace aggressive_inline::zoo
             made_::exists(kLevelFolder + "ZOOT.BIN"))
         {
             level().source = Source::Converted;
-            level().flythrough = ps2_xbox_disc::init() && ps2_xbox_disc::exists(kXboxFlythroughPsm);
-            if (!level().flythrough && ps2_xbox_disc::available() && game::host::movies::playedOnHost())
-                if (const std::string bink = ps2_xbox_disc::hostPath(kXboxFlythroughBink); !bink.empty())
+            level().flythrough = zx::xbox_files::init() && zx::xbox_files::exists(kXboxFlythroughPsm);
+            if (!level().flythrough && zx::xbox_files::available() && game::host::movies::playedOnHost())
+                if (const std::string bink = zx::xbox_files::hostPath(kXboxFlythroughBink); !bink.empty())
                 {
                     game::host::movies::setHostMovie(kFlythrough, bink, game::host::movies::kPs2MovieWidth,
                                                      game::host::movies::kPs2MovieHeight);

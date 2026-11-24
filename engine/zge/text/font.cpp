@@ -869,6 +869,23 @@ namespace zge
         // the first vertex (kPrimitiveScreen | kPrimitiveDepthFromVertex,
         // zge/render/ps2/primitive_packets.cpp; no bit 27).
         constexpr uint32_t kOrientedTextQuadFlags = 0x02000004u;
+
+        // What ZGE2's drawTextQuads keeps in its frame (at +0x2560, past the
+        // case-change letter) and leaves there at the return, below its
+        // caller's stack pointer, where later code reads it as stale stack: a
+        // matrix's w lanes that copyRotationAndTranslation never writes
+        // (DM2's poseBikeGround), which reach VU0 and a stored vector's w.
+        struct OrientedTextPlace
+        {
+            ee::Ptr<ee::Ptr<TextQuadRecord>> out; // +0x00 the list's place, or 0: the quads drawn
+            int32_t batch;                        // +0x04 quads waiting to be drawn
+            uint32_t batchTexture;                // +0x08 their texture
+            uint32_t escapeTook;                  // +0x0C 1 when the last escape took characters, 0 from a new batch
+            ee::Ptr<TextVertex> vertices;         // +0x10 the vertices' array
+            int32_t lines;                        // +0x14 the lines begun
+            ee::Ptr<Matrix> matrix;               // +0x18 the quads' matrix
+        };
+        static_assert(sizeof(OrientedTextPlace) == 0x1C);
     }
 
     // drawOrientedTextQuads: ZGE2's drawTextQuads. The text measured
@@ -889,18 +906,22 @@ namespace zge
         ee::Local<TextVertex[4 * kQuadsPerBatch]> vertices;
         ee::Local<Matrix> matrix;
         ee::Local<TextBounds> bounds;
+        ee::Local<OrientedTextPlace> place;
+        place->out = out;
+        place->batch = 0;
+        place->batchTexture = 0;
+        place->escapeTook = 0;
         if (!text)
             return;
         int32_t index = 0;
-        int32_t batch = 0; // quads waiting to be drawn
-        uint32_t batchTexture = 0;
         ee::Ptr<TextQuadRecord> record;
         loadPageTextures(font);
+        place->matrix = matrix;
         const int32_t glyphCount = measureText(font, style, text, bounds, ee::Ptr<int32_t>(g_lineWidths.get()));
-        if (out)
+        if (place->out)
         {
             record = ee::Ptr<TextQuadRecord>(heapAllocate((glyphCount + 1) * static_cast<int32_t>(sizeof(TextQuadRecord))));
-            *out = record;
+            *place->out = record;
         }
         quaternionToMatrix(&*matrix, styleOrientation(*style));
         matrix->m[3][0] = ee::Float(0.0f);
@@ -909,6 +930,8 @@ namespace zge
 
         ee::Float penX(0.0f); // (kept from the previous line under an unknown alignment)
         ee::Float lineY = bounds->top;
+        if (lineWidth(0) != 0)
+            place->vertices = vertices;
         for (int32_t line = 0; lineWidth(line) != 0;)
         {
             switch (style->align & kAlignHorizontal)
@@ -926,11 +949,14 @@ namespace zge
                 break;
             }
             ++line;
+            place->lines = line;
             while (text[index] != 0)
             {
                 if (text[index] == '#' && text[index + 1] != 0)
                 {
-                    index += textEscape(text + index + 1, style READABLE_PARAM_ONLY(bmx, 1u));
+                    const int32_t took = textEscape(text + index + 1, style READABLE_PARAM_ONLY(bmx, 1u));
+                    index += took;
+                    place->escapeTook = took != 0;
                     if (text[index] == 0)
                         break;
                 }
@@ -944,27 +970,26 @@ namespace zge
                     const ee::Ptr<FontPage> page = font->pages + glyph->page;
                     const ee::Float pageWidth = ee::toFloat(page->width);
                     const ee::Float pageHeight = ee::toFloat(page->height);
-                    if (!out)
+                    if (!place->out)
                     {
-                        if (page->texture != batchTexture || batch == kQuadsPerBatch)
+                        if (page->texture != place->batchTexture || place->batch == kQuadsPerBatch)
                         {
                             // A new batch: the waiting quads drawn.
-                            if (batch != 0)
-                            {
-                                drawPrimitiveQuads(kOrientedTextQuadFlags, quads, batch, matrix);
-                                batch = 0;
-                            }
-                            batchTexture = page->texture;
+                            if (place->batch != 0)
+                                drawPrimitiveQuads(kOrientedTextQuadFlags, quads, place->batch, place->matrix);
+                            place->batch = 0;
+                            place->escapeTook = 0;
+                            place->batchTexture = page->texture;
                         }
-                        TextQuad &quad = quads[batch];
-                        const ee::Ptr<TextVertex> first = ee::Ptr<TextVertex>(vertices) + 4 * batch;
+                        TextQuad &quad = quads[place->batch];
+                        const ee::Ptr<TextVertex> first = place->vertices + 4 * place->batch;
                         quad.corners[0] = first + 3;
                         quad.corners[1] = first + 2;
                         quad.corners[2] = first + 1;
                         quad.corners[3] = first;
                         quad.texture = page->texture;
                     }
-                    const ee::Ptr<TextVertex> corner = ee::Ptr<TextVertex>(vertices) + 4 * batch;
+                    const ee::Ptr<TextVertex> corner = place->vertices + 4 * place->batch;
                     const int32_t spacing = style->letterSpacing;
                     // A negative spacing over a quarter of the glyph (in
                     // whole texels) moves it a texel on.
@@ -994,8 +1019,8 @@ namespace zge
                     set(1, right, top, uRight, vTop);
                     set(2, right, bottom, uRight, vBottom);
                     set(3, left, bottom, uLeft, vBottom);
-                    if (!out)
-                        ++batch;
+                    if (!place->out)
+                        ++place->batch;
                     else
                     {
                         record->texture = page->texture;
@@ -1025,10 +1050,10 @@ namespace zge
             }
             lineY = lineY + ee::toFloat(font->height) * style->scaleY * style->lineSpacing;
         }
-        if (!out)
+        if (!place->out)
         {
-            if (batch != 0)
-                drawPrimitiveQuads(kOrientedTextQuadFlags, quads, batch, matrix);
+            if (place->batch != 0)
+                drawPrimitiveQuads(kOrientedTextQuadFlags, quads, place->batch, place->matrix);
         }
         else
             record->texture = 0xFFFFFFFFu;

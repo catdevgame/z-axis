@@ -20,7 +20,9 @@
 // renderer, the window loop and the unit tests. GPU_BACKEND.md "Frame
 // interpolation" has the design.
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 
 namespace zx::gs_interpolate
@@ -33,6 +35,19 @@ namespace zx::gs_interpolate
     // [display] frame_interpolation (ZX_INTERPOLATION=on|off), read by the window loop and the renderer.
     bool enabled();
     void setEnabled(bool on);
+
+    // How a picture between two frames is made.
+    enum class Method : uint32_t
+    {
+        // The newer frame's draws recorded again with every native draw and the camera moved (exact, but it costs
+        // the GPU about what the frame did, and the game's own frame waits behind it).
+        Replay,
+        // The two finished pictures warped toward each other by the camera's motion at each pixel's depth, in one
+        // pass: a fraction of a frame's GPU time (Android's: a game frame already takes most of a 60 Hz refresh).
+        Warp,
+    };
+    // ZX_INTERP_METHOD=replay|warp; otherwise Warp on Android, Replay elsewhere.
+    Method method();
 
     // ---- matrices -------------------------------------------------------------------------------------------
 
@@ -106,6 +121,40 @@ namespace zx::gs_interpolate
     // period between them (a running mean; the PS2's 59.94 Hz until known).
     void noteVblank(uint64_t tick, std::chrono::steady_clock::time_point at);
     VblankClock vblankClock();
+    // Whether the window shows pictures between frames: only on a fixed-refresh display faster than the game (its
+    // refresh `refreshNs` under 90 % of the game's frame `framePeriodNs`; 0: not known). With variable refresh in
+    // effect (`variableRefresh`: the setting, with the frame queue) each game frame is shown when it is ready and
+    // the display follows, which interpolation never improves on: it shows a frame one frame late and doubles
+    // the renderer's work, so variable refresh wins.
+    inline bool interpolates(bool variableRefresh, int64_t refreshNs, int64_t framePeriodNs)
+    {
+        return !variableRefresh && refreshNs > 0 && framePeriodNs > 0 && refreshNs * 10 < framePeriodNs * 9;
+    }
+    // How late the renderer makes the game's frames, for the delay of a refresh that is not phase-locked to the
+    // vblanks (runtime/frame_interpolation.h): a refresh shows the game one frame plus this before it, so the next
+    // frame is made when the display time reaches the one shown. made() takes each frame's lag (its picture made
+    // that long after its vblank's host time: its real finish time); lagNs is a slow-falling maximum of them, at
+    // most a quarter frame above the quickest of the last kRecent. Each frame waits in the frame queue about the
+    // delay less its own lag, and a display time more than one and a half frames behind the newest frame has the
+    // queue (two waiting) push frames out unshown, every other one while it lasts: with the quarter even the
+    // quickest frame is at most a frame and a quarter behind when it is made, room for a window a refresh late. So
+    // a steadily late renderer (frames 20 ms after their vblanks) gets a delay that waits for them, and one late
+    // only now and then (a GPU-heavy view's frames, 1 to 70 ms) shows those as they are (not-ready) rather than
+    // holding every frame back by the worst and losing frames out of the queue.
+    struct FrameLag
+    {
+        static constexpr size_t kRecent = 16; // frames: a quarter second
+        int64_t lagNs = 0;
+        int64_t recent[kRecent]{};
+        size_t count = 0; // frames seen (the last kRecent in recent)
+        void made(int64_t frameLagNs, int64_t periodNs)
+        {
+            const int64_t lag = std::max<int64_t>(frameLagNs, 0);
+            recent[count++ % kRecent] = lag;
+            const int64_t quickest = *std::min_element(recent, recent + std::min(count, kRecent));
+            lagNs = std::min(std::max(lag, lagNs - lagNs / 64), quickest + periodNs / 4);
+        }
+    };
     // alpha between frames made at ticks a < b for display tick `at` (0..1, clamped).
     inline float alphaBetween(uint64_t a, uint64_t b, double at)
     {
@@ -131,6 +180,8 @@ namespace zx::gs_interpolate
         Budget,       // the picture between before the last is still on the GPU (one may be in flight)
         NotReady,     // the next frame was not made in time for the refresh
         NoPair,       // no frame before it (the first one, a frame queue reset)
+        Unwarpable,   // the warp has nothing to go on: no depth of the scene, no single camera, or a picture made
+                      // of two read circuits or one field
         kCount
     };
     const char *skipName(Skip s);

@@ -65,6 +65,9 @@ namespace dave_mirra
 {
     bool installNativeSound(PS2Machine &runtime)
     {
-        return zge_host::sound::install(runtime, native_sound::kSound);
+        const bool native = zge_host::sound::install(runtime, native_sound::kSound);
+        // The soundtrack's controls, with either driver.
+        installSoundtrack(runtime);
+        return native;
     }
 }

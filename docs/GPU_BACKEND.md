@@ -544,7 +544,7 @@ Where the picture goes from there:
 
 The Display setting Frame Interpolation (`[display] frame_interpolation`,
 `ZX_INTERPOLATION=on`; off by default) shows pictures between the game's
-frames on a display faster than the game (120, 144 Hz, ProMotion), drawn by
+frames on a fixed-refresh display faster than the game (75, 120, 144 Hz), drawn by
 this renderer alone: the game's logic, RAM, GS stream and timing are as
 without it. The arithmetic is `gs/gs_interpolate.h` (unit tests
 `GSInterpolate`), the window loop's side `runtime/frame_interpolation.h`.
@@ -571,6 +571,25 @@ without it. The arithmetic is `gs/gs_interpolate.h` (unit tests
   2D, sprites, the fog and the previous-frame blend (which reads the other
   buffer's copy: the last real frame) are as B has them. The picture goes to
   one of two textures of its own, shown by the window as a presented one.
+- **Two ways to make it** (`gs_interpolate::Method`, `ZX_INTERP_METHOD=replay|warp`): the replay above, and the
+  warp, Android's (a handheld's GPU spends most of a 60 Hz refresh on the game's own frame, and a replay costs
+  about as much again: on the Thor at 2x full height 27 ms of GPU a picture, and the game's frames fell to 53 a
+  second). With the warp a frame keeps only its motions (for the camera), which colour target each depth target
+  drew with, and at its Present a copy of the scene's depth (the depth target most of its native draws used): no
+  steps, no start copies. A picture between A and B is one full-screen pass (`warp_fs`) over the two finished
+  pictures and their depths, recorded on the window thread's own command buffer (the GS worker's, open with the
+  frame it is drawing, is left alone: the replay took it over and split its render pass). Per pixel, each motion
+  it may have gives a sample of each picture, A's at p - t m and B's at p + (1 - t) m: none (the HUD, and what the
+  camera follows, the rider), the camera's motion at the depth under it in B, in A, and under four neighbours in
+  B (the edge of something in front); the motion whose two samples agree best is the pixel's, its samples blended
+  by t (about 1 ms of GPU a picture on the Thor at 2x full height, against the replay's 27). The camera is the
+  view most of B's native draws have; none is made while the last is still on the GPU. Not warped
+  (`unwarpable`, the renderer's report says why): no scene depth, the scene drawn elsewhere than shown, no camera,
+  or two buffers shown. On Android the window keeps one presented picture in flight while it interpolates
+  (`ps2_host::setInterpolatedPresents`). On Direct3D 12 the window asks for its swapchain picture without SDL's
+  wait while it interpolates: SDL waits there holding the lock every submit takes, at a fixed refresh most of a
+  refresh, and the GS worker's frames were made only after the latch (75 Hz full screen: 29 pictures between a
+  second, 46 refreshes with no next frame; asked without the wait, 72 and none).
 - **DM2 and BMX XXX** draw their riders (and BMX XXX every mesh) natively
   only from the engine's draw records: with interpolation on, their
   meshes are drawn from the records (`native_draws::attach`'s
@@ -586,6 +605,16 @@ without it. The arithmetic is `gs/gs_interpolate.h` (unit tests
   picture between before the last still on the GPU (budget: one may be in flight), the next
   frame not made in time, no frame before. A draw without a match in A or
   whose node moved more than 7 units is drawn where B has it.
+- **When a refresh shows what** (`runtime/frame_interpolation.h`): the game one frame before the refresh, in
+  vblank ticks. On a display in a whole ratio to the game's (120 Hz) the vblanks are phase-locked to the
+  refreshes and the delay is one frame less the lock's offset; on any other (75, 144, 165 Hz) it is one frame plus
+  how late the renderer makes its frames after their vblanks, from every frame's finish time
+  (`gs_interpolate::FrameLag`: a slow-falling maximum, at most a quarter frame above the newest frame's, so the
+  frame queue never holds three). At 75 Hz nearly every refresh is a picture between, not 15 a second: each shows
+  the game at its own time. Only on a fixed-refresh display (`gs_interpolate::interpolates`): with Variable
+  Refresh on, variable refresh wins (each game frame shown when it is ready, as without interpolation; the
+  renderer keeps no frames for it). Before a refresh is measured the display mode's rate starts it
+  (`ps2_host::displayRefreshNs`).
 - **Checks.** `zx-gsreplay TRACE OUT --gpu --between 0.5,1` replays a trace as
   the frame queue makes it and after each frame the pictures between it and
   the one before: at 1 the replay of the frame's own steps must give the
@@ -594,7 +623,8 @@ without it. The arithmetic is `gs/gs_interpolate.h` (unit tests
   well). `ZX_INTERP_TIMING=1` times each picture between alone on the GPU
   (the queue idle first). The runner's `ZX_PERF_LOG` prints `[interp]`
   lines: pictures between, the reasons, refresh intervals and how long after
-  a frame was made it was first seen and seen whole.
+  a frame was made it was first seen and seen whole, each frame's lag after its vblank and the time making its
+  picture took. Headless runs with `ZX_PRESENT_HZ=75` time it at 75 Hz without a window.
 
 ### Full height
 

@@ -8,6 +8,7 @@
 #include "android_assets.h"
 #include "collection/menu_bottom.h"
 #include "collection/panel.h"
+#include "collection/panel_overlay.h"
 #include "collection/playback.h"
 #include "machine.h"
 #include "runtime/front_end.h"
@@ -449,6 +450,8 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_catdevgame_zaxiscollection_Seco
 {
     using namespace zx_android;
     stopPainter();
+    // (the bottom screen on this display: none over the game on the top one, collection/panel_overlay.h)
+    panel::Overlay::shared().setSecondScreen(surface != nullptr);
     if (!surface)
         return;
     const char *chars = env->GetStringUTFChars(folder, nullptr);

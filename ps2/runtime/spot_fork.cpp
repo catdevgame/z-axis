@@ -25,7 +25,12 @@
 namespace zx::spot
 {
     bool enabled() { return false; }
-    void setHostLoop(std::function<void()>) {}
+    void setHostLoop(std::function<void()>)
+    {
+        // (once a run: say why a spot never comes)
+        if (const char *dir = std::getenv("ZX_SPOT_FORK"); dir && dir[0])
+            std::fprintf(stderr, "[spot] ZX_SPOT_FORK is served on the Mac and Linux only (Windows has no fork)\n");
+    }
     void hostLoopTop() {}
     void onVsync(PS2Machine &, uint64_t, int64_t) {}
     void addChildHook(std::function<void(PS2Machine &)>) {}

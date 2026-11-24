@@ -8,6 +8,7 @@
 
 #include "runtime/play_recording.h"
 #include "runtime/game_files.h"
+#include "runtime/host_input.h"
 
 #include <algorithm>
 #include <array>
@@ -298,6 +299,8 @@ namespace zx::app
             }
             else if (section == "audio" && key == "mute_on_focus_loss")
                 ok = parseBool(value, settings.muteOnFocusLoss);
+            else if (section == "audio" && key == "shuffle")
+                ok = parseBool(value, settings.shuffleMusic);
             else if (section == "general" && key == "skip_intro_movies")
                 ok = parseBool(value, settings.skipIntroMovies);
             else if (section == "general" && key == "language")
@@ -429,6 +432,8 @@ namespace zx::app
                 ok = parseBool(value, settings.logFile);
             else if (section == "general" && key == "record_play")
                 ok = parseBool(value, settings.recordPlay);
+            else if (section == "general" && key == "practice")
+                ok = parseBool(value, settings.practice);
             else if (section == "general" && key == "custom_freeplay")
                 ok = parseBool(value, settings.customFreeplay);
             else if (section == "menu" && key == "intro_movie")
@@ -587,7 +592,39 @@ namespace zx::app
         if (section == "mod order" || section == "menu")
             return true;
         return section == "general" && (key == "pause_on_focus_loss" || key == "skip_intro_movies" || key == "log_file" ||
-                                        key == "record_play" || key == "custom_freeplay");
+                                        key == "record_play" || key == "custom_freeplay" || key == "practice");
+    }
+
+    namespace
+    {
+        // The root settings.ini's keys added after the first release (1.1.0), each with the version that first reads
+        // it (from each release's parseSettings). 1.2.0 added only games' keys ([extras]).
+        struct AddedRootSetting
+        {
+            std::string_view section, key, version;
+        };
+        constexpr AddedRootSetting kAddedRootSettings[] = {
+            {"display", "clean_top_screen", "1.3.0"},
+            {"display", "map_window_on_top", "1.3.1"},
+            {"audio", "shuffle", "1.4.0"},
+            {"general", "practice", "1.4.0"},
+        };
+    }
+
+    std::string rootSettingSince(std::string_view section, std::string_view key)
+    {
+        for (const AddedRootSetting &added : kAddedRootSettings)
+            if (added.section == section && added.key == key)
+                return std::string(added.version);
+        return {};
+    }
+
+    bool rootSettingKnown(std::string_view section, std::string_view key)
+    {
+        static const std::vector<std::string> keys =
+            settingsKeys(formatSettings(Settings{}, everyOptionProfile(), SettingsScope::App));
+        const std::string name = std::string(section) + "." + std::string(key);
+        return std::find(keys.begin(), keys.end(), name) != keys.end();
     }
 
     std::vector<std::string> settingsKeys(std::string_view text)
@@ -725,7 +762,10 @@ namespace zx::app
                 << "# Master volume in percent (0-100).\n"
                 << "volume = " << settings.volume << "\n"
                 << "# Silent while the window is in the background.\n"
-                << "mute_on_focus_loss = " << boolText(settings.muteOnFocusLoss) << "\n";
+                << "mute_on_focus_loss = " << boolText(settings.muteOnFocusLoss) << "\n"
+                << "# The soundtrack's songs in a random order (the shuffle key, F7, turns it\n"
+                << "# on and off). false: the game's own order.\n"
+                << "shuffle = " << boolText(settings.shuffleMusic) << "\n";
             if (shared(GameOption::MovieVolume))
                 out << "# Movie sound in percent (0-100). Music, effects and speech are the game's\n"
                     << "# own volumes (Options, Sound), kept in its save.\n"
@@ -777,6 +817,9 @@ namespace zx::app
                 << "# Record each game's play (inputs and frame times) to its Recordings folder,\n"
                 << "# to hand over for a replay. Applies at the next start.\n"
                 << "record_play = " << boolText(settings.recordPlay) << "\n"
+                << "# Practice: F2 or L3+L2 (practice_point in controls.ini) sets a restart point\n"
+                << "# where you are, the Restart key goes back to it, and each try is timed.\n"
+                << "practice = " << boolText(settings.practice) << "\n"
                 << "# Custom Freeplay: a fourth tile on the menu, a player from any game on a custom\n"
                 << "# map installed in a Mods folder (a mod folder with a map.ini). Off: the menu as\n"
                 << "# it was, and no game is given a map.\n"
@@ -1164,6 +1207,174 @@ namespace zx::app
                            (keeperOk && rootOk ? "" : " failed"));
     }
 
+    // ---- controls.ini and the defaults that changed ---------------------------
+
+    namespace
+    {
+        constexpr const char *kControlsVersionKey = "controls_version";
+
+        // One key = value line of an ini text: where it is and what it says.
+        struct IniLine
+        {
+            std::string section; // lower case, "" before the first section
+            std::string key;     // lower case
+            std::string value;   // as written, without a comment after it
+        };
+
+        // Every key = value line, in order (controls.ini's syntax: "#" and
+        // ";" start a comment, anywhere on the line).
+        std::vector<IniLine> iniLines(std::string_view text)
+        {
+            std::vector<IniLine> lines;
+            std::string section;
+            std::istringstream in{std::string(text)};
+            std::string line;
+            while (std::getline(in, line))
+            {
+                const size_t comment = line.find_first_of("#;");
+                const std::string content = trim(std::string_view(line).substr(0, comment));
+                if (content.empty())
+                    continue;
+                if (content.front() == '[' && content.back() == ']')
+                {
+                    section = lower(trim(std::string_view(content).substr(1, content.size() - 2)));
+                    continue;
+                }
+                const size_t equals = content.find('=');
+                if (equals != std::string::npos)
+                    lines.push_back({section, lower(trim(std::string_view(content).substr(0, equals))),
+                                     trim(std::string_view(content).substr(equals + 1))});
+            }
+            return lines;
+        }
+
+        // A binding list as compared: "SPACE, K" and "space,k" are the same.
+        std::string sameBindings(std::string_view value)
+        {
+            std::string out;
+            for (char c : value)
+                if (!std::isspace(static_cast<unsigned char>(c)))
+                    out += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            return out;
+        }
+
+        // The file's revision: its controls_version line (before the first
+        // section), else 1 (written before revisions were kept).
+        int controlsRevision(const std::vector<IniLine> &lines)
+        {
+            for (const IniLine &line : lines)
+            {
+                if (!line.section.empty() || line.key != kControlsVersionKey)
+                    continue;
+                int revision = 0;
+                for (char c : line.value)
+                {
+                    if (!std::isdigit(static_cast<unsigned char>(c)) || revision > 100000)
+                        return 1;
+                    revision = revision * 10 + (c - '0');
+                }
+                return revision > 0 ? revision : 1;
+            }
+            return 1;
+        }
+
+        // The text with its controls_version line saying `revision`: the
+        // line rewritten, else put before the first section with what it is
+        // for (as a file the game writes now has it).
+        std::string withControlsRevision(const std::string &text, int revision)
+        {
+            const std::string eol = text.find("\r\n") != std::string::npos ? "\r\n" : "\n";
+            const std::string number = std::to_string(revision);
+            size_t pos = 0;
+            while (pos < text.size())
+            {
+                size_t end = text.find('\n', pos);
+                if (end == std::string::npos)
+                    end = text.size();
+                const std::string_view line = std::string_view(text).substr(pos, end - pos);
+                const std::string content = trim(line.substr(0, line.find_first_of("#;")));
+                if (!content.empty() && content.front() == '[')
+                    break;
+                const size_t equals = content.find('=');
+                if (equals != std::string::npos && lower(trim(std::string_view(content).substr(0, equals))) == kControlsVersionKey)
+                {
+                    const size_t valueAt = line.find('=') + 1;
+                    return text.substr(0, pos + valueAt) + " " + number + (line.size() > valueAt && line.back() == '\r' ? "\r" : "") +
+                           text.substr(end);
+                }
+                pos = end + 1;
+            }
+            // (pos: the first section's line, or the end)
+            const std::string lines = "# The revision of the defaults this file was written with: when a later" + eol +
+                                      "# version changes a default, the app gives it to you unless you had" + eol +
+                                      "# changed that control yourself. Leave this line as it is." + eol +
+                                      kControlsVersionKey + " = " + number + eol + eol;
+            const std::string before = text.substr(0, std::min(pos, text.size()));
+            const bool newLine = before.empty() || before.back() == '\n';
+            return before + (newLine ? "" : eol) + lines + text.substr(std::min(pos, text.size()));
+        }
+    }
+
+    std::string updateControlsDefaults(const std::string &text, const ps2_host_input::GameControls &game,
+                                       std::vector<std::string> *log)
+    {
+        const std::vector<IniLine> lines = iniLines(text);
+        const int revision = controlsRevision(lines);
+        if (revision >= ps2_host_input::kControlsRevision)
+            return text;
+        const std::vector<IniLine> defaults = iniLines(game.defaultIni);
+        std::string out = text;
+        for (const ps2_host_input::ChangedDefault &change : game.changedDefaults)
+        {
+            if (change.revision <= revision)
+                continue;
+            const std::string section = lower(change.section);
+            const std::string key = lower(change.key);
+            auto same = [&](const IniLine &line) { return line.section == section && line.key == key; };
+            const auto now = std::find_if(defaults.begin(), defaults.end(), same);
+            const auto mine = std::find_if(lines.begin(), lines.end(), same);
+            const std::string name = "[" + section + "] " + key;
+            if (now == defaults.end() || mine == lines.end())
+                continue; // (no default any more, or the file lacks it: the default applies)
+            if (std::count_if(lines.begin(), lines.end(), same) > 1)
+            {
+                if (log)
+                    log->push_back(name + ": kept (the file sets it more than once)");
+                continue;
+            }
+            const std::string have = sameBindings(mine->value);
+            if (have == sameBindings(now->value))
+                continue;
+            const bool untouched = std::any_of(change.earlier.begin(), change.earlier.end(),
+                                               [&](const std::string &earlier) { return sameBindings(earlier) == have; });
+            if (!untouched)
+            {
+                if (log)
+                    log->push_back(name + " = " + mine->value + ": kept (yours; the default is " + now->value + " now)");
+                continue;
+            }
+            out = ps2_host_input::setIniValue(out, section, key, now->value);
+            if (log)
+                log->push_back(name + ": " + mine->value + " -> " + now->value + " (the new default)");
+        }
+        return withControlsRevision(out, ps2_host_input::kControlsRevision);
+    }
+
+    bool updateControlsFile(const std::filesystem::path &file, const std::string &gameId, std::vector<std::string> *log)
+    {
+        std::string text;
+        if (!readTextFile(file, text))
+            return false;
+        const std::string updated = updateControlsDefaults(text, ps2_host_input::gameControls(gameId), log);
+        if (updated == text)
+            return false;
+        const bool ok = writeTextFile(file, updated);
+        if (log)
+            log->push_back(file.string() + (ok ? ": at the controls' revision " : ": failed to write revision ") +
+                           std::to_string(ps2_host_input::kControlsRevision));
+        return ok;
+    }
+
     bool loadCollectionSettings(const std::filesystem::path &rootFile, const std::filesystem::path &gameFile,
                                 Settings &settings, std::vector<std::string> *warnings)
     {
@@ -1224,7 +1435,7 @@ namespace zx::app
             const char *folder;
         };
         constexpr ReleaseFolder kReleaseFolders[] = {
-            {"ZX_XBOX_DIR", "xbox"},                     // AI's Xbox files (runtime/xbox_disc.h)
+            {"ZX_XBOX_DIR", "xbox"},                     // AI's Xbox files (runtime/xbox_files.h)
             {"ZX_XBOX_CONVERTED", "xbox-converted"},     // the Zoo and the Ape made from them
             {"ZX_XBOX_PACK", "xbox-pack"},               // their textures, movies and skaters
             {"ZX_ESTATE_DIR", "estate"},                 // AI's GameCube Estate
@@ -1302,7 +1513,7 @@ namespace zx::app
         // next start (GSGpuBackendOptions::pipelineFile).
         config.set("ZX_GS_PIPELINE_CACHE", (paths.supportDir / "gpu_pipelines.txt").string());
         // Files from the Xbox release, extracted when the app was built
-        // (platform/mac/make-app.sh; runtime/xbox_disc.h), and what the build
+        // (platform/mac/make-app.sh; runtime/xbox_files.h), and what the build
         // made from them in the PS2's formats (the Zoo, the Ape:
         // zx-xbox-convert). Optional.
         bundled("ZX_XBOX_DIR");

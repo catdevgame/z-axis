@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-namespace ps2_xbox_disc
+namespace zx::xbox_files
 {
     // Finds the folder (see above). Idempotent: later calls return the
     // first result. False if there is none or it holds no assets folder.

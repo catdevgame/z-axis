@@ -126,10 +126,14 @@ def tree_games(tree, work):
         recomp = os.path.join(tree, 'games', game, 'workspace', 'recomp')
         made = os.path.join(work, game, 'config.game.toml')
         os.makedirs(os.path.dirname(made))
+        # (run in the game's recomp folder with its config.toml by that name, as recompile.sh runs it: make-config writes
+        # the name it is given into the config's first line, and the APK ships that config; 1.3.1's named the build
+        # machine's folder)
         subprocess.run([sys.executable, '-I', os.path.join(tree, 'games', 'dm2', 'workspace', 'recomp', 'tools',
                                                            'make-config.py'),
-                        os.path.join(recomp, 'config.toml'), made, '--namespace', game, '--input', TREE_ELFS[game],
-                        '--output', 'generated', '--ghidra', 'ghidra-functions.csv'], check=True, stdout=subprocess.DEVNULL)
+                        'config.toml', made, '--namespace', game, '--input', TREE_ELFS[game],
+                        '--output', 'generated', '--ghidra', 'ghidra-functions.csv'], check=True, stdout=subprocess.DEVNULL,
+                       cwd=recomp)
         games.append('%s=%s,%s' % (game, os.path.join(work, game, 'config.ns.toml'),
                                    os.path.join(recomp, 'ghidra-functions.csv')))
     return games

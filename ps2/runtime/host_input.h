@@ -123,6 +123,14 @@ namespace ps2_host_input
         kHotkeyScreenshot,
         kHotkeyPhotoMode,
         kHotkeySwitchGame, // the collection app: back to the game picker
+        kHotkeyDeveloperMenu, // with the Developer Menu on: the game's debug menu (F1, or a chord on a gamepad)
+        // The soundtrack (engine/overrides/zge_soundtrack.h): the song after or
+        // before the one playing, and shuffle on and off.
+        kHotkeyNextTrack,
+        kHotkeyPreviousTrack,
+        kHotkeyShuffle,
+        kHotkeyPracticePoint, // with Practice on: a restart point where the player is (the Restart key returns to it)
+        kHotkeyBottomScreen,  // the collection app: the bottom screen over the game on one screen (collection/panel_overlay.h)
         kHotkeyCount
     };
     const char *hotkeyName(int hotkey); // config key, e.g. "hide_hud"
@@ -218,6 +226,27 @@ namespace ps2_host_input
     // and their names, and the names of its actions on the Controls rows.
     // Each game has its own controls.ini (the collection: games/<id>/), so
     // rebinding one game leaves the others alone.
+    // The revision of the default controls: written in every controls.ini
+    // (its top line "controls_version = N", before the first section) and
+    // raised by one each time a game's default for a control changes, with
+    // the change listed in that game's GameControls::changedDefaults. A file
+    // with no such line was written before revisions were kept (revision 1).
+    constexpr int kControlsRevision = 2;
+
+    // A control whose default changed: from `revision` on, [section] key's
+    // default is the one defaultIni has now; before, it was one of `earlier`
+    // (as a controls.ini line has it, e.g. "SPACE, K"). A player's file still
+    // holding one of those has not rebound it, so the collection gives it the
+    // new default (collection/settings.h, updateControlsDefaults); any other
+    // value is the player's and stays.
+    struct ChangedDefault
+    {
+        int revision;
+        std::string section;
+        std::string key;
+        std::vector<std::string> earlier;
+    };
+
     struct GameControls
     {
         std::string id;    // "ai", "dm2", "bmx" (the collection's game ids)
@@ -227,6 +256,9 @@ namespace ps2_host_input
         // "screenshot") -> what it does in the game ("Pedal"), in the order
         // the rows show them. Keys left out get no row.
         std::vector<std::pair<std::string, std::string>> labels;
+        // Every default of this game that changed since controls.ini was
+        // first written, oldest first (kControlsRevision).
+        std::vector<ChangedDefault> changedDefaults;
     };
     // By id; Aggressive Inline's for an unknown one.
     const GameControls &gameControls(const std::string &id);

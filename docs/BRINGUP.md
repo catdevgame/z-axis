@@ -118,6 +118,10 @@ tools/checks/run-game.sh NAME MAX_SECS [RUNNER]   # for checks: scratch HOME, ca
                                                   # unpaced, STOP_TICK=<vsync> stops there, MAX_SECS is the hard limit
 ```
 
+On Windows, `tools\checks\run-game.ps1 NAME MAX_SECS [RUNNER]` is run-game.sh and run-game-dm2.sh in one
+(`$env:GAME` ai, dm2 or bmx), under `%TEMP%\ai-runs` unless `RUN_DIR`; `tools\setup\setup.ps1` makes the data
+links as setup.sh does (folders as junctions; a file's link needs Developer Mode), and `tools\paths.ps1` is paths.sh.
+
 - Game runs for checks (logiccheck, A/B, recordings, routes, probes) are unpaced: `ZX_UNPACED=1` (guest time follows
   EE cycles, same logic, several times faster). Paced (`ZX_UNPACED=0`) only for host-time measurements: fps,
   pacing, audio, visuals.

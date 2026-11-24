@@ -191,7 +191,12 @@ python3 games/aggressive/tools/logiccheck.py anchors logic-NAME      # how far e
 `run` replays the exact run-1 input (`scripts/native/ref-run1-input.txt`, the
 PCSX2PAD_RECORD log in vsync units) with `ZX_GS_NULL=1` and
 `ZX_PAD_SCRIPT_CLOCK=vsync`, and dumps native RAM at each checkpoint's vsync
-with `ZX_DUMP_WHEN` (into `recomp/dumps/logic/`). What makes it line up:
+with `ZX_DUMP_WHEN` (into `recomp/dumps/logic/`); ref03, which the reference
+took the moment the first tip's box was waiting for X, is dumped at that event
+once its vsync is reached (the box opens on a script timer counting frame
+seconds, which follow EE time in the level's first frames: 22 frames later with
+readable code at the PS2's clock and at `ZX_EE_SCALE=4096`; its row prints both
+sides' level time). What makes it line up:
 
 - Anchors (`SYNC`/`WAIT` entries, see `PadScript` in the runtime) for the waits
   of the reference that are not under test: the front-end mode/panel waits

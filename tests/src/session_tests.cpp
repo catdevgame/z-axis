@@ -10,7 +10,7 @@
 #include "runtime/disc_patch.h"
 #include "runtime/game_files.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <memory>
 #include <string>

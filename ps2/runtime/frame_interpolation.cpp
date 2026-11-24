@@ -1,6 +1,7 @@
 // The window loop's side of frame interpolation (runtime/frame_interpolation.h).
 #include "runtime/frame_interpolation.h"
 
+#include "host_backend.h"
 #include "machine.h"
 #include "runtime/host_pacing.h"
 
@@ -39,16 +40,41 @@ namespace zx
             std::sort(v.begin(), v.end());
             return v[std::min(v.size() - 1u, static_cast<size_t>(p * static_cast<double>(v.size())))];
         }
+
+        double largest(const std::vector<double> &v)
+        {
+            return v.empty() ? 0.0 : *std::max_element(v.begin(), v.end());
+        }
     }
 
     bool FrameInterpolation::active(PS2Machine &runtime)
     {
         if (!gi::enabled() || !paced() || !runtime.gs().frameQueue())
             return false;
-        // A display faster than the game's frames: its refresh under 90 % of a vblank.
-        const int64_t refresh = host_pacing::g_periodNs.load(std::memory_order_relaxed);
+        // Variable refresh in effect wins (gs_interpolate::interpolates): each game frame shown when it is ready.
+        const bool variableRefresh = ps2_host::variableRefresh();
+        if (variableRefresh)
+            return false;
+        // A display faster than the game's frames: its refresh under 90 % of a vblank. The refresh is the one
+        // measured at the latches once it is steady, before that its display mode's: the first latches after the
+        // start can be a refresh apart (a refresh missed while presenting changes over), which alone would read as
+        // a display slower than the game.
+        int64_t refresh = host_pacing::g_periodNs.load(std::memory_order_relaxed);
+        if (host_pacing::g_steady.load(std::memory_order_relaxed) < host_pacing::kSteadyLatches)
+        {
+            if (const int64_t mode = ps2_host::displayRefreshNs(); mode > 0)
+            {
+                if (!m_modeReported)
+                {
+                    m_modeReported = true;
+                    std::fprintf(stderr, "[interp] the display mode's refresh: %.2f ms (until one is measured)\n",
+                                 static_cast<double>(mode) * 1e-6);
+                }
+                refresh = mode;
+            }
+        }
         const gi::VblankClock clock = gi::vblankClock();
-        return refresh > 0 && clock.tickNs != 0 && refresh * 10 < clock.periodNs * 9;
+        return clock.tickNs != 0 && gi::interpolates(variableRefresh, refresh, clock.periodNs);
     }
 
     double FrameInterpolation::displayTick(Clock::time_point latch)
@@ -64,7 +90,7 @@ namespace zx
             locked = std::fabs(ratio - std::round(ratio)) < 0.01 * ratio && std::round(ratio) >= 2.0;
         }
         const int64_t afterLatch = std::chrono::duration_cast<std::chrono::nanoseconds>(host_pacing::kAfterLatch).count();
-        const int64_t delay = locked ? clock.periodNs - afterLatch : clock.periodNs + m_lagNs;
+        const int64_t delay = locked ? clock.periodNs - afterLatch : clock.periodNs + m_lag.lagNs;
         return clock.tickAt(nanoseconds(latch) - delay);
     }
 
@@ -74,6 +100,11 @@ namespace zx
         GS &gs = runtime.gs();
         m_pendingMadeNs = 0;
         m_wholeMadeNs = taken.frame != 0u ? taken.madeNs : 0;
+        // Every frame's lag, the first time it is seen, oldest first: taken at once (a frame made after the display
+        // time passed it is never seen as the next one, and the delay has to learn from it most), as the next one,
+        // or as the newest waiting (after a stall the frames come at once, each less late: the delay comes back
+        // with the newest, so the queue's two waiting frames are not outrun).
+        measureLag(taken);
         const GS::TakenFrame shown = gs.shownPresentationFrame();
         GS::TakenFrame next;
         auto skip = [&](gi::Skip why)
@@ -89,15 +120,9 @@ namespace zx
             skip(displayTick > static_cast<double>(shown.vsync) + gi::kSnap ? gi::Skip::NotReady : gi::Skip::Exact);
             return;
         }
-        if (next.frame != m_lastNextFrame)
-        {
-            // The renderer's lag: the frame made after its vblank's host time.
-            m_lastNextFrame = next.frame;
-            const gi::VblankClock clock = gi::vblankClock();
-            const int64_t vblankNs = clock.tickNs - static_cast<int64_t>(clock.tick - next.vsync) * clock.periodNs;
-            const int64_t lag = std::clamp<int64_t>(next.madeNs - vblankNs, 0, clock.periodNs);
-            m_lagNs = std::max(lag, m_lagNs - m_lagNs / 64);
-        }
+        measureLag(next);
+        if (GS::TakenFrame newest; next.waiting != 0u && gs.peekNewestPresentationFrame(newest))
+            measureLag(newest);
         const float t = gi::alphaBetween(shown.vsync, next.vsync, displayTick);
         if (t <= gi::kSnap || t >= 1.0f - gi::kSnap)
         {
@@ -119,6 +144,23 @@ namespace zx
             m_pendingMadeNs = next.madeNs;
         }
         (void)latch;
+    }
+
+    void FrameInterpolation::measureLag(const GS::TakenFrame &frame)
+    {
+        if (frame.frame == 0u || frame.frame <= m_lastMeasuredFrame)
+            return;
+        // The renderer's lag: the frame made after its vblank's host time.
+        m_lastMeasuredFrame = frame.frame;
+        const gi::VblankClock clock = gi::vblankClock();
+        const int64_t vblankNs = clock.tickNs - static_cast<int64_t>(clock.tick - frame.vsync) * clock.periodNs;
+        const int64_t lag = frame.madeNs - vblankNs;
+        m_lag.made(lag, clock.periodNs);
+        if (m_frameLagMs.size() < 200000u)
+        {
+            m_frameLagMs.push_back(static_cast<double>(lag) * 1e-6);
+            m_makingMs.push_back(static_cast<double>(frame.makingNs) * 1e-6);
+        }
     }
 
     void FrameInterpolation::presented(Clock::time_point at)
@@ -146,13 +188,26 @@ namespace zx
         for (size_t i = 0; i < kSkips; ++i)
             line += std::string(" ") + gi::skipName(static_cast<gi::Skip>(i)) + "=" + std::to_string(m_skips[i]);
         std::snprintf(buf, sizeof(buf), " | refresh ms p50=%.2f p99=%.2f max=%.2f n=%zu", percentile(m_intervals, 0.5),
-                      percentile(m_intervals, 0.99), m_intervals.empty() ? 0.0 : m_intervals.back(), m_intervals.size());
+                      percentile(m_intervals, 0.99), largest(m_intervals), m_intervals.size());
         line += buf;
-        std::snprintf(buf, sizeof(buf), " | first ms p50=%.1f p95=%.1f whole ms p50=%.1f p95=%.1f lag=%.1f",
-                      percentile(m_firstMs, 0.5), percentile(m_firstMs, 0.95), percentile(m_wholeMs, 0.5),
-                      percentile(m_wholeMs, 0.95), static_cast<double>(m_lagNs) * 1e-6);
+        std::snprintf(buf, sizeof(buf), " | first ms p50=%.1f p95=%.1f whole ms p50=%.1f p95=%.1f", percentile(m_firstMs, 0.5),
+                      percentile(m_firstMs, 0.95), percentile(m_wholeMs, 0.5), percentile(m_wholeMs, 0.95));
+        line += buf;
+        std::snprintf(buf, sizeof(buf), " | frame lag ms p50=%.1f p95=%.1f max=%.1f n=%zu (making p50=%.1f p95=%.1f) lag=%.1f",
+                      percentile(m_frameLagMs, 0.5), percentile(m_frameLagMs, 0.95), largest(m_frameLagMs),
+                      m_frameLagMs.size(), percentile(m_makingMs, 0.5), percentile(m_makingMs, 0.95),
+                      static_cast<double>(m_lag.lagNs) * 1e-6);
         line += buf;
         std::fprintf(stderr, "%s\n", line.c_str());
+        // The game's frames made and those the frame queue pushed out unshown (the [perf] game_fps counts the
+        // frames shown).
+        const uint64_t made = runtime.gs().framesMade(), dropped = runtime.gs().framesDropped();
+        std::fprintf(stderr, "[interp] frames made=%llu (%.1f/s) dropped=%llu\n",
+                     static_cast<unsigned long long>(made - m_reportedMade),
+                     span > 0.0 ? static_cast<double>(made - m_reportedMade) / span : 0.0,
+                     static_cast<unsigned long long>(dropped - m_reportedDropped));
+        m_reportedMade = made;
+        m_reportedDropped = dropped;
         const std::string renderer = runtime.gs().interpolationReport();
         if (!renderer.empty())
             std::fprintf(stderr, "[interp] renderer %s\n", renderer.c_str());
@@ -162,5 +217,7 @@ namespace zx
         m_intervals.clear();
         m_firstMs.clear();
         m_wholeMs.clear();
+        m_frameLagMs.clear();
+        m_makingMs.clear();
     }
 }

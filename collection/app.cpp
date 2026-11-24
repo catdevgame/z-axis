@@ -24,19 +24,27 @@
 #include "collection/offered.h"
 #if defined(__ANDROID__)
 #include "platform/android/android_assets.h"
+#include "platform/android/android_gallery.h"
 #endif
 #include "collection/playback.h"
 #include "collection/recordings.h"
+#include "collection/ghost.h"
 #include "collection/show_folder.h"
 #include "collection/picture_file.h"
 #include "collection/save_profiles.h"
+#include "collection/practice.h"
+#include "collection/updater.h"
 #include "game_overrides.h"
 #include "dm2/overrides/dave_mirra.h"
 #include "collection/panel.h"
+#include "collection/panel_layout.h"
+#include "collection/panel_overlay.h"
 #include "runtime/save_store.h"
 #include "machine.h"
 #if defined(ZX_ENABLE_DEBUG_UI)
 #include "debug_panel.h"
+#else
+#include "notice_overlay.h"
 #endif
 
 #include "host_backend.h"
@@ -46,12 +54,12 @@
 #include "runtime/front_end.h"
 #include "runtime/game_files.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/play_recording.h"
 #include "runtime/game_module.h"
 #include "runtime/host_input.h"
 #include "runtime/pad.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/texture_replace.h"
 #include "gs/gs_interpolate.h"
 #include "gs/gs_null_backend.h"
@@ -299,6 +307,7 @@ namespace zx_app
             std::function<void(bool)> showFps; // the frame rate counter (debug UI overlay)
             float audioGain = -1.0f; // last applied
             bool vsyncApplied = true;
+            std::optional<bool> frameInterpolationApplied; // last told the platform (none: not yet)
         };
 
         // A recording playing back (Settings > Recordings,
@@ -473,13 +482,34 @@ namespace zx_app
             return file;
         }
 
+        // Android: the app's folder is no place a player looks, so the picture
+        // goes on into the Gallery (Pictures/<app>/<game>, as on a computer)
+        // and leaves the app's folder; kept there when the Gallery takes none.
         void takeScreenshot(PS2Machine &runtime)
         {
             const std::filesystem::path file = screenshotFile();
-            runtime.requestScreenshot(file.string(), [file](bool ok)
+            const std::string galleryFolder = std::string("Pictures/") + ZX_APP_NAME + "/" + g_game->name;
+            runtime.requestScreenshot(file.string(), [file, folder = galleryFolder](bool ok)
                                       {
                                           std::cout << "[app] screenshot " << (ok ? "saved: " : "failed: ") << file.string()
                                                     << std::endl;
+#if defined(__ANDROID__)
+                                          if (ok)
+                                          {
+                                              if (const std::string uri = zx_android::addToGallery(file, folder); !uri.empty())
+                                              {
+                                                  std::cout << "[app] screenshot in the Gallery: " << folder << " ("
+                                                            << uri << ")" << std::endl;
+                                                  std::error_code ec;
+                                                  std::filesystem::remove(file, ec);
+                                              }
+                                              else
+                                                  std::cout << "[app] screenshot not in the Gallery: kept in the app's folder"
+                                                            << std::endl;
+                                          }
+#else
+                                          (void)folder;
+#endif
                                           zx::settings::notify(ok ? "Screenshot saved" : "Screenshot failed");
                                       });
         }
@@ -681,13 +711,120 @@ namespace zx_app
             }
         }
 
-        // Frame Interpolation: the setting, or ZX_INTERPOLATION=on|off over it.
-        void applyFrameInterpolation(const AppState &state)
+        // ---- the bottom screen over the game ------------------------------------
+        // On one screen (a computer, a single-screen Android device) the
+        // bottom screen comes over the game in the window's corner by the
+        // bottom_screen shortcut (M, L3+R2 on a gamepad):
+        // collection/panel_overlay.h paints it off this thread; here the
+        // shortcut shows and hides it, its newest picture goes to the host
+        // to draw over the game, and the pointer over it to the panel. In a
+        // game, while its picture has a level; never where a second display
+        // shows the bottom screen (the Thor's). ZX_BOTTOM_OVERLAY=on shows it
+        // from the first game on (timing runs, shots).
+        extern PS2Machine *g_runtime; // (the game running, below)
+
+        // The game thread, at each VBlank: read-only (a snapshot while shown).
+        void captureOverlaySnapshot(const uint8_t *rdram)
+        {
+            panel::Overlay::shared().capture(rdram, MapWindow::kGuestRamBytes);
+        }
+
+        void bottomOverlayFrame()
+        {
+            panel::Overlay &overlay = panel::Overlay::shared();
+            static uint32_t seen = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeyBottomScreen);
+            static bool asked = [] {
+                const char *on = std::getenv("ZX_BOTTOM_OVERLAY");
+                return on && (std::strcmp(on, "on") == 0 || std::strcmp(on, "1") == 0);
+            }();
+            static bool wanted = false; // shown by the shortcut (kept from one game to the next)
+            static bool level = false;  // the newest picture has a level
+            static int uploads = 0;
+            static double uploadMs = 0.0;
+            const bool allowed = g_runtime != nullptr && !headlessHost() && !overlay.secondScreen();
+            const uint32_t presses = PSPadBackend::hotkeyPresses(ps2_host_input::kHotkeyBottomScreen);
+            if (presses != seen)
+            {
+                seen = presses;
+                if (allowed)
+                {
+                    wanted = !wanted;
+                    std::cout << "[app] bottom screen overlay: " << (wanted ? "shown" : "hidden") << std::endl;
+                }
+            }
+            if (asked && allowed)
+            {
+                asked = false;
+                wanted = true;
+                std::cout << "[app] bottom screen overlay: shown (ZX_BOTTOM_OVERLAY)" << std::endl;
+            }
+            // (the painter runs only while it is shown in a game: not in the menu)
+            overlay.setShown(wanted && allowed);
+            if (!overlay.shown())
+            {
+                level = false;
+                ps2_host::placeOverlay(0.0f, 0.0f, 0.0f, 0.0f);
+                return;
+            }
+            for (const ps2_host::OverlayPointerEvent &e : ps2_host::takeOverlayPointerEvents())
+            {
+                using Kind = ps2_host::OverlayPointerEvent::Kind;
+                if (e.kind == Kind::Wheel)
+                    overlay.wheel(e.x, e.y, e.wheel);
+                else
+                    overlay.touch(e.kind == Kind::Down ? panel::TouchPhase::Down
+                                  : e.kind == Kind::Move ? panel::TouchPhase::Move
+                                                         : panel::TouchPhase::Up,
+                                  e.pointer, e.x, e.y);
+            }
+            overlay.takePicture([](const uint32_t *pixels, bool hasLevel, panel::HudPieces shows)
+                                {
+                                    level = hasLevel;
+                                    if (!hasLevel)
+                                        return;
+                                    const auto begin = std::chrono::steady_clock::now();
+                                    ps2_host::setOverlayPicture(reinterpret_cast<const uint8_t *>(pixels), panel::kScreenWidth,
+                                                                panel::kScreenHeight, panel::kScreenWidth * 4u);
+                                    uploadMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count();
+                                    ++uploads;
+                                    // What the top screen may leave out (Clean Top Screen); the Map Window's when it is open.
+                                    if (!ps2_host::mapWindowOpen())
+                                        panel::setBottomScreenShows(shows);
+                                });
+            int width = 0, height = 0;
+            ps2_host::windowSize(width, height);
+            const panel::Rect place = panel::overlayPlace(static_cast<float>(width), static_cast<float>(height));
+            if (level && width > 0 && height > 0)
+                ps2_host::placeOverlay(place.x / width, place.y / height, place.width / width, place.height / height);
+            else
+                ps2_host::placeOverlay(0.0f, 0.0f, 0.0f, 0.0f);
+            if (uploads >= 200)
+            {
+                const panel::Overlay::Cost cost = overlay.takeCost();
+                std::cout << "[app] bottom screen overlay: paint " << (cost.paints ? cost.totalMs / cost.paints : 0.0)
+                          << " ms, worst " << cost.worstMs << " ms (" << cost.paints << " paints); upload "
+                          << uploadMs / uploads << " ms (" << uploads << ")" << std::endl;
+                uploads = 0;
+                uploadMs = 0.0;
+            }
+        }
+
+        // Frame Interpolation: the setting, or ZX_INTERPOLATION=on|off over it,
+        // and only with Variable Refresh off (variable refresh wins:
+        // gs_interpolate::interpolates; the renderer then keeps no frames for
+        // it); the platform told when it changes (Android's refresh rate).
+        void applyFrameInterpolation(AppState &state)
         {
             static const char *const env = std::getenv("ZX_INTERPOLATION");
-            const bool on = env && env[0] ? (std::strcmp(env, "on") == 0 || std::strcmp(env, "1") == 0)
-                                          : state.settings.frameInterpolation;
+            const bool asked = env && env[0] ? (std::strcmp(env, "on") == 0 || std::strcmp(env, "1") == 0)
+                                             : state.settings.frameInterpolation;
+            const bool on = asked && !ps2_host::variableRefresh();
             zx::gs_interpolate::setEnabled(on);
+            if (!state.frameInterpolationApplied || *state.frameInterpolationApplied != on)
+            {
+                state.frameInterpolationApplied = on;
+                platform::frameInterpolationChanged(on);
+            }
         }
 
         // The window's part of a host frame, in the menu and in a game:
@@ -745,6 +882,7 @@ namespace zx_app
             ps2_host::setVariableRefresh(state.settings.variableRefresh);
             applyFrameInterpolation(state);
             mapWindowFrame(state);
+            bottomOverlayFrame();
             // (ZX_CLEAN_TOP_SCREEN, when set, wins: panel_snapshot.cpp)
             panel::setCleanTopScreen(state.settings.cleanTopScreen ? panel::CleanTopScreen::On : panel::CleanTopScreen::Off);
         }
@@ -1129,8 +1267,15 @@ namespace zx_app
 
         zx::settings::Setting frameInterpolationSetting(AppState &state)
         {
+#if defined(__ANDROID__)
+            // (the screen at 120 Hz while it is on: platform::frameInterpolationChanged; with Variable Refresh on it
+            // is off: applyFrameInterpolation)
+            const char *help = "Smoother motion at 120 Hz where it can. Not with Variable Refresh.";
+#else
+            const char *help = "Smoother motion above 60 Hz. Not with Variable Refresh.";
+#endif
             return toggleSetting(state, "display.frame_interpolation", "Frame Interpolation", &Settings::frameInterpolation,
-                                 "Smoother motion on 120 Hz and faster displays.");
+                                 help);
         }
 
         zx::settings::Setting showFpsSetting(AppState &state)
@@ -1215,6 +1360,14 @@ namespace zx_app
         {
             return toggleSetting(state, "audio.mute_in_background", "Mute in Background", &Settings::muteOnFocusLoss,
                                  "Mutes when you switch away.");
+        }
+
+        // Shuffle: read by the soundtrack's controls at each song the game
+        // would pick (engine/overrides/zge_soundtrack.h; live).
+        zx::settings::Setting shuffleSetting(AppState &state)
+        {
+            return toggleSetting(state, "audio.shuffle", "Shuffle", &Settings::shuffleMusic,
+                                 "The songs in a random order.");
         }
 
         zx::settings::Setting mapWindowSetting(AppState &state)
@@ -1324,7 +1477,7 @@ namespace zx_app
         }
 
         // The settings.ini settings in the shared settings model
-        // (runtime/settings.h): the game's Settings screen and the menu
+        // (runtime/settings_registry.h): the game's Settings screen and the menu
         // bar both change them through here. Rows of the game's session
         // (zx::session::addSetting): they refer to its runtime and its
         // options, and go when the game is left.
@@ -1517,6 +1670,15 @@ namespace zx_app
                 zx::session::addSetting(cleanTopScreenSetting(state));
             zx::session::addSetting(recordPlaySetting(state));
             zx::session::addSetting(recordingsSetting(state));
+            // Practice (collection/practice.h): in a game with a restart point; the game reads the row at once.
+            if (g_profile && zx::collection::practiceOffered(g_profile->id))
+                zx::session::addSetting(zx::collection::practiceSetting(
+                    g_profile->id, [&state]() { return state.settings.practice ? 1 : 0; },
+                    [&state](int value)
+                    {
+                        state.settings.practice = value != 0;
+                        saveSettingsNow(state);
+                    }));
             if (kMenu)
                 zx::session::addSetting(customFreeplaySetting(state));
             // Restart Game (restartGameSetting): offered in a collection with
@@ -1528,6 +1690,7 @@ namespace zx_app
             const st::Setting volume = volumeSetting(state);
             zx::session::addSetting(volume);
             zx::session::addSetting(muteInBackgroundSetting(state));
+            zx::session::addSetting(shuffleSetting(state));
 
             // Movies have no volume of their own in the game.
             zx::audio_mix::setGain(state.settings.movieVolume / 100.0f);
@@ -1593,8 +1756,14 @@ namespace zx_app
                 zx::session::addSetting(voices);
             }
 
+            // (the developer_menu key: F1 on a keyboard, Select+L3 on a gamepad, the one a handheld has)
+#if defined(__ANDROID__)
+            constexpr const char *kDeveloperMenuHelp = "Press Select+L3 in a level.";
+#else
+            constexpr const char *kDeveloperMenuHelp = "Press F1 in a level.";
+#endif
             st::Setting developer = toggle("game.developer_menu", "Developer Menu", &Settings::developerMenu,
-                                           "Press F1 in a level.");
+                                           kDeveloperMenuHelp);
             developer.restart = true;
             if (offers(GameOption::DeveloperMenu))
                 zx::session::addSetting(developer);
@@ -2448,6 +2617,16 @@ namespace zx_app
             std::error_code ec;
             for (const auto &dir : {state.paths.supportDir, state.paths.memcardSlot1, state.paths.memcardSlot2, state.paths.hostRoot})
                 std::filesystem::create_directories(dir, ec);
+            // The defaults that changed since the player's controls.ini was
+            // written, for the controls they never rebound (a playback plays
+            // with the recording's own copy, untouched).
+            if (!playback)
+            {
+                std::vector<std::string> changed;
+                updateControlsFile(state.paths.controlsFile, game.id, &changed);
+                for (const std::string &line : changed)
+                    std::cout << "[app] controls.ini: " << line << std::endl;
+            }
             if (!settingsLoaded)
             {
                 // The game's options and the app's settings as their files
@@ -2541,6 +2720,9 @@ namespace zx_app
                           << (playback->entry.commit == play_recording::buildCommit() ? ": this build" : ": another build")
                           << "), its saves in " << playbackFolders.root.string() << std::endl;
             }
+            // Ghost riding (collection/ghost.h): a track made beside the recording made or played back, the ghost of
+            // the Recordings page's Ride Against.
+            zx::collection::ghostBootConfig(config, game.id, playback != nullptr, zx::collection::takeGhostChoice());
             // (the playback's state goes with the boot, however it ends)
             struct EndPlayback
             {
@@ -2608,6 +2790,8 @@ namespace zx_app
             // Before the runtime, which calls its shutdown when it goes
             // (a boot that fails after initialize).
             PS2DebugPanel debugPanel;
+#else
+            PS2NoticeOverlay notices;
 #endif
             // The panel goes with this boot: nothing may call it after.
             struct ForgetPanel
@@ -2635,8 +2819,14 @@ namespace zx_app
                 debugPanel.setVisible(debugUi && debugUi[0] == '1');
             }
             state.showFps = [&debugPanel](bool show) { debugPanel.setShowFps(show); };
-            // (the player's messages over the game, as the menus write their help line)
+            // (the player's messages over the game, as the menus write their help line; on Android the font is
+            // in the APK's assets, which are no file)
+#if defined(__ANDROID__)
+            if (std::vector<uint8_t> ttf; zx_android::readAsset(col::kShippedFontFile, ttf))
+                debugPanel.setNoticeFont(std::move(ttf), col::kHelpColour);
+#else
             debugPanel.setNoticeStyle((platform::resourceFolder(g_argv0) / col::kShippedFontFile).string(), col::kHelpColour);
+#endif
             runtime.setDebugUiCallbacks(
                 [](PS2Machine &, void *userData)
                 { static_cast<PS2DebugPanel *>(userData)->initialize(); },
@@ -2645,6 +2835,24 @@ namespace zx_app
                 [](PS2Machine &, void *userData)
                 { static_cast<PS2DebugPanel *>(userData)->shutdown(); },
                 &debugPanel);
+#else
+            // No debug panel in this build: the player's messages, the frame rate counter and photo mode's grid
+            // alone.
+            state.showFps = [&notices](bool show) { notices.setShowFps(show); };
+#if defined(__ANDROID__)
+            if (std::vector<uint8_t> ttf; zx_android::readAsset(col::kShippedFontFile, ttf))
+                notices.setNoticeFont(std::move(ttf), col::kHelpColour);
+#else
+            notices.setNoticeStyle((platform::resourceFolder(g_argv0) / col::kShippedFontFile).string(), col::kHelpColour);
+#endif
+            runtime.setDebugUiCallbacks(
+                [](PS2Machine &, void *userData)
+                { static_cast<PS2NoticeOverlay *>(userData)->initialize(); },
+                [](PS2Machine &, void *userData)
+                { static_cast<PS2NoticeOverlay *>(userData)->draw(); },
+                [](PS2Machine &, void *userData)
+                { static_cast<PS2NoticeOverlay *>(userData)->shutdown(); },
+                &notices);
 #endif
 
             const std::string cannotStart = std::string(g_game->name) + " cannot start";
@@ -2671,6 +2879,22 @@ namespace zx_app
             if (!kMenu)
                 installAppMenus(state, state.paths);
             registerSettings(state, runtime);
+#if defined(ZX_ENABLE_DEBUG_UI)
+            // The debug panel's gamepad test where there is no F1 key (a handheld): with the Developer Menu on,
+            // Settings > Controls > Gamepad Test shows the panel at its PAD tab. (Made again for each game, the
+            // pads' rows leave it: registerControlSettings takes out only the rows it made.)
+            if (const char *devMenu = zx::boot::text("ZX_DEV_MENU"); devMenu && devMenu[0] == '1')
+            {
+                zx::settings::Setting padTest;
+                padTest.key = "controls.gamepad_test";
+                padTest.label = "Gamepad Test";
+                padTest.kind = zx::settings::Kind::Action;
+                padTest.help = "Shows what the game reads from each gamepad.";
+                padTest.format = [](int) { return std::string(); };
+                padTest.activate = [&debugPanel]() { debugPanel.togglePadTest(); };
+                zx::session::addSetting(padTest);
+            }
+#endif
 
             const DiscCheck disc = checkDiscFolder(discDir, g_game->title, g_game->elf, g_game->elfSha256);
             if (disc.status != DiscCheck::Status::Ok)
@@ -2723,6 +2947,7 @@ namespace zx_app
             runtime.addVSyncHook([](uint8_t *rdram, uint64_t tick)
                                  {
                                      captureMapSnapshot(rdram);
+                                     captureOverlaySnapshot(rdram);
                                      noteLevel(rdram, tick);
                                      countVsync(tick);
                                  });
@@ -3273,10 +3498,11 @@ namespace zx_app
         bool askForTransfer(bool exporting)
         {
             constexpr const char *kSuggested = ZX_APP_NAME " saves.zip";
+            // (the file to import is read once, by the import it starts: picked keeping no lasting grant)
             const bool own = exporting ? platform::createDocument(kSuggested, "application/zip",
                                                                   [](std::string pick) { keepTransferPick(true, std::move(pick)); })
-                                       : platform::pickDocuments(false, [](std::vector<std::string> picks)
-                                                                 { keepTransferPick(false, std::move(picks.front())); });
+                                       : platform::pickDocumentsOnce(false, [](std::vector<std::string> picks)
+                                                                     { keepTransferPick(false, std::move(picks.front())); });
             if (own)
                 return true;
             SDL_Window *window = ps2_host::sdlWindow();
@@ -3295,6 +3521,70 @@ namespace zx_app
                 SDL_ShowSaveFileDialog(picked, exportingFlag, window, kFilters, 1, kSuggested);
             else
                 SDL_ShowOpenFileDialog(picked, exportingFlag, window, kFilters, 1, nullptr, false);
+            return true;
+        }
+
+        // The mods picked with the Mods page's Add Mod... row (its dialog's
+        // callback may run on another thread): paths, or documents
+        // (Android's), taken in as a drop is (takePickedMods).
+        struct ModPick
+        {
+            std::string pick;
+            bool scripted = false; // a menu script's pick: step (no question asked)
+        };
+        struct ModPicks
+        {
+            std::mutex mutex;
+            std::vector<ModPick> picks;
+        };
+        ModPicks g_modPicks;
+
+        void keepModPicks(std::vector<std::string> picks)
+        {
+            std::lock_guard lock(g_modPicks.mutex);
+            for (std::string &pick : picks)
+                g_modPicks.picks.push_back({std::move(pick)});
+        }
+
+        // The system's picker for a mod's folder or its .zip: one picker for
+        // both where the system has one (macOS); elsewhere the player says
+        // which first (Android's documents UI, the window library's dialogs).
+        // A menu script's pick: step answers in its place. False when there
+        // is no window to show one on.
+        bool askForMod(std::deque<std::string> &scriptPicks)
+        {
+            if (!scriptPicks.empty())
+            {
+                std::lock_guard lock(g_modPicks.mutex);
+                g_modPicks.picks.push_back({std::move(scriptPicks.front()), true});
+                scriptPicks.pop_front();
+                return true;
+            }
+            if (platform::pickFolderOrFile("zip", keepModPicks))
+                return true;
+            const bool folder = platform::ask("Add Mod", "Is the mod a folder, or a .zip?", "Folder", ".zip");
+            if (platform::pickDocumentsOnce(folder, keepModPicks)) // (copied in: no lasting grant)
+                return true;
+            SDL_Window *window = ps2_host::sdlWindow();
+            if (!window)
+                return false;
+            static const SDL_DialogFileFilter kFilters[] = {{"Mods (zip)", "zip"}};
+            const SDL_DialogFileCallback picked = [](void *, const char *const *files, int)
+            {
+                if (!files)
+                {
+                    std::cerr << "[mods] the file dialog failed: " << SDL_GetError() << std::endl;
+                    return;
+                }
+                std::vector<std::string> picks;
+                for (; *files; ++files)
+                    picks.emplace_back(*files);
+                keepModPicks(std::move(picks));
+            };
+            if (folder)
+                SDL_ShowOpenFolderDialog(picked, nullptr, window, nullptr, true);
+            else
+                SDL_ShowOpenFileDialog(picked, nullptr, window, kFilters, 1, nullptr, true);
             return true;
         }
 
@@ -3470,6 +3760,22 @@ namespace zx_app
             };
             std::unique_ptr<Install> install;
             std::deque<DropInstall> installs;
+            // Mods picked as documents (Add Mod... on Android: no path),
+            // copied one at a time off this thread into the support folder
+            // (collection/mod_install.h copyPickedDocument), then taken in
+            // as a drop is; and a menu script's pick: steps, for the next
+            // picker.
+            struct PickedDocument
+            {
+                std::string uri;
+                bool scripted = false;
+                std::thread worker;
+                std::atomic<bool> done{false};
+                PickedCopy copy; // (the worker's, read once it is done)
+            };
+            std::unique_ptr<PickedDocument> picking;
+            std::deque<std::pair<std::string, bool>> pickedDocuments; // (uri, scripted)
+            std::deque<std::string> scriptPicks;
             // The Save Profiles page (Settings > Save Profiles): each game's
             // careers (collection/save_profiles.h), made again whenever it
             // opens and after a change on it.
@@ -3668,6 +3974,16 @@ namespace zx_app
                                                          switchMod(state, collection, game, menu.library[m].name, on);
                                                  menu.modsChanged = true;
                                              });
+            col::SettingsRow add;
+            add.kind = col::SettingsRow::Action;
+            add.label = "Add Mod...";
+            add.help = "Choose a mod's folder or .zip: it is copied into the Mods folder.";
+            add.activate = [&menu]()
+            {
+                menu.notice = askForMod(menu.scriptPicks) ? std::string() : std::string("Drop a mod's folder or .zip on this window.");
+                return col::MenuAction{};
+            };
+            menu.modRows.push_back(std::move(add));
             menu.modRows.push_back(folderRow(menu, "Open Mods Folder", kModsFolder, sharedModsFolder(collection),
                                              "Put a mod's folder or .zip in it."));
             menu.modsPage = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.modRows.size());
@@ -4868,6 +5184,28 @@ namespace zx_app
                         return action;
                     };
                     menu.recordingRows.push_back(std::move(row));
+                    // Ghost riding (collection/ghost.h): the game played live with this run's rider beside the
+                    // player, in its level (Aggressive Inline only; the ghost shows with the run's own skater).
+                    if (col::canRideAgainst(entry))
+                    {
+                        const std::string rider = col::ghostRider(entry);
+                        col::SettingsRow ride;
+                        ride.kind = col::SettingsRow::Action;
+                        ride.label = rider.empty() ? "    Ride Against" : "    Ride Against " + rider;
+                        ride.help = "Play " + levelTitle(entry.level) + " with this run's rider beside you, see-through. " +
+                                    (rider.empty() ? std::string("Ride this run's skater")
+                                                   : "Ride " + rider) +
+                                    ": another skater's ghost is not drawn.";
+                        ride.activate = [ghost = entry, g]()
+                        {
+                            col::chooseGhost(ghost);
+                            col::MenuAction action;
+                            action.kind = col::MenuAction::Boot;
+                            action.game = static_cast<int>(g);
+                            return action;
+                        };
+                        menu.recordingRows.push_back(std::move(ride));
+                    }
                     menu.recordings.push_back(std::move(entry));
                 }
             }
@@ -4975,6 +5313,15 @@ namespace zx_app
             menu.profilesPage = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.profileRows.size());
         }
 
+        // The app's own update (collection/updater.h): this platform's way, the
+        // source ZX_UPDATE_SOURCE gives (else the latest release's files).
+        zx::collection::Updater &appUpdater()
+        {
+            static zx::collection::Updater updater(platform::updatePlatform(g_argv0), appVersion(),
+                                                   getEnv("ZX_UPDATE_SOURCE") ? getEnv("ZX_UPDATE_SOURCE") : "");
+            return updater;
+        }
+
         void loadMenu(MenuScreen &menu, AppState &state, const AppPaths &collection)
         {
             menu.rows = menuSettingsRows(state);
@@ -5032,6 +5379,40 @@ namespace zx_app
                 profiles.help = "Each game's careers: which one it plays, a new one, a copy.";
                 menu.rows.push_back(std::move(profiles));
             }
+            {
+                // Settings > Check for Updates and Roll Back Update, the last
+                // rows: the app's own update (collection/updater.h).
+                col::SettingsRow check;
+                check.kind = col::SettingsRow::Action;
+                check.label = "Check for Updates";
+                check.help = "Looks for the release's version; Enter again installs it and the app restarts.";
+                check.summary = []() { return appUpdater().summary(); };
+                check.activate = []()
+                {
+                    appUpdater().activate();
+                    return col::MenuAction{};
+                };
+                menu.rows.push_back(std::move(check));
+                col::SettingsRow rollBack;
+                rollBack.kind = col::SettingsRow::Action;
+                rollBack.label = "Roll Back Update";
+                rollBack.help = "Puts back the version the last update replaced (kept beside the app); the app restarts.";
+                rollBack.summary = []()
+                {
+                    // (Android installs no older version over a newer one: no roll back there, and the row says so)
+                    if (!appUpdater().rollsBack())
+                        return std::string(appUpdater().stage() == zx::collection::Updater::Stage::Unsupported ? "None kept"
+                                                                                                               : "Not on Android");
+                    const std::string previous = appUpdater().previousVersion();
+                    return previous.empty() ? std::string("None kept") : previous;
+                };
+                rollBack.activate = []()
+                {
+                    appUpdater().rollBack();
+                    return col::MenuAction{};
+                };
+                menu.rows.push_back(std::move(rollBack));
+            }
             menu.page = col::pageLayout(MenuScreen::kWidth, MenuScreen::kHeight, menu.rows.size());
             refreshMods(menu, state, collection);
             loadFrontEnd(menu);
@@ -5071,18 +5452,25 @@ namespace zx_app
         // (collection/mod_install.h): asked about (Add or Replace, Cancel; a
         // menu script's drop is the script's yes) and queued for its copy,
         // or why it is not taken said. False for anything else: the disc
-        // search's.
-        bool takeDroppedMod(MenuScreen &menu, const AppPaths &collection, const std::filesystem::path &place, bool scripted)
+        // search's. A mod picked with Add Mod... (`picked`) the same, asked
+        // about only when it replaces one: the picker was the question; a
+        // picked document's copy (`pickedCopy`) is removed when not taken.
+        bool takeDroppedMod(MenuScreen &menu, const AppPaths &collection, const std::filesystem::path &place, bool scripted,
+                            bool picked = false, bool pickedCopy = false)
         {
             DropInstall plan = planDropInstall(place, collection.supportDir);
+            plan.pickedCopy = pickedCopy;
+            const char *how = picked ? "[app] pick: " : "[app] drop: ";
             switch (plan.kind)
             {
             case DropInstall::NotContent:
+                discardPickedCopy(plan, collection.supportDir);
                 return false;
             case DropInstall::NoManifest:
             case DropInstall::Unreadable:
-                std::cout << "[app] drop: " << place.string() << ": not added, " << plan.why << std::endl;
+                std::cout << how << place.string() << ": not added, " << plan.why << std::endl;
                 menu.notice = plan.title + " is not added: " + plan.why + ".";
+                discardPickedCopy(plan, collection.supportDir);
                 return true;
             case DropInstall::Mod:
             case DropInstall::Map:
@@ -5100,15 +5488,84 @@ namespace zx_app
                                                            " folder is replaced."
                                        : map ? "It is copied into the Maps folder, for Custom Freeplay."
                                              : "It is copied into the Mods folder. Switch it on or off on the Mods page.";
-            if (!scripted && !platform::ask(question, detail, plan.replaces ? "Replace" : "Add", "Cancel"))
+            if (!scripted && (!picked || plan.replaces) &&
+                !platform::ask(question, detail, plan.replaces ? "Replace" : "Add", "Cancel"))
             {
-                std::cout << "[app] drop: " << place.string() << ": not added (Cancel)" << std::endl;
+                std::cout << how << place.string() << ": not added (Cancel)" << std::endl;
+                discardPickedCopy(plan, collection.supportDir);
                 return true;
             }
-            std::cout << "[app] drop: " << place.string() << ": " << (map ? "a map" : "a mod") << ", to " << plan.to.string()
+            std::cout << how << place.string() << ": " << (map ? "a map" : "a mod") << ", to " << plan.to.string()
                       << (plan.replaces ? " (replacing it)" : "") << std::endl;
             menu.installs.push_back(std::move(plan));
             return true;
+        }
+
+        // A mod picked with Add Mod... that is no mod or map: said, as a
+        // drop's would go to the disc search.
+        void takePickedMod(MenuScreen &menu, const AppPaths &collection, const std::filesystem::path &place, bool scripted,
+                           bool pickedCopy, const std::string &name)
+        {
+            if (takeDroppedMod(menu, collection, place, scripted, true, pickedCopy))
+                return;
+            std::cout << "[app] pick: " << place.string() << ": not added, no mod or map" << std::endl;
+            menu.notice = name + " is not added: it is not a mod's folder or .zip.";
+        }
+
+        // The mods picked with Add Mod...: a path taken in as a drop is; a
+        // document (Android's) queued for its copy into the support folder,
+        // and taken in from that copy once it is made (one at a time, off
+        // this thread).
+        void takePickedMods(MenuScreen &menu, const AppPaths &collection)
+        {
+            std::vector<ModPick> picks;
+            {
+                std::lock_guard lock(g_modPicks.mutex);
+                picks = std::exchange(g_modPicks.picks, {});
+            }
+            const DocumentAccess *documents = documentAccess();
+            for (ModPick &pick : picks)
+                if (documents && documents->isDocument(pick.pick))
+                    menu.pickedDocuments.emplace_back(std::move(pick.pick), pick.scripted);
+                else
+                {
+                    const std::filesystem::path place = pathFromUtf8(pick.pick);
+                    takePickedMod(menu, collection, place, pick.scripted, false, utf8Of(place.filename()));
+                }
+            if (menu.picking && menu.picking->done)
+            {
+                if (menu.picking->worker.joinable())
+                    menu.picking->worker.join();
+                const MenuScreen::PickedDocument &done = *menu.picking;
+                const std::string name = done.copy.name.empty() ? std::string("The mod") : done.copy.name;
+                if (done.copy.ok)
+                {
+                    menu.notice.clear();
+                    takePickedMod(menu, collection, done.copy.copy, done.scripted, true, name);
+                }
+                else
+                {
+                    std::cout << "[app] pick: " << done.uri << ": not added, " << done.copy.why << std::endl;
+                    menu.notice = name + " is not added: " + done.copy.why + ".";
+                }
+                menu.picking.reset();
+            }
+            if (!menu.picking && !menu.pickedDocuments.empty() && documents)
+            {
+                auto picking = std::make_unique<MenuScreen::PickedDocument>();
+                picking->uri = std::move(menu.pickedDocuments.front().first);
+                picking->scripted = menu.pickedDocuments.front().second;
+                menu.pickedDocuments.pop_front();
+                menu.notice = "Reading the mod...";
+                MenuScreen::PickedDocument *running = picking.get();
+                picking->worker = std::thread(
+                    [running, documents, supportDir = collection.supportDir]()
+                    {
+                        running->copy = copyPickedDocument(*documents, running->uri, supportDir);
+                        running->done = true;
+                    });
+                menu.picking = std::move(picking);
+            }
         }
 
         // A dropped mod's copy ended (its thread joined, so waited for when
@@ -5225,8 +5682,11 @@ namespace zx_app
                         cards.chosen = shell->selection();
                 }
                 std::string problem;
+                std::vector<std::string> scriptPicks;
                 if (scripted)
-                    menu.script.next(keys, padPressed, cards, &problem, &menu.scriptDrops);
+                    menu.script.next(keys, padPressed, cards, &problem, &menu.scriptDrops, &scriptPicks);
+                for (std::string &pick : scriptPicks)
+                    menu.scriptPicks.push_back(std::move(pick));
                 if (!problem.empty())
                     std::cerr << "[app] menu script: " << problem << std::endl;
             }
@@ -5923,6 +6383,7 @@ namespace zx_app
                     for (const std::string &path : std::exchange(menu.scriptDrops, {}))
                         if (!takeDroppedMod(menu, collection, pathFromUtf8(path), true))
                             places.push_back(pathFromUtf8(path));
+                    takePickedMods(menu, collection); // (Add Mod...'s)
                     runInstalls(menu, state, collection, shell);
                     {
                         std::lock_guard lock(g_dialogPicks.mutex);
@@ -5977,6 +6438,11 @@ namespace zx_app
                 }
                 const MenuPlace before(shell);
                 col::MenuAction action = shell.input(in, layoutOf(), rowsOf(), pageOf());
+                // (the update's news on the notice line; in place: the app quits, to start again at its quit)
+                if (std::string news = appUpdater().takeNotice(); !news.empty())
+                    menu.notice = std::move(news);
+                if (appUpdater().restartWanted() && action.kind == col::MenuAction::None)
+                    action.kind = col::MenuAction::Quit;
                 if (menu.afterUpdate)
                     action = *std::exchange(menu.afterUpdate, std::nullopt);
                 else if ((action.kind == col::MenuAction::Boot && gameHasFiles(g_argv0, kGamesInOrder[action.game])) ||
@@ -6147,6 +6613,9 @@ namespace zx_app
                 std::cout << "[app] drop: leaving the menu once " << menu.install->plan.title << " is copied" << std::endl;
                 endInstall(menu, state, collection, shell);
             }
+            // (a picked document's copy too: taken in when the menu is back)
+            if (menu.picking && menu.picking->worker.joinable())
+                menu.picking->worker.join();
             if (shell.state() == col::State::Quit)
                 leave();
         }
@@ -6171,6 +6640,9 @@ namespace zx_app
 #if defined(ZX_PGO_GENERATE)
             __llvm_profile_write_file();
 #endif
+            // (an update in place: the new copy started once this one is down)
+            appUpdater().relaunchAtQuit(g_appSettingsFile);
+            std::fflush(stdout);
             std::_Exit(status);
         }
     }
@@ -6346,6 +6818,11 @@ namespace zx_app
                 if (std::string(each.id) == kKeeperGame)
                     gamePaths(appPaths, each);
             }
+            // (first, the settings a newer version kept aside while an older one ran: collection/updater.h)
+            std::vector<std::string> putBack;
+            zx::collection::putBackNewerSettings(appPaths.supportDir / "settings.ini", &putBack);
+            for (const std::string &line : putBack)
+                std::cout << "[app] settings put back: " << line << std::endl;
             std::vector<std::string> moved;
             migrateCollectionFiles(appPaths.supportDir, kKeeperGame, ids, &moved);
             for (const std::string &line : moved)

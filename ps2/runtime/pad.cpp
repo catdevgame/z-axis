@@ -5,7 +5,7 @@
 #include "runtime/pad_script.h"
 #include "runtime/host_input.h"
 #include "host_backend.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/boot_config.h"
 #include <array>
 #include <atomic>
@@ -252,7 +252,7 @@ namespace
     };
 
     // What a capture binds: controls.ini [buttons] 0-15, [sticks] 16-23,
-    // the stick modifier 24, [mouse] recentre 25, [hotkeys] 26-28; gamepad
+    // the stick modifier 24, [mouse] recentre 25, [hotkeys] from 26; gamepad
     // buttons 100 + n.
     constexpr int kCaptureStick = 16;
     constexpr int kCaptureModifier = 24;
@@ -1019,15 +1019,44 @@ namespace
     }
     bool resetArmed() { return std::chrono::steady_clock::now() < resetArmedUntil().load(); }
 
+    // The controls.* and hotkey.* rows registerControlSettings made last: the
+    // ones it takes out again for the next game. A row another part of the
+    // program put under controls. (the app's Gamepad Test) is not its to take.
+    std::vector<std::string> &controlRowKeys()
+    {
+        static std::vector<std::string> keys;
+        return keys;
+    }
+
+    std::vector<std::string> controlAndHotkeyKeys()
+    {
+        std::vector<std::string> keys;
+        for (const char *prefix : {"controls.", "hotkey."})
+            for (const std::string &key : st::keys(prefix))
+                keys.push_back(key);
+        return keys;
+    }
+
+    void registerControlRows(HostInputHub &h);
+
     // controls.* settings (main thread, once the config is loaded, and again
     // for each game: the rows are the game's, its action names and its keys).
     void registerControlSettings(HostInputHub &h)
     {
         // The game before's rows (the collection boots another game in the
         // same process): gone before this game's go in.
-        for (const char *prefix : {"controls.", "hotkey."})
-            for (const std::string &key : st::keys(prefix))
-                st::remove(key);
+        for (const std::string &key : controlRowKeys())
+            st::remove(key);
+        controlRowKeys().clear();
+        const std::vector<std::string> others = controlAndHotkeyKeys();
+        registerControlRows(h);
+        for (const std::string &key : controlAndHotkeyKeys())
+            if (std::find(others.begin(), others.end(), key) == others.end())
+                controlRowKeys().push_back(key);
+    }
+
+    void registerControlRows(HostInputHub &h)
+    {
 
         st::Setting look;
         look.key = "controls.mouse_sensitivity";

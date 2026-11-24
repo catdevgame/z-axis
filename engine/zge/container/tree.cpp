@@ -26,11 +26,11 @@ namespace zge
     {
         // searchTreeFind's walk of a tree in lessWord's order, ZGE4's: the key's word read once and the words
         // compared here, no comparison called.
-        inline ee::Ptr<SearchTreeNode> findWordValue(ee::Ptr<SearchTree> tree, uint32_t key)
+        inline ee::Ptr<SearchTreeNode> findWordValue(ee::Ptr<SearchTreeNode> root, uint32_t key)
         {
             auto word = [](ee::Ptr<SearchTreeNode> node) { return *ee::Ptr<uint32_t>(valueOf(node)); };
             ee::Ptr<SearchTreeNode> found;
-            for (ee::Ptr<SearchTreeNode> node = tree->root; node;)
+            for (ee::Ptr<SearchTreeNode> node = root; node;)
             {
                 if (word(node) < key)
                     node = node->higher;
@@ -49,18 +49,22 @@ namespace zge
     // searchTreeFind: the node whose value equals key (neither sorts before
     // the other), or none: down the tree to the first value not less than the
     // key, then that one compared the other way round. (ZGE4 walks a tree of
-    // lessWord's itself: findWordValue.)
+    // lessWord's itself: findWordValue.) An empty tree is none at once, its
+    // comparison not even read, as in every game's code.
     ee::Ptr<SearchTreeNode> searchTreeFind(ee::Ptr<SearchTree> tree, ee::Address key)
     {
+        const ee::Ptr<SearchTreeNode> root = tree->root;
+        if (!root)
+            return {};
+        const uint32_t lessFunction = tree->less;
         if constexpr (game::readable::kIsBmx)
         {
-            const ee::Ptr<const uint32_t> keyWord(key);
-            if (tree->root && tree->less == sym::lessWord)
-                return findWordValue(tree, *keyWord);
+            if (lessFunction == sym::lessWord)
+                return findWordValue(root, *ee::Ptr<const uint32_t>(key));
         }
-        const SearchTreeLess less(tree->less);
+        const SearchTreeLess less(lessFunction);
         ee::Ptr<SearchTreeNode> found;
-        for (ee::Ptr<SearchTreeNode> node = tree->root; node;)
+        for (ee::Ptr<SearchTreeNode> node = root; node;)
         {
             if (less(valueOf(node), key) != 0)
                 node = node->higher;
@@ -160,13 +164,17 @@ namespace zge
     // Takes out the node whose value equals key: the node, or 0 if there is
     // none. A node with two children gives way to the first node after it, the
     // leftmost of its higher side. The node's own links are left as they were.
+    // An empty tree is none at once, its comparison not read (as searchTreeFind).
     ee::Ptr<SearchTreeNode> searchTreeRemove(ee::Ptr<SearchTree> tree, ee::Address key)
     {
+        const ee::Ptr<SearchTreeNode> root = tree->root;
+        if (!root)
+            return {};
         ee::Ptr<SearchTreeNode> found;       // the first node not less than the key
         ee::Ptr<SearchTreeNode> foundParent;
         ee::Ptr<SearchTreeNode> parent;
         const SearchTreeLess less(tree->less);
-        for (ee::Ptr<SearchTreeNode> node = tree->root; node;)
+        for (ee::Ptr<SearchTreeNode> node = root; node;)
         {
             if (less(valueOf(node), key) != 0)
             {

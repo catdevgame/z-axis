@@ -20,7 +20,7 @@
 #include "runtime/game_files.h"
 #include "runtime/session.h"
 #include "runtime/xbox_audio.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "overrides/zge_sound.h"
 #include "overrides/zge_volumes.h"
 
@@ -98,7 +98,7 @@ namespace aggressive_inline::native_sound
                     if (end && file.read(0, head.data(), end) == end)
                         zx::xbox_audio::readWaveTable(head, f.ps2, &xbox);
                 }
-                if (!ps2_xbox_disc::readFile("audio/speech01.zsd", f.bank) ||
+                if (!zx::xbox_files::readFile("audio/speech01.zsd", f.bank) ||
                     !zx::xbox_audio::readWaveTable(f.bank, f.waves, &xbox) || !xbox || f.waves.size() != f.ps2.size())
                 {
                     std::cerr << "[sound] French speech not available (" << f.ps2.size() << " PS2 lines, "
@@ -210,6 +210,9 @@ namespace aggressive_inline
         using namespace native_sound;
         // The game's volumes in the settings model, with either driver.
         zge_host::volumes::install(runtime, kGameVolumes);
-        return zge_host::sound::install(runtime, kSound);
+        const bool native = zge_host::sound::install(runtime, kSound);
+        // The soundtrack's controls, with either driver (after it: the songs mods add are the native one's).
+        installSoundtrack(runtime);
+        return native;
     }
 }

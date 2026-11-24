@@ -6,7 +6,7 @@
 // reads and edits them; runtime/disc_patch.h serves the edited copy).
 // Each game's override adds to its scripts a page made of its own widgets,
 // fonts and materials, and a line in its menus that opens it; the page's rows
-// come from the settings registry (runtime/settings.h), so the app's menu
+// come from the settings registry (runtime/settings_registry.h), so the app's menu
 // bar and the page share one model. Which section a row is in and the order
 // of the rows is the page table (kPage in zge_settings.cpp), the same for
 // every game; a section can hold headings (CAMERA, KEYS), rows that are not

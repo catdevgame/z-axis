@@ -12,13 +12,26 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 
+import java.util.Arrays;
+
 import org.libsdl.app.SDLActivity;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 
 // SDLActivity runs the game (SDL_main in libzx-runner.so, which has SDL3
 // linked in statically) on the top screen; a device's second screen shows
 // SecondScreenPanel, which comes and goes with the activity and the display.
-// The setup's disc pickers are Documents'.
+// The setup's disc pickers are Documents'; the screenshots reach the
+// system's Gallery through Gallery; the app's own update is Updater's.
 public class GameActivity extends SDLActivity implements DisplayManager.DisplayListener {
+    // The refresh rate asked of the top screen, as the game last asked for it
+    // (askRefreshRate; collection/refresh_rate.h): the game's 60 until then.
+    // Kept for an activity made again.
+    private static volatile float sRefreshRate = 60.0f;
+
     private SecondScreenPanel mPanel;
     private boolean mStarted;
 
@@ -30,10 +43,7 @@ public class GameActivity extends SDLActivity implements DisplayManager.DisplayL
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // The game runs at 60: no second present of each frame at 120 Hz.
-        WindowManager.LayoutParams attributes = getWindow().getAttributes();
-        attributes.preferredRefreshRate = 60.0f;
-        getWindow().setAttributes(attributes);
+        applyRefreshRate();
         // The whole screen: without this the window's black status bar
         // background stays over the top of the picture.
         getWindow().setDecorFitsSystemWindows(false);
@@ -46,7 +56,41 @@ public class GameActivity extends SDLActivity implements DisplayManager.DisplayL
         }
         if (!mBrokenLibraries) {
             Documents.install(this);
+            Gallery.install(this);
+            Updater.install(this);
         }
+    }
+
+    // From the game's thread (collection/platform_android.cpp), when Frame
+    // Interpolation is turned on or off: the screen's refresh rates at its
+    // present size, then the one to ask for.
+    public float[] offeredRefreshRates() {
+        Display display = getDisplay();
+        if (display == null) {
+            return new float[0];
+        }
+        Display.Mode current = display.getMode();
+        Display.Mode[] modes = display.getSupportedModes();
+        float[] rates = new float[modes.length];
+        int count = 0;
+        for (Display.Mode mode : modes) {
+            if (mode.getPhysicalWidth() == current.getPhysicalWidth()
+                    && mode.getPhysicalHeight() == current.getPhysicalHeight()) {
+                rates[count++] = mode.getRefreshRate();
+            }
+        }
+        return Arrays.copyOf(rates, count);
+    }
+
+    public void askRefreshRate(float rate) {
+        sRefreshRate = rate;
+        runOnUiThread(this::applyRefreshRate);
+    }
+
+    private void applyRefreshRate() {
+        WindowManager.LayoutParams attributes = getWindow().getAttributes();
+        attributes.preferredRefreshRate = sRefreshRate;
+        getWindow().setAttributes(attributes);
     }
 
     @Override
@@ -57,7 +101,7 @@ public class GameActivity extends SDLActivity implements DisplayManager.DisplayL
     }
 
     private void showPanel() {
-        if (mPanel != null || mBrokenLibraries || !mStarted) {
+        if (mPanel != null || mBrokenLibraries || !mStarted || secondScreenOff()) {
             return;
         }
         DisplayManager displays = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
@@ -74,6 +118,23 @@ public class GameActivity extends SDLActivity implements DisplayManager.DisplayL
             }
             return;
         }
+    }
+
+    // A developer switch: ZX_SECOND_SCREEN=off in the files folder's zx-env.txt (the native side's developer
+    // switches) leaves a second display unused, so a dual-screen device runs as a single-screen one does (the
+    // bottom screen then comes over the game by its shortcut, collection/panel_overlay.h).
+    private boolean secondScreenOff() {
+        File env = new File(getExternalFilesDir(null), "zx-env.txt");
+        try (BufferedReader lines = new BufferedReader(new FileReader(env))) {
+            for (String line = lines.readLine(); line != null; line = lines.readLine()) {
+                if (line.trim().equals("ZX_SECOND_SCREEN=off")) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            // (no such file: the switches' defaults)
+        }
+        return false;
     }
 
     private void hidePanel() {

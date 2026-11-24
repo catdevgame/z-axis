@@ -1,4 +1,4 @@
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/boot_config.h"
 
 #include <algorithm>
@@ -14,7 +14,7 @@
 #include <optional>
 #include <unordered_map>
 
-namespace ps2_xbox_disc
+namespace zx::xbox_files
 {
     namespace
     {

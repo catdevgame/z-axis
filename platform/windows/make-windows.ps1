@@ -14,7 +14,10 @@
 #                                     # of CMakeLists.txt, runtime and iop as committed, no change to them
 #                                     # here, and the configure arguments but the paths of where it was
 #                                     # made); else builds as without. Each build writes its stamp (pace1)
-#   ... -Zip                          # also write dist\Aggressive Inline.zip
+#   ... -Zip                          # also write dist\<name>-<version>-windows-x64.zip (Z-Axis-Collection-1.4.0-windows-x64.zip)
+#                                     # The package is checked as release.sh checks it before this ends
+#                                     # (tools\checks\release_check.py: the zip with -Zip, else the folder):
+#                                     # one it refuses is never tested, placed or released
 #   ... -Reconfigure                  # run CMake's configure even when the build folder's last one had these
 #                                     # arguments (else ninja runs it when one of its inputs changed)
 #   ... -ProfileData x.profdata       # profile-guided optimization (clang PGO,
@@ -415,7 +418,7 @@ if (-not $SkipBuild) {
         "-DZX_SHOW_WINDOWS_CONSOLE=OFF", "-DZX_FFMPEG_PREFIX=$FFmpeg",
         "-DZX_APP_NAME=$AppName", "-DZX_APP_GAME_TITLE=Aggressive Inline (USA)",
         "-DZX_APP_ELF=$ElfName", "-DZX_APP_ELF_SHA256=$ElfSha",
-        "-DZX_APP_SAVE_DIR=BASLUS-20327CEAIGAME", "-DZX_APP_VERSION=$AppVersion")
+        "-DZX_APP_SAVE_DIR=BASLUS-20327CEAIGAME", "-DZX_APP_VERSION=$AppVersion", "-DZX_BUILD_COMMIT_STAMP=ON")
     if ($Collection) {
         $appGames = "ai|Aggressive Inline|Aggressive Inline (USA)|$ElfName|$ElfSha|BASLUS-20327CEAIGAME"
         $extraGenerated = @()
@@ -860,12 +863,18 @@ if ($Collection -and ($Games -contains "bmx")) {
     }
 }
 }  # (-NoGameData)
-$aboutData = if ($NoGameData) {
-    "It holds no game data: at first start it asks for each game's PS2 disc`r`n(an ISO, a BIN/CUE dump or the disc's folder) and copies its files into`r`n%APPDATA%\$AppName."
-} else { "with the game files of your own disc`r`n(disc\). Do not share this folder: it holds game data." }
+if ($NoGameData) {
+# The release's README.txt: the tree's platform\windows\README.txt with the app's name and version, its lines CRLF
+# (release_check.py compares the package's with the tree's made so).
+$readme = [System.IO.File]::ReadAllText((Join-Path $ZaxisTree "platform\windows\README.txt")).Replace("`r`n", "`n")
+$readme = $readme.Replace("@APP_NAME@", $AppName).Replace("@APP_VERSION@", $AppVersion).Replace("`n", "`r`n")
+[System.IO.File]::WriteAllText((Join-Path $AppDir "README.txt"), $readme, (New-Object System.Text.UTF8Encoding($false)))
+} else {
+# (a developer's folder with the game files of their own disc)
 @"
 $AppName $AppVersion for Windows x64: a native port of the PlayStation 2 game,
-statically recompiled with PS2Recomp, $aboutData
+statically recompiled with PS2Recomp, with the game files of your own disc
+(disc\). Do not share this folder: it holds game data.
 
 Settings, controls, saves, mods and logs: %APPDATA%\$AppName
 Full screen: Alt+Enter or F11. Settings: the game's own menus
@@ -877,6 +886,7 @@ licences. FFmpeg (LGPL 2.1) is linked statically for the game's movies; its
 licence is in FFMPEG-LICENSE.txt. SDL3 is under the zlib licence. The menu's
 font, Michroma, is under the SIL Open Font License 1.1 (fonts\Michroma-OFL.txt).
 "@ | Set-Content -Path (Join-Path $AppDir "README.txt")
+}
 # The licences (the tree's LICENSE and NOTICE; FFmpeg's own COPYING.LGPLv2.1, third_party\licenses), as every package
 # carries them.
 Copy-Item (Join-Path $ZaxisTree "LICENSE") (Join-Path $AppDir "LICENSE.txt")
@@ -884,8 +894,27 @@ Copy-Item (Join-Path $ZaxisTree "NOTICE") (Join-Path $AppDir "NOTICE.txt")
 Copy-Item (Join-Path $ZaxisTree "third_party\licenses\FFmpeg-LGPL-2.1.txt") (Join-Path $AppDir "FFMPEG-LICENSE.txt")
 $size = (Get-ChildItem -Recurse -File $AppDir | Measure-Object -Property Length -Sum).Sum / 1MB
 Say ("done: $AppDir ({0:N0} MB, {1} game files hard-linked, {2})" -f $size, $linked, (Took $clock))
+# ReleaseCheck ARGS: the package checked as players get it, as release.sh checks it (tools\checks\release_check.py),
+# now: one that can be refused goes on to no test, no placing and no release. The build machine's folders it must not
+# name: this checkout's, the build's and FFmpeg's, and the real folders the workspace's links lead to (1.3.1: the
+# static FFmpeg of another checkout's data, reached through the clone's third_party-cache junction, named its folders).
+function ReleaseCheck([string[]]$what) {
+    if (-not $python) { Die "Python 3 is needed for the release check (tools\checks\release_check.py)" }
+    $paths = @($ZAxis, $ZaxisTree, $BuildDir, $ToolsDir, $Root, $Dist, $FFmpeg)
+    foreach ($n in "third_party-cache", "recomp", "extracted", "baseline") {
+        $l = Join-Path $Root $n
+        if (Test-Path -LiteralPath $l) { $i = Get-Item -Force -LiteralPath $l; if ($i.LinkType) { $paths += @($i.Target) } }
+    }
+    $checkArgs = @("-I", (Join-Path $ZAxis "tools\checks\release_check.py")) + $what + @("--version", $AppVersion, "--tree", $ZaxisTree)
+    if (-not $NoGameData) { $checkArgs += "--game-data" }
+    foreach ($p in $paths) { if ($p) { $checkArgs += @("--build-path", "$p") } }
+    & $python.Source @(PythonArgs $checkArgs) | ForEach-Object { Say $_ }
+    if ($LASTEXITCODE -ne 0) { Die "release-check refuses $($what[-1]) (above)" }
+}
+if (-not $Zip) { ReleaseCheck @("--windows-dir", $AppDir) }
 if ($Zip) {
-    $zipPath = Join-Path $Dist "$AppName.zip"
+    # (named as the release's asset is, README.md "The release's files": <name>-<version>-<platform>-<arch>.<ext>)
+    $zipPath = Join-Path $Dist "$($AppName -replace ' ', '-')-$AppVersion-windows-x64.zip"
     if (Test-Path $zipPath) { Remove-Item $zipPath }
     $clock = [System.Diagnostics.Stopwatch]::StartNew()
     # (each entry named here with "/": Windows PowerShell 5.1's Compress-Archive, and ZipFile.CreateFromDirectory in a
@@ -902,5 +931,6 @@ if ($Zip) {
         }
     } finally { $archive.Dispose(); $zipStream.Dispose() }
     Say "zip: $zipPath ($(Took $clock))"
+    ReleaseCheck @("--windows-zip", $zipPath)
 }
 exit 0

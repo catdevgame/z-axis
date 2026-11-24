@@ -32,7 +32,9 @@ anchored: they are what is compared. Each anchor logs how far it moved the
 native clock ("[pad] sync"), which is itself a timing comparison.
 
 Native RAM is dumped at the script time of every reference checkpoint
-(ZX_DUMP_WHEN script>=...), at a VBlank like the PCSX2 savestates.
+(ZX_DUMP_WHEN script>=...), at a VBlank like the PCSX2 savestates; ref03,
+which the reference took when the first tip's box was waiting for X, once
+that box is waiting too (level_anchor_event: its opening is EE timing).
 
 The record is not exactly what the game saw in run 1: pcsx2pad.py wrote
 inputs over PINE closed loop, and a write lands on the next pad read or,
@@ -103,6 +105,7 @@ GAUGE = 0x2732FC
 VSYNC = 0x231CA4
 FRAME = 0x231CAC
 FPS = 0x23FD80
+LEVEL_TIME = 0x276FF8                # f32: the level's seconds, the frame limiter's frame seconds summed
 CTRL = 0x27E0C4
 POS = 0x2A76F0
 EYE = 0x24C9E0
@@ -116,8 +119,9 @@ BOX_WAITING = 0x831BB0               # zgui panel: message box waiting for X (PC
 # reference waits on and holds at its checkpoints, PCSX2 -> native: the main
 # menu (+0x930 on the plain native one), the two screens after it, level
 # select, the message box waiting for X (+0x920), and the box still
-# opening (PCSX2 0x832CD0: never in the reference, natively at ref03 at the
-# gate's clock, on both routes). Measured with ZX_READABLE=off and the
+# opening (PCSX2 0x832CD0: never in the reference; natively at ref03's
+# frame on both routes when EE time opens the box late, which is why ref03
+# is dumped at the reference's event, level_anchor_event). Measured with ZX_READABLE=off and the
 # panel anchors left value-free (tools21, run t21-menus1: every in-level
 # checkpoint's player and camera as the reference's). Not a fixed delta:
 # the added widgets sit between them.
@@ -323,12 +327,35 @@ def native_script():
 
 
 
+def level_anchor_event():
+    """(checkpoint name, native condition) for the first in-level checkpoint, or
+    None. The reference took that checkpoint the moment its waitval on the zgui
+    panel held (ref03: the first tip's box waiting for X). That box opens on a
+    script timer (the tutorial's TutorialAssignerOne, TimerFinished) that counts
+    frame seconds through the level's first frames, where the adaptive frame
+    limiter's seconds follow EE time: PCSX2 and readable off at the PS2's clock
+    open it at level frame 310, the defaults at that clock and every run at
+    ZX_EE_SCALE=4096 at 332 (level time 22/60 s behind from then on, which no
+    other checkpoint's fields see). At the level-frame anchor (352) the box is
+    then waiting or still opening by timing alone, so the native dump is taken
+    where the reference's was: at its script time once the same panel holds."""
+    name = next(ck for ck, _ in checkpoints()
+                if u32(open(os.path.join(REF_RAM, ck + ".ram"), "rb").read(), MODE) in (2, 3))
+    cmds = read_run_out()
+    at = next(i for i, c in enumerate(cmds) if c["cmd"].split()[:1] == ["checkpoint"] and c["cmd"].split()[-1] == name)
+    argv = cmds[at - 1]["cmd"].split() if at else []
+    if argv[:1] != ["waitval"] or int(argv[1], 0) != PANEL or argv[2:4] != ["u32", "=="]:
+        return None
+    return name, "0x%X==0x%X" % (PANEL, native_panel(int(argv[4], 0)))
+
+
 def dump_spec():
     # LOGICCHECK_DUMPS=name[,name...]: dump only these checkpoints.
     only = set(filter(None, os.environ.get("LOGICCHECK_DUMPS", "").split(",")))
     first, _ = read_inputs()
-    return ",".join("%s:script>=%d" % (name, v - first + DUMP_OFFSET) for name, v in checkpoints()
-                    if not only or name in only)
+    event = level_anchor_event()
+    return ",".join("%s:script>=%d%s" % (name, v - first + DUMP_OFFSET, "&" + event[1] if event and event[0] == name else "")
+                    for name, v in checkpoints() if not only or name in only)
 
 
 # ---- native run ------------------------------------------------------------
@@ -390,6 +417,7 @@ def state(ram, native, menus=None):
         "section": u32(ram, SECTION),
         "gauge": u32(ram, GAUGE),
         "frame": u32(ram, FRAME),
+        "time": f32(ram, LEVEL_TIME)[0],
         "ctrl": u32(ram, CTRL),
         "pos": f32(ram, POS, 3),
         "node": m[12:15],
@@ -428,7 +456,10 @@ def diff_states(r, n, tol=0.01):
     return diffs
 
 
-def print_rows(rows):
+def print_rows(rows, event=None):
+    """event: the checkpoint dumped at the reference's event (level_anchor_event):
+    its row also says the level time of each side, the EE timing the event leaves
+    out of the compared fields."""
     worst_first = None
     for ck, r, n, *off in rows:
         if n is None or r is None:
@@ -443,7 +474,9 @@ def print_rows(rows):
         status = "MATCH" if not diffs or note else "DIFF"
         if status == "DIFF" and worst_first is None:
             worst_first = ck
-        print("%-20s %-5s frame %5d/%-5d %s%s" % (ck, status, r["frame"], n["frame"], note, "; ".join(diffs)))
+        at = ("at the reference's event, level time %.4f/%.4f%s" % (r["time"], n["time"], "; " if diffs else "")
+              if ck == event else "")
+        print("%-20s %-5s frame %5d/%-5d %s%s%s" % (ck, status, r["frame"], n["frame"], at, note, "; ".join(diffs)))
     if worst_first:
         print("first divergence: %s" % worst_first)
 
@@ -465,7 +498,8 @@ def compare(name, exact=False, off=None):
     for ck, _ in checkpoints():
         rp = os.path.join(REF_RAM, ck + ".ram")
         rows.append((ck, state(open(rp, "rb").read(), False), native_state(name, ck), native_state(off, ck) if off else None))
-    print_rows(rows)
+    event = level_anchor_event()
+    print_rows(rows, event[0] if event else None)
     if exact:
         compare_exact(name)
 
@@ -479,7 +513,7 @@ EXACT_WORDS = [
     ("node", SKIN_NODE[0] + 0x10, SKIN_NODE[1], 3), ("node", SKIN_NODE[0] + 0x20, SKIN_NODE[1], 3),
     ("node", SKIN_NODE[0] + 0x30, SKIN_NODE[1], 3), ("node", SKIN_NODE[0] + 0x40, SKIN_NODE[1], 3),
     ("eye", EYE, 0, 3), ("look", LOOK, 0, 3),
-    ("time", 0x276FF8, 0, 1), ("stamps", 0x276FF0, 0, 2),
+    ("time", LEVEL_TIME, 0, 1), ("stamps", 0x276FF0, 0, 2),
 ]
 
 

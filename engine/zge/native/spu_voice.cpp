@@ -4,9 +4,9 @@
 // (Mixer.cpp, ADSR.cpp at commit 091ab687, as iop/'s port has them), so
 // a native voice sounds and keys off like the emulated one.
 
-#include "runtime/spu_voice.h"
+#include "zge/native/spu_voice.h"
 
-#include "runtime/spu_gauss_table.h"
+#include "zge/native/spu_gauss_table.h"
 
 #include <algorithm>
 #include <cstring>

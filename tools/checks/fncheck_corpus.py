@@ -48,10 +48,12 @@ readable definition it can run (across files: through a project header both
 files include that declares it; game::call's targets are answered from the
 recording and not followed), the rest of those files and their headers (the
 build's dependency log), the traced original (traced_<hex>.cpp and its blocks
-file), the checker without the readable functions (fncheck_main, the runtime
-and ee/*.cpp, every header the traced originals include and the objects of its
-link that a replay runs (not the header units, built first and linked into
-nothing, nor GS, audio, IOP or SDL code), the compile commands, the compiler)
+file), the code a replay can run as the build compiled it (cachekey2, Code:
+the atoms of the checker's link, read from its objects by objcode.py, each a
+function's or datum's bytes and relocations; what fncheck_main and the static
+initializers reach is the base, in every key, and what the function's traced
+original and readable files' objects reach past that is in its own key; the
+tables zx-fncheck is built with as text), the compile commands, the compiler
 and the flags; per part of a file's lines (core:
 result, coverage, fault; safepoints; markers). `--incremental` replays only
 the files with a part not cached and copies the rest (the result lines with
@@ -666,16 +668,18 @@ def run_chunk(fncheck, route, paths, timeout, extra, stats=None):
 # build's readable sources, the sweep's drafts included), with the rest of
 # those files (registrations, file-level data) and the headers they include
 # (the build's own dependency log); the traced original (its traced_<hex>.cpp
-# and blocks file); the checker without the readable functions (fncheck_main,
-# the runtime, every header the traced originals and the runtime include, the
-# compile commands, the compiler); and the check's flags. Each is a digest
+# and blocks file); the code the replay can run, as compiled (Code: the
+# driver's reach in the base, what the function's own code reaches past it in
+# its key), the tables zx-fncheck is built with, the compile commands, the
+# compiler; and the check's flags. Each is a digest
 # (Tree below); a cache entry is keyed by all of them, per part of a file's
 # lines: core (result, coverage, fault: --cycles and the other options),
 # safepoints (--safepoints A B), markers (--markers). A file that faulted is
 # kept whole under the full flags (part `all`).
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# The runtime code a replay runs (Tree.verdict_input).
+# The runtime code a replay runs as sources (Tree.verdict_input): the base when the link's code cannot be read
+# (Code), and what Tree.env_names reads.
 RUNTIME_SOURCES = {'ps2/runtime/memory.cpp', 'ps2/runtime/machine.cpp', 'ps2/runtime/thread_cpu.cpp'}
 RUNTIME_HEADERS = set()
 # The runtime's headers (what runtime/include was before layout1, and the folders its headers went to): every one is
@@ -941,13 +945,15 @@ CXX_WORDS = set("""alignas alignof and asm auto bool break case catch char char8
     static static_assert static_cast struct switch template this thread_local throw true try typedef typeid
     typename union unsigned using virtual void volatile wchar_t while final override __attribute__
     __restrict __restrict__ __inline __forceinline __declspec""".split())
-KEYS_VERSION = 'decl7'      # in every function's digest: a change of the scheme is a new key (decl5: game views;
+KEYS_VERSION = 'code1'      # in every function's digest: a change of the scheme is a new key (decl5: game views;
                             # decl6: paths in files and commands written alike in every worktree and Linux worker slot).
                             # A game's _OWN body in its function's key (tools7) is no new scheme: only the functions
                             # with an own body got a key part ("own OWN" and its definition), so they miss once and
                             # every other function's decl6 line still serves. decl7 (tools12): the frame table's
                             # locals' places out of the base, each function's in its key (Tree.locals_part): every key
-                            # is new once, then a lane's locals rows miss only the functions they place.
+                            # is new once, then a lane's locals rows miss only the functions they place. code1
+                            # (cachekey2): the runtime keyed by its compiled code (Code), the driver's in the base and
+                            # what a function's own code reaches past it in its key; every key is new once.
 IDS = re.compile(r'\b[A-Za-z_]\w*\b')
 # A frame table row (ee/abi.h FrameRow): game, address, size, first save, saves, first local, locals.
 FRAME_ROW = re.compile(r'\{(\d+)u, (0x[0-9a-fA-F]+)u, (0x[0-9a-fA-F]+)u, (\d+)u, (\d+)u, (\d+)u, (\d+)u\}')
@@ -1360,6 +1366,143 @@ def read_ninja_deps(path):
     return out
 
 
+# A traced original's own atoms (game.cmake _zx_traced_sources): its function fncheck_traced_<hex> (another game's
+# fncheck_traced_<game>_<hex>, an entry_ chunk's fncheck_traced_<hex>_<chunk>), its block table g_fncheckBlocks_<hex>
+# and kFncheckBlockStarts_<hex>; in a symbol as the compiler mangles it (Itanium's <length><name>, MSVC's ?name@).
+TRACED_ATOM = re.compile(r'(fncheck_traced_(?:([a-z][a-z0-9]*)_)?|g_fncheckBlocks_|kFncheckBlockStarts_)([0-9a-f]+)')
+
+
+class Code:
+    """The code a replay runs, as the build compiled it (cachekey2): the atoms of the checker's link (objcode: every
+    function's and datum's bytes and relocations, from the objects themselves) and what each can reach by its
+    relocations, resolved by name as the linker does.
+
+    The checker's own part is what its driver reaches: fncheck_main's atoms and every static initializer of the
+    runtime's objects (a readable or traced object's initializer: only the runtime code it calls, not the functions it
+    registers). Its labels are the base. A function's part is what its own code reaches past that: its traced
+    original's atoms (the compiled original: the instruction macros, the runtime calls it makes) and the runtime
+    atoms its readable files' objects reach (their own code is in the function's closure as source, Tree.closure_digest).
+    Not followed: the tables zx-fncheck is built with (fncheck_build: in the base as text, the frame table's locals
+    per function), and another function's traced original (a callee is answered from the recording). A change to an
+    atom in neither part (a function no replay can reach, a comment, a header no reached code compiles differently
+    with) keeps every verdict; one in a function's part misses that function's files; one in the base misses all."""
+
+    def __init__(self, objs):
+        """objs: [(path, label, objcode.Obj, kind)], kind 'traced' (a traced original's unity object), 'table'
+        (fncheck_build's), 'readable' (a readable source's, not ee/'s) or 'runtime' (the rest: the runtime, ee/,
+        fncheck_main, the libraries)."""
+        import objcode
+        self.index = dict((path, i) for i, (path, _, _, _) in enumerate(objs))
+        self.labels = [label for _, label, _, _ in objs]
+        self.kinds = [kind for _, _, _, kind in objs]
+        self.prog = objcode.Program([(label, o) for _, label, o, _ in objs])
+        # Each traced original's atoms by (game, address): the game from the traced folder's name
+        # (zx_game_traced_<game>.dir, AI's zx_game_traced.dir) or the function's name.
+        self.traced = collections.defaultdict(list)
+        self.entries = set()
+        for oi, (_, label, o, kind) in enumerate(objs):
+            if kind != 'traced':
+                continue
+            m = re.search(r'/zx_game_traced_([a-z0-9]+)', label)
+            folder_game = m.group(1) if m else 'ai'
+            for ai, (_, names, _, _) in enumerate(o.atoms):
+                for n in names:
+                    t = TRACED_ATOM.search(n)
+                    if t:
+                        self.traced[(t.group(2) or folder_game, int(t.group(3), 16))].append((oi, ai))
+                        if t.group(1).startswith('fncheck_traced_'):
+                            self.entries.add((oi, ai))
+                        break
+        roots = []
+        for oi, (_, label, o, kind) in enumerate(objs):
+            if kind == 'runtime' and '/zx-fncheck.dir/' in label:
+                roots += [(oi, ai) for ai in range(len(o.atoms))]     # (fncheck_main: the driver)
+            for ai in o.inits:
+                if kind == 'runtime':
+                    roots.append((oi, ai))
+                else:
+                    # (a registration's initializer: the registry code it calls, not the bodies it registers)
+                    roots += [n for n in self.prog.refs((oi, ai)) if n[0] == 'ext' or self.kinds[n[0]] == 'runtime']
+        self.driver, labels = self.prog.walk(roots, stop=self._stop_driver)
+        self.base = sha(*labels)
+        self.base_atoms = len(labels)
+        self.atoms = sum(len(o.atoms) for _, _, o, _ in objs)
+        self._readable_objects = {}
+
+    @classmethod
+    def of_tree(cls, tree):
+        """The Code of a build's checker: the objects its link takes (Tree.linked_objects), read and sorted by kind."""
+        import objcode
+        linked = tree.linked_objects()
+        if linked is None:
+            raise ValueError('ninja names no objects for the link')
+        # (a readable object by its absolute path, as the link's are named, and whether its source is ee/'s: the
+        # checker's own code, which the driver runs)
+        ee_dir = norm_path(tree.home + '/ps2/ee') + '/'
+        readable = {}
+        for o in [o for objs in [tree.readable_objs] + list(tree.game_objs.values()) for o in objs]:
+            deps = tree.readable_deps.get(o) or []
+            readable[tree.abs(o)] = bool(deps) and object_source(o, deps).startswith(ee_dir)
+        objs = []
+        for path in sorted(linked):
+            label = tree.label(path)
+            o = objcode.read(path)
+            if o.format == 'none':
+                raise ValueError('%s is no object this reads (Mach-O, ELF, COFF)' % label)
+            if '/zx_game_traced' in label:
+                kind = 'traced'
+            elif '/fncheck_build/' in label:
+                kind = 'table'
+            elif readable.get(path) is False:
+                kind = 'readable'
+            else:
+                kind = 'runtime'
+            objs.append((path, label, o, kind))
+        return cls(objs)
+
+    def compiled(self):
+        """The objects whose code the keys read (the runtime's and the traced originals', not the readable ones, keyed
+        as source, nor the tables): their compile commands are no part of the base."""
+        return set(p for p, i in self.index.items() if self.kinds[i] in ('runtime', 'traced'))
+
+    def _stop_driver(self, node):
+        return node[0] != 'ext' and (self.kinds[node[0]] in ('table', 'readable') or
+                                     (self.kinds[node[0]] == 'traced' and node in self.entries))
+
+    def _stop_for(self, own=(), mine=None):
+        """Where a function's walk stops: the driver's part (in the base), the tables, another function's traced
+        original (answered from the recording), and a readable object's atoms other than mine's (readable code is in
+        the function's closure as source: Tree.closure_digest; its objects are walked from there)."""
+        def stop(node):
+            if node in self.driver and node not in own:
+                return True
+            if node[0] == 'ext':
+                return False
+            kind = self.kinds[node[0]]
+            return kind == 'table' or (kind == 'traced' and node in self.entries and node not in own) or \
+                (kind == 'readable' and node[0] != mine)
+        return stop
+
+    def object_reach(self, oi):
+        """The labels of the runtime atoms a readable object's code reaches past the driver, once per object."""
+        got = self._readable_objects.get(oi)
+        if got is None:
+            roots = [(oi, ai) for ai in range(len(self.prog.objs[oi][1].atoms))]
+            _, labels = self.prog.walk(roots, stop=self._stop_for(mine=oi), content=lambda node: node[0] != oi)
+            got = self._readable_objects[oi] = frozenset(labels)
+        return got
+
+    def part(self, game, addr, objects):
+        """The digest of what game's addr runs past the driver: its traced original's atoms and the runtime atoms
+        they reach, and the runtime atoms its readable files' objects (paths) reach. '' when there are none."""
+        own = set(self.traced.get((game, addr), ()))
+        _, labels = self.prog.walk(sorted(own), stop=self._stop_for(own))
+        labels = set(labels)
+        for oi in sorted(set(self.index[p] for p in objects if p in self.index)):
+            labels |= self.object_reach(oi)
+        return sha(*sorted(labels)) if labels else ''
+
+
 class Tree:
     """The digests a build's lines depend on (the block comment above)."""
 
@@ -1398,6 +1541,7 @@ class Tree:
         self.listed = None
         self._objects()
         self._sources(self.readable_objs)
+        self._code()
         self._base()
         self.save_digests()
         self.seconds = round(time.time() - t0, 1)
@@ -1654,9 +1798,15 @@ class Tree:
     def linked_objects(self):
         """The objects the checker's link takes (absolute paths): its link edge's explicit and implicit inputs, and
         those of the archives among them, to any depth; not its order-only inputs (built first, linked into nothing).
-        None when ninja cannot say (every input then, as before)."""
+        None when ninja cannot say (every input then, as before). A library no edge of the build makes (the Windows
+        worker's FFmpeg, built once by third_party/build-ffmpeg.sh) is no object: self.prebuilt (its file in the base,
+        Tree._base); cachekey2: the Windows worker's four FFmpeg .lib files made this None, so no link's code was read there."""
+        if getattr(self, '_linked', False) is not False:
+            return self._linked
+        self.prebuilt = set()
         out, seen = set(), set()
-        todo = [os.path.relpath(self.fncheck, self.build).replace('\\', '/')]
+        root = os.path.relpath(self.fncheck, self.build).replace('\\', '/')
+        todo = [root]
         try:
             while todo:
                 target = todo.pop()
@@ -1665,7 +1815,11 @@ class Tree:
                 seen.add(target)
                 text = self.ninja('-t', 'query', target)
                 inputs = re.search(r'^  input: [^\n]*\n((?:    [^\n]*\n)*)', text, re.M)
+                if not inputs and target != root and re.search(r'^  outputs:', text, re.M):
+                    self.prebuilt.add(self.abs(target))
+                    continue
                 if not inputs:
+                    self._linked = None
                     return None
                 for line in inputs.group(1).splitlines():
                     words = line.split()
@@ -1677,7 +1831,9 @@ class Tree:
                     elif path.endswith(('.a', '.lib')):
                         todo.append(path)
         except (subprocess.CalledProcessError, OSError):
+            self._linked = None
             return None
+        self._linked = out
         return out
 
     def run_objects(self, objects, deps):
@@ -1776,6 +1932,7 @@ class Tree:
         self.sources = {}                               # the source a registration names (__FILE__) -> the file compiled
         self.unresolved = []                            # [(game, addr, name, file)]: bodies not found (unresolved_body)
         self._every = None
+        self.view_objs, self._objects_of = list(objs), None   # (the view's readable objects: Tree.runtime_part)
         for o in objs:
             deps = self.readable_deps[o]
             src = object_source(o, deps)
@@ -2068,17 +2225,42 @@ class Tree:
                 game, len(self.game_objs[game]), sum(1 for k in v.regs if k[0] == game), time.time() - t0))
         return v
 
+    def _code(self):
+        """The link's code (Code): its driver's part the base, each function's own part in its key. Without it (ninja
+        names no objects, an object this cannot read) the base is the sources' digests as before (verdict_input)."""
+        self.code = None
+        if os.environ.get('ZX_FNCORPUS_SOURCE_BASE'):
+            return   # (the base of the sources, as before cachekey2: a measurement's other side)
+        t0 = time.time()
+        try:
+            self.code = Code.of_tree(self)
+        except (ValueError, OSError, struct.error) as e:
+            log('keys: the link\'s code not read (%s): the base is the sources\' digests' % e)
+            return
+        log('keys: the link\'s code: %d objects, %d atoms, %d of them the driver\'s (the base), in %.1f s' % (
+            len(self.code.labels), self.code.atoms, self.code.base_atoms, time.time() - t0))
+
     def _base(self):
-        files = sorted(f for f in self.base_files if not self.is_system(f) and self.verdict_input(f))
+        if self.code is not None:
+            # (the tables zx-fncheck is built with, as text: the frame table's locals are each function's; and the
+            # code the driver can run, as the build compiled it)
+            files = sorted(set(f for f in self.base_files if not self.is_system(f) and self.is_table(f) and
+                               self.verdict_input(f)) | getattr(self, 'prebuilt', set()))
+        else:
+            files = sorted(f for f in self.base_files if not self.is_system(f) and self.verdict_input(f))
         self.frame_locals = None
         parts = sorted('%s=%s' % (self.label(f), self.frames_digest(f) if self.is_frame_table(f) else self.file_digest(f))
                        for f in files)
-        cmds = self.commands()
+        # (with the link's code: not the compile commands of the objects read as code, whose flags are in their bytes,
+        # cachekey2: a definition that is a digest of the VU1 sources, ZX_VU1_GENERATOR_KEY on vu1_aot_generator.cpp,
+        # moved the base for every VU1 change)
+        cmds = self.commands(self.code.compiled() if self.code is not None else ())
         try:
             cc = subprocess.run([self.compiler, '--version'], capture_output=True, text=True).stdout
         except OSError:
             cc = self.compiler
-        self.base = sha(cc, *(sorted(cmds) + parts))
+        code = ['code %s %d' % (self.code.base, self.code.base_atoms)] if self.code is not None else []
+        self.base = sha(cc, *(sorted(cmds) + parts + code))
         self.base_count = len(files)
 
     def env_names(self):
@@ -2098,6 +2280,12 @@ class Tree:
                     names |= set(n.decode() for n in ENV_NAME.findall(data))
             self._env_names = names
         return self._env_names
+
+    def is_table(self, path):
+        """Whether a file is one of the tables zx-fncheck is built with (B/runtime/fncheck_build/; Windows: the label case
+        folded, as verdict_input reads it)."""
+        name = self.label(path).lower() if ON_WINDOWS else self.label(path)
+        return name.startswith(_ci('B/runtime/fncheck_build/'))
 
     def is_frame_table(self, path):
         return self.label(path) == _ci('B/runtime/fncheck_build/readable_frames.cpp')
@@ -2153,10 +2341,15 @@ class Tree:
         return ['locals %x=%s' % (a, ','.join('%x' % p for p in self.frame_locals[(game, a)]))
                 for a in sorted(addrs) if (game, a) in self.frame_locals]
 
-    def commands(self):
-        """zx-fncheck's build commands, paths and file lists made alike."""
+    def commands(self, compiled=()):
+        """zx-fncheck's build commands, paths and file lists made alike; not the compiles of the objects in compiled
+        (absolute paths: those the keys read as code, Code.compiled)."""
         cmds = set()
         for line in self.ninja('-t', 'commands', FNCHECK_TARGET).split('\n'):
+            out = re.search(r'(?:^|\s)(?:-o\s+|[/-]Fo)(\S+\.(?:o|obj))(?:\s|$)', line)
+            if compiled and out and re.search(r'(?:^|\s)[/-]c(?:\s|$)', line) and \
+                    self.abs(out.group(1).strip('"')) in compiled:
+                continue
             # (the paths of the tree and the build named alike in every worktree;
             # the fetched dependencies wherever they are: the main checkout's
             # build-ai takes them from out/build-macos/_deps, a worktree's
@@ -2339,6 +2532,32 @@ class Tree:
         return self._impls
 
     def orig(self, game, addr):
+        """The digest of what the replay of game's addr runs besides its readable source: its traced original's text,
+        and with the link's code (Code), the code its traced original and its readable files' objects reach past
+        the driver's (Tree.runtime_part)."""
+        own = self.original(game, addr)
+        if getattr(self, 'code', None) is None:
+            return own
+        return sha(own, self.runtime_part(game, addr))
+
+    def runtime_part(self, game, addr):
+        """Code.part of game's addr: from its traced original's atoms and the objects of the files its readable
+        closure has (closure_digest)."""
+        v = self.view(game)
+        k = (game, addr)
+        if k not in v.closure:
+            v.closure_digest(game, addr)
+        files = v.closure.get(k, (set(), set()))[1]
+        if getattr(v, '_objects_of', None) is None:
+            v._objects_of = collections.defaultdict(list)
+            for o in v.view_objs:
+                deps = v.readable_deps.get(o) or []
+                if deps:
+                    v._objects_of[object_source(o, deps)].append(v.abs(o))
+        objects = [p for f in sorted(f for f in files if isinstance(f, str)) for p in v._objects_of.get(f, ())]
+        return self.code.part(game, addr, objects)
+
+    def original(self, game, addr):
         folder = 'fncheck_traced' if game == 'ai' else 'fncheck_traced_' + game
         traced = os.path.join(self.build, 'runtime', folder, 'traced_%x.cpp' % addr)
         try:

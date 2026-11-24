@@ -33,6 +33,7 @@
 #include "bmx/weapon/player_weapon.h"
 #include "bmx/weapon/weapon.h"
 #include "zge/collision/dynamics.h"
+#include "zge/memory/regions.h"
 #include "zge/game.h"
 #include "zge/platform/tasks.h"
 #include "zge/render/display.h"
@@ -322,22 +323,14 @@ namespace game::bmx
         constexpr rider::RiderVisit kCheckRiderModelReady{sym::checkRiderModelReady};
 
         // The engine's parts of the loading with no body in BMX XXX's
-        // instance: the heap's free bytes (inferred); the particle system on
-        // or off (inferred: the word emitSparks and spawnPolys test); every
-        // asset library's open file closed.
+        // instance: the particle system on or off (inferred: the word
+        // emitSparks and spawnPolys test); every asset library's open file
+        // closed.
         // Scaffolding (address-call): until each has its body.
         namespace calls
         {
-            uint32_t freeHeapBytes(uint32_t unread, uint32_t unread2) { return ee::game<uint32_t>(sym::freeHeapBytes, unread, unread2); }
             void setParticlesOn(uint32_t on) { ee::game(sym::setParticlesOn, on); }
             void closeLibraryFiles() { ee::game(sym::closeLibraryFiles); }
-        }
-
-        // (The loading passes the engine's call two words it does not read.)
-        constexpr uint32_t kUnreadBytes = 0x400;
-        uint32_t freeHeapBytes()
-        {
-            return calls::freeHeapBytes(kUnreadBytes, 0);
         }
 
         // The loading frame's text for this level: the session's set of
@@ -410,11 +403,11 @@ namespace game::bmx
                     zge::memoryCopy(request->characterBike, &character->bike, sizeof(request->characterBike));
                     request->model = playerCharacter(player)->model;
                     (*g_playerRiders)[player] = rider::newRider(request);
-                    *g_levelLoadFreeBytes = freeHeapBytes();
+                    *g_levelLoadFreeBytes = zge::freeHeapBytes();
                     owner->player = static_cast<uint8_t>(player);
                     owner->rider = (*g_playerRiders)[player];
                     (*g_playerWeapons)[player] = newPlayerWeapon(owner);
-                    *g_levelLoadFreeBytes = freeHeapBytes();
+                    *g_levelLoadFreeBytes = zge::freeHeapBytes();
                 }
                 return;
             }
@@ -607,10 +600,10 @@ namespace game::bmx
             }
             break;
         case kLoadScene:
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             if (*g_currentLevel != kParkLevel && enterLevelScene(text) == 0)
                 return 0;
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             calls::setParticlesOn(0);
             setLoadStep(loadStep() + 1);
             break;
@@ -673,21 +666,21 @@ namespace game::bmx
             setUpPlayerWeapons();
             setUpWeapons();
             objectives::loadObjectiveIcons();
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             makeRiders(request, owner);
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             setupNpcs();
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             setLoadStep(loadStep() + 1);
             break;
         case kLoadRiderModels:
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             *allReady = 1;
             rider::forEachRider(kCheckRiderModelReady, allReady);
             if (*allReady == 0)
                 break;
             calls::closeLibraryFiles();
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             setLoadStep(loadStep() + 1);
             break;
         case kLoadObjects:
@@ -706,14 +699,14 @@ namespace game::bmx
             {
                 *g_levelObjectsSaved = 0;
             }
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             setLoadStep(loadStep() + 1);
             break;
         }
         case kLoadScripts:
             zge::linkCutSceneScripts();
             zge::runCutSceneSetupScripts();
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             setLoadStep(loadStep() + 1);
             break;
         case kHideLoading:
@@ -731,10 +724,10 @@ namespace game::bmx
                     zge::releaseSceneCamera(g_bmxZgui->camera);
                     g_bmxZgui->camera = {};
                 }
-                *g_levelLoadFreeBytes = freeHeapBytes();
+                *g_levelLoadFreeBytes = zge::freeHeapBytes();
                 initActionCameras();
                 makeCameras(camera);
-                *g_levelLoadFreeBytes = freeHeapBytes();
+                *g_levelLoadFreeBytes = zge::freeHeapBytes();
                 setLoadStep(loadStep() + 1);
             }
             break;
@@ -742,7 +735,7 @@ namespace game::bmx
             openOverlay();
             if (*g_sessionKind == kParkTestSession)
                 showOverlayDisplay(kOverlayHealth, 0);
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             playOverlayFade(kOverlayWholeScreen, kOverlayFadeSetOut);
             setLoadStep(loadStep() + 1);
             break;
@@ -754,7 +747,7 @@ namespace game::bmx
             *g_currentPlayer = 0;
             gameSetup();
             startSession();
-            *g_levelLoadFreeBytes = freeHeapBytes();
+            *g_levelLoadFreeBytes = zge::freeHeapBytes();
             setLoadStep(loadStep() + 1);
             break;
         case kCloseModels:

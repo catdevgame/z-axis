@@ -35,7 +35,7 @@
 #include "machine.h"
 #include "gs/gs_backend.h"
 #include "runtime/game_files.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/texture_replace.h"
 #include "runtime/boot_config.h"
 #include "runtime/session.h"

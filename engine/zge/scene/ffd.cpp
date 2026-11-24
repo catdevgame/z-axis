@@ -260,6 +260,31 @@ namespace zge
         constexpr ee::Float kOnCorner = 0.001f;
         constexpr ee::Float kOnCornerWeight = 999.99994f;
 
+        // findFfdCell's y and z searches: by rows, by layers.
+        enum class FfdSearch
+        {
+            Rows,
+            Layers,
+        };
+
+        // The points one step of a search moves: a row's or a layer's, of
+        // the lattice read last (g_loadingFfdLattice).
+        uint32_t searchStep(FfdSearch search)
+        {
+            const ee::Ptr<FfdLattice> stride = *g_loadingFfdLattice;
+            return search == FfdSearch::Rows ? stride->countX : stride->countX * stride->countY;
+        }
+
+        // The point a search tests for its row (layer) `line`: ZGE3's is the
+        // one along x from the line's start (point 1 for the first, with no
+        // step read), ZGE4's the next line's first.
+        uint32_t searchedPoint(uint32_t line, FfdSearch search)
+        {
+            if constexpr (game::readable::kIsBmx)
+                return searchStep(search) * (line + 1);
+            return line == 0 ? 1 : searchStep(search) * line + 1;
+        }
+
         void clearInverseSlots()
         {
             for (uint32_t slot = 0; slot < kFfdInverseSlots; ++slot)
@@ -273,11 +298,13 @@ namespace zge
     // their weights 0. The inverse slots are cleared.
     //
     // Kept as the original has it: x's search tests each next point along
-    // x, but y's and z's test the point one along x from the row's (layer's)
-    // start, which on a regular grid is the row's own line, so they find the
-    // row and layer past the vertex's; they step by the size of the lattice
-    // read last (g_loadingFfdLattice), not this one's; and an axis one point
-    // long leaves the step of the axis before it, which is added again.
+    // x, but ZGE3's y and z searches test the point one along x from the
+    // row's (layer's) start, which on a regular grid is the row's own line,
+    // so they find the row and layer past the vertex's (ZGE4's test the next
+    // row's or layer's first point: searchedPoint); both step by the size of
+    // the lattice read last (g_loadingFfdLattice), not this one's; and an
+    // axis one point long leaves the step of the axis before it, which is
+    // added again.
     void findFfdCell(uint32_t vertex, ee::Ptr<Vec4> position, ee::Ptr<FfdVertexWeights> weights, ee::Ptr<FfdLattice> lattice)
     {
         const ee::Ptr<Vec4> points = lattice->points;
@@ -295,13 +322,12 @@ namespace zge
         if (lattice->countY - 1 != 0)
         {
             step = 0;
-            if (!(position->y < points[1].y))
+            if (!(position->y < points[searchedPoint(0, FfdSearch::Rows)].y))
             {
-                const ee::Ptr<FfdLattice> stride = *g_loadingFfdLattice;
                 for (uint32_t y = 1; y < lattice->countY - 1; ++y)
                 {
-                    step = stride->countX * y;
-                    if (position->y < points[step + 1].y)
+                    step = searchStep(FfdSearch::Rows) * y;
+                    if (position->y < points[searchedPoint(y, FfdSearch::Rows)].y)
                         break;
                 }
             }
@@ -310,13 +336,12 @@ namespace zge
         if (lattice->countZ - 1 != 0)
         {
             step = 0;
-            if (!(position->z < points[1].z))
+            if (!(position->z < points[searchedPoint(0, FfdSearch::Layers)].z))
             {
-                const ee::Ptr<FfdLattice> stride = *g_loadingFfdLattice;
                 for (uint32_t z = 1; z < lattice->countZ - 1; ++z)
                 {
-                    step = stride->countX * stride->countY * z;
-                    if (position->z < points[step + 1].z)
+                    step = searchStep(FfdSearch::Layers) * z;
+                    if (position->z < points[searchedPoint(z, FfdSearch::Layers)].z)
                         break;
                 }
             }

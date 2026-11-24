@@ -5,7 +5,7 @@
 #include "MiniTest.h"
 
 #include "aggressive/overrides/aggressive_inline_careerscripts.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -206,8 +206,8 @@ void register_career_scripts_tests()
         {
             if (!std::getenv("ZX_XBOX_DIR"))
                 return;
-            ps2_xbox_disc::reset();
-            if (!ps2_xbox_disc::init())
+            zx::xbox_files::reset();
+            if (!zx::xbox_files::init())
                 return;
             struct Level
             {
@@ -220,7 +220,7 @@ void register_career_scripts_tests()
             for (const Level &level : levels)
             {
                 std::vector<uint8_t> bin;
-                if (!ps2_xbox_disc::readFile(std::string("levels/") + level.folder + "/" + level.folder + ".bin", bin))
+                if (!zx::xbox_files::readFile(std::string("levels/") + level.folder + "/" + level.folder + ".bin", bin))
                     continue;
                 Script before, after;
                 t.IsTrue(parse(bin, before), std::string(level.folder) + ": read");
@@ -250,7 +250,7 @@ void register_career_scripts_tests()
                 t.Equals(cs::restorePs2Texts(level.folder, bin), cs::Restored::Unrecognised,
                          std::string(level.folder) + ": not again");
             }
-            ps2_xbox_disc::reset();
+            zx::xbox_files::reset();
         });
     });
 }

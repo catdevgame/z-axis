@@ -24,9 +24,18 @@ The releases page has the app for Mac (Apple silicon, macOS 15 or later), Window
 Android 13 or later), with no game files in it, and `SHA256SUMS` to check the downloads against. The Mac and Windows
 apps are not signed by Apple or Microsoft, so each system asks once before the first start.
 
+**The release's files** (for launchers and scripts: the names keep this pattern from 1.4.0 on)
+
+- `Z-Axis-Collection-<version>-<platform>-<arch>.<ext>`, `<version>` as in the release's tag `v<version>`
+  (`1.4.0`): `mac-arm64.zip` (the app, zipped), `windows-x64.zip` (one folder with the program) and
+  `android-arm64.apk`. A new platform or architecture is a new `<platform>-<arch>`; these keep their names.
+- `SHA256SUMS`: a `<sha256>  <file name>` line for each of them, the APK included, as `shasum -a 256 -c` and
+  `sha256sum -c` read it; the release's notes list the same sums.
+- 1.3.1 and before named them `-mac.zip`, `-windows.zip` and `-android.apk`, with no `<arch>`.
+
 **Mac**
 
-1. Download `Z-Axis-Collection-<version>-mac.zip` and open it: Finder unzips it to `Z-Axis Collection.app`.
+1. Download `Z-Axis-Collection-<version>-mac-arm64.zip` and open it: Finder unzips it to `Z-Axis Collection.app`.
 2. Move the app into Applications (drag it onto Applications in Finder's sidebar). Do this before the first
    start: an app started from Downloads runs from a temporary copy.
 3. Open it. macOS says "Z-Axis Collection" Not Opened ("Apple could not verify ... is free of malware"), with
@@ -37,14 +46,14 @@ apps are not signed by Apple or Microsoft, so each system asks once before the f
 
 **Windows**
 
-1. Download `Z-Axis-Collection-<version>-windows.zip`, right-click it, Extract All, and put the folder where you
+1. Download `Z-Axis-Collection-<version>-windows-x64.zip`, right-click it, Extract All, and put the folder where you
    keep games. Start the app from the extracted folder, not from inside the zip.
 2. Open `Z-Axis Collection.exe`. Windows says "Windows protected your PC" (Microsoft Defender SmartScreen):
    click More info, then Run anyway. It asks only this once.
 
 **Android**
 
-1. Download `Z-Axis-Collection-<version>-android.apk` on the device and open it; Android asks once to allow
+1. Download `Z-Axis-Collection-<version>-android-arm64.apk` on the device and open it; Android asks once to allow
    installs from that app (the browser or file manager). It is made for dual-screen handhelds: the game on the top
    screen, the level's map, goals and tricks on the bottom one.
 2. Play with a gamepad, the handheld's own or a connected one. The first start opens Settings > Games, as below:
@@ -67,6 +76,16 @@ GameCube Disc). Settings > Games checks, repairs or removes a game's files. Your
 folder: deleting the app leaves them, and a new version finds them. When a new version makes some of a game's extras
 differently, it makes those again at its first start from the Xbox and GameCube images you set them up from (the
 Games page shows it); if an image is not there any more, its extras stay as they were and the app asks for it.
+
+**Updates**
+
+Settings > Check for Updates looks at the latest release (its `SHA256SUMS`): Enter checks, and when there is another
+version, Enter again downloads this platform's file, checks it against its sum and installs it. On a Mac and on
+Windows the app then starts again by itself, and the version it replaced is kept beside the app (on a Mac a hidden
+`.Z-Axis Collection update` folder next to it, on Windows the `update` folder in its folder), so Settings > Roll Back
+Update puts it back, offline. On Android the system asks to install the update and the app closes (open it again);
+Android has no Roll Back Update and is offered no older version, as its installer puts no older version of an app over
+a newer one. None of this touches your settings, saves or set-up games, and without a connection nothing changes.
 
 Keys, mouse and gamepads are `docs/CONTROLS.md`; the Settings pages in each game's menus are `docs/SETTINGS.md`; mods,
 texture packs and custom maps are `docs/MODS.md`.

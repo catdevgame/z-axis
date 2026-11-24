@@ -4,7 +4,7 @@
   career_ab.py run NAME --dir DIR [--spec SPEC] [--to TICKS] [--runner R] [--secs S] [--every N]
                         [--input career|logic|frontend|messages|split|editor|crane|pisser|vacuum|FILE]
                         [--packet-dump FROM:TO] [--clock K]
-  career_ab.py compare A B [--out FILE] [--list N] [--allow FILE] [--dumps-only|--state-only]
+  career_ab.py compare A B [--out FILE] [--list N] [--allow FILE] [--dumps-only|--state-only] [--whole-route]
   career_ab.py gate --dir DIR [--runner R] [--clock K] [--inputs a,b,...] [--jobs N] [--allow FILE] [--keep] [--voices] [--game dm2|bmx] [--spec SPEC] [--every N]
   career_ab.py stale --dir DIR [--runner R] [--clock K] [--inputs a,b,...] [--jobs N] [--list N] [--game dm2|bmx]
   career_ab.py script TRACE OUT [KEY=VAL ...]
@@ -28,16 +28,21 @@ ZX_ROUTES_CARD=DIR` starts from a copy of that card (under recomp/run), as route
 `compare` takes two such run directories (a NAME.log with [state] lines alone also works; its
 mangled lines are then counted and listed as not compared) and reports:
 
-  - the state log: every field at every tick from the first line to the last tick both reached.
+  - how far each run went (its run.txt, which `run` writes): each must reach its limit (--to), and with
+    --whole-route (gate's, stale's) the limit must cover the route, the tick its pad script ends at and
+    ROUTE_SETTLE more (check_reach). A run that ends early or a limit short of its route fails: the
+    gate's comparison is never shorter than the route.
+  - the state log: every field at every tick from the first line to the limit.
     The probe writes a line only when a field changed, so a run's value at a tick is its last line
     at or before that tick: comparing only the ticks both logged (the old statecmp.py) misses a field
-    that changes in one run and not in the other.
-  - the scratchpad: its hash at every vsync both runs have.
-  - RAM: every word of every dump the two runs share, by region; with --out every differing word.
-  - rendering: the hashes of what it is handed, at every vsync both runs have. `packets` finds the
+    that changes in one run and not in the other. (Without a run.txt: to the last line both logs have.)
+  - the scratchpad: its hash at every vsync both runs have, which must go to the limit.
+  - RAM: every word of every dump the two runs share, by region; with --out every differing word. Every
+    dump the limit makes (one each --every ticks) must be in both.
+  - rendering: the hashes of what it is handed, at every vsync both runs have, to the limit. `packets` finds the
     first differing word of a tick's stream in two runs made with --packet-dump.
-  - what it did not compare: ticks past the shorter run, ticks a mangled line hides, dumps only one
-    run has, and the state no dump or log holds (printed each time).
+  - what it did not compare: ticks past the limit, ticks a mangled line hides, and the state no dump or log
+    holds (printed each time).
 
 Nothing is left out by default. `--allow FILE[,FILE...]` names words expected to differ, each under its
 reason: counted apart, never dropped. Exit 0 only if nothing differs outside the allowed list and
@@ -133,6 +138,7 @@ import collections
 import fcntl
 import glob
 import json
+import math
 import os
 import re
 import struct
@@ -164,14 +170,25 @@ RAM_REGIONS = [  # the ELF's one segment and what the game keeps above it (a rep
 NOT_HELD = ('GPRs and FPU registers, IOP and SPU2 state, DMA and timers; VU memory, the GS registers and '
             'VRAM only through the streams that make them (a VU1 microprogram does not run: ZX_VU1_SKIP)')
 PACKET_STREAMS = ('vif1', 'gif', 'vif0', 'gs')
-# The merge gate's inputs and how far each goes (where its last route ends).
-GATE_INPUTS = (('career', 20000), ('logic', 36000), ('frontend', 31000), ('messages', 23500), ('split', 20000),
-               ('editor', 43000), ('crane', 11700), ('pisser', 12200), ('vacuum', 12700))
-GATE_INPUTS = GATE_INPUTS + (('play-civic', 21030), ('play-industrial', 21220), ('play-boardwalk', 20367), ('play-cannery', 20839), ('play-airfield', 21449), ('play-museum', 20295), ('play-tutorial', 14695), ('play-movielot', 33163))  # played sessions (tools/playbot/ai.py)
+# The merge gate's inputs and how far each goes: past where its route ends (ROUTE_SETTLE, check_reach; gatecover1
+# measured each route's end tick at the gate's clock: career 3357, logic 10190, frontend 31322, messages 23993, split
+# 22022, editor 43963, crane 11754, pisser 12277, vacuum 12745; the played sessions 13 ticks past their script's end).
+GATE_INPUTS = (('career', 20000), ('logic', 36000), ('frontend', 32000), ('messages', 24600), ('split', 22700),
+               ('editor', 44600), ('crane', 12400), ('pisser', 12900), ('vacuum', 13400))
+GATE_INPUTS = GATE_INPUTS + (('play-civic', 21700), ('play-industrial', 21900), ('play-boardwalk', 21000), ('play-cannery', 21500), ('play-airfield', 22100), ('play-museum', 21000), ('play-tutorial', 15400), ('play-movielot', 33800))  # played sessions (tools/playbot/ai.py)
 # Industrial's pause menu Save with the app's settings pages on: the save screen in the zgui heap the level shares with its
 # ParkEditor.zsc and the pages (the hang of 2026-11-15: a run that stops short of its end fails, below)
 GATE_INPUTS = GATE_INPUTS + (('save-industrial', 4000),)
 GATE_CLOCK = 4096
+# A run's limit covers its route: the tick its pad script ends at (script_end, route_end_tick: its last press let go,
+# on the script's clock as the run's anchors moved it) and ROUTE_SETTLE vsyncs more for what that press does (the routes'
+# own waits after their last press are 300 to 500). A limit short of that fails the compare (check_reach), as a run that
+# stops short of its limit does: the comparison is never quietly shorter than the route (gatecover1: DM2's frontend and
+# editor-0 compared to their last state change, ticks 2340 and 3126, of routes that ended at 8152 and 44709).
+ROUTE_SETTLE = 600
+# A run goes RUN_TAIL vsyncs past its limit before it is stopped: the hash files (packets, scratchpad) end at their last
+# whole stdio buffer when the runner is killed (whole_lines), so each still has every vsync to the limit.
+RUN_TAIL = 64
 # Another game's A/B (--game dm2, bmx): its checks are AI's over its own run script, inputs (routes of
 # tools/dm2routes.py, bmxroutes.py in DM2's repository), fields, RAM map and allow list. AI's are the constants above.
 GAMES = {'dm2': {
@@ -179,8 +196,11 @@ GAMES = {'dm2': {
     'regions': [(0x00000000, 0x00100000, 'below the ELF'), (0x00100000, 0x0025B780, 'ELF text and data'),
                 (0x0025B780, 0x003040B0, 'bss'), (0x003040B0, 0x01EF0000, 'heap'), (0x01EF0000, 0x01F00000, 'main stack'),
                 (0x01F00000, 0x02000000, 'above the main stack')],
-    'gate': (('fr-woodward', 12000), ('fr-trainyards', 12000), ('pq-woodward', 14000), ('se-woodward', 15000), ('frontend', 6000),
-             ('editor-0', 20000), ('play-p1-se0', 15292), ('play-p3-fr0', 16782),  # those two played (ab_inputs/dm2-play-*)
+    # (each past its route's end, as AI's: fr-woodward's at tick 14252, fr-trainyards' 14361, pq-woodward's 15661,
+    # se-woodward's 17737, frontend's 7852 (routes5's route 17084), editor-0's 35110 (routes5's 43756), the played ones'
+    # 15293 and 16783, menus' 14747)
+    'gate': (('fr-woodward', 14900), ('fr-trainyards', 15000), ('pq-woodward', 16300), ('se-woodward', 18400), ('frontend', 17700),
+             ('editor-0', 44400), ('play-p1-se0', 15900), ('play-p3-fr0', 17400),  # those two played (ab_inputs/dm2-play-*)
              ('menus', 15400)),  # the app's Settings page from Options and the pause menu (ZX_GAME_SETTINGS_MENUS=1, both sides)
     # (with render_path = records, the defaults' native drawing since nativedef1: the records' own list too)
     'allow': 'ab_allow_dm2.txt,ab_allow_records_dm2.txt',
@@ -191,13 +211,15 @@ GAMES = {'dm2': {
     'regions': [(0x00000000, 0x00100000, 'below the ELF'), (0x00100000, 0x002A2680, 'ELF text and data'),
                 (0x002A2680, 0x00314B30, 'bss'), (0x00314B30, 0x01EF0000, 'heap'), (0x01EF0000, 0x01F00000, 'main stack'),
                 (0x01F00000, 0x02000000, 'above the main stack')],
-    'gate': (('frontend', 9000), ('s-dam', 10202), ('s-rmpg', 11061), ('s-root', 11459), ('s-muly2', 7562), ('s-dam2-end', 10922),
-             ('menus', 16300),  # (as DM2's)
+    # (each past its route's end: frontend's at tick 8860 (routes5's route 9946), s-dam's 10189, s-rmpg's 11048, s-root's
+    # 11431, s-muly2's 7549, s-dam2-end's 13894, menus' 15835, pe-session's 11976)
+    'gate': (('frontend', 10600), ('s-dam', 10800), ('s-rmpg', 11700), ('s-root', 12100), ('s-muly2', 8200), ('s-dam2-end', 14500),
+             ('menus', 16500),  # (as DM2's)
              # the park editor's SESSION with a saved park (custom0's six-zone park, a native save: ab_inputs/bmx-pe-session),
              # played by bikepark.py past the session's two-minute clock and PLAY AGAIN: the park list through
              # saveSystemTask's file menu (BMX XXX's kind 16), the park built, ridden, the game over screen (bmxbot1: no
              # other input loads a saved park, and the readable saveSystemTask's wrong kinds reached the main build)
-             ('pe-session', 11600)),
+             ('pe-session', 12600)),
     # (bmxbot1) pe-session's RAM words are leftover w lanes (GeoObject bounds, cameras, ray hits: stack a whole
     # register's spill leaves, which the readable frames do not hold) whose readers are not proven yet: reported, not
     # counted, until the w-lane dataflow proof lands. Its fields, packets and scratchpad are counted, and the park must
@@ -261,6 +283,73 @@ def hold(path, what):
     f.write('pid %d: %s\n' % (os.getpid(), ' '.join(sys.argv[1:])[:200]))
     f.flush()
     return f
+
+
+PAD_ORIGIN = re.compile(r'\[pad\] script origin at vsync tick (\d+)')
+PAD_SYNC = re.compile(r'\[pad\] sync (\d+) at script (-?\d+)v \(tick (\d+)\)')
+RUN_STOP = re.compile(r'^stopped at tick (\d+) ', re.M)
+
+
+def script_end(script):
+    """(the vsync its last press is let go or its last anchor is, on its own clock; how many anchors) of a ZX_PAD_SCRIPT,
+    read as runtime/pad_script.cpp parses it: '<t>:<BUTTON or AXIS=v>[:<duration>]' (0.25 s without one), '<t>:SYNC=<cond>'
+    and '<t>:WAIT=<cond>' (the anchors), a time in vsyncs with a 'v', else in seconds."""
+    def vsyncs(text):
+        return float(text[:-1]) if text[-1:] in ('v', 'V') else float(text) * 59.94
+    end, anchors = 0.0, 0
+    for item in script.split(','):
+        first, _, rest = item.strip().partition(':')
+        what, _, duration = rest.partition(':')
+        try:
+            start = vsyncs(first)
+            length = vsyncs(duration) if duration else 0.25 * 59.94
+        except ValueError:
+            continue
+        if what.startswith(('SYNC=', 'WAIT=')):
+            anchors += 1
+            end = max(end, start)
+        elif what:
+            end = max(end, start + length)
+    return int(-(-end // 1)), anchors
+
+
+def route_end_tick(log, end, anchors):
+    """(the vsync tick a run's pad script reached `end` of its clock at, or None; why not). The runner's log has the
+    script's origin and each anchor as it is passed (runtime/pad.cpp: '[pad] script origin at vsync tick N', '[pad]
+    sync I at script Tv (tick N)'); the clock goes with the vsync tick from the origin and from each anchor, where it
+    jumped or stood to the anchor's time. A script that stands at an anchor its run never met did not reach its end."""
+    origin, passed = None, []
+    try:
+        with open(log, errors='replace') as lines:
+            for line in lines:  # (search, not match: another thread's text can stand before a line)
+                found = PAD_ORIGIN.search(line)
+                if found and origin is None:
+                    origin = int(found.group(1))
+                found = PAD_SYNC.search(line)
+                if found:
+                    passed.append((int(found.group(2)), int(found.group(3))))
+    except OSError:
+        return None, 'no log'
+    if origin is None:
+        return None, 'the script never started'
+    if len(passed) < anchors:
+        return None, 'it stood at anchor %d of %d' % (len(passed) + 1, anchors)
+    at, tick = passed[-1] if passed else (0, origin)
+    return tick + end - at, ''
+
+
+def last_state_tick(path):
+    """The last vsync tick of a state log's [state] and [pad-state] lines (0 with none)."""
+    last = 0
+    try:
+        with open(path, errors='replace') as lines:
+            for line in lines:
+                found = re.search(r'state\] tick=(\d+)', line)
+                if found:
+                    last = max(last, int(found.group(1)))
+    except OSError:
+        pass
+    return last
 
 
 def run(args):
@@ -328,9 +417,14 @@ def run(args):
                 elif not line.startswith('#'):
                     script += line.strip()
     ticks = range(args.every, args.to + 1, args.every) if args.every else []
+    if script.startswith('@'):
+        with open(script[1:]) as f:
+            end, anchors = script_end(f.read())
+    else:
+        end, anchors = script_end(script)
     env.update({
         'RUN_DIR': root, 'RUNNER': args.runner, 'ZX_PAD_SCRIPT': script.rstrip('\n'), 'ZX_PAD_SCRIPT_CLOCK': 'vsync',
-        'ZX_HOST_INPUT': '0', 'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1', 'ZX_SAVES': 'card', 'STOP_TICK': str(args.to),
+        'ZX_HOST_INPUT': '0', 'ZX_GS_NULL': '1', 'ZX_VU1_SKIP': '1', 'ZX_SAVES': 'card', 'STOP_TICK': str(args.to + RUN_TAIL),
         'ZX_STATE_LOG': fields, 'ZX_STATE_LOG_FILE': os.path.join(out, 'state.log'),
         'ZX_DUMP_PREFIX': os.path.join(out, 'dump'),
         'ZX_PACKET_LOG': os.path.join(out, 'packets.txt'),
@@ -363,11 +457,25 @@ def run(args):
         f.write('runner %s\nspec %s\nto %d\ninput %s\nfields %s\nclock %d\n' % (args.runner, args.spec, args.to, args.input, fields, args.clock))
         if other:
             f.write('game %s\n' % args.game)
+        f.write('every %d\nscript_end %d %d\n' % (args.every or 0, end, anchors))
     if cards:  # (run-game.sh keeps a card that is there)
         shutil.copytree(cards, os.path.join(out, 'mc0'))
     run_game = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'run-game-dm2.sh' if other else 'run-game.sh')   # (tools/checks)
-    r = subprocess.run([run_game, args.name, str(args.secs), args.runner], env=env)
+    r = subprocess.run([run_game, args.name, str(args.secs), args.runner], env=env, stdout=subprocess.PIPE, text=True)
+    sys.stdout.write(r.stdout)
+    sys.stdout.flush()
     subprocess.run(['rm', '-rf', os.path.join(out, 'home'), os.path.join(out, 'app')])
+    # How far the run went (the tick run-game.sh stopped it at; else the last its state log saw, and why it ended) and
+    # the tick its script reached its end at: compare's check_reach.
+    stops = RUN_STOP.findall(r.stdout)
+    if stops:
+        reached, how = int(stops[-1]), 'stopped'
+    else:
+        reached = last_state_tick(os.path.join(out, 'state.log'))
+        how = 'ran out of time' if 'stopped at time limit' in r.stdout else 'exited'
+    tick, why = route_end_tick(os.path.join(out, args.name + '.log'), end, anchors)
+    with open(os.path.join(out, 'run.txt'), 'a') as f:
+        f.write('reached %d %s\nroute_end %s\n' % (reached, how, tick if tick is not None else 'none ' + why))
     return r.returncode
 
 
@@ -477,13 +585,18 @@ def as_float(text):
     return struct.unpack('<f', struct.pack('<I', int(text, 16)))[0]
 
 
-def compare_state(a_dir, b_dir, report, problems):
+def compare_state(a_dir, b_dir, report, problems, window=None):
+    """Every field at every tick to `window` (the runs' limit, check_reach), or with no run.txt to the last line both
+    logs have."""
     a, b = StateLog(a_dir), StateLog(b_dir)
     if not a.lines or not b.lines:
         report('state: no lines (%d and %d)' % (len(a.lines), len(b.lines)))
         problems.append('no state lines')
         return
-    last = min(a.last, b.last)
+    # (A log has a line only when a field changed, so its last line is its last change, not how far it went: a menu or
+    # the editor leaves the fields alone long before a route's end, and a change one run has after the other's last
+    # change would go unseen. With the limit both runs reached, each run's value carries to it.)
+    last = window if window is not None else min(a.last, b.last)
     only_a, only_b = set(a.fields) - set(b.fields), set(b.fields) - set(a.fields)
     fields = [f for f in a.fields if f in b.fields]
     report('state: %s lines to tick %d, %s lines to tick %d; %d fields compared at every tick to tick %d' % (
@@ -493,7 +606,7 @@ def compare_state(a_dir, b_dir, report, problems):
     if only_a or only_b:
         report('  NOT COMPARED: fields in one run only: %s' % sorted(only_a | only_b))
         problems.append('fields in one run only')
-    if max(a.last, b.last) > last:
+    if window is None and max(a.last, b.last) > last:
         report('  NOT COMPARED: ticks %d to %d (the shorter run stopped)' % (last + 1, max(a.last, b.last)))
     for name, log in (('A', a), ('B', b)):
         if log.mangled:
@@ -532,6 +645,12 @@ NODE_LOCAL, NODE_WORLD = 0x10, 0x50
 G_FOLLOW_CAMERAS, FOLLOW_CAMERA_BYTES, FOLLOW_CAMERA_PLAYER = 0x24C9D0, 0x80, 0x04
 PLAYER_BOB_CHANNELS, CHANNEL_SCALE_W = (0x908, 0x90C), 0x1C
 SPLASH_RING_POINTS = 16
+# A freed ring's fragment (splash_ring_w): at least 4 points (two steps); the ring step in radians (g_ringStep: 0xFFF
+# of a 0x10000 turn, 9.6e-5 short of a sixteenth, which a mesh of 16 sides turns by: play-cannery's sphere at
+# 0xCD5230); each step's turn within 3e-5 of it and the stretch's mean within 1.5e-5 (rings measured: 1.3e-5 and 2e-6 at
+# most; that sphere 9.5e-5); consecutive chords equal to 1e-4 (8e-6 measured), none under a hundredth.
+SPLASH_RING_FRAGMENT, SPLASH_RING_STEP = 4, 0xFFF * 2 * math.pi / 0x10000
+SPLASH_RING_TURN, SPLASH_RING_MEAN_TURN, SPLASH_RING_SAME_CHORD, SPLASH_RING_CHORD = 3e-5, 1.5e-5, 1e-4, 0.01
 HEAPS, HEAP_COUNT, HEAP_BYTES = 0x2984D0, 128, 0x14  # heaps
 HEAP_BLOCK_FREE, HEAP_BLOCK_BYTES, HEAP_BLOCK_HEADER = 0x08, 0x0C, 0x10
 LONGEST_WALK = 1 << 16
@@ -611,11 +730,31 @@ def node_w_lanes(dump):
 def splash_ring_w(dump):
     """w of a point of a splash ring, alive or freed. A ring has no list of its own and the memory allocateSized falls
     back on keeps no walkable blocks (a freed ring's head goes to the next record first), so the points say what they
-    are: the word is lane w of a run of at least 16 quadwords at one height."""
+    are: the word is lane w of a run of at least 16 quadwords at one height, or of what is left of a freed ring whose
+    memory a later record took in part (play-cannery t21000: 10 points), told by the ring's own geometry: at least
+    SPLASH_RING_FRAGMENT consecutive points at one height, each the one before turned about the ring's centre by the
+    ring step (spawnSplashRing: g_ringStep 0xFFF, vec3RotateY), so consecutive chords are as long and each turns from
+    the last by the step."""
+    def height(quad):
+        return dump.word(quad + 4)
+
+    def point(quad):
+        x, _, z = struct.unpack_from('<3f', dump.data, quad) if 0 <= quad <= len(dump.data) - 12 else (0.0, 0.0, 0.0)
+        return x, z
+
+    def ring_turn(quad):
+        """The turn at quad when quad - 0x10, quad and quad + 0x10 are three consecutive points of one ring, else None."""
+        (x0, z0), (x1, z1), (x2, z2) = point(quad - 0x10), point(quad), point(quad + 0x10)
+        a, b = (x1 - x0, z1 - z0), (x2 - x1, z2 - z1)
+        la, lb = math.hypot(*a), math.hypot(*b)
+        if not (la >= SPLASH_RING_CHORD and lb >= SPLASH_RING_CHORD and abs(la - lb) <= SPLASH_RING_SAME_CHORD * la):
+            return None
+        turn = math.atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1])
+        return turn if abs(turn - SPLASH_RING_STEP) <= SPLASH_RING_TURN else None
+
     def still_a_ring(address):
         if address & 0xF != 0xC:
             return False
-        height = lambda quad: dump.word(quad + 4)
         first = last = address & ~0xF
         if not height(first):
             return False
@@ -623,7 +762,28 @@ def splash_ring_w(dump):
             first -= 0x10
         while height(last + 0x10) == height(last):
             last += 0x10
-        return (last - first) // 0x10 + 1 >= SPLASH_RING_POINTS
+        if (last - first) // 0x10 + 1 >= SPLASH_RING_POINTS:
+            return True
+        # A fragment: a stretch of ring steps within the run at the word's height that holds the word's point. A
+        # step's middle point m stands for m - 0x10, m and m + 0x10, so the word's point is in a stretch through one
+        # of the three middles about it.
+        def turn(quad):
+            return ring_turn(quad) if first < quad < last else None
+
+        quad = address & ~0xF
+        for at in (quad - 0x10, quad, quad + 0x10):
+            if turn(at) is None:
+                continue
+            low = high = at
+            while turn(low - 0x10) is not None:
+                low -= 0x10
+            while turn(high + 0x10) is not None:
+                high += 0x10
+            steps = [turn(m) for m in range(low, high + 0x10, 0x10)]
+            if (len(steps) + 2 >= SPLASH_RING_FRAGMENT
+                    and abs(sum(steps) / len(steps) - SPLASH_RING_STEP) <= SPLASH_RING_MEAN_TURN):
+                return True
+        return False
 
     return Test(still_a_ring)
 
@@ -1373,7 +1533,8 @@ def compare_dump(path_a, path_b):
     return words, a, b
 
 
-def compare_ram(a_dir, b_dir, report, problems, allowed_lists, out, listed):
+def compare_ram(a_dir, b_dir, report, problems, allowed_lists, out, listed, wanted=()):
+    """`wanted`: the dumps the runs' limit and interval make (check_reach), each in both runs."""
     allow, frame_table = allowed_lists
 
     def dumps(directory):
@@ -1381,12 +1542,17 @@ def compare_ram(a_dir, b_dir, report, problems, allowed_lists, out, listed):
 
     a, b = dumps(a_dir), dumps(b_dir)
     common = sorted(set(a) & set(b), key=lambda s: (len(s), s))
+    missing = sorted((set(wanted) - set(a)) | (set(wanted) - set(b)), key=lambda s: (len(s), s))
+    if missing:
+        report('RAM: dumps the limit makes that a run lacks: %s' % missing)
+        problems.append('RAM dumps missing: %s' % ','.join(missing))
     if not common:
         report('RAM: NOT COMPARED: no dump in both runs (%d and %d dumps)' % (len(a), len(b)))
         problems.append('no RAM dumps')
         return
     if set(a) ^ set(b):
         report('RAM: NOT COMPARED: dumps in one run only: %s' % sorted(set(a) ^ set(b)))
+        problems.append('RAM dumps in one run only')
     total = 0
     persistent = collections.Counter()
     sink = open(out, 'w') if out else None
@@ -1458,9 +1624,18 @@ def scratchpad_hashes(directory):
     return hashes
 
 
-def compare_scratchpad(a_dir, b_dir, report, problems):
+def short_of(name, hashes, window, report, problems):
+    """A run's per-vsync hashes that end before the limit both runs reached (check_reach): a problem."""
+    for side, ticks in zip('AB', hashes):
+        if window is not None and max(ticks, default=-1) < window:
+            report('%s: run %s\'s end at tick %d, short of the limit %d' % (name, side, max(ticks, default=-1), window))
+            problems.append('%s of run %s short of the limit' % (name, side))
+
+
+def compare_scratchpad(a_dir, b_dir, report, problems, window=None):
     a, b = scratchpad_hashes(a_dir), scratchpad_hashes(b_dir)
     common = sorted(set(a) & set(b))
+    short_of('scratchpad', (a, b), window, report, problems)
     if not common:
         report('scratchpad: NOT COMPARED: no hashes in both runs')
         return
@@ -1482,9 +1657,10 @@ def packet_lines(directory):
     return lines
 
 
-def compare_packets(a_dir, b_dir, report, problems, allow=()):
+def compare_packets(a_dir, b_dir, report, problems, allow=(), window=None):
     a, b = packet_lines(a_dir), packet_lines(b_dir)
     common = sorted(set(a) & set(b))
+    short_of('rendering', (a, b), window, report, problems)
     if not common:
         report('rendering: NOT COMPARED: no packet hashes in both runs')
         return
@@ -1603,24 +1779,83 @@ def compare(args):
     if len(clocks) == 2 and clocks[0] != clocks[1]:
         report('NOT COMPARABLE: the runs are at different clocks (%d and %d)' % tuple(clocks))
         problems.append('different clocks')
+    window, wanted = check_reach(args.a, args.b, report, problems, getattr(args, 'whole_route', False))
     if not args.dumps_only:
-        compare_state(args.a, args.b, report, problems)
+        compare_state(args.a, args.b, report, problems, window)
         compare_page(args.a, args.b, report, problems)
     if not args.state_only:
-        compare_scratchpad(args.a, args.b, report, problems)
-        compare_packets(args.a, args.b, report, problems, load_allow(args.allow)[0])
+        if getattr(args, 'no_scratchpad', False):
+            # (flavour_ab.py: the app's flavour has no cycle tracer, so it hashes no scratchpad; what the scratchpad
+            # holds reaches RAM, the streams and the fields, which are compared)
+            report('scratchpad: NOT HELD by run B (--no-scratchpad: the app\'s flavour), so not compared')
+        else:
+            compare_scratchpad(args.a, args.b, report, problems, window)
+        compare_packets(args.a, args.b, report, problems, load_allow(args.allow)[0], window)
         if getattr(args, 'ram_information', False):
             # (an input whose RAM words are not proven either way yet: reported, not counted; GAMES' ram_information)
             ram = []
-            compare_ram(args.a, args.b, report, ram, load_allow(args.allow), args.out, args.list)
+            compare_ram(args.a, args.b, report, ram, load_allow(args.allow), args.out, args.list, wanted)
             if ram:
                 report('RAM as information, not counted: ' + '; '.join(ram))
         else:
-            compare_ram(args.a, args.b, report, problems, load_allow(args.allow), args.out, args.list)
+            compare_ram(args.a, args.b, report, problems, load_allow(args.allow), args.out, args.list, wanted)
     report('NOT HELD by either run, so not compared: ' + NOT_HELD)
     report('RESULT: ' + ('identical in everything compared' if not problems else '%d differences: %s' % (
         len(problems), '; '.join(problems[:12]) + (' ...' if len(problems) > 12 else ''))))
     return 0 if not problems else 1
+
+
+def run_info(directory):
+    """A run's run.txt as {key: the rest of its line} (empty with none: a NAME.log alone)."""
+    try:
+        with open(os.path.join(directory, 'run.txt')) as f:
+            return dict(line.partition(' ')[::2] for line in f.read().splitlines() if line)
+    except OSError:
+        return {}
+
+
+def check_reach(a_dir, b_dir, report, problems, whole_route=False):
+    """(the tick both runs are compared to, the dumps both must have) of two runs of `run`; (None, ()) for logs
+    without a run.txt. The window is the runs' limit (--to): each run must have reached it (a run that ends early, by a
+    crash, a hang or the time limit, fails), and with whole_route (gate, stale: --whole-route) the limit must cover the
+    route, its script's end (route_end_tick) and ROUTE_SETTLE more, so the gate's comparison is never shorter than its
+    route. Without it (a run to a chosen tick: wlane.py's) a limit short of the route is only said."""
+    infos = [run_info(d) for d in (a_dir, b_dir)]
+    if not all('to' in i for i in infos):
+        return None, ()
+    limits = [int(i['to']) for i in infos]
+    if limits[0] != limits[1]:
+        report('NOT COMPARABLE: the runs have different limits (%d and %d)' % tuple(limits))
+        problems.append('different limits')
+    window = min(limits)
+    ends = []
+    for side, info in zip('AB', infos):
+        if 'reached' not in info or 'route_end' not in info:
+            report('reach: run %s: its run.txt does not say how far it went (a run of an older career_ab.py: run it again)' % side)
+            problems.append('run %s\'s reach unknown' % side)
+            continue
+        reached, how = info['reached'].split(' ', 1)
+        if int(reached) < window:
+            report('reach: run %s %s at tick %s, short of its limit %d' % (side, how, reached, window))
+            problems.append('run %s ended short (tick %s of %d)' % (side, reached, window))
+        end = info['route_end'].split(' ', 1)
+        if end[0] == 'none':
+            report('reach: run %s: its script never reached its end (%s)' % (side, end[1]))
+            problems.append('run %s\'s script short of its end' % side)
+            continue
+        ends.append(int(end[0]))
+        if int(end[0]) + ROUTE_SETTLE > window:
+            report('reach: run %s: the limit %d is short of its route: the script ends at tick %s, %d more for its last '
+                   'press is tick %d%s' % (side, window, end[0], ROUTE_SETTLE, int(end[0]) + ROUTE_SETTLE,
+                                           '' if whole_route else ' (not counted: no --whole-route)'))
+            if whole_route:
+                problems.append('limit short of the route (run %s ends at tick %d)' % (side, int(end[0]) + ROUTE_SETTLE))
+    report('reach: the route ends at tick %s (A, B; its script\'s end, %d vsyncs on its clock, then %d for its last press); '
+           'limit %d, reached %s' % (', '.join(str(e) for e in ends) or '?', int(infos[0].get('script_end', '0 0').split()[0]),
+                                     ROUTE_SETTLE, window, ', '.join(i.get('reached', '?').split(' ')[0] for i in infos)))
+    every = min(int(i.get('every', '0')) for i in infos)
+    wanted = ['t%d' % t for t in range(every, window + 1, every)] if every else []
+    return window, wanted
 
 
 def free_memory():
@@ -1766,8 +2001,10 @@ def run_game(directory):
 
 def compare_voices(a_dir, b_dir, report, problems, listed):
     a, b = voice_calls(a_dir), voice_calls(b_dir)
-    # (a run stops a few ticks past its limit: what comes after the last tick both reached is not compared)
-    last = min(max((c[-1][0] for c in calls.values() if c), default=0) for calls in (a, b))
+    # (a run stops a few ticks past its limit: what comes after the limit is not compared. With no run.txt limit, to the
+    # last tick both made a call at.)
+    limits = [int(run_info(d)['to']) for d in (a_dir, b_dir) if 'to' in run_info(d)]
+    last = min(limits) + 1 if len(limits) == 2 else min(max((c[-1][0] for c in calls.values() if c), default=0) for calls in (a, b))
     report('voice calls to tick %d' % last)
     for address, (name, _) in sorted(voice_table(run_game(a_dir)).items()):
         x = [c for c in a.get(address, []) if c[0] < last]
@@ -1871,7 +2108,8 @@ def stale(args):
         bad = False
         for (tag, _, report), fill in fills:
             a, b = os.path.join(root, '%s-%s-off' % (name, tag)), os.path.join(root, '%s-%s-on' % (name, tag))
-            cmd = [sys.executable, '-I', tool, 'compare', a, b, '--allow', allow, '--out', os.path.join(root, '%s-%s.words.txt' % (name, tag))]
+            cmd = [sys.executable, '-I', tool, 'compare', a, b, '--allow', allow, '--out', os.path.join(root, '%s-%s.words.txt' % (name, tag)),
+                   '--whole-route']
             r = subprocess.run(cmd, capture_output=True, text=True)
             lines, problems = [], []
             compare_voices(a, b, lines.append, problems, args.list)
@@ -1920,7 +2158,8 @@ def gate(args):
     failed = []
     for name in names:
         a, b = os.path.join(root, name + '-off'), os.path.join(root, name + '-on')
-        cmd = [sys.executable, '-I', tool, 'compare', a, b, '--allow', allow, '--out', os.path.join(root, name + '.words.txt')]
+        cmd = [sys.executable, '-I', tool, 'compare', a, b, '--allow', allow, '--out', os.path.join(root, name + '.words.txt'),
+               '--whole-route']
         if other and name in other.get('ram_information', ()):
             cmd.append('--ram-information')
         r = subprocess.run(cmd, capture_output=True, text=True)
@@ -1930,9 +2169,11 @@ def gate(args):
         fields = re.search(r'(\d+ of \d+) fields equal', r.stdout)
         tick = re.search(r'compared at every tick to tick (\d+)', r.stdout)
         page = re.search(r'^Settings page B: (.*)$', r.stdout, re.M)  # (a run that uses the page: its keys read back)
-        print('%-9s %s: %s fields to tick %s; %s%s' % (name, 'PASS' if r.returncode == 0 else 'FAIL', fields.group(1) if fields else '?',
-                                                       tick.group(1) if tick else '?', line.group(1) if line else 'no result',
-                                                       '; page ' + page.group(1) if page else ''), flush=True)
+        end = re.search(r'^reach: the route ends at tick (\S+)', r.stdout, re.M)  # (check_reach: A's, B's)
+        print('%-9s %s: %s fields to tick %s (the route ends at %s); %s%s' % (
+            name, 'PASS' if r.returncode == 0 else 'FAIL', fields.group(1) if fields else '?', tick.group(1) if tick else '?',
+            end.group(1).rstrip(',') if end else '?', line.group(1) if line else 'no result', '; page ' + page.group(1) if page else ''),
+            flush=True)
         # Both sides stopping at the same tick (a hang, a crash in the code both run) compare the same: a run that ends
         # short of its input's end fails as a difference does. How far a side got is the tick run-game.sh stopped it at
         # (its gate log), not the compare's last tick: that is the last change of the state's fields, which a menu or
@@ -2035,7 +2276,11 @@ def main():
     c.add_argument('--allow')
     c.add_argument('--dumps-only', action='store_true')
     c.add_argument('--state-only', action='store_true')
+    c.add_argument('--whole-route', action='store_true', help='the limit must cover the route: its pad script\'s end and '
+                   'ROUTE_SETTLE more (gate and stale; a run to a chosen tick, wlane.py\'s, leaves it out)')
     c.add_argument('--ram-information', action='store_true', help='RAM differences reported, not counted (gate: GAMES\' ram_information)')
+    c.add_argument('--no-scratchpad', action='store_true', help='run B hashes no scratchpad (the app\'s flavour: no cycle '
+                   'tracer, flavour_ab.py): not compared, and not counted short of the limit')
     c.set_defaults(func=compare)
     s = sub.add_parser('script')
     s.add_argument('trace')

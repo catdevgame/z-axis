@@ -150,6 +150,8 @@ namespace
         std::atomic<bool> menuAvailable{false};
         bool vsync = !std::getenv("ZX_PRESENT_HZ"); // (a timed present rate instead: present())
         bool variableRefresh = false; // the app's setting
+        bool interpolatedPresents = false; // setInterpolatedPresents
+        bool d3d12 = false;                // the GPU device is SDL's Direct3D 12 (waitForRefresh)
         bool variableRefreshAsked = [] { // ZX_VRR=1
             const char *v = std::getenv("ZX_VRR");
             return v && v[0] == '1';
@@ -214,6 +216,24 @@ namespace
             bool closed = false;
             std::vector<ps2_host::MapPointerEvent> events;
         } map;
+
+        // The picture over the game's (ps2_host::setOverlayPicture,
+        // placeOverlay): its texture, the upload of its newest picture, its
+        // place and the pointer it holds.
+        struct PictureOverlay
+        {
+            SDL_GPUTexture *texture = nullptr;
+            SDL_GPUTransferBuffer *upload = nullptr;
+            uint32_t width = 0;
+            uint32_t height = 0;
+            bool pending = false; // a picture in the upload, not yet in the texture
+            bool ready = false;   // the texture has a picture
+            SDL_FRect place{};    // fractions of the window; empty: not drawn
+            SDL_MouseButtonFlags buttons = 0; // the mouse's buttons that went down over it, until up
+            bool touchMouse = false;          // the mouse events SDL makes of a finger it holds
+            std::vector<SDL_FingerID> fingers; // a touch screen's fingers that went down over it
+            std::vector<ps2_host::OverlayPointerEvent> events;
+        } pictureOverlay;
     };
 
     Host &host()
@@ -949,6 +969,18 @@ namespace
         return true;
     }
 
+    // ZX_FRAMES_IN_FLIGHT=1..3 (developers): the window's presented pictures the GPU may be behind on; 0: not
+    // set (ps2_host::setInterpolatedPresents).
+    uint32_t framesInFlightAsked()
+    {
+        static const uint32_t n = []() -> uint32_t
+        {
+            const char *v = std::getenv("ZX_FRAMES_IN_FLIGHT");
+            return v && v[0] >= '1' && v[0] <= '3' && !v[1] ? static_cast<uint32_t>(v[0] - '0') : 0u;
+        }();
+        return n;
+    }
+
     bool createWindow(Host &h, const char *title, const ps2_host::WindowOptions &options)
     {
         SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN;
@@ -973,6 +1005,10 @@ namespace
             return false;
         }
         SDL_SetGPUSwapchainParameters(h.gpu, h.window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+        if (const char *driver = SDL_GetGPUDeviceDriver(h.gpu))
+            h.d3d12 = std::strcmp(driver, "direct3d12") == 0;
+        if (const uint32_t n = framesInFlightAsked())
+            SDL_SetGPUAllowedFramesInFlight(h.gpu, n);
         if (!h.vsync)
             ps2_host::setVsync(false);
         h.swapFormat = SDL_GetGPUSwapchainTextureFormat(h.gpu, h.window);
@@ -1094,6 +1130,11 @@ namespace ps2_host
                 SDL_ReleaseGPUTransferBuffer(h.gpu, h.upload);
             h.frameTexture = nullptr;
             h.upload = nullptr;
+            if (h.pictureOverlay.texture)
+                texcheck::releaseTexture(h.gpu, h.pictureOverlay.texture);
+            if (h.pictureOverlay.upload)
+                SDL_ReleaseGPUTransferBuffer(h.gpu, h.pictureOverlay.upload);
+            h.pictureOverlay = {};
             if (h.window)
                 SDL_ReleaseWindowFromGPUDevice(h.gpu, h.window);
             texcheck::releaseHeld(h.gpu);
@@ -1167,6 +1208,112 @@ namespace ps2_host
                        event.window.windowID == id;
             }
         }
+
+        // An event of the pointer over the picture over the game's
+        // (placeOverlay): its own list, in the picture's pixels, and not the
+        // game's. False: the game's.
+        bool pictureOverlayEvent(Host &h, const SDL_Event &event)
+        {
+            Host::PictureOverlay &o = h.pictureOverlay;
+            if (!h.window || o.place.w <= 0.0f || o.place.h <= 0.0f)
+                return false;
+            int windowWidth = 0, windowHeight = 0;
+            SDL_GetWindowSize(h.window, &windowWidth, &windowHeight);
+            const SDL_FRect area{o.place.x * windowWidth, o.place.y * windowHeight, o.place.w * windowWidth,
+                                 o.place.h * windowHeight};
+            const bool cursorFree = !SDL_GetWindowRelativeMouseMode(h.window); // (a captured cursor has no place)
+            auto inside = [&area](float x, float y)
+            { return x >= area.x && y >= area.y && x < area.x + area.w && y < area.y + area.h; };
+            auto add = [&](OverlayPointerEvent::Kind kind, int pointer, float x, float y, float wheel)
+            {
+                OverlayPointerEvent e;
+                e.kind = kind;
+                e.pointer = pointer;
+                e.x = (x - area.x) / std::max(1.0f, area.w) * static_cast<float>(o.width);
+                e.y = (y - area.y) / std::max(1.0f, area.h) * static_cast<float>(o.height);
+                e.wheel = wheel;
+                o.events.push_back(e);
+            };
+            const SDL_WindowID id = SDL_GetWindowID(h.window);
+            switch (event.type)
+            {
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                if (event.button.windowID != id)
+                    return false;
+                if (event.button.which == SDL_TOUCH_MOUSEID) // (a finger's: its own events below)
+                {
+                    o.touchMouse = o.touchMouse || inside(event.button.x, event.button.y);
+                    return o.touchMouse;
+                }
+                if (!cursorFree || !inside(event.button.x, event.button.y))
+                    return false;
+                o.buttons |= SDL_BUTTON_MASK(event.button.button);
+                if (event.button.button == SDL_BUTTON_LEFT)
+                    add(OverlayPointerEvent::Down, 0, event.button.x, event.button.y, 0.0f);
+                return true;
+            case SDL_EVENT_MOUSE_BUTTON_UP:
+                if (event.button.windowID != id)
+                    return false;
+                if (event.button.which == SDL_TOUCH_MOUSEID)
+                {
+                    const bool held = o.touchMouse;
+                    o.touchMouse = false;
+                    return held;
+                }
+                if ((o.buttons & SDL_BUTTON_MASK(event.button.button)) == 0)
+                    return false;
+                o.buttons &= ~SDL_BUTTON_MASK(event.button.button);
+                if (event.button.button == SDL_BUTTON_LEFT)
+                    add(OverlayPointerEvent::Up, 0, event.button.x, event.button.y, 0.0f);
+                return true;
+            case SDL_EVENT_MOUSE_MOTION:
+                if (event.motion.windowID != id)
+                    return false;
+                if (event.motion.which == SDL_TOUCH_MOUSEID)
+                    return o.touchMouse;
+                if ((o.buttons & SDL_BUTTON_LMASK) != 0)
+                    add(OverlayPointerEvent::Move, 0, event.motion.x, event.motion.y, 0.0f);
+                return o.buttons != 0;
+            case SDL_EVENT_MOUSE_WHEEL:
+                if (event.wheel.windowID != id || !cursorFree || !inside(event.wheel.mouse_x, event.wheel.mouse_y))
+                    return false;
+                add(OverlayPointerEvent::Wheel, 0, event.wheel.mouse_x, event.wheel.mouse_y,
+                    event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event.wheel.y : event.wheel.y);
+                return true;
+            case SDL_EVENT_FINGER_DOWN:
+            case SDL_EVENT_FINGER_MOTION:
+            case SDL_EVENT_FINGER_UP:
+            case SDL_EVENT_FINGER_CANCELED:
+            {
+                // A touch screen's (a Mac trackpad's fingers are the mouse), in fractions of the window.
+                if (event.tfinger.windowID != id || SDL_GetTouchDeviceType(event.tfinger.touchID) != SDL_TOUCH_DEVICE_DIRECT)
+                    return false;
+                const float x = event.tfinger.x * windowWidth, y = event.tfinger.y * windowHeight;
+                const int pointer = 1 + static_cast<int>(event.tfinger.fingerID & 0x7FFFFFFF);
+                const auto held = std::find(o.fingers.begin(), o.fingers.end(), event.tfinger.fingerID);
+                if (event.type == SDL_EVENT_FINGER_DOWN)
+                {
+                    if (held != o.fingers.end() || !inside(x, y))
+                        return false;
+                    o.fingers.push_back(event.tfinger.fingerID);
+                    add(OverlayPointerEvent::Down, pointer, x, y, 0.0f);
+                    return true;
+                }
+                if (held == o.fingers.end())
+                    return false;
+                if (event.type == SDL_EVENT_FINGER_MOTION)
+                {
+                    add(OverlayPointerEvent::Move, pointer, x, y, 0.0f);
+                    return true;
+                }
+                o.fingers.erase(held);
+                add(OverlayPointerEvent::Up, pointer, x, y, 0.0f);
+                return true;
+            }
+            default:
+                return false;
+            }
+        }
     }
 
     void pumpEvents()
@@ -1188,6 +1335,8 @@ namespace ps2_host
             if (h.eventHook)
                 h.eventHook(event);
             if (mapWindowEvent(h, event))
+                continue;
+            if (pictureOverlayEvent(h, event))
                 continue;
             switch (event.type)
             {
@@ -1243,7 +1392,9 @@ namespace ps2_host
             for (int sc = 0; keys && sc < count && sc < SDL_SCANCODE_COUNT; ++sc)
                 if (keys[sc])
                     setCode(held, kKeys.code[sc]);
-            const SDL_MouseButtonFlags buttons = SDL_GetMouseState(&h.input.mouseX, &h.input.mouseY);
+            // (less the buttons pressed over the picture over the game's: its own until released)
+            const SDL_MouseButtonFlags buttons =
+                SDL_GetMouseState(&h.input.mouseX, &h.input.mouseY) & ~h.pictureOverlay.buttons;
             for (int b = SDL_BUTTON_LEFT; b <= SDL_BUTTON_X2; ++b)
                 if ((buttons & SDL_BUTTON_MASK(b)) != 0)
                     if (const int index = mouseIndex(b); index >= 0)
@@ -1525,6 +1676,18 @@ namespace ps2_host
         return on;
     }
 
+    // The window loop held at ZX_PRESENT_HZ a second (at least 30), as a display of that rate would hold it.
+    static void waitTimedRefresh()
+    {
+        using Clock = std::chrono::steady_clock;
+        static const std::chrono::microseconds period(1000000 / std::max(30L, std::strtol(std::getenv("ZX_PRESENT_HZ"), nullptr, 10)));
+        static Clock::time_point next = Clock::now();
+        const Clock::time_point now = Clock::now();
+        next = std::max(next + period, now - std::chrono::milliseconds(50));
+        if (next > now)
+            std::this_thread::sleep_until(next);
+    }
+
     void waitForRefresh()
     {
         Host &h = host();
@@ -1535,10 +1698,24 @@ namespace ps2_host
             return;
         SDL_GPUTexture *swapchain = nullptr;
         uint32_t swapWidth = 0, swapHeight = 0;
-        bool acquired;
+        bool acquired = false;
         {
             zx::ftrace::Scope traceAcquire(zx::ftrace::kUser1, zx::ftrace::kUser1 + 100);
-            acquired = SDL_WaitAndAcquireGPUSwapchainTexture(commands, h.window, &swapchain, &swapWidth, &swapHeight);
+            // Interpolating on Direct3D 12: SDL waits for the swapchain's oldest picture holding the lock every
+            // submit takes (SDL 3.4's D3D12_WaitForFences), most of a refresh at a fixed rate, and the GS worker's
+            // frames, held at their submit and fence waits, were made only after the latch, a refresh later than
+            // the display time asked for them. Asked without waiting instead (no lock while not ready), and again
+            // until it is ready.
+            if (h.interpolatedPresents && h.d3d12)
+            {
+                using Clock = std::chrono::steady_clock;
+                const Clock::time_point until = Clock::now() + std::chrono::milliseconds(100);
+                while ((acquired = SDL_AcquireGPUSwapchainTexture(commands, h.window, &swapchain, &swapWidth, &swapHeight)) &&
+                       !swapchain && Clock::now() < until)
+                    SDL_DelayNS(200'000);
+            }
+            if (!swapchain)
+                acquired = SDL_WaitAndAcquireGPUSwapchainTexture(commands, h.window, &swapchain, &swapWidth, &swapHeight);
         }
         h.nextCommands = commands;
         h.nextSwapchain = swapchain;
@@ -1552,22 +1729,20 @@ namespace ps2_host
         Host &h = host();
         if (h.headless)
         {
-            // Nothing to show; keep the loop near 60 Hz, as for a hidden window.
-            std::this_thread::sleep_for(std::chrono::milliseconds(16));
+            // Nothing to show; keep the loop near 60 Hz, as for a hidden window (ZX_PRESENT_HZ=<n>: at n, a display
+            // of that rate for timing runs without a window: frame interpolation's 75 or 144 Hz).
+            if (const char *hz = std::getenv("ZX_PRESENT_HZ"); hz && hz[0])
+                waitTimedRefresh();
+            else
+                std::this_thread::sleep_for(std::chrono::milliseconds(16));
             return;
         }
         if (!h.gpu || !h.window)
             return;
         if (timedOffscreen())
         {
-            // Nothing shown: only the window loop's rate (below), as a display of that rate would set it.
-            using Clock = std::chrono::steady_clock;
-            static const std::chrono::microseconds period(1000000 / std::max(30L, std::strtol(std::getenv("ZX_PRESENT_HZ"), nullptr, 10)));
-            static Clock::time_point next = Clock::now();
-            const Clock::time_point now = Clock::now();
-            next = std::max(next + period, now - std::chrono::milliseconds(50));
-            if (next > now)
-                std::this_thread::sleep_until(next);
+            // Nothing shown: only the window loop's rate, as a display of that rate would set it.
+            waitTimedRefresh();
             return;
         }
         // (waitForRefresh took the swapchain picture already, or this does)
@@ -1605,6 +1780,24 @@ namespace ps2_host
                 SDL_EndGPUCopyPass(copy);
                 h.haveFrame = true;
             }
+        }
+        Host::PictureOverlay &over = h.pictureOverlay;
+        if (over.pending && over.texture && over.upload)
+        {
+            SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+            SDL_GPUTextureTransferInfo source{};
+            source.transfer_buffer = over.upload;
+            source.pixels_per_row = over.width;
+            source.rows_per_layer = over.height;
+            SDL_GPUTextureRegion target{};
+            target.texture = over.texture;
+            target.w = over.width;
+            target.h = over.height;
+            target.d = 1;
+            texcheck::uploadToTexture(copy, &source, &target, true);
+            SDL_EndGPUCopyPass(copy);
+            over.pending = false;
+            over.ready = true;
         }
         if (h.overlay.prepare)
             h.overlay.prepare(commands);
@@ -1684,6 +1877,23 @@ namespace ps2_host
             blit.clear_color = SDL_FColor{0.0f, 0.0f, 0.0f, 1.0f};
             blit.filter = frame.linearFilter && !frame.integerScale ? SDL_GPU_FILTER_LINEAR : SDL_GPU_FILTER_NEAREST;
             texcheck::blitTexture(commands, &blit);
+            // The picture over the game's, where it was placed (opaque).
+            if (over.ready && over.place.w > 0.0f && over.place.h > 0.0f)
+            {
+                SDL_GPUBlitInfo on{};
+                on.source.texture = over.texture;
+                on.source.w = over.width;
+                on.source.h = over.height;
+                on.destination.texture = swapchain;
+                on.destination.x = static_cast<uint32_t>(std::lround(std::clamp(over.place.x, 0.0f, 1.0f) * screenWidth));
+                on.destination.y = static_cast<uint32_t>(std::lround(std::clamp(over.place.y, 0.0f, 1.0f) * screenHeight));
+                on.destination.w = std::min(static_cast<uint32_t>(std::lround(over.place.w * screenWidth)), swapWidth - on.destination.x);
+                on.destination.h = std::min(static_cast<uint32_t>(std::lround(over.place.h * screenHeight)), swapHeight - on.destination.y);
+                on.load_op = SDL_GPU_LOADOP_LOAD;
+                on.filter = SDL_GPU_FILTER_LINEAR;
+                if (on.destination.w > 0u && on.destination.h > 0u)
+                    texcheck::blitTexture(commands, &on);
+            }
         }
         if (!drawPicture || h.overlay.render)
         {
@@ -1768,6 +1978,19 @@ namespace ps2_host
         return host().vsync;
     }
 
+    void setInterpolatedPresents(bool on)
+    {
+        Host &h = host();
+        h.interpolatedPresents = on;
+        if (!h.gpu || !h.window || framesInFlightAsked())
+            return;
+#if defined(__ANDROID__)
+        SDL_SetGPUAllowedFramesInFlight(h.gpu, on ? 1u : 2u);
+#else
+        (void)on;
+#endif
+    }
+
     bool headless()
     {
         return host().headless;
@@ -1782,6 +2005,20 @@ namespace ps2_host
     {
         const Host &h = host();
         return h.variableRefresh || h.variableRefreshAsked;
+    }
+
+    int64_t displayRefreshNs()
+    {
+        const Host &h = host();
+        if (h.headless || !h.window)
+            return 0;
+        const SDL_DisplayID display = SDL_GetDisplayForWindow(h.window);
+        const SDL_DisplayMode *mode = display ? SDL_GetCurrentDisplayMode(display) : nullptr;
+        if (!mode)
+            return 0;
+        if (mode->refresh_rate_numerator > 0 && mode->refresh_rate_denominator > 0)
+            return static_cast<int64_t>(1'000'000'000LL * mode->refresh_rate_denominator / mode->refresh_rate_numerator);
+        return mode->refresh_rate > 1.0f ? static_cast<int64_t>(1e9 / static_cast<double>(mode->refresh_rate)) : 0;
     }
 
     // ---- the map window --------------------------------------------------------
@@ -1938,6 +2175,75 @@ namespace ps2_host
         const bool closed = m.closed;
         m.closed = false;
         return closed;
+    }
+
+    void setOverlayPicture(const uint8_t *rgba, uint32_t width, uint32_t height, uint32_t stride)
+    {
+        Host &h = host();
+        Host::PictureOverlay &o = h.pictureOverlay;
+        if (!h.gpu || !rgba || width == 0 || height == 0)
+            return;
+        if (!o.texture || o.width != width || o.height != height)
+        {
+            if (o.texture)
+                texcheck::releaseTexture(h.gpu, o.texture);
+            if (o.upload)
+                SDL_ReleaseGPUTransferBuffer(h.gpu, o.upload);
+            o.texture = nullptr;
+            o.upload = nullptr;
+            o.ready = o.pending = false;
+            SDL_GPUTextureCreateInfo texInfo{};
+            texInfo.type = SDL_GPU_TEXTURETYPE_2D;
+            texInfo.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+            texInfo.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+            texInfo.width = width;
+            texInfo.height = height;
+            texInfo.layer_count_or_depth = 1;
+            texInfo.num_levels = 1;
+            o.texture = texcheck::createTexture(h.gpu, &texInfo);
+            SDL_GPUTransferBufferCreateInfo bufInfo{};
+            bufInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+            bufInfo.size = width * height * 4u;
+            o.upload = SDL_CreateGPUTransferBuffer(h.gpu, &bufInfo);
+            if (!o.texture || !o.upload)
+            {
+                std::fprintf(stderr, "[host] cannot create the overlay picture's texture: %s\n", SDL_GetError());
+                return;
+            }
+            o.width = width;
+            o.height = height;
+        }
+        auto *mapped = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(h.gpu, o.upload, true));
+        if (!mapped)
+            return;
+        const size_t row = static_cast<size_t>(width) * 4u;
+        if (stride == row)
+            std::memcpy(mapped, rgba, row * height);
+        else
+            for (uint32_t y = 0; y < height; ++y)
+                std::memcpy(mapped + y * row, rgba + static_cast<size_t>(y) * stride, row);
+        SDL_UnmapGPUTransferBuffer(h.gpu, o.upload);
+        o.pending = true;
+    }
+
+    void placeOverlay(float x, float y, float width, float height)
+    {
+        Host::PictureOverlay &o = host().pictureOverlay;
+        o.place = SDL_FRect{x, y, std::max(0.0f, width), std::max(0.0f, height)};
+        if (o.place.w <= 0.0f || o.place.h <= 0.0f)
+        {
+            o.buttons = 0;
+            o.touchMouse = false;
+            o.fingers.clear();
+            o.events.clear();
+        }
+    }
+
+    std::vector<OverlayPointerEvent> takeOverlayPointerEvents()
+    {
+        std::vector<OverlayPointerEvent> out;
+        out.swap(host().pictureOverlay.events);
+        return out;
     }
 
     bool writePng(const std::string &path, const uint8_t *rgba, uint32_t width, uint32_t height, uint32_t stride,

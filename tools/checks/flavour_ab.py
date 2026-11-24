@@ -67,7 +67,9 @@ def run(args):
     failed = []
     for name, ticks in inputs:
         a, b = os.path.join(root, name + '-dev'), os.path.join(root, name + '-app')
-        cmd = [sys.executable, '-I', tool, 'compare', a, b, '--out', os.path.join(root, name + '.words.txt')]
+        # (--no-scratchpad: the app's flavour hashes none, above; since gatecover1 a run whose hashes stop short of
+        # the limit is a difference, and the app's have none at all)
+        cmd = [sys.executable, '-I', tool, 'compare', a, b, '--out', os.path.join(root, name + '.words.txt'), '--no-scratchpad']
         r = subprocess.run(cmd, capture_output=True, text=True)
         with open(os.path.join(root, name + '.compare.txt'), 'w') as f:
             f.write(r.stdout + r.stderr)

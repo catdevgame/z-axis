@@ -4,8 +4,9 @@
 // that keep no debug menu of their own (Dave Mirra BMX 2, BMX XXX): their
 // debug display, a byte the game's frame reads (the frame rate line, the
 // profiler's display, the engine's debug drawing) and nothing in the retail
-// game sets. With ZX_DEV_MENU=1 (the app's [general] developer_menu), F1
-// or `set dev.debug_menu 1` (ZX_CONTROL) turns it on and off; off by
+// game sets. With ZX_DEV_MENU=1 (the app's [general] developer_menu), the
+// developer_menu key (F1, Select+L3 on a gamepad: [hotkeys] in
+// controls.ini) or `set dev.debug_menu 1` (ZX_CONTROL) turns it on and off; off by
 // default, when the byte is never written. Aggressive Inline has its
 // hidden debug menu and tuning table (aggressive_inline_devtools.cpp).
 
@@ -25,7 +26,7 @@ namespace zge_host::devtools
         const char *help;   // the settings row's help: what the display shows
     };
 
-    // The F1 key and the settings row (ZX_DEV_MENU=1 only).
+    // The developer_menu key and the settings row (ZX_DEV_MENU=1 only).
     void installDebugDisplay(PS2Machine &runtime, const DebugDisplay &display);
 
     // A game's tuning table's Mods/tuning.ini (the games with one: Aggressive

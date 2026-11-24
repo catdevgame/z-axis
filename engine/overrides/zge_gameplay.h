@@ -12,7 +12,7 @@
 
 #include "runtime/panel_snapshot.h"
 #include "runtime/host_input.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <atomic>
 #include <cstdint>

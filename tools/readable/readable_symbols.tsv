@@ -50330,6 +50330,7 @@ function	setBillboardEffectMatrix	0x00110288		bmx
 function	setBillboardEffectLook	0x00110378		bmx
 function	updateBillboardEffect	0x00110650		bmx
 function	queueBillboardEffect	0x00110768		bmx
+function	mallocFreeBytes	0x001174E8		bmx
 function	segmentFaceTreeUncut	0x00122528		bmx
 function	texelsFromColourBoxes	0x00126E60		bmx
 function	findSceneModelBoneThunk	0x0012B508		bmx
@@ -50882,6 +50883,7 @@ data	g_textStateMovieMaterial	0x0029CBD8		bmx
 data	g_textStateMovieVisible	0x0029CBE8		bmx
 function	copyTagWord	0x00135310		bmx
 function	engineMovedNodeVisitor	0x00136C30		bmx
+function	reportIncludedFile	0x00143C78		bmx
 function	resetDebugText	0x00145630		bmx
 function	drawColouredDebugText	0x00145668		bmx
 function	debugPrintInColour	0x00145BC0		bmx

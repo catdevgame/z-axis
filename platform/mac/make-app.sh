@@ -76,7 +76,8 @@
 #   PUBLIC       1: the app players download (the release's build): the minimal static FFmpeg (FFMPEG=static, no
 #                dylib bundled), MIN_MACOS 15.0 (the oldest macOS the release supports) for the code and
 #                LSMinimumSystemVersion alike, and NO_GAME_DATA=1; it stops if anything bundled or built needs
-#                a newer macOS than MIN_MACOS
+#                a newer macOS than MIN_MACOS. The app and its zip, $DIST/<name>-<version>-mac-arm64.zip (the release's
+#                Mac package), are checked as release.sh checks them (tools/checks/release_check.py) before it ends
 #   VU1_AOT_DIR  ahead-of-time compiled VU1 microprograms (default: recomp/generated-vu1
 #                if it holds zx-vu1aot output; see z-axis docs/VU1_AOT.md)
 #   FFMPEG       static (default: build/reuse the minimal static FFmpeg) or
@@ -476,7 +477,8 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
     -DCMAKE_OSX_DEPLOYMENT_TARGET=$BUILD_MIN_MACOS -DZX_FFMPEG_PREFIX=$FFMPEG_PREFIX \
     "-DZX_APP_NAME=$APP_NAME" "-DZX_APP_GAME_TITLE=Aggressive Inline (USA)" \
     -DZX_APP_ELF=$ELF_NAME -DZX_APP_ELF_SHA256=$ELF_SHA256 \
-    -DZX_APP_SAVE_DIR=BASLUS-20327CEAIGAME -DZX_APP_VERSION=$APP_VERSION)
+    -DZX_APP_SAVE_DIR=BASLUS-20327CEAIGAME -DZX_APP_VERSION=$APP_VERSION \
+    -DZX_BUILD_COMMIT_STAMP=ON)
   # The stamp a build with these arguments of this tree carries: the build's inputs as committed (STAMP_PATHS: the
   # app builds no tests and no recompiler, so a commit that differs only in the workshop or
   # the docs, the integration lane's judged head and the batch's merge, is the same build), none when they have an
@@ -858,3 +860,21 @@ if otool -l $BIN $FW/*.dylib(N) | grep -A2 LC_RPATH | grep -E '/opt/homebrew|/us
   die "the bundle still has a Homebrew run path"
 fi
 say "done: $APP ($(du -sh $APP | cut -f1))"
+# (PUBLIC: the package players get, checked as release.sh checks it, now: one that can be refused never goes on to be
+# tested, placed or released; tools/checks/release_check.py)
+if [[ -n $PUBLIC ]]; then
+  CHECK_PATHS=(--build-path $BUILD_DIR); [[ -n ${FFMPEG_PREFIX:-} ]] && CHECK_PATHS+=(--build-path $FFMPEG_PREFIX)
+  python3 -I $HERE/tools/checks/release_check.py --mac-app $APP --version $APP_VERSION --tree $ZAXIS_TREE \
+    $CHECK_PATHS | sed 's/^/[make-app] /' \
+    || die "release-check refuses $APP (above)"
+  # (and the zip players download, the release's Mac package: ditto keeps the bundle's seal, symlinks and modes, and
+  # with no extended attributes writes no ._ files, which any unzip but Finder's would leave in the bundle)
+  # (named as the release's asset is, README.md "The release's files": <name>-<version>-<platform>-<arch>.<ext>)
+  ZIP=$DIST/${APP_NAME// /-}-$APP_VERSION-mac-arm64.zip
+  rm -f $ZIP
+  ditto -c -k --keepParent --norsrc --noextattr --noacl $APP $ZIP || die "could not zip $APP"
+  python3 -I $HERE/tools/checks/release_check.py --mac-zip $ZIP --version $APP_VERSION --tree $ZAXIS_TREE \
+    $CHECK_PATHS | sed 's/^/[make-app] /' \
+    || die "release-check refuses $ZIP (above)"
+  say "the release's Mac package: $ZIP ($(du -h $ZIP | cut -f1 | tr -d ' '))"
+fi

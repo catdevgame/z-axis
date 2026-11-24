@@ -153,12 +153,18 @@ namespace game::diffcall
     }
 
 #if defined(_WIN32)
-    // Generated calls run on the Mac (a recording replays anywhere).
+    // Generated calls run on the Mac and Linux: each case is a fork of the
+    // game, which Windows has not (a recording replays anywhere).
     void noteBlock(uint32_t) {}
     void noteRead(uint32_t, uint32_t) {}
     void noteCall(uint32_t, uint32_t) {}
     void noteCallReturn(R5900Context *, uint32_t, uint32_t) {}
-    void install(PS2Machine &, game::Game) {}
+    void install(PS2Machine &, game::Game)
+    {
+        if (const char *spec = std::getenv("ZX_DIFFCALL"); spec && spec[0])
+            std::fprintf(stderr, "[diffcall] ZX_DIFFCALL is not on Windows (each case is a fork of the game): run it on "
+                                 "the Mac or Linux\n");
+    }
 #else
     namespace
     {

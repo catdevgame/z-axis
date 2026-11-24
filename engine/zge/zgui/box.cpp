@@ -205,11 +205,14 @@ namespace zge::zgui
         const ee::Float half = -0.5f;
 
         // Placed by a matrix: scaled, at the widget's screen position less
-        // the alignment.
+        // the alignment. ZGE4 (BMX XXX) never sets a screen position's
+        // fourth word (placeAtAnchor), and its box gives the matrix's 0.
         matrixIdentity(matrix);
         matrixScale(matrix, matrix, &box.scale.xyz());
         zge::Vec4 &at = zge::matrixRow(*matrix, 3);
         at = box.node.screenPosition;
+        if constexpr (game::readable::kIsBmx)
+            at.w = kZero;
         switch (box.alignment & 0xF)
         {
         case 0: break;

@@ -42,9 +42,11 @@ add_library(zx_test_lib STATIC
     src/disc_formats_tests.cpp
     src/app_support_tests.cpp
     src/collection_tests.cpp
+    src/updater_tests.cpp
     src/front_end_tests.cpp
     src/game_setup_tests.cpp
     src/settings_tests.cpp
+    src/controls_defaults_tests.cpp
     src/zge_settings_page_tests.cpp
     src/host_pacing_tests.cpp
     src/host_window_tests.cpp
@@ -53,6 +55,7 @@ add_library(zx_test_lib STATIC
     src/boot_config_tests.cpp
     src/play_recording_tests.cpp
     src/recordings_tests.cpp
+    src/ghost_rider_tests.cpp
     src/session_tests.cpp
     src/game_module_tests.cpp
     src/gs_quality_tests.cpp
@@ -70,7 +73,7 @@ add_library(zx_test_lib STATIC
     src/save_store_tests.cpp
     src/game_files_tests.cpp
     src/zal_tests.cpp
-    src/xbox_disc_tests.cpp
+    src/xbox_files_tests.cpp
     src/extras_tests.cpp
     src/zaxis_xbox_tests.cpp
     src/zaxis_zoo_tests.cpp
@@ -103,6 +106,7 @@ add_library(zx_test_lib STATIC
     ${CMAKE_SOURCE_DIR}/engine/overrides/zge_exit.cpp
     ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_exit.cpp
     ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_restart.cpp
+    ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_practice.cpp
     # (its pause menu's Photo Mode line starts photo mode, its Settings line shows the Settings page)
     ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_photo.cpp
     ${CMAKE_SOURCE_DIR}/games/dm2/overrides/dave_mirra_settings.cpp
@@ -110,9 +114,14 @@ add_library(zx_test_lib STATIC
     # (the app's Settings... request the pause hooks consume)
     ${CMAKE_SOURCE_DIR}/engine/overrides/zge_settings_open.cpp
     ${CMAKE_SOURCE_DIR}/engine/overrides/zge_photo.cpp
+    # Practice's restart point and timer (the games' keys, the tries' clock).
+    src/zge_practice_tests.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_practice.cpp
+    ${CMAKE_SOURCE_DIR}/engine/overrides/zge_practice_rider.cpp
     ${CMAKE_SOURCE_DIR}/engine/overrides/zge_sites.cpp
     ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_exit.cpp
     ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_restart.cpp
+    ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_practice.cpp
     # (its pause menu's Photo Mode line starts photo mode, its Settings line shows the Settings page, as DM2's)
     ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_photo.cpp
     ${CMAKE_SOURCE_DIR}/games/bmx/overrides/bmx_xxx_settings.cpp

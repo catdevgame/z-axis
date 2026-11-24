@@ -32,13 +32,11 @@ import nctl  # noqa: E402
 ROOT = os.path.join(os.path.dirname(HERE), 'workspace')   # (the game's workspace: recomp/)
 ELF = os.environ.get('ELF', os.path.join(ROOT, 'recomp', 'disc-root', 'SLUS_201.59'))
 def _scratch():
-    """paths.env's ZAXIS_SCRATCH (the user's own home, never a scratch HOME's: a gate's runs boot BMX XXX under one)."""
-    try:
-        sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'tools'))   # (tools/: zpaths.py)
-        import zpaths
-        return zpaths.ZAXIS_SCRATCH, zpaths.PATHS.get('BMX_DATA', os.path.join(zpaths.ZAXIS_SCRATCH, 'zbind1', 'bmx'))
-    except Exception:
-        return os.path.join(os.path.expanduser('~'), 'z-axis-scratch'), os.path.join(os.path.expanduser('~'), 'z-axis-scratch', 'zbind1', 'bmx')
+    """paths.env's ZAXIS_SCRATCH (the user's own home, never a scratch HOME's: a gate's runs boot BMX XXX under one).
+    (zpaths is always there: nctl, imported above, needs it too; no fallback naming a folder of its own)"""
+    sys.path.insert(0, os.path.join(HERE, '..', '..', '..', 'tools'))   # (tools/: zpaths.py)
+    import zpaths
+    return zpaths.ZAXIS_SCRATCH, zpaths.PATHS.get('BMX_DATA', os.path.join(zpaths.ZAXIS_SCRATCH, 'zbind1', 'bmx'))
 
 
 SCRATCH, BMX_DATA = _scratch()
@@ -272,8 +270,9 @@ def scroll(s):
     s.presses('DOWN', 'DOWN', 'DOWN', 'RIGHT', 'RIGHT', 'UP', 'LEFT', after=20)
 
 
-def pause_tour(s, challenges=False):
-    """The pause menu, each item and back (the cursor comes back to CONTINUE), then END RUN: EXIT?, YES."""
+def pause_tour(s, challenges=False, restart=False):
+    """The pause menu, each item and back (the cursor comes back to CONTINUE), then END RUN: EXIT?, YES. With `restart`
+    the menu ends in RESTART (a ProQuest challenge passed: routes5), so END RUN is two lines up."""
     s.press('START', after=60)
     first = 2 if challenges else 1
     if challenges:
@@ -290,9 +289,21 @@ def pause_tour(s, challenges=False):
         scroll(s)
         s.press('TRIANGLE', after=60)
     s.press('UP', after=30)             # the cursor wraps to END RUN
+    if restart:
+        s.press('UP', after=30)
     s.press('CROSS', after=60)
     s.press('DOWN', after=30)
     s.press('CROSS', after=300)
+    if restart:
+        keyboard_end(s)                 # NEW RECORD! (the poked score): the name entered
+        s.press('CROSS', after=300)     # RECORDS: NEXT
+        s.press('CROSS', after=300)     # REWARDS (the challenge passed): NEXT
+        s.press('UP', after=30)         # RUN FINISHED: the cursor wraps to EXIT TO MAIN MENU
+        s.press('CROSS', after=100)
+        s.press('DOWN', after=30)       # EXIT?, YES
+        s.press('CROSS', after=400)
+        s.hold('0x%X==1' % MODE)        # (held till the front end)
+        return
     gameover_tour(s)
 
 
@@ -311,7 +322,7 @@ def gameover_tour(s):
     s.press('CROSS', after=400)
 
 
-def proquest(level, cycles, seed):
+def proquest(level, cycles, seed, won=False):
     s = Script()
     to_level(s, 'proquest', level)
     s.wait(134)
@@ -319,7 +330,7 @@ def proquest(level, cycles, seed):
     s.press('CROSS', after=200)         # CHALLENGES
     s.press('CROSS', after=200)
     ride(s, cycles, seed, list(range(29)))
-    pause_tour(s, challenges=True)
+    pause_tour(s, challenges=True, restart=won)
     return s
 
 
@@ -399,38 +410,40 @@ def multiplayer_menu(kind, level, s=None):
 
 
 def frontend():
-    """Every front-end screen: options, the card (save, load), records, movies, credits, replays, rider and bike lists."""
+    """OPTIONS: CONTROLLER 1 (its configs and vibration), AUDIO (both volumes), LOAD GAME with nothing saved, SAVE GAME
+    (SAVE), LOAD GAME (LOAD), back to the main menu. (routes5) OPTIONS is CONTROLLER 1, CONTROLLER 2 (greyed with one
+    pad, but a cursor stop), AUDIO, LOAD GAME, SAVE GAME: the route took CONTROLLER 2 for a screen, so its TRIANGLE left
+    OPTIONS and every press after it went to the main menu (COOL STUFF, then ProQuest Woodward): no save or load ran.
+    The card steps are fe-card's (pictures: routes5 diag)."""
     s = Script()
-    s.presses(*['DOWN'] * MAIN['options'])
-    s.press('CROSS', after=120)
-    for item in (0, 1):                 # CONTROLLER 1, 2: the configs and vibration
-        s.press('CROSS', after=120)
-        s.presses('RIGHT', 'RIGHT', 'RIGHT', 'RIGHT', 'DOWN', 'RIGHT', 'RIGHT', after=30)
-        s.press('TRIANGLE', after=60)
-        s.press('DOWN', after=30)
-    s.press('CROSS', after=120)         # AUDIO
+    s.wait(300)                         # (the main menu takes presses a little after it shows)
+    s.presses(*['DOWN'] * MAIN['options'], after=30)
+    s.press('CROSS', after=600)         # OPTIONS, on CONTROLLER 1
+    s.press('CROSS', after=300)         # CONTROLLER 1: the configs and vibration
+    s.presses('RIGHT', 'RIGHT', 'RIGHT', 'RIGHT', 'DOWN', 'RIGHT', 'RIGHT', after=30)
+    s.press('TRIANGLE', after=200)
+    s.presses('DOWN', 'DOWN', after=30)
+    s.press('CROSS', after=300)         # AUDIO
     s.presses('LEFT', 'LEFT', 'RIGHT', 'RIGHT', 'DOWN', 'LEFT', 'LEFT', 'RIGHT', 'RIGHT', after=30)
-    s.press('TRIANGLE', after=60)
+    s.press('TRIANGLE', after=200)
     s.press('DOWN', after=30)
-    s.press('CROSS', after=120)         # LOAD GAME: slot 1, the card is looked at
-    s.press('CROSS', after=300)
-    s.presses('TRIANGLE', 'TRIANGLE', after=120)
-    s.wait(120)
-    s.press('CROSS', after=120)         # (the cursor stays on LOAD GAME)
-    s.press('TRIANGLE', after=120)
+    s.press('CROSS', after=900)         # LOAD GAME: SELECT SLOT
+    s.press('CROSS', after=900)         # slot 1: no game data on the card, CONTINUE
+    s.press('CROSS', after=600)         # SELECT SLOT again
+    s.press('TRIANGLE', after=400)      # OPTIONS, on LOAD GAME
     s.press('DOWN', after=30)
-    s.press('CROSS', after=120)         # SAVE GAME: slot 1, SAVE
-    s.press('CROSS', after=200)
+    s.press('CROSS', after=900)         # SAVE GAME: SELECT SLOT
+    s.press('CROSS', after=900)         # slot 1: SAVE GAME? (on CANCEL)
     s.press('UP', after=30)
-    s.press('CROSS', after=500)
-    s.press('CROSS', after=300)         # SAVE COMPLETE: back to the main menu, on OPTIONS
-    s.press('CROSS', after=120)         # LOAD GAME: slot 1, LOAD
-    s.presses('DOWN', 'DOWN', 'DOWN', after=30)
-    s.press('CROSS', after=200)
-    s.press('CROSS', after=300)
+    s.press('CROSS', after=2000)        # SAVE: SAVE COMPLETE
+    s.press('CROSS', after=600)         # OPTIONS, on SAVE GAME
     s.press('UP', after=30)
-    s.press('CROSS', after=500)
-    s.press('CROSS', after=300)
+    s.press('CROSS', after=900)         # LOAD GAME: SELECT SLOT
+    s.press('CROSS', after=900)         # slot 1: LOAD GAME? (on CANCEL)
+    s.press('UP', after=30)
+    s.press('CROSS', after=2000)        # LOAD: LOAD COMPLETE
+    s.press('CROSS', after=600)         # OPTIONS
+    s.press('TRIANGLE', after=900)      # the main menu (on OPTIONS)
     return s
 
 
@@ -483,18 +496,20 @@ def editor(theme, moves, seed):
         for _ in range(rng.randint(1, 8)):
             s.press(rng.choice(('UP', 'DOWN', 'LEFT', 'RIGHT')), hold=8, after=8)
         s.press(rng.choice(('CROSS', 'CROSS', 'CROSS', 'CIRCLE', 'SQUARE', 'TRIANGLE')), after=40)
-        if k % 40 == 39:
-            s.press('START', after=120)
+        if k % 40 == 39:                # the pause menu (PARK EDITOR: CONTINUE, SAVE PARK, TEST RUN, LIGHT OPTIONS,
+            s.press('START', after=120)  # CLEAR ALL, EXIT), its cursor moved and back on CONTINUE
             s.presses('DOWN', 'DOWN', after=30)
             s.presses('UP', 'UP', after=30)
-            s.press('START', after=120)
+            # (routes5) CONTINUE taken: START does not close the menu, so the edits after it went to the menu's lines
+            # (editor-0's took SAVE PARK and typed names till the route's end: it never reached the test run)
+            s.press('CROSS', after=120)
     s.press('START', after=120)         # TEST RUN: the park ridden, END RUN, a replay, back
     s.presses('DOWN', 'DOWN', after=30)
     s.press('CROSS', after=700)
     s.press('CROSS', after=200)
     ride(s, 6, seed)
-    s.press('START', after=100)
-    s.press('UP', after=30)
+    s.press('START', after=100)         # the test run's pause menu: CONTINUE, OPTIONS, END RUN
+    s.presses('DOWN', 'DOWN', after=30)  # (routes5: its UP from CONTINUE stays there, so the route's UP took CONTINUE)
     s.press('CROSS', after=100)
     s.press('DOWN', after=30)
     s.press('CROSS', after=400)
@@ -504,29 +519,31 @@ def editor(theme, moves, seed):
     s.press('UP', after=30)             # RETURN TO LEVEL EDITOR, EXIT?, YES
     s.press('CROSS', after=100)
     s.press('DOWN', after=30)
-    s.press('CROSS', after=800)
-    s.press('START', after=120)         # LIGHT OPTIONS
+    s.press('CROSS', after=300)
+    # (routes5) LIGHT OPTIONS is one row (LIGHT PARK BRIGHTNESS) whose CROSS relights the park (Please Wait) and
+    # leaves the pause menu up on LIGHT OPTIONS: the route's page scroll and two STARTs after it put every later step
+    # a screen off (CLEAR ALL's question, a second test run). Each step from the editor on, by pictures (routes5 diag).
+    s.sync('0x%X==0' % MODE)            # back in the editor
+    s.wait(600)
+    s.press('START', after=120)         # LIGHT OPTIONS: the brightness both ways, relit
     s.presses('DOWN', 'DOWN', 'DOWN', after=30)
-    s.press('CROSS', after=120)
-    scroll(s)
-    s.press('TRIANGLE', after=100)
-    s.press('START', after=120)
-    s.press('START', after=120)
-    s.press('DOWN', after=30)           # SAVE PARK
-    s.press('CROSS', after=300)
-    s.presses('CROSS', 'UP', 'CROSS', after=300)
-    s.press('CROSS', after=600)
-    s.press('CROSS', after=300)
-    s.press('START', after=120)         # CLEAR ALL
+    s.press('CROSS', after=150)
+    s.presses('RIGHT', 'RIGHT', 'LEFT', after=20)
+    s.press('CROSS', after=400)         # Please Wait: the pause menu again, on LIGHT OPTIONS
+    s.presses('UP', 'UP', 'UP', after=30)
+    s.press('CROSS', after=150)         # CONTINUE: the editor
+    save_park(s)                        # SAVE PARK: slot 1, the names
+    s.press('START', after=120)         # CLEAR ALL: CLEAR AND RESET TERRAIN? (on NO), YES
+    s.presses('DOWN', 'DOWN', 'DOWN', 'DOWN', after=30)
+    s.press('CROSS', after=150)
     s.press('UP', after=30)
+    s.press('CROSS', after=600)         # cleared: the pause menu again, on CLEAR ALL
+    s.press('DOWN', after=30)           # EXIT: EXIT?, YES (editor_exit's steps from the menu's last line)
+    s.press('CROSS', after=150)
     s.press('UP', after=30)
-    s.press('CROSS', after=120)
-    s.press('CROSS', after=120)
-    s.press('START', after=120)         # EXIT, YES
-    s.press('UP', after=30)
-    s.press('CROSS', after=120)
-    s.press('UP', after=30)
-    s.press('CROSS', after=500)
+    s.press('CROSS', after=1200)
+    s.sync('0x%X==1' % MODE)            # the main menu
+    s.wait(300)
     return s
 
 
@@ -547,7 +564,7 @@ for _level in (0, 1, 3):
 # so its end, the rewards and the next tier run; the rider's address as these routes reach it (MIXING 14.20).
 for _level, _rider in ((0, 0x1256B10), (1, 0x100D380), (3, 0x12D15C0)):
     _route = 'pq-%s-win' % LEVELS[_level]
-    ROUTES[_route] = ((lambda l: lambda: proquest(l, 24, 800 + l))(_level), 'ProQuest, %s, the challenge passed by a poked score' % LEVELS[_level])
+    ROUTES[_route] = ((lambda l: lambda: proquest(l, 24, 800 + l, won=True))(_level), 'ProQuest, %s, the challenge passed by a poked score' % LEVELS[_level])
     ENVIRONMENT[_route] = {'ZX_POKE_SCRIPT': ','.join('%x:%x=%x' % (t, _rider + 0x1A0, 0x47C35000) for t in (8000, 10000, 12000, 14000))}
 ROUTES['gs-woodward'] = ((lambda: freeride(0, 12, 700)), 'Free Ride, Woodward, with the GS and VU1 on (the CPU renderer): the renderers the null GS skips')
 

@@ -8,16 +8,17 @@
 #include <string>
 
 #if defined(_WIN32)
-namespace ps2_play_link
-{
-    bool enabled() { return false; }
-    void onPadRead(const uint8_t *, uint64_t, int64_t, uint16_t &, uint8_t *, uint8_t *) {}
-    void onMirroredRead(uint16_t &, uint8_t *, uint8_t *) {}
-    void relink() {}
-}
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
+#endif
 
 namespace ps2_play_link
 {
@@ -26,10 +27,20 @@ namespace
     constexpr uint32_t kRamMask = PS2_RAM_MASK;
     constexpr int kButtons = 16;
 
+    // An end of the link: a FIFO's file descriptor, on Windows a named pipe's
+    // handle.
+#if defined(_WIN32)
+    using End = HANDLE;
+    const End kNoEnd = INVALID_HANDLE_VALUE;
+#else
+    using End = int;
+    constexpr End kNoEnd = -1;
+#endif
+
     struct Link
     {
-        int up = -1;
-        int down = -1;
+        End up = kNoEnd;
+        End down = kNoEnd;
         uint32_t reads = 0;
         uint32_t skip = 0;
         uint16_t buttons = 0;
@@ -41,15 +52,65 @@ namespace
     {
         std::fprintf(stderr, "[play] the player is gone: exiting\n");
         std::fflush(stderr);
+#if defined(_WIN32)
+        ExitProcess(0);
+#else
         _exit(0);
+#endif
     }
 
-    void readAll(int fd, void *to, size_t size)
+    // At most `size` bytes: how many came, 0 or less when the player is gone.
+    long readSome(End end, uint8_t *to, size_t size)
+    {
+#if defined(_WIN32)
+        DWORD got = 0;
+        if (!ReadFile(end, to, static_cast<DWORD>(size), &got, nullptr))
+            return -1;
+        return static_cast<long>(got);
+#else
+        return static_cast<long>(::read(end, to, size));
+#endif
+    }
+
+    long writeSome(End end, const uint8_t *from, size_t size)
+    {
+#if defined(_WIN32)
+        DWORD put = 0;
+        if (!WriteFile(end, from, static_cast<DWORD>(size), &put, nullptr))
+            return -1;
+        return static_cast<long>(put);
+#else
+        return static_cast<long>(::write(end, from, size));
+#endif
+    }
+
+    // The player's end of `up` opened for writing or of `down` for reading.
+    End openEnd(const std::string &path, bool forWriting)
+    {
+#if defined(_WIN32)
+        return CreateFileA(path.c_str(), forWriting ? GENERIC_WRITE : GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+#else
+        return ::open(path.c_str(), forWriting ? O_WRONLY : O_RDONLY);
+#endif
+    }
+
+    void closeEnd(End end)
+    {
+        if (end == kNoEnd)
+            return;
+#if defined(_WIN32)
+        CloseHandle(end);
+#else
+        ::close(end);
+#endif
+    }
+
+    void readAll(End end, void *to, size_t size)
     {
         auto *at = static_cast<uint8_t *>(to);
         while (size)
         {
-            const ssize_t got = ::read(fd, at, size);
+            const long got = readSome(end, at, size);
             if (got <= 0)
                 playerGone();
             at += got;
@@ -57,12 +118,12 @@ namespace
         }
     }
 
-    void writeAll(int fd, const void *from, size_t size)
+    void writeAll(End end, const void *from, size_t size)
     {
         const auto *at = static_cast<const uint8_t *>(from);
         while (size)
         {
-            const ssize_t put = ::write(fd, at, size);
+            const long put = writeSome(end, at, size);
             if (put <= 0)
                 playerGone();
             at += put;
@@ -79,6 +140,14 @@ namespace
     }
     bool g_opened = false;
 
+    // <dir>/up and <dir>/down; on Windows the pipes \\.\pipe\<name>\up and
+    // \\.\pipe\<name>\down (ZX_PLAY_LINK=\\.\pipe\<name>).
+#if defined(_WIN32)
+    constexpr char kSeparator = '\\';
+#else
+    constexpr char kSeparator = '/';
+#endif
+
     Link &link()
     {
         Link &l = state();
@@ -89,9 +158,9 @@ namespace
         if (!dir || !dir[0])
             return l;
         // The player opens up for reading and down for writing first.
-        l.up = ::open((std::string(dir) + "/up").c_str(), O_WRONLY);
-        l.down = ::open((std::string(dir) + "/down").c_str(), O_RDONLY);
-        if (l.up < 0 || l.down < 0)
+        l.up = openEnd(std::string(dir) + kSeparator + "up", true);
+        l.down = openEnd(std::string(dir) + kSeparator + "down", false);
+        if (l.up == kNoEnd || l.down == kNoEnd)
         {
             std::fprintf(stderr, "[play] no link at %s\n", dir);
             std::exit(1);
@@ -160,10 +229,8 @@ bool enabled()
 void relink()
 {
     Link &l = state();
-    if (l.up >= 0)
-        ::close(l.up);
-    if (l.down >= 0)
-        ::close(l.down);
+    closeEnd(l.up);
+    closeEnd(l.down);
     l = Link{};
     g_opened = false;
     g_checked = false;
@@ -196,4 +263,3 @@ void onMirroredRead(uint16_t &pressed, uint8_t *sticks, uint8_t *pressure)
     applyAnswer(link(), pressed, sticks, pressure);
 }
 }
-#endif

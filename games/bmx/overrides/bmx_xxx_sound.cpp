@@ -61,6 +61,7 @@ namespace bmx_xxx::native_sound
             .songs = 20,
             .bankWaveCount = 0x28u,
             .bankWaves = 0x30u,
+            .bankHeader = zge_host::sound::BankHeader::Triples,
             .stringTableText = sym::bmx::stringTableText,
             .songKey = "KSTR_SONGINFO_%02u_",
             // The Xbox's unused songs, MUSIC.ZSD's waves 20-27 when they are
@@ -108,6 +109,9 @@ namespace bmx_xxx
     {
         if (const char *on = zx::boot::text("ZX_GAME_SETTINGS_MENUS"); on && on[0] == '1')
             zge_host::volumes::install(runtime, native_sound::kGameVolumes);
-        return zge_host::sound::install(runtime, native_sound::kSound);
+        const bool native = zge_host::sound::install(runtime, native_sound::kSound);
+        // The soundtrack's controls, with either driver.
+        installSoundtrack(runtime);
+        return native;
     }
 }

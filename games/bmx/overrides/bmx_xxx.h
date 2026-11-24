@@ -37,6 +37,9 @@ namespace bmx_xxx
     // The ZAudio sound driver on the host (unless ZX_SOUND=spu2;
     // bmx_xxx_sound.cpp).
     bool installNativeSound(PS2Machine &runtime);
+    // The soundtrack's controls: next, previous, shuffle (bmx_xxx_soundtrack.cpp;
+    // engine/overrides/zge_soundtrack.h).
+    bool installSoundtrack(PS2Machine &runtime);
 
     // The gameplay pages (Camera) and keys (Hide HUD), Aggressive Inline's
     // at BMX XXX's code; with the app's settings (ZX_GAME_SETTINGS_MENUS=1;

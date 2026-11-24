@@ -706,17 +706,19 @@ namespace zx::game_files
         std::shared_ptr<GameFile> file = openOriginal(normalized);
         if (!file)
             return nullptr;
-        // A head for this path (registerHead), made once for the file found.
-        Head make;
+        // The heads for this path (registerHead), each made once for the file
+        // as the ones registered before it left it.
+        std::vector<Head> makers;
         {
             std::lock_guard<std::mutex> lock(providerMutex());
             for (const HeadEntry &entry : heads())
                 if (entry.path == normalized)
-                    make = entry.make;
+                    makers.push_back(entry.make);
         }
-        if (make)
+        bool madeHead = false;
+        for (size_t at = 0; at < makers.size(); ++at)
         {
-            const std::string key = normalized + "\n" + file->source() + "\n" + std::to_string(file->size());
+            const std::string key = normalized + "\n" + std::to_string(at) + "\n" + file->source() + "\n" + std::to_string(file->size());
             std::shared_ptr<const std::vector<uint8_t>> head;
             bool known = false;
             {
@@ -729,7 +731,7 @@ namespace zx::game_files
             }
             if (!known)
             {
-                head = make(*file);
+                head = makers[at](*file);
                 std::lock_guard<std::mutex> lock(madeArchivesMutex());
                 madeHeads()[key] = head;
             }
@@ -738,9 +740,12 @@ namespace zx::game_files
                 auto headed = std::make_shared<HeadFile>(head, file);
                 headed->m_origin = GameFile::Origin::Patched;
                 headed->m_source = file->source() + " (its first " + std::to_string(head->size()) + " bytes made)";
-                return headed;
+                file = std::move(headed);
+                madeHead = true;
             }
         }
+        if (madeHead)
+            return file;
         // An in-memory patch for this file name (a game override's script
         // edits, say), made from whichever file was found.
         if (zx::disc_patch::hasPatch(normalized))

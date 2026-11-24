@@ -659,6 +659,8 @@ namespace zx::collection
     // Fed through menuInput as real keys and buttons are. drop:<path>
     // drops the file or folder on the window, as the player's drop does
     // (a check's way to a folder of discs: the file dialog takes no script).
+    // pick:<path> is what the next picker the menu opens gives (the Mods
+    // page's Add Mod...), in place of the system's dialog.
     class MenuScript
     {
     public:
@@ -668,6 +670,7 @@ namespace zx::collection
             int padButton = -1;  // a PadButton
             std::string game;    // game:<id>, lower case
             std::string drop;    // drop:<path>, as written
+            std::string pick;    // pick:<path>, as written
         };
 
         // The cards the menu shows now (the games' ids, left to right) and
@@ -690,9 +693,10 @@ namespace zx::collection
         // (Down first when no card is: from Settings and Quit), then passes;
         // a game the menu does not show, or one not reached in as many moves
         // as there are cards and two, is passed over with `*problem` said.
-        // A drop: step's path goes into `dropped` (none given: passed over).
+        // A drop: step's path goes into `dropped`, a pick: step's into
+        // `picked` (none given: passed over).
         bool next(std::vector<int> &keys, uint16_t &padButtons, const Cards &cards, std::string *problem = nullptr,
-                  std::vector<std::string> *dropped = nullptr);
+                  std::vector<std::string> *dropped = nullptr, std::vector<std::string> *picked = nullptr);
         bool next(std::vector<int> &keys, uint16_t &padButtons); // (no cards: a game: step is passed over)
 
         static constexpr int kFramesPerStep = 20;

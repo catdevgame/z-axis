@@ -61,7 +61,19 @@ namespace zx_app::platform
         (void)available;
     }
 
+    void frameInterpolationChanged(bool on)
+    {
+        (void)on;
+    }
+
     bool pickDocuments(bool folder, std::function<void(std::vector<std::string>)> picked)
+    {
+        (void)folder;
+        (void)picked;
+        return false;
+    }
+
+    bool pickDocumentsOnce(bool folder, std::function<void(std::vector<std::string>)> picked)
     {
         (void)folder;
         (void)picked;
@@ -74,5 +86,18 @@ namespace zx_app::platform
         (void)mimeType;
         (void)created;
         return false;
+    }
+
+    bool pickFolderOrFile(const std::string &extension, std::function<void(std::vector<std::string>)> picked)
+    {
+        (void)extension;
+        (void)picked;
+        return false;
+    }
+
+    zx::collection::UpdatePlatform updatePlatform(const char *argv0)
+    {
+        (void)argv0;
+        return {}; // (no packages for these builds)
     }
 }

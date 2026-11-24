@@ -10,10 +10,13 @@ Mods go in the collection's **Mods** folder, in its support folder:
 A mod is a folder there, or a `.zip`. A zip is read as it is: the app never unpacks it, so keep a mod as either the
 folder or the zip, never both. A zip of one folder (what zipping a folder makes) is read from inside that folder.
 
-On the Mac and Windows a mod's folder or zip dropped on the collection's menu is offered a place there (Add, or
-Replace for one of its name), and a map's folder with a `map.ini` alone one in the Maps folder; the copy is made beside
-the folder and moved in whole. Settings > Mods ends with Open Mods Folder, and a mod's row switches it: Left or Right
-turns it off in every game it is for, or on in all of them.
+Settings > Mods ends with Add Mod... and Open Mods Folder. Add Mod... opens the system's picker for a mod's folder or
+its zip (on Windows and Android it asks which first) and copies the mod into the Mods folder (Replace is asked for one
+of its name); on Android, where the app reads no path outside its own folders, the mod is copied from the picked
+document. On the Mac and Windows a mod's folder or zip dropped on the collection's menu is offered a place there the
+same way (Add, or Replace), and a map's folder with a `map.ini` alone one in the Maps folder; the copy is made beside
+the folder and moved in whole. A mod's row on the Mods page switches it: Left or Right turns it off in every game it
+is for, or on in all of them.
 
 ## mod.ini
 
@@ -41,6 +44,7 @@ What a mod holds is told by where its files are. They use the paths the games al
 | `ASSETS/...`, `MOVIES/...`, any disc path | replaces that file of the game's disc (names in any case) | yes |
 | `ASSETS/UILIB.ZAL/CommonFonts.zif`: a folder named as an archive, files named as its entries | replaces just those entries of that archive (see Archives below) | yes |
 | `Music/01 Song.ogg` (`.wav`, `.opus`, `.flac`, `.mp3`) | song 01 of the game's soundtrack, in all three games: AI's songs 01 to 13, DM2's 01 to 10, BMX XXX's 01 to 20 | no |
+| `Music/My Song.ogg`, `Music/21 Song.ogg`: any other song file there | a song added after the game's own (see Songs below) | no |
 | `tuning.ini` | Aggressive Inline's developer tuning values (docs/TUNING.md, docs/DEVTOOLS.md), BMX XXX's (its GameCube release's TUNING rows: "tuning.ini" below) and Dave Mirra BMX 2's (the same rows on its own values) | yes |
 | `Textures/ai/`, `Textures/dm2/`, `Textures/bmx/` | replacement pictures for the GPU renderer, PNG or DDS (docs/SETTINGS.md "Texture packs"): PCSX2's file names, or `.xtp` packs. A PCSX2 `textures/<serial>/` folder can be copied in as it is (`Textures/SLUS-20327/`); a mod of one game may put them in `Textures/` itself | no |
 | a `[map]` section in `mod.ini` (or a `map.ini`) | a custom map for Custom Freeplay (docs/CUSTOM-LEVELS.md, docs/SETTINGS.md "Custom Freeplay"); no other start reads it | yes |
@@ -133,6 +137,25 @@ or it is in a zip): every row the game has, with its value and range.
   more are grind-to-grind and wall ride angle tolerance: DM2 keeps their GameCube defaults, but no code reads them.
 
 A tuning value can change how the game plays; without a `tuning.ini` nothing is read or written.
+
+## Songs
+
+A mod's `Music` folder holds songs, as `.wav`, `.ogg`, `.opus`, `.flac` or `.mp3` files (names in any case):
+
+- A file whose name starts with one of the game's song numbers, two digits, replaces that song: `01` to `13` in
+  Aggressive Inline, `01` to `10` in Dave Mirra BMX 2, `01` to `20` in BMX XXX (`01 Song.ogg`, `07-Other.mp3`). The
+  last mod with a file for a number wins.
+- Every other song file is added after the game's own: a file with no number (`My Song.ogg`), or with a number past
+  the game's (`14 Song.ogg` in Aggressive Inline, `21 Song.ogg` in BMX XXX). The added songs play in turn after the
+  game's last: the mods' in their order on the Mods page, each mod's in name order, then back to the game's first.
+  They play in every level that has music, as the game's own do: in Dave Mirra BMX 2 and BMX XXX the game's music
+  menu and song info count them too; Aggressive Inline's pause menu Playlist lists its own 13 only.
+- A song's title and artist are the file's tags (`title`, `artist`, `album`), else its name without the number
+  (`07 - My Song.ogg` shows as "My Song"). WAV files have no tags read.
+- A song plays at its own rate and length, whole; the game's next song starts after it, as after its own.
+
+Next Track, Previous Track and Shuffle (docs/SETTINGS.md "Shortcuts") go through the added songs as through the
+game's. A file the build cannot read is left out, and the log says so ("added song ... left out").
 
 ## The Mods page (Settings > Mods)
 

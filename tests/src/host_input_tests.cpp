@@ -933,7 +933,8 @@ void register_host_input_tests()
                                                    "start", "select", "up", "down", "left", "right", "l3", "r3",
                                                    "left_up", "left_down", "left_left", "left_right", "right_up",
                                                    "right_down", "right_left", "right_right", "modifier", "recentre",
-                                                   "restart", "hide_hud", "screenshot", "photo_mode", "switch_game"};
+                                                   "restart", "hide_hud", "screenshot", "photo_mode", "switch_game",
+                                                   "previous_track", "next_track", "shuffle", "practice_point"};
             for (const GameControls *game : games)
             {
                 std::vector<std::string> warnings;
@@ -950,6 +951,47 @@ void register_host_input_tests()
                 const HostInputConfig d = HostInputConfig::defaults(game->defaultIni);
                 t.Equals(formatBindings(d.buttons[kCross]), std::string("SPACE, K"), game->id + ": Cross on Space");
                 t.Equals(formatBindings(d.hotkeys[kHotkeyScreenshot]), std::string("F12"), game->id + ": screenshot on F12");
+                t.IsTrue(formatBindings(d.hotkeys[kHotkeyPreviousTrack]) == "F5" && formatBindings(d.hotkeys[kHotkeyNextTrack]) == "F6" &&
+                             formatBindings(d.hotkeys[kHotkeyShuffle]) == "F7",
+                         game->id + ": the soundtrack's keys on F5, F6, F7");
+                t.Equals(formatBindings(d.hotkeys[kHotkeyBottomScreen]), std::string("M"), game->id + ": the bottom screen on M");
+                t.IsTrue(d.hotkeyPads[kHotkeyBottomScreen] == std::vector<int>{kL3, kR2}, game->id + ": or L3+R2");
+                // No other shortcut's chord is it, holds it or is held in it (each would fire with it).
+                const auto mask = [](const std::vector<int> &chord)
+                {
+                    uint16_t m = 0;
+                    for (int b : chord)
+                        m = static_cast<uint16_t>(m | (1u << b));
+                    return m;
+                };
+                const uint16_t mine = mask(d.hotkeyPads[kHotkeyBottomScreen]);
+                for (int other = 0; other < kHotkeyCount; ++other)
+                {
+                    const uint16_t theirs = mask(d.hotkeyPads[static_cast<size_t>(other)]);
+                    if (other != kHotkeyBottomScreen && theirs != 0u)
+                        t.IsTrue((theirs & mine) != theirs && (theirs & mine) != mine,
+                                 game->id + ": L3+R2 apart from " + hotkeyName(other) + "'s chord");
+                }
+                // M is no other control's key: no game button, stick push, modifier, recentre, cursor release or
+                // other shortcut.
+                const int m = hostCodeByName("M");
+                bool mFree = true;
+                const auto none = [&](const std::vector<Binding> &bindings)
+                {
+                    for (const Binding &b : bindings)
+                        mFree = mFree && b.code != m;
+                };
+                for (const auto &bindings : d.buttons)
+                    none(bindings);
+                for (const auto &bindings : d.stick)
+                    none(bindings);
+                none(d.stickModifier);
+                none(d.recentreKeys);
+                none(d.releaseKeys);
+                for (int other = 0; other < kHotkeyCount; ++other)
+                    if (other != kHotkeyBottomScreen)
+                        none(d.hotkeys[static_cast<size_t>(other)]);
+                t.IsTrue(mFree, game->id + ": M is no other control's key");
                 t.Equals(formatBindings(d.stick[kLeftUp]), std::string("W"), game->id + ": W pushes the left stick up");
             }
 

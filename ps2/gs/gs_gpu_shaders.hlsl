@@ -1097,3 +1097,91 @@ float4 fxaa_fs(BlitOut i) : SV_Target0
         pos.y += pixelOffsetSubpix * lengthSign;
     return float4(fxaaSrc.SampleLevel(fxaaSampler, pos, 0.0).rgb, rgbM.a);
 }
+
+// Frame interpolation's warp: the picture at t between two finished pictures A and B, from the camera's motion at
+// each pixel's depth (gs_gpu_backend.cpp presentWarp, which says how a motion is chosen).
+struct WarpUniforms
+{
+    float4 toA[4];  // B's GS window (X, Y, Z, 1) to A's (X w, Y w, Z w, w): rows
+    float4 toB[4];  // A's to B's
+    float4 originA; // x, y: A's picture texel 0 in its target's texels; z, w: its draws' XYOFFSET (GS pixels)
+    float4 originB;
+    float4 cfg;     // x, y: texels per GS pixel; z: t; w: 1 = A's depth is there
+    float4 depth;   // x, y: A's and B's GS Z per depth unit; z, w: the pictures' size in texels
+};
+
+ConstantBuffer<WarpUniforms> wu : register(b0, space3);
+Texture2D<float4> warpA : register(t0, space2);
+Texture2D<float4> warpB : register(t1, space2);
+Texture2D<float> warpDepthA : register(t2, space2);
+Texture2D<float> warpDepthB : register(t3, space2);
+SamplerState warpSamplerA : register(s0, space2);
+SamplerState warpSamplerB : register(s1, space2);
+
+// Picture texel q of one frame (its origin, its depth, GS Z per depth unit) to the other's picture texel through
+// the world (rows: one frame's GS window to the other's); z <= 0: behind the other camera.
+float3 warpThrough(float2 q, float4 from, float4 to, float4 r0, float4 r1, float4 r2, float4 r3, float zScale,
+                   Texture2D<float> depth)
+{
+    const float2 target = q + from.xy;
+    uint width, height;
+    depth.GetDimensions(width, height);
+    const int2 texel = clamp(int2(target), int2(0, 0), int2(int(width), int(height)) - 1);
+    const float z = depth.Load(int3(texel, 0)) * zScale;
+    const float2 gs = target / wu.cfg.xy + from.zw;
+    const float4 h = gs.x * r0 + gs.y * r1 + z * r2 + r3;
+    if (h.w <= 1.0e-6)
+        return float3(0.0, 0.0, -1.0);
+    return float3((h.xy / h.w - to.zw) * wu.cfg.xy - to.xy, 1.0);
+}
+
+// The motion from A to B (picture texels) of what B shows at q; z <= 0: none.
+float3 warpMotionB(float2 q)
+{
+    const float3 a = warpThrough(q, wu.originB, wu.originA, wu.toA[0], wu.toA[1], wu.toA[2], wu.toA[3], wu.depth.y,
+                                 warpDepthB);
+    return float3(q - a.xy, a.z);
+}
+
+// The same of what A shows at q.
+float3 warpMotionA(float2 q)
+{
+    const float3 b = warpThrough(q, wu.originA, wu.originB, wu.toB[0], wu.toB[1], wu.toB[2], wu.toB[3], wu.depth.x,
+                                 warpDepthA);
+    return float3(b.xy - q, b.z);
+}
+
+float4 warp_fs(BlitOut i) : SV_Target0
+{
+    const float2 p = i.position.xy;
+    const float t = wu.cfg.z;
+    const float2 texel = 1.0 / wu.depth.zw;
+    float3 motions[7];
+    motions[0] = float3(0.0, 0.0, 1.0);
+    motions[1] = warpMotionB(p);
+    motions[2] = wu.cfg.w != 0.0 ? warpMotionA(p) : float3(0.0, 0.0, -1.0);
+    const float reach = clamp(length(motions[1].xy) * 0.5, 2.0 * wu.cfg.x, 16.0 * wu.cfg.x);
+    motions[3] = warpMotionB(p + float2(reach, 0.0));
+    motions[4] = warpMotionB(p - float2(reach, 0.0));
+    motions[5] = warpMotionB(p + float2(0.0, reach));
+    motions[6] = warpMotionB(p - float2(0.0, reach));
+    float best = 1.0e9;
+    float3 colour = warpB.SampleLevel(warpSamplerB, p * texel, 0.0).rgb;
+    [unroll] for (int k = 0; k < 7; ++k)
+    {
+        if (motions[k].z <= 0.0)
+            continue;
+        const float2 m = motions[k].xy;
+        const float3 ca = warpA.SampleLevel(warpSamplerA, (p - t * m) * texel, 0.0).rgb;
+        const float3 cb = warpB.SampleLevel(warpSamplerB, (p + (1.0 - t) * m) * texel, 0.0).rgb;
+        const float3 d = abs(ca - cb);
+        // (no motion only where it agrees clearly better: in a flat area every motion agrees)
+        const float e = d.r + d.g + d.b + (k == 0 ? 0.02 : 0.0);
+        if (e < best)
+        {
+            best = e;
+            colour = lerp(ca, cb, t);
+        }
+    }
+    return float4(colour, 1.0);
+}

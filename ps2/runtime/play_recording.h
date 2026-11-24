@@ -77,7 +77,7 @@ namespace play_recording
         MotionBlur = 14,   // PS2Machine::motionBlur
         NativeDraws = 15,  // GSFrontend::nativeDrawsOnBackend (the GPU renderer's own draws)
         // The settings registry as the game's thread reads it
-        // (runtime/settings.h: the Settings pages' rows, names, values
+        // (runtime/settings_registry.h: the Settings pages' rows, names, values
         // and texts are the host's state), one stream per read and setting.
         Setting = 16,
         // Clean Top Screen's pieces left off the top screen
@@ -165,7 +165,7 @@ namespace play_recording
     };
     void onHostFrame(const HostFrame &frame);
 
-    // A setting changed (runtime/settings.h): from the app's menus
+    // A setting changed (runtime/settings_registry.h): from the app's menus
     // (fromGame false) the change reaches the game at a host frame, not at
     // a read of the game's, so the replay applies it at the vsync it came
     // and says so; from the game's own Settings page it follows the pad.

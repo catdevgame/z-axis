@@ -151,4 +151,20 @@ namespace panel
     // A list's scroll after `notches` of the wheel (up positive), never
     // above its top (the draw keeps it above its bottom).
     inline float wheelScrolled(float scroll, float notches) { return std::max(0.0f, scroll - notches * kWheelScroll); }
+
+    // The bottom screen over the game on one screen (collection/panel_overlay.h):
+    // the whole screen (kScreen) scaled down into the window's bottom right
+    // corner, its aspect kept, kOverlayShare of the window's height (less in
+    // a window too narrow for that: then kOverlayShare of its width), kEdge
+    // from the window's edges at the scale it is drawn. In the window's own
+    // units (points or pixels: the same comes back).
+    constexpr float kOverlayShare = 0.5f;
+    inline Rect overlayPlace(float windowWidth, float windowHeight)
+    {
+        if (windowWidth <= 0.0f || windowHeight <= 0.0f)
+            return {};
+        const float scale = std::min(windowHeight * kOverlayShare / kScreen.height, windowWidth * kOverlayShare / kScreen.width);
+        const float width = kScreen.width * scale, height = kScreen.height * scale, edge = kEdge * scale;
+        return {windowWidth - edge - width, windowHeight - edge - height, width, height};
+    }
 }

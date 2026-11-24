@@ -1,7 +1,7 @@
 #pragma once
 
 // The Xbox release's files Aggressive Inline reads as they are
-// (runtime/xbox_disc.h: ZX_XBOX_DIR), copied from the player's Xbox
+// (runtime/xbox_files.h: ZX_XBOX_DIR), copied from the player's Xbox
 // disc into <out>/assets/<path with the disc's case>, as tools/modding/xbox_files.py
 // bundle copies them (tools/modding/xbox-files.txt's list, the same files), and the
 // Zoo's level-select flythrough as the disc has it (movies/flythrus/zoo.bik,

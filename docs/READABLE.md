@@ -106,7 +106,7 @@ engine/zge, engine/host; aggressive/, dm2/, bmx/ are games/<game>, each beside i
              from readable code), dispatch.h (tableJump), profile.cpp (ZX_FNPROF), cycletrace.cpp (ZX_FNCYCLES)
   zge/       the Z-Axis engine, one body for the three games (AI's ZGE3 at 0x100100-0x171000): math, text (strings, fonts, the script token reader), memory
              (record pools, small heaps, handle regions), containers, assets (IFF, GEO/TXR/MATI loaders, geometry objects, tag tables, images, zfile, the RAM disk), sound, native (assets read on the host:
-             textures, GEO meshes, collision parts), zgui (zgui.c's start and end and file tokens, the UI tree and its script interpreter), editor
+             textures, GEO meshes, collision parts; the SPU2 voice the host's sound drivers play, spu_voice), zgui (zgui.c's start and end and file tokens, the UI tree and its script interpreter), editor
              (the park editor AI and BMX XXX link, one body), render (the display's frame loop and video mode, the renderer,
              parts, materials and their kinds and MATI states, texture levels and cache, draw submission and its draw
              records, class renderers, shadow volumes; render/ps2 the strict encoders the PS2 draws with: the DMA
@@ -290,7 +290,11 @@ The rules:
   dispatches, and emulated time decides when vsyncs and interrupts fall. A readable body charges
   the 8 of each call it makes but none of the original's loop cycles, so at the defaults EE time,
   and with it the vsync a read lands on, can differ from the original's. The gate does not compare time (it judges logic at
-  4096x); a recording replays with its own build's readable set (`replay.py run`, DEVTOOLS.md). The
+  4096x); a recording replays with its own build's readable set (`replay.py run`, DEVTOOLS.md). Frame seconds
+  follow EE time in AI's first level frames (the adaptive frame limiter), so the tutorial's first tip, opened by a
+  script timer, comes 22 frames later with the defaults at the PS2's clock and in every run at 4096 than in PCSX2
+  and `off` at that clock; logiccheck therefore dumps ref03 at the reference's own event (its script time reached and
+  the box waiting for X) and prints the frame and level time of both sides there. The
   functions that mark the original's entry blocks (`ee::block`, `ee::loopBack`,
   `ee::tableJump` for a jump table's case outside an entry block) leave at its safe points when a
   checkpoint is due. `readable_tablejumps.py BUILD ADDR...` prints the
@@ -367,7 +371,10 @@ READABLE_FUNCTION_IN(dm2, sym::dm2::riderFrame, riderFrame, Verified);  // DM2's
    charges and checks what the plain code does, and where the plain code leaves for the scheduler
    (a checkpoint due, a callee or jump that does not come back, an inner self-call's return, a
    chunk's end) so does the traced code; the call is parked to go on there, or not kept (the
-   recorder's summary says why). A function that never returns (a card job's end that deletes its own
+   recorder's summary says why). How many wait parked at once is set by the memory they hold
+   (`ZX_FNREC_PARK_MB`, default 1024: a call parked at a wait keeps a RAM image of 32 MB until it comes
+   back, one parked between calls only its record); a wait with no room is counted in the function's
+   summary line ("for want of room to park") and the run's peak is printed. A function that never returns (a card job's end that deletes its own
    thread, a thread's endless loop) is recorded to a stop with `ZX_FNREC_STOPS=1`: the functions of
    the table in `fncheck_stops.h`, each call kept up to the callee that never comes back (the thread
    ended in it, or the first wait `_STOP_FRAMES` vsyncs in), RAM and registers as at that call. The
@@ -403,7 +410,11 @@ READABLE_FUNCTION_IN(dm2, sym::dm2::riderFrame, riderFrame, Verified);  // DM2's
    reaches), once per recorder version, into `$ZAXIS_SCRATCH/reccorpus/v<N>/<route>/`.
    `fncheck_corpus.py run --incremental` replays every recording against the build with a verdict
    cache and replays only what changed; `compare`, `same`, `coverage`, `saves`, `emit` (workdb
-   lines), `prune-plan`. It caps its own memory (`--max-mem-gb`, `--jobs auto`).
+   lines), `prune-plan`. A file's key is the recording, the function's readable closure (as source), its traced
+   original, the checker's tables and flags, and the code the replay can run as the build compiled it, read from the
+   link's objects (`tools/checks/objcode.py`: every function's and datum's bytes and relocations): what the checker's
+   driver reaches is in every key, what the function's traced original and readable files reach past that is in its
+   own. A runtime change that leaves that code as it was keeps the verdicts; `--verify` replays 1 % of the kept files. It caps its own memory (`--max-mem-gb`, `--jobs auto`).
    DM2 and BMX XXX each have a corpus of their own: DM2's is `reccorpus/dm2-v1` (`tools/checks/dm2corpus.py`,
    routes in `dm2routes.py`), BMX XXX's is made by the same tool with `--game bmx` (routes in `bmxroutes.py`). A
    build with `ZX_GAME_CORPUS=dm2` (and `ZX_BIND_DIR`) has all of DM2's 4,527 functions (`games/dm2/functions.tsv`)
@@ -506,7 +517,10 @@ says a person can read it; they are reported apart and neither implies the other
   the same clock does (`logiccheck.py compare NAME --off OFFNAME`; such a row says so). Nothing else is let through.
   The same three runs again with the app's menus (`ZX_GAME_SETTINGS_MENUS=1`, logiccheck's menus route: the same
   input, the zgui panels at their menus-on addresses), so the gate judges what the app runs too.
-- The A/B at that clock: `career_ab.py gate` (AI; `--game dm2` and `--game bmx` for the others), every input, `off` against the defaults, same runner. At 4096x no frame
+- The A/B at that clock: `career_ab.py gate` (AI; `--game dm2` and `--game bmx` for the others), every input, `off` against the defaults, same runner. Each input
+  runs to its limit, and the limit covers its route: the tick its pad script ends at (its anchors as the run met them) and 600 vsyncs for
+  what its last press does. A run that stops short of the limit, or a limit short of the route, fails; what is compared is compared to the
+  limit, not to the last change of the state's fields. At 4096x no frame
   overruns its vsync, so what differs is logic: every state field at every tick, the scratchpad, the streams, VU0,
   RAM. RAM's exceptions are two: a word below its thread's sp in both runs (the dump's `.sp` file) is dead stack,
   counted apart; `ab_allow.txt` names the rest, each with its proof and as narrow as that proof (clock words by the

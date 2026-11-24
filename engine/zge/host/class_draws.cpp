@@ -26,6 +26,7 @@
 // ones it computes.
 
 #include "zge/host/class_draws.h"
+#include "zge/host/rider_ghost.h"
 
 #include "host/native_draws.h"
 #include "zge/native/geo_meshes.h"
@@ -416,7 +417,10 @@ namespace zge::host
 
         // The draw's anchor appended: when VIF1 reaches it, each material's GS block and UV transforms read as
         // they are then, and the GS work of its triangles returned.
-        void addAnchor(sce::Vif1Packet *packet, const GSNativeDraw &base, std::vector<Item> items, const float sphere[4][2])
+        // A skinned rider's ghost (runtime/ghost_rider.h, `ghost`: its draw, the run left to each material's): drawn
+        // see-through after each material's triangles.
+        void addAnchor(sce::Vif1Packet *packet, const GSNativeDraw &base, std::vector<Item> items, const float sphere[4][2],
+                       std::shared_ptr<const GSNativeDraw> ghost = nullptr)
         {
             struct Step
             {
@@ -428,7 +432,7 @@ namespace zge::host
             float sphereRows[4][2];
             std::memcpy(sphereRows, sphere, sizeof(sphereRows));
             const uint32_t code = draws::anchorCode(
-                [base, items = std::move(items), sphereRows]() -> draws::Work
+                [base, items = std::move(items), sphereRows, ghost]() -> draws::Work
                 {
                     std::vector<Step> steps(items.size());
                     for (size_t i = 0; i < items.size(); ++i)
@@ -453,7 +457,7 @@ namespace zge::host
                                 st.uv.matrix(t.rows);
                         }
                     }
-                    return [base, steps = std::move(steps)]()
+                    return [base, steps = std::move(steps), ghost]()
                     {
                         for (const Step &st : steps)
                         {
@@ -471,6 +475,8 @@ namespace zge::host
                             {
                                 if (d.count >= 3u)
                                     draws::draw(d);
+                                if (ghost && d.count >= 3u)
+                                    draws::draw(zx::ghost_rider::ofRun(*ghost, d));
                                 continue;
                             }
                             // Grass: the base opaque with the Z test, then the shells blended with the alpha test.
@@ -600,6 +606,8 @@ namespace zge::host
 
     bool drawFromRecord(sce::Vif1Packet *packet, const SkinnedDraw &draw, SkinnedEncoder encode)
     {
+        // (a rider's part noted for ghost riding on every path; its ghost drawn here with the records)
+        const std::shared_ptr<const zx::ghost_rider::Ghost> ghost = noteRiderDraw(draw);
         if (!draws::fromRecords())
             return false;
         placeDrawTagAsPartCall();
@@ -651,7 +659,11 @@ namespace zge::host
         std::memcpy(base.motion.world, affineWorld(*record.node).m, sizeof(base.motion.world));
         std::memcpy(base.motion.camera, rowsOf(**g_viewMatrix).m, sizeof(base.motion.camera));
         const float noSphere[4][2] = {};
-        addAnchor(packet, base, std::move(items), noSphere);
+        std::shared_ptr<const GSNativeDraw> ghostBase;
+        if (ghost)
+            ghostBase = std::make_shared<const GSNativeDraw>(
+                zx::ghost_rider::ghostDraw(base, *ghost, rowsOf(*draw.screen).m, rowsOf(*draw.clip).m));
+        addAnchor(packet, base, std::move(items), noSphere, std::move(ghostBase));
         draws::count(Count::Skinned);
         return true;
     }

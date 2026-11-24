@@ -135,6 +135,10 @@ namespace zx
             "ZX_RECORD_CHECKSUMS",
             "ZX_REPLAY",
             "ZX_REPLAY_STOP",
+            // Ghost riding (runtime/ghost_rider.h): the track ridden against, its level, the track made.
+            "ZX_GHOST",
+            "ZX_GHOST_LEVEL",
+            "ZX_GHOST_TRACK",
         };
 
         // The boot in progress: its config, and its values as texts kept for

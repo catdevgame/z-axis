@@ -42,6 +42,21 @@ if(ZX_CCACHE AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
     endif()
 endif()
 
+# No path of the machine a build ran on in its binaries (tools/checks/release_check.py refuses a package that names
+# one): __FILE__, and what reaches it (asserts, std::source_location), names a file from the checkout's root
+# (ps2/ee/readable.h) or the build folder's (configured files), wherever the checkout is. Only the macros' paths:
+# the debug information keeps the full ones, for debuggers. (ccache 4 hashes the map's old folder by base_dir, so
+# worktrees still share its objects.)
+foreach(_zx_prefix IN ITEMS "${ZX_ROOT}" "${CMAKE_BINARY_DIR}")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        add_compile_options("$<$<COMPILE_LANGUAGE:C,CXX>:/d1trimfile:${_zx_prefix}/>")
+    elseif(MSVC)   # (clang-cl)
+        add_compile_options("$<$<COMPILE_LANGUAGE:C,CXX>:/clang:-fmacro-prefix-map=${_zx_prefix}/=>")
+    else()
+        add_compile_options("$<$<COMPILE_LANGUAGE:C,CXX,OBJC>:-fmacro-prefix-map=${_zx_prefix}/=>")
+    endif()
+endforeach()
+
 option(ZX_BUILD_RUNTIME "Build the runtime and the games" ON)
 option(ZX_BUILD_TEST "Build the unit tests (zx-tests)" ON)
 # The recompiler that makes each game's generated code (and its own tests) is a

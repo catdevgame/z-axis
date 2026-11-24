@@ -5,7 +5,7 @@
 
 #include "machine.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <algorithm>
 #include <array>

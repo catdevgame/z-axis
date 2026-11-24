@@ -338,6 +338,32 @@ void register_game_files_tests()
             t.IsTrue(plain && contents(*plain) == "HEADbody-of-the-bank", "removed: the file as it is");
         });
 
+        tc.Run("heads: two for one path are made in order, the second from the first's file", [](TestCase &t)
+        {
+            TempDir dir;
+            put(dir.path / "disc" / "ASSETS" / "AUDIO" / "MUSIC.ZSD", "0123456789abcdef");
+            std::string secondSaw;
+            registerHead("ASSETS/AUDIO/MUSIC.ZSD", [](GameFile &) -> std::shared_ptr<const std::vector<uint8_t>>
+            {
+                const std::string head = "AA";
+                return std::make_shared<const std::vector<uint8_t>>(head.begin(), head.end());
+            }, "first");
+            registerHead("ASSETS/AUDIO/MUSIC.ZSD", [&secondSaw](GameFile &file) -> std::shared_ptr<const std::vector<uint8_t>>
+            {
+                char seen[4] = {};
+                file.read(0, seen, 4);
+                secondSaw.assign(seen, 4);
+                const std::string head = "BBB";
+                return std::make_shared<const std::vector<uint8_t>>(head.begin(), head.end());
+            }, "second");
+            GameFileSystem files({dir.path / "disc", nullptr, {}});
+            auto bank = files.open("ASSETS/AUDIO/MUSIC.ZSD");
+            t.Equals(secondSaw, std::string("AA23"), "the second head made from the first's file");
+            t.IsTrue(bank && contents(*bank) == "BBB3456789abcdef", "both heads served, the second over the first");
+            removeHeads("first");
+            removeHeads("second");
+        });
+
         tc.Run("memory folders: none registered reads as before; one is read over the mods", [](TestCase &t)
         {
             TempDir dir;

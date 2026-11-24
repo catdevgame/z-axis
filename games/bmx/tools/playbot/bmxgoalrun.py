@@ -69,6 +69,7 @@ presses = bmx.presses
 # The game's numbers this player goes by (games/bmx/overlay/screens.h GameScreen, screen_pause.cpp PauseChoice,
 # screen_game_over.cpp GameOverChoice, screen_exit_confirm.cpp kYesLine, game/npcs.h Npc).
 SCREEN_PLAY, SCREEN_REPLAY, SCREEN_PAUSE, SCREEN_EXIT_GAME, SCREEN_GAME_OVER, SCREEN_NPR = 1, 2, 7, 17, 22, 41
+SCREEN_MOVIE_CONFIRM, GAME_STATE_MOVIE = 19, 4   # (draft2) overlay/screens.h kScreenMovieConfirm, states/game_state.h kGameStateMovie
 PAUSE_EXIT_GAME, GAME_OVER_VIEW_REPLAY, YES_LINE = 10, 5, 1
 MENU_CHOICES = 16
 NPCS, NPC_BYTES, NO_NPC = 3, 0x24, 0xFF
@@ -76,6 +77,7 @@ NPC_RIDER, NPC_STATES, NPC_RECORD = 0x00, 0x09, 0x18
 NPC_STANDING = 0
 RECORD_OBJECTIVE = 0x0C                     # NpcRecord::objectiveName (0x20)
 RIDER_POSITION = 0x2650                     # the rider's position (bmx.read's pos)
+RIDER_OBJECTIVES = 0x25A0 - 0x18            # objectives.h RiderObjectives (riderObjectives: before the wheels, +0x25A0)
 MEET_RANGE = 5.0                            # meetNpc's kMeetSquared, 25
 PM_TOUCH_D2, PM_DRAWN_D2 = 0x78, 0x80          # PathManRecord::touchRangeSquared, drawnRiderDistanceSquared
 CAMERA_SHOT = 0x03                          # ActionCamera::shot (camera/action_camera.h)
@@ -736,6 +738,76 @@ def play(name, level, plan, ticks=9000, seed=1, max_secs=2400):
                         watched[arg] = tags
                         return None
                     return goalsteer.Approach(self, where, near=0.6, limit=2400, label='pickup %s' % arg)
+                if kind == 'coins':
+                    # (draft2) a timed COLLECT of pickups hung over the floors (the Bronx's Scores): each pickup by
+                    # goalsteer.Reach (a ramp's launch or a hop where it is over the body), the game's own state saying
+                    # when it is taken (its tag record's state); the nearest next; the checkpoint last, by Approach
+                    todo = step.get('todo')
+                    if todo is None:
+                        todo = []
+                        for o in sorted((o for o in objs if o['type'] == 'COLLECT' and o['name'] and o['name'].split('.')[0].lower() == arg.lower()),
+                                        key=lambda o: 'chkpt' in o['name'].lower()):
+                            todo += [(item, w) for item, w in zip(o['items'], o['where']) if w is not None]
+                        step['todo'], step['taken'] = todo, []
+                        self.log(st, 'coins %s: %s' % (arg, ', '.join(i for i, _ in todo)))
+                    last = step.pop('task', None)
+                    # the timed objective the rider runs and its frames left (objectives.h RiderObjectives, just
+                    # before the wheels' contacts: +0x0C, +0x10)
+                    timed, left = struct.unpack('<2I', run.mem(st.rider + RIDER_OBJECTIVES + 0x0C, 8))
+                    if last is not None:
+                        self.log(st, 'coins %s: %s %s, the timed objective %#x, %d frames left' % (
+                            arg, last[0], getattr(last[1], 'result', None) or ('reached' if getattr(last[1], 'reached', False) else 'not reached'), timed, left))
+                        if not timed:
+                            # no timed objective runs: the goal is over (done, or out of time: the coins left then
+                            # read as taken)
+                            self.finish(st, 'the goal is over, %d taken (%s), %d frames left' % (
+                                len(step['taken']), ', '.join(step['taken']), step.get('left', 0)))
+                            continue
+                        step['left'] = left
+                        if getattr(last[1], 'result', None) == 'taken':
+                            step['taken'].append(last[0])
+                            meter.s.count('coins_taken')
+                        elif isinstance(last[1], goalsteer.Reach) and last[1].result is None:
+                            # (the player dropped it: a bail, the rider put back) again, three times at most
+                            again = step.setdefault('again', {})
+                            again[last[0]] = again.get(last[0], 0) + 1
+                            if again[last[0]] <= 3:
+                                todo.append((last[0], last[2]))
+                    if not todo:
+                        self.finish(st, 'done, taken %d' % len(step['taken']))
+                        continue
+                    found = {i: level_pickup(run, sym, i) for i, _ in todo}
+                    coins = [k for k, (i, w) in enumerate(todo) if found[i]]
+                    k = min(coins, key=lambda k: goalsteer.flat(st.pos, todo[k][1])) if coins else 0
+                    item, w = todo.pop(k)
+                    if found.get(item):
+                        obj, tags = found[item]
+                        if run.mem(tags, 1)[0] >= PICKUP_ACTIVATING:
+                            self.log(st, 'coins %s: %s taken already' % (arg, item))
+                            continue
+
+                        def taken(tags=tags):
+                            return run.mem(tags, 1)[0] >= PICKUP_ACTIVATING
+
+                        def drawn(st2):
+                            pr = struct.unpack('<8f', run.mem(st2.rider + RIDER_POSITION, 32))
+                            return tuple(a + b for a, b in zip(pr[:3], pr[4:7]))
+                        task = goalsteer.Reach(self, struct.unpack('<3f', run.mem(obj + 0x10, 12)), taken, drawn, item,
+                                               reach=float(os.environ.get('COIN_REACH', '2.5')), ramps=self.level.ramps,
+                                               shot=(lambda n: run.shot(n)) if os.environ.get('GS') == '1' else None)
+                    else:
+                        # the checkpoint (not a pickup): reached as a coin is, until the goal's timed objective ends
+                        # (the set done: the rider's RiderObjectives timedObjective back to 0)
+                        def goal_over():
+                            return not run.u32(st.rider + RIDER_OBJECTIVES + 0x0C)
+
+                        def drawn(st2):
+                            pr = struct.unpack('<8f', run.mem(st2.rider + RIDER_POSITION, 32))
+                            return tuple(a + b for a, b in zip(pr[:3], pr[4:7]))
+                        task = goalsteer.Reach(self, w, goal_over, drawn, item, reach=float(os.environ.get('COIN_REACH', '2.5')),
+                                               ramps=self.level.ramps, shot=(lambda n: run.shot(n)) if os.environ.get('GS') == '1' else None)
+                    step['task'] = (item, task, w)
+                    return task
                 if kind == 'collect':
                     todo = step.get('todo')
                     if todo is None:
@@ -1008,6 +1080,24 @@ def play(name, level, plan, ticks=9000, seed=1, max_secs=2400):
                     s['met'].append(here[0]['objective'])
                     log(st, 'npc met: %s' % here[0]['objective'])
                     meter.s.count('npcs_met')
+        # (draft2) a movie won (a slot goal's kind-16 reward): the confirmation's YES (its second line, kMovieYes), the
+        # movie watched MOVIE_FRAMES (game state 4, kGameStateMovie: movieEnter, movieFrame), then CROSS ends it
+        # (movieExit) and the level goes on; MOVIE=no answers NO
+        state = run.mem(sym['g_currentGameState'], 1)[0]
+        if state != s.get('game_state'):
+            log(st, 'game state %s -> %d' % (s.get('game_state'), state))
+            s['game_state'], s['game_state_at'] = state, st.script
+            if state == GAME_STATE_MOVIE:
+                meter.s.count('movies')
+        if state == GAME_STATE_MOVIE:
+            k = st.script - s['game_state_at']
+            if k == int(os.environ.get('MOVIE_FRAMES', '300')):
+                log(st, 'movie: CROSS after %d frames' % k)
+            return core.pad('CROSS') if int(os.environ.get('MOVIE_FRAMES', '300')) <= k < int(os.environ.get('MOVIE_FRAMES', '300')) + 6 or (k > 1200 and k % 120 < 6) else core.NOTHING
+        if screen == SCREEN_MOVIE_CONFIRM and not s['program'] and st.script - s['screen_at'] == 60:
+            yes = os.environ.get('MOVIE', 'yes') != 'no'
+            log(st, 'movie confirmation: %s' % ('YES' if yes else 'NO'))
+            s['program'] = presses(*(['DOWN'] if yes else []), 'CROSS', 60)
         if s['program']:
             return s['program'].pop(0)
         if s.get('g') == 'done':

@@ -58,7 +58,10 @@ zx_readable_glob(ZX_GAME_SOURCES "*.cpp")
 list(REMOVE_ITEM ZX_GAME_SOURCES "${ZX_PS2_DIR}/ee/fncheck_main.cpp"
     "${ZX_ENGINE_DIR}/zge/native/native_assets_main.cpp"
     # build time only (the packaging step's converter): not in the game
-    "${ZX_ENGINE_DIR}/zge/native/xbox_models.cpp")
+    "${ZX_ENGINE_DIR}/zge/native/xbox_models.cpp"
+    # the native sound voice the host's sound drivers and the collection's menu audio play with: built into
+    # the runtime (ps2/CMakeLists.txt), not into the game
+    "${ZX_ENGINE_DIR}/zge/native/spu_voice.cpp")
 # The games beside AI (ee/game_id.h's names, each with its ELF): each has an instance of its own below.
 set(ZX_GAME_OTHER_GAMES "dm2|SLUS_201.59;bmx|SLUS_204.15")
 # One engine, three games: AI's instance is zge, host, ee, sce and games/aggressive. Another game's folder

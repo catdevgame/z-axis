@@ -28,7 +28,8 @@ Commands (NAME's runner must be running):
                              poked to SPEED (12) along +x (test only), TAPS (UP) three
                              times, TRIANGLE held HOLD vsyncs; ACTION a button held on the
                              rails, letgo, or raw:cmd,cmd. TAPS DOWN gives 6 Hand Grind.
-                             The first two after a level load can miss.
+                             The first two after a level load can miss: tried until the
+                             grind, at most six times.
     doublegrindat X Z DX DZ [HOLD [ACTION [SPEED]]]
                              the same on another Museum double rail (the ring:
                              11.4 -39.2 0.25 -0.97)
@@ -2900,8 +2901,14 @@ def run(r, argv):
                 int(args[4]) if len(args) > 4 else 150, len(args) > 5 and args[5] == "word")
         return
     if cmd == "doublegrind":
-        double_grind(r, args[0] if args else "UP", int(args[1]) if len(args) > 1 else 90,
-                     args[2] if len(args) > 2 else "", float(args[3]) if len(args) > 3 else 12.0)
+        # (routes4) tried until the grind (7 Double Grind, 6 Hand Grind with DOWN), at most six times: the first
+        # after a level load can miss (museum's one try never grinded, before the fixed recorder and after it)
+        taps = args[0] if args else "UP"
+        for _ in range(6):
+            seen = double_grind(r, taps, int(args[1]) if len(args) > 1 else 90,
+                                args[2] if len(args) > 2 else "", float(args[3]) if len(args) > 3 else 12.0)
+            if (6 if taps == "DOWN" else 7) in seen:
+                break
         return
     if cmd in ("poleaim", "poleaima", "poleaim540", "poleaima540"):
         pole_aim(r, args[0], float(args[1]) if len(args) > 1 else 0.0, air="aima" in cmd, aim540=cmd.endswith("540"),

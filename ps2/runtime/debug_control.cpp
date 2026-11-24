@@ -5,7 +5,7 @@
 #include "runtime/pad_script.h"
 #include "runtime/state_probe.h"
 #include "runtime/pad.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/boot_config.h"
 
 void setPadPort0Connected(bool connected); // pad.cpp
@@ -427,7 +427,7 @@ namespace
         }
         if (op == "set" || op == "get")
         {
-            // A setting of the settings model (runtime/settings.h).
+            // A setting of the settings model (runtime/settings_registry.h).
             const std::string key = arg(1);
             if (!zx::settings::has(key))
             {

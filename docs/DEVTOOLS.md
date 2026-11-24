@@ -13,7 +13,7 @@ verified in the running game or the code, [I] = inferred from a name.
 
 | What | App | Runner (developer) |
 |---|---|---|
-| Debug menu | Settings > Game > Developer Menu: On (next start), then **F1** in a level. Aggressive Inline opens its hidden debug menu (below). DM2 and BMX XXX have no debug menu: F1 turns their debug display on and off (DM2: the frame rate and free texture memory, the profiler and the engine's debug drawing; BMX XXX: the profiler, its backdrop and the debug drawing; `dave_mirra_devtools.cpp`, `bmx_xxx_devtools.cpp`) | `ZX_DEV_MENU=1`; F1, or `set dev.debug_menu 1` on ZX_CONTROL |
+| Debug menu | Settings > Game > Developer Menu: On (next start), then **F1** (a gamepad: **Select+L3**, the `developer_menu` shortcut) in a level. Aggressive Inline opens its hidden debug menu (below). DM2 and BMX XXX have no debug menu: F1 turns their debug display on and off (DM2: the frame rate and free texture memory, the profiler and the engine's debug drawing; BMX XXX: the profiler, its backdrop and the debug drawing; `dave_mirra_devtools.cpp`, `bmx_xxx_devtools.cpp`) | `ZX_DEV_MENU=1`; F1 or Select+L3, or `set dev.debug_menu 1` on ZX_CONTROL |
 | Tuning overrides | `Mods/tuning.ini` in the game's support folder, or a mod's (the last mod that has one; docs/SETTINGS.md "Mods"), always read when it exists | `tuning.ini` in the last of ZX_MODS_DIR's folders that has one, or `ZX_TUNING_INI=<file>` |
 | Reference of all entries | With the developer menu on, every start writes `Mods/tuning-reference.ini` | same, into ZX_MODS_DIR's first folder |
 | Language (AI, BMX XXX) | Settings > Game > Language (next start; AI's with the Xbox release's files, docs/SETTINGS.md "Languages from the Xbox release") | `ZX_LANGUAGE=english\|french\|german\|spanish`; in AI, `uk` and, without the Xbox files, `french` and `german`: the PS2 disc's own string tables (below) |
@@ -123,7 +123,8 @@ carries). The other switches are the process's.
 | `ZX_VSYNC_PHASE=0` | paced runs: the guest's vblank no longer held in phase with the window's latch (runtime/host_pacing.h). On by default, the lock keeps a 60 frames/s game's frames 16.7 ms apart on a 120 Hz display, and moves the vblanks a refresh later while a frame waits a refresh late. Host time only: the game's logic follows EE cycles |
 | `ZX_FRAME_QUEUE=0` | the window shows the newest picture at each refresh (latched on the window thread). By default every game frame's picture is made on the GS worker at its buffer swap and waits for the window (GS::setFrameQueue), so none is lost to a host frame that took two refreshes; headless runs too, so their pictures (`shot`, `ZX_SHOT_AT`, the Screenshot key) are never a buffer being drawn again. The pictures the window still latches itself (the first, after a renderer switch, a stretch with no swap, everything with the queue off) are taken again when the game swapped while one was copied (by the display's change count, so A, B, A too), and one the game swapped through every try is not kept. `ZX_PERF_LOG`'s `[perf] shown:` line counts the game frames by the refreshes they stayed on screen, those never shown, and the time from a picture to its present |
 | `ZX_AUDIO=off` | no sound: the audio device is SDL's dummy driver, so everything before the speakers (the SPU2 mix, the host streams, the device's pace) runs as with sound. Unpaced runs (`ZX_UNPACED=1`) get it too; `ZX_AUDIO=on` plays sound anyway. The tooling's shared environment (`paths.sh`, `zpaths.py`) sets `off` for every test run, paced ones included: a run that has to be heard (audiocheck) sets `on`. `[host] audio:` says which driver |
-| `ZX_VRR=1` | variable refresh (the app's Display > Variable Refresh): each game frame is presented when it is ready and a G-Sync, FreeSync or adaptive-sync display follows; on a fixed-rate display a frame waits for the next refresh with no phase lock |
+| `ZX_VRR=1` | variable refresh (the app's Display > Variable Refresh): each game frame is presented when it is ready and a G-Sync, FreeSync or adaptive-sync display follows; on a fixed-rate display a frame waits for the next refresh with no phase lock. It wins over frame interpolation, which runs only with variable refresh off (`gs_interpolate::interpolates`) |
+| `ZX_PRESENT_HZ=<n>` | the window loop at n refreshes a second without vsync (`ZX_PRESENT_OFFSCREEN=1`: nothing shown), and headless runs at n instead of about 60: frame interpolation timed at a rate the display is not (75, 144 Hz) |
 | `ZX_TRACE_HEAP=1` | the guest heap's high-water marks per level (`runtime/heap_trace.h`): the bytes in use and the peak, in the 32 MB heap and in extended memory, of each stretch of one level name (the panel capture's level folder, `no level` in the front end and while loading), logged when it ends and every 600 vsyncs (`[heap] woodward (ended): 32 MB heap peak ... ticks A..B`); `tools/playbot/memuse.py` `heap()` reads them, a park's `PARK_MEMORY` run sets it. Off: nothing installed |
 | `ZX_GS_SHOT_VSYNC="T,T,...:PREFIX"` | all three games: at each vsync tick T, the display as the GS has it once it has done everything sent before that vsync (a GS sideband, in stream order: behind a buffer swap the EE queued, so never the buffer the next frame is being drawn into), drawn to `PREFIX-vT.png`. Two runs of one input give the same pictures whatever the host's timing, so render paths can be compared (strict against records). The GPU renderer's are at its internal resolution. `ZX_GS_SHOT_PRIMS=N`: every primitive the GS draws in the N vsyncs before each picture to `PREFIX-vT.prims` (GS::logPrimitive's records: the state and three vertices, a native draw's marked), to set two paths' draws side by side; `ZX_GS_SHOT_TRACE=1` with it: a GS trace of those vsyncs (`PREFIX-vT.gsr`) for `zx-gsreplay --gpu`. One difference is deliberate: the GPU draws native meshes crossing the near plane whole, the PS2 (and the CPU renderer) as its clipping program's split, clamped triangles |
 | `ZX_TRACE_NATIVE=1` (`=2`) | `render_path = records`: the draws drawn from their records by class and those left to the strict encoder by why, every 20,000 draws (`[native-records] ...`); `=2` also each part left without a mesh, once, and why |
@@ -155,14 +156,17 @@ Example, unattended on any machine (AI's ELF):
   skater on a bail or a stop; `style=natural` for live-play profiles). Test-only commands poke the
   game: what they record earns Tested, never Verified (READABLE.md "Statuses").
 - `tools/playbot/`: closed-loop players (testing gameplay means playing). The game stops
-  at every pad read (`ZX_PLAY_LINK`); the player reads its state and chooses the pad. `ai.py` (a
+  at every pad read (`ZX_PLAY_LINK`: two FIFOs, on Windows two named pipes, `core.PipeLink`); the player reads its
+  state and chooses the pad. `ai.py` (a
   career session, split screen, the Park Editor), `dm2.py`, `bmx.py`; each reports the game's own
   numbers. Each game's park players ride a park built in that game's own editor: `aipark.py`, `dm2park.py`,
   `bmxpark.py` build it in the park editor and save it; `aipark.py ride` and `bikepark.py`
   ride the saved park: a tour of its features from `parkmap.py`'s map, made from the save and the
   pieces' own models (`RIDE=circuit`: the zone circuit in cells), and `memuse.py` reads the heap's
   high-water and the GS audit (`PARK_MEMORY=1`). Usage in each file's docstring.
-- Spots (`ZX_SPOT_FORK=<dir>`, Mac and Linux, `runtime/spot_fork.h`): a run that reaches a spot
+- Spots (`ZX_SPOT_FORK=<dir>`, Mac and Linux, `runtime/spot_fork.h`; not on Windows, which has no `fork`: no
+  copy of a running process with its threads' state, and the runtime has no save state to start one from): a run
+  that reaches a spot
   (`ZX_SPOT_AT=tick>=N|script>=N`, or the file `<dir>/now`) stops there at a VBlank and forks a copy of
   the whole machine for each request file `<dir>/req/NAME` (its environment: a play link, dumps, a
   recorder), which goes on from that guest moment; headless, null GS, `ZX_AUDIO=off`, no recorder in
@@ -184,13 +188,25 @@ A `.zrec` (runtime/play_recording.h) holds:
   gamepad mapping, mouse-look, shortcuts, the prompt device, dates, the picture's aspect, libc rand, and the
   settings as the game's own Settings pages read them (rows, names, values);
 - the build's commit, the game and its ELF's hash, every BootConfig value and `ZX_*` switch;
-- the device (and Low Power Mode, or on Android the CPU governor and battery);
+- the device (and Low Power Mode; on Android the CPU governor and battery; on Windows the CPU, the power plan,
+  battery saver, the battery, and a hybrid CPU's performance and efficient cores);
 - a copy of the saves at boot;
 - EE RAM checksums per megabyte every 60 vsyncs, and each host frame's time and threads' CPU time on the same vsync
   clock.
 
 Records are written every second and whole, so a crash keeps all but the last second. A file without its end
 record ended in a crash or a kill.
+
+Ghost riding (runtime/ghost_rider.h, collection/ghost.h), Aggressive Inline only: beside each recording the app
+makes, or plays back without one, a ghost track (`<recording>.zghost`: per frame of play the rider's skinned parts,
+their place and bones, and the skater's name). The Recordings page's Ride Against row under a recording boots the
+game live with that run's rider drawn beside the player in its level, see-through, from the level's first frame of
+play; the ghost is the live skater's model in the recorded poses, so it is drawn only with the same skater (the row
+names them). It writes no game memory (the A/B with a ghost on: RAM, fields and the VIF1/GIF streams identical).
+DM2's and BMX XXX's riders go through the same code, but the app neither makes their tracks nor offers their ghosts
+until a picture shows them drawn, bike included. For a run: `ZX_GHOST=<track or recording>` (`ZX_GHOST_LEVEL` to
+one level), `ZX_GHOST_TRACK=<file>|1` (`1`: beside the recording being made or replayed), `ZX_TRACE_GHOST=<n>`
+(where the rider and its ghost are every n-th frame of play).
 
 `tools/checks/replay.py` (`--help`):
 - `info`; `moments` (hitches, slow stretches, stalls, pacer drops, setting changes from the app menu, errors,
@@ -228,7 +244,9 @@ career|logic|frontend|messages|split|editor|crane|pisser|vacuum|FILE] [--clock K
 `ZX_PAD_TRACE` log, `--pokes` with a `ZX_POKE_TRACE` log). The gate's rules are READABLE.md
 "The gate". It compares every state field at every tick, every RAM word of each dump by region, the
 scratchpad, and what rendering is handed (`ZX_PACKET_LOG`: hashes of the VIF1, GIF and VIF0
-streams, the GS register writes and VU0 per vsync), and prints what it did not compare. The inputs are
+streams, the GS register writes and VU0 per vsync), and prints what it did not compare. It compares to the
+runs' limit (`--to`), which each run must reach; the gate's (`--whole-route`) must also cover the route, the tick
+its pad script ends at and 600 vsyncs more (each run's run.txt: `reached`, `route_end`). The inputs are
 `tools/checks/ab_inputs/`. Do not use the older scripts (statecmp.py, cmpstate2.py, same.sh,
 ab.sh): they hide differences.
 
@@ -290,6 +308,10 @@ paints: the menu's and the game's Clean Top Screen rows show). `ZX_PAIR_SHOT=<tr
 bottom screen at one moment: when the file appears (its first line a path prefix) the game's next picture goes to
 `PREFIX-top.png` and the map window's last to `PREFIX-map.png`, and the file is removed (a player holding the game
 at a pad read gets one moment in both).
+`ZX_BOTTOM_OVERLAY=on` shows the bottom screen over the game (collection/panel_overlay.h, the bottom_screen shortcut)
+from the first game on, for timing runs and shots; `ZX_CONTROL`'s `set hotkey.bottom_screen 1` shows and hides it as
+the shortcut does. A window only: a headless run has none. While shown it logs `[app] bottom screen overlay: paint N
+ms, worst N ms (N paints); upload N ms (N)` every 200 pictures (the painter's thread, the window thread's upload).
 
 The log's `[app] menu: boot ID`, `[app] ID: running`, `[app] ID: left for the menu` and `[app] menu (visit N)`
 lines say what happened. A game left by its own Exit to Collection item logs, before `[app] ID: left for the menu`:
@@ -309,7 +331,8 @@ takes the game's picture headless with the CPU renderer (`ZX_GS_BACKEND=cpu`, no
   `ZX_MC_FD_BASE0=1`, `ZX_JOB_RETURNS=1` (a card job's call is kept by the recorder),
   `ZX_TRACE_MC=1`.
 - `ZX_POKE_SCRIPT` (`tick:address=value,...`), `ZX_DIFFCALL` (generated calls,
-  `diffcall.py --help`).
+  `diffcall.py --help`; Mac and Linux: each case runs in a `fork` of the game, which Windows has not. The
+  recordings it makes replay on Windows as any other).
 
 ## Tracing a divergence
 

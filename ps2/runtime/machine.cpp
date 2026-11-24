@@ -2,7 +2,7 @@
 #include "machine.h"
 #include "runtime/function_table.h"
 #include "runtime/game_module.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/frame_trace.h"
 #include "runtime/host_pacing.h"
 #include "gs/gs_interpolate.h"
@@ -38,6 +38,7 @@
 #include "runtime/boot_config.h"
 #include "runtime/play_recording.h"
 #include "runtime/spot_fork.h"
+#include "runtime/thread_priority.h"
 #include "runtime/games.h"
 #include "runtime/front_end.h"
 #include "runtime/heap_trace.h"
@@ -3639,6 +3640,10 @@ void PS2Machine::run()
         pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
 #else
         gameThreadPort.store(zx::currentThreadCpuHandle(), std::memory_order_release);
+#if defined(_WIN32)
+        // The same on Windows: above-normal priority, power throttling off (thread_priority.h).
+        zx::thread_priority::raiseFrameRateThread("GameThread");
+#endif
 #endif
         try
         {
@@ -3804,6 +3809,7 @@ void PS2Machine::run()
         }
     } presentLog;
     zx::FrameInterpolation interpolation; // (runtime/frame_interpolation.h)
+    bool interpolatedPresents = false;    // the host told (ps2_host::setInterpolatedPresents)
     while (!isStopRequested() && !gameThreadFinished.load(std::memory_order_acquire))
     {
         zx::spot::hostLoopTop();
@@ -3916,18 +3922,29 @@ void PS2Machine::run()
         bool frameChanged = true;
         // The picture is chosen when the display is ready for the next one:
         // at a refresh, or with variable refresh when a game frame is.
-        // Frame interpolation (gs/gs_interpolate.h): on a display
-        // faster than the game, every refresh at its top rate shows the game
-        // at its own time less one game frame (displayTick), between the
-        // latched frame and the next.
+        // Frame interpolation (gs/gs_interpolate.h): on a fixed-refresh
+        // display faster than the game, every refresh shows the game at its
+        // own time less one game frame (displayTick), between the latched
+        // frame and the next. Variable refresh in effect wins over it
+        // (runtime/frame_interpolation.h).
         const bool interpolating = interpolation.active(*this);
-        const bool variableRefresh = ps2_host::variableRefresh() && m_gs.frameQueue() && !interpolating;
+        if (interpolating != interpolatedPresents)
+        {
+            std::fprintf(stderr, "[interp] pictures between frames %s (the display's refresh %.2f ms measured)\n",
+                         interpolating ? "on" : "off",
+                         static_cast<double>(zx::host_pacing::g_periodNs.load(std::memory_order_relaxed)) * 1e-6);
+            interpolatedPresents = interpolating;
+            ps2_host::setInterpolatedPresents(interpolating);
+        }
+        const bool variableRefresh = ps2_host::variableRefresh() && m_gs.frameQueue();
         if (variableRefresh)
             m_gs.waitForPresentationFrame(std::chrono::microseconds(16667));
         ps2_host::waitForRefresh();
         const auto latchTime = std::chrono::steady_clock::now();
+        // (the guest's vblanks keep in phase with it; not with variable refresh in effect: the latches then
+        // follow the game's frames, not the display's refreshes)
         if (!variableRefresh)
-            zx::host_pacing::noteLatch(latchTime); // (the guest's vblanks keep in phase with it)
+            zx::host_pacing::noteLatch(latchTime);
         const double displayTick = interpolating ? interpolation.displayTick(latchTime) : -1.0;
         GS::TakenFrame taken;
         const uint8_t *framePixels = UploadFrame(this, presentWidth, presentHeight, frameChanged, taken, displayTick);
@@ -4153,7 +4170,7 @@ void PS2Machine::run()
                                   done(ok);
                           });
         }
-        // Settings changed from the game's menus or the app's (runtime/settings.h).
+        // Settings changed from the game's menus or the app's (runtime/settings_registry.h).
         zx::settings::runPending();
         if (m_hostFrameCallback)
         {

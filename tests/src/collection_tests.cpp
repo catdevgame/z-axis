@@ -1042,6 +1042,21 @@ void register_collection_tests()
             t.IsTrue(shell.page() == col::MenuPage::Settings, "its Back: Settings");
         });
 
+        tc.Run("a pick: step answers the next picker with its path", [](TestCase &t)
+        {
+            col::MenuScript script;
+            std::string error;
+            t.IsFalse(script.parse("pick:", &error), "a pick: with no path refused");
+            t.IsTrue(script.parse("pick:/Mods/HD Rails,Enter", &error), "parses: " + error);
+            std::vector<std::string> dropped, picked;
+            std::vector<int> keys;
+            uint16_t pad = 0;
+            for (int frame = 1; frame <= 2 * col::MenuScript::kFramesPerStep; ++frame)
+                script.next(keys, pad, {}, nullptr, &dropped, &picked);
+            t.IsTrue(picked == std::vector<std::string>{"/Mods/HD Rails"} && dropped.empty(), "the path, as written, and no drop");
+            t.Equals(keys.size(), size_t{1}, "then Enter");
+        });
+
         tc.Run("tick boxes, marks and bars on a page", [](TestCase &t)
         {
             int ticked = 1;

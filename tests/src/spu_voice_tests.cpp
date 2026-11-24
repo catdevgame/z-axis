@@ -1,6 +1,6 @@
 #include "MiniTest.h"
 #include "runtime/audio_file.h"
-#include "runtime/spu_voice.h"
+#include "zge/native/spu_voice.h"
 
 #include <chrono>
 #include <filesystem>

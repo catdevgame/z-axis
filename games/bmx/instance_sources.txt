@@ -71,6 +71,7 @@ zge/host/class_draws.cpp
 zge/host/disc_device.cpp
 zge/host/game_view.cpp
 zge/host/movie_stream.cpp
+zge/host/rider_ghost.cpp
 zge/host/save_jobs.cpp
 zge/input/pad_driver.cpp
 zge/input/pads.cpp

@@ -740,6 +740,8 @@ struct GSGpuBackend::Impl
     std::deque<GSFogPlanes> fogNotes;
     std::vector<GSPrimitiveBatch> fogHeld;
     SDL_GPUShader *fogFs = nullptr, *fogAlphaFs = nullptr, *fxaaFs = nullptr;
+    SDL_GPUShader *warpFs = nullptr;                    // frame interpolation's warp (presentWarp)
+    SDL_GPUGraphicsPipeline *warpPipe = nullptr;
     SDL_GPUGraphicsPipeline *fogPipe = nullptr, *fogAlphaPipe = nullptr, *fxaaPipe = nullptr;
     SDL_GPUSampler *linearSampler = nullptr; // bilinear, clamped (FXAA)
     bool fogMismatchLogged = false;
@@ -943,6 +945,7 @@ struct GSGpuBackend::Impl
             fastDepth = depthTest == 1;
         // (D16 targets where the game allows them: decided at the first Z target, hwDepth16)
         nativeTint = envFlag("ZX_NATIVE_TINT");
+        interp.warp = zx::gs_interpolate::method() == zx::gs_interpolate::Method::Warp;
         interp.timing = envFlag("ZX_INTERP_TIMING");
         interp.force = envFlag("ZX_INTERP_FORCE");
         interp.mathAtOne = envFlag("ZX_INTERP_MATH_AT_ONE");
@@ -1114,6 +1117,7 @@ struct GSGpuBackend::Impl
         fogFs = makeShader("fog_fs", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 1, 0, 0);
         fogAlphaFs = makeShader("fog_alpha_fs", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 1, 0, 0);
         fxaaFs = makeShader("fxaa_fs", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 1, 0, 0);
+        warpFs = makeShader("warp_fs", SDL_GPU_SHADERSTAGE_FRAGMENT, 4, 1, 0, 0);
         if (!vs || !nativeVs || !nativeSkinVs || !blitVs || !depthLoadFs || !depthStoreFs || !presentFs || !gatherRgbaFs || !gatherIndexFs)
             return;
         for (auto &row : fs)
@@ -1265,6 +1269,10 @@ struct GSGpuBackend::Impl
             fxaaPipe = quad(fxaaFs, false, rgb);
             if (!fogPipe || !fogAlphaPipe || !fxaaPipe || !linearSampler)
                 std::cerr << "[gs-gpu] no fog / anti-aliasing passes: " << SDL_GetError() << std::endl;
+            const SDL_GPUColorComponentFlags rgba = rgb | SDL_GPU_COLORCOMPONENT_A;
+            warpPipe = quad(warpFs, false, rgba);
+            if (!warpPipe)
+                std::cerr << "[gs-gpu] no frame interpolation warp: " << SDL_GetError() << std::endl;
         }
         if (!sampler || !dummyRgba || !dummyIndex || !depthLoadPipe || !depthStorePipe || !presentPipe || !gatherRgbaPipe ||
             !gatherIndexPipe)
@@ -1387,13 +1395,13 @@ struct GSGpuBackend::Impl
         if (presentPipe) SDL_ReleaseGPUGraphicsPipeline(dev, presentPipe);
         if (gatherRgbaPipe) SDL_ReleaseGPUGraphicsPipeline(dev, gatherRgbaPipe);
         if (gatherIndexPipe) SDL_ReleaseGPUGraphicsPipeline(dev, gatherIndexPipe);
-        for (SDL_GPUGraphicsPipeline **gp : {&fogPipe, &fogAlphaPipe, &fxaaPipe})
+        for (SDL_GPUGraphicsPipeline **gp : {&fogPipe, &fogAlphaPipe, &fxaaPipe, &warpPipe})
         {
             if (*gp)
                 SDL_ReleaseGPUGraphicsPipeline(dev, *gp);
             *gp = nullptr;
         }
-        for (SDL_GPUShader **sh : {&fogFs, &fogAlphaFs, &fxaaFs, &nativeSkinVs})
+        for (SDL_GPUShader **sh : {&fogFs, &fogAlphaFs, &fxaaFs, &warpFs, &nativeSkinVs})
         {
             if (*sh)
                 SDL_ReleaseGPUShader(dev, *sh);
@@ -2086,6 +2094,22 @@ struct GSGpuBackend::Impl
         }
         CallScope(const CallScope &) = delete;
         CallScope &operator=(const CallScope &) = delete;
+    };
+
+    // The backend's lock for a thread that records on a command buffer of its own (frame interpolation's warp):
+    // taken as a CallScope takes it (the drawing thread lets it in between primitives), but the command buffer
+    // another thread holds open is left to it.
+    struct OwnCommandsScope
+    {
+        std::unique_lock<std::recursive_mutex> lock;
+        explicit OwnCommandsScope(Impl &im) : lock(im.mutex, std::defer_lock)
+        {
+            if (lock.try_lock())
+                return;
+            im.otherWaiters.fetch_add(1, std::memory_order_acq_rel);
+            lock.lock();
+            im.otherWaiters.fetch_sub(1, std::memory_order_acq_rel);
+        }
     };
 
     // A GIF packet (BeginPacket .. EndPacket) runs in one CallScope held
@@ -2822,7 +2846,7 @@ struct GSGpuBackend::Impl
         closePass();
         const SDL_Rect sr{box.x0 * static_cast<int>(scaleX), box.y0 * static_cast<int>(scaleY),
                           (box.x1 - box.x0 + 1) * static_cast<int>(scaleX), (box.y1 - box.y0 + 1) * static_cast<int>(scaleY)};
-        HeldFrame *frame = holding();
+        HeldFrame *frame = replaying();
         if (frame)
         {
             Step st;
@@ -2898,7 +2922,7 @@ struct GSGpuBackend::Impl
         if (box.empty())
             return;
         closePass();
-        if (HeldFrame *held = holding())
+        if (HeldFrame *held = replaying())
         {
             Step st;
             st.kind = Step::Kind::Fxaa;
@@ -7108,6 +7132,8 @@ struct GSGpuBackend::Impl
             // before the one it draws: DM2) in the frame before's.
             auto drawnHere = [&](Target *t)
             {
+                if (interp.warp)
+                    return held->drawn.count(t->tex) != 0u;
                 const auto it = held->byLive.find(t->tex);
                 if (it == held->byLive.end())
                     return false;
@@ -7120,16 +7146,25 @@ struct GSGpuBackend::Impl
             st.live1 = valid1 ? s1.t->tex : nullptr;
             st.live2 = valid2 ? s2.t->tex : nullptr;
             st.valid = true;
-            st.src1 = valid1 ? holdTarget(*held, s1.t) : -1;
-            st.src2 = valid2 ? holdTarget(*held, s2.t) : -1;
             st.pu = pu;
             st.w = outW;
             st.h = outH;
             st.mips = zx::gs_quality::fxaa();
-            copyHeldSnapshots(*held);
+            if (interp.warp)
+            {
+                keepSceneDepth(*held);
+                held->pictureSlot = std::min<uint32_t>(request.slot, kPresentationSlots - 1u);
+            }
+            else
+            {
+                st.src1 = valid1 ? holdTarget(*held, s1.t) : -1;
+                st.src2 = valid2 ? holdTarget(*held, s2.t) : -1;
+                copyHeldSnapshots(*held);
+            }
         }
         recordPresentPass(out, valid1 ? s1.t->tex : s2.t->tex, valid2 ? s2.t->tex : s1.t->tex, pu, picture.mips);
         picture.presented = true;
+        picture.frame = request.frame;
         holdFrameMade(request);
         result.width = outW;
         result.height = outH;
@@ -7212,6 +7247,7 @@ struct GSGpuBackend::Impl
         uint32_t levels = 1;    // its mipmap levels
         bool mips = false;      // made for the last picture
         bool presented = false; // holds a picture
+        uint64_t frame = 0;     // the frame queue's frame it holds (GSPresentationRequest::frame; 0: latched)
     };
     std::array<PresentPicture, kPresentationSlots> pictures{};
     SDL_GPUTexture *presentTarget(PresentPicture &picture, uint32_t w, uint32_t h)
@@ -7282,6 +7318,7 @@ struct GSGpuBackend::Impl
         bool sky = false;  // (its transform's Z column is the camera's W: not a view's reference)
         bool clipped = false; // clipTransform used (drop flags, the clipping programs)
         SDL_Rect scissor{};
+        float ofx = 0.0f, ofy = 0.0f; // the context's XYOFFSET (GS pixels): GS window = target pixel + it
         std::shared_ptr<const GSNativeSkinning> skin;
         std::shared_ptr<const GSNativeMesh> mesh; // (kept while the frame is held)
     };
@@ -7329,6 +7366,14 @@ struct GSGpuBackend::Impl
         bool ownDrawing = true;
         SDL_GPUTexture *live1 = nullptr, *live2 = nullptr;
     };
+    // A copy of a frame's scene depth (the warp's), of a target width x height GS pixels.
+    struct SceneDepth
+    {
+        SDL_GPUTexture *tex = nullptr;
+        SDL_GPUTexture *colourTex = nullptr; // the colour target it was drawn with (live)
+        uint32_t width = 0, height = 0;
+        uint8_t psm = 0;
+    };
     struct HeldFrame
     {
         uint64_t frame = 0; // GS::capturePresentationFrame's number
@@ -7343,6 +7388,19 @@ struct GSGpuBackend::Impl
         std::unordered_map<uint64_t, uint32_t> byKey; // a key's first motion
         std::unordered_set<SDL_GPUTexture *> sampled; // textures (not targets) its draws sample
         std::vector<std::pair<SDL_GPUTexture *, SDL_GPUTexture *>> snapshots; // to copy before the next step
+        // The warp's (Method::Warp; nothing above but the motions and the presentation is kept then): each depth
+        // target the frame drew with, the colour targets it drew, and at its Present a copy of the scene's depth
+        // (the depth target most of its native draws used) and the picture's slot.
+        struct DepthUse
+        {
+            Target *depth = nullptr;
+            SDL_GPUTexture *depthTex = nullptr, *colourTex = nullptr;
+            uint32_t nativeDraws = 0;
+        };
+        std::vector<DepthUse> depthUses;
+        std::unordered_set<SDL_GPUTexture *> drawn;
+        SceneDepth sceneDepth;
+        uint32_t pictureSlot = UINT32_MAX;
     };
     struct Interp
     {
@@ -7362,6 +7420,7 @@ struct GSGpuBackend::Impl
         // The last two pictures between's submits: one may still be on the GPU when the next is asked for (the
         // GPU a refresh behind), not two.
         std::shared_ptr<FenceRef> lastFence, olderFence;
+        bool warp = false;                   // Method::Warp (gs_interpolate::method, read once)
         bool timing = false;                 // ZX_INTERP_TIMING=1: each picture between timed alone
         bool force = false;                  // ZX_INTERP_FORCE=1: made at a cut or with nothing moved too
         bool mathAtOne = false;              // ZX_INTERP_MATH_AT_ONE=1: at t = 1 the matrices worked out too
@@ -7374,6 +7433,7 @@ struct GSGpuBackend::Impl
         double cpuMsSum = 0.0, cpuMsMax = 0.0; // recording the picture's commands
         uint64_t gpuTimed = 0;
         uint64_t unreplayable[8]{};
+        const char *unwarpableWhy = nullptr; // the last picture between not warped (the report's)
     } interp;
 
     static uint64_t heldShape(uint32_t w, uint32_t h, SDL_GPUTextureFormat f, bool depth)
@@ -7412,6 +7472,8 @@ struct GSGpuBackend::Impl
             return;
         for (HeldTarget &t : f->targets)
             giveHeldTexture(t.start, t.width * scaleX, t.height * scaleY, heldFormat(t), t.depth);
+        const SceneDepth &d = f->sceneDepth;
+        giveHeldTexture(d.tex, d.width * scaleX, d.height * scaleY, depthFormat(d.psm), true);
         f.reset();
     }
 
@@ -7441,6 +7503,12 @@ struct GSGpuBackend::Impl
             interp.building->why = "partial";
         }
         return interp.building.get();
+    }
+
+    // The frame being drawn, when the replay keeps its steps (Method::Replay).
+    HeldFrame *replaying()
+    {
+        return interp.warp ? nullptr : holding();
     }
 
     void notReplayable(const char *why)
@@ -7536,6 +7604,11 @@ struct GSGpuBackend::Impl
         HeldFrame *f = holding();
         if (!f)
             return;
+        if (interp.warp)
+        {
+            noteWarpPass(*f, p);
+            return;
+        }
         holdTarget(*f, p.color);
         holdTarget(*f, p.depth);
         SDL_GPUTexture *copyTex = p.copyRegion.empty() ? nullptr : copyTexture(p.color->width * scaleX, p.color->height * scaleY);
@@ -7546,7 +7619,7 @@ struct GSGpuBackend::Impl
     // closePass, after: the pass as recorded.
     void holdPass(const Pass &p)
     {
-        HeldFrame *f = holding();
+        HeldFrame *f = replaying();
         if (!f)
             return;
         Step s;
@@ -7560,6 +7633,55 @@ struct GSGpuBackend::Impl
         s.draws = p.draws;
         s.skins = skinUniforms;
         f->steps.push_back(std::move(s));
+    }
+
+    // The warp's record of a pass (closePass): the colour target it drew, and its depth target with how many
+    // native draws it had.
+    void noteWarpPass(HeldFrame &f, const Pass &p)
+    {
+        f.drawn.insert(p.color->tex);
+        if (!p.depth || !p.depth->tex)
+            return;
+        uint32_t native = 0;
+        for (const DrawCall &d : p.draws)
+            native += d.motion != UINT32_MAX ? 1u : 0u;
+        for (HeldFrame::DepthUse &u : f.depthUses)
+            if (u.depthTex == p.depth->tex && u.colourTex == p.color->tex)
+            {
+                u.nativeDraws += native;
+                return;
+            }
+        f.depthUses.push_back({p.depth, p.depth->tex, p.color->tex, native});
+    }
+
+    // Present, for the warp: the scene's depth (the depth target most of the frame's native draws used) copied as
+    // the frame left it, before the next frame clears it.
+    void keepSceneDepth(HeldFrame &f)
+    {
+        const HeldFrame::DepthUse *scene = nullptr;
+        for (const HeldFrame::DepthUse &u : f.depthUses)
+            if (u.nativeDraws > 0u && (!scene || u.nativeDraws >= scene->nativeDraws))
+                scene = &u;
+        if (!scene)
+            return;
+        Target *depth = nullptr;
+        for (auto &t : targets)
+            if (t.get() == scene->depth && t->tex == scene->depthTex)
+                depth = t.get();
+        if (!depth)
+            return; // (remade since: drawn with no more)
+        SceneDepth &d = f.sceneDepth;
+        d.width = depth->width;
+        d.height = depth->height;
+        d.psm = depth->psm;
+        d.colourTex = scene->colourTex;
+        d.tex = takeHeldTexture(d.width * scaleX, d.height * scaleY, depthFormat(d.psm), true);
+        SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commandBuffer());
+        SDL_GPUTextureLocation src{}, dst{};
+        src.texture = depth->tex;
+        dst.texture = d.tex;
+        texcheck::copyTextureToTexture(copy, &src, &dst, d.width * scaleX, d.height * scaleY, 1, false);
+        SDL_EndGPUCopyPass(copy);
     }
 
     // A native draw's motion (submitNative); its index for the draw calls.
@@ -7578,6 +7700,8 @@ struct GSGpuBackend::Impl
         m.clipped = d.dropFlags != 0u || d.clip == GSNativeClip::NearSplit || d.clip == GSNativeClip::NearSplitAndFar;
         const auto &sc = state.context.scissor;
         m.scissor = SDL_Rect{static_cast<int>(sc.x0), static_cast<int>(sc.y0), static_cast<int>(sc.x1), static_cast<int>(sc.y1)};
+        m.ofx = static_cast<float>(state.context.xyoffset.ofx >> 4);
+        m.ofy = static_cast<float>(state.context.xyoffset.ofy >> 4);
         m.skin = d.skin;
         m.mesh = d.mesh;
         const uint32_t index = static_cast<uint32_t>(f->motions.size());
@@ -7682,6 +7806,7 @@ struct GSGpuBackend::Impl
         float view[4][4] = {};
         float projection[4][4] = {};
         SDL_Rect scissor{};
+        float ofx = 0.0f, ofy = 0.0f; // its draws' XYOFFSET
     };
 
     static bool cameraOfMotion(const Motion &m, ViewCamera &c)
@@ -7696,6 +7821,8 @@ struct GSGpuBackend::Impl
         std::memcpy(c.view, m.camera, sizeof(c.view));
         gi::multiply(vi, c.window, c.projection);
         c.scissor = m.scissor;
+        c.ofx = m.ofx;
+        c.ofy = m.ofy;
         c.ok = true;
         return true;
     }
@@ -7763,6 +7890,22 @@ struct GSGpuBackend::Impl
 
     using Skip = zx::gs_interpolate::Skip;
 
+    // A native draw of b found in a (by its key) moved, or its bones did.
+    static bool drawsMoved(const HeldFrame &a, const HeldFrame &b)
+    {
+        for (const Motion &m : b.motions)
+        {
+            auto it = m.key ? a.byKey.find(m.key) : a.byKey.end();
+            if (it == a.byKey.end())
+                continue;
+            const Motion &p = a.motions[it->second];
+            if (std::memcmp(p.world, m.world, sizeof(m.world)) != 0 ||
+                (m.skin && p.skin && std::memcmp(p.skin->palette, m.skin->palette, sizeof(m.skin->palette)) != 0))
+                return true;
+        }
+        return false;
+    }
+
     void countSkip(Skip s) { ++interp.skips[static_cast<size_t>(s)]; }
     void countDraw(zx::gs_interpolate::Draw d) { ++interp.draws[static_cast<size_t>(d)]; }
 
@@ -7774,6 +7917,8 @@ struct GSGpuBackend::Impl
         using gi::Draw;
         if (!interp.on)
             return Skip::NoPair;
+        if (interp.warp)
+            return presentWarp(from, to, t, out);
         // The frames shown (from, to), and the frames whose steps drew what they show (a, b: the same, or each the
         // frame before for a game that shows what it drew a frame earlier).
         HeldFrame *shown = heldFrame(to);
@@ -7818,20 +7963,7 @@ struct GSGpuBackend::Impl
             std::memcpy(camT[v].view, view, sizeof(view));
             gi::multiply(view, projection, camT[v].window);
         }
-        if (!moved)
-            for (const Motion &m : b->motions)
-            {
-                auto it = m.key ? a->byKey.find(m.key) : a->byKey.end();
-                if (it == a->byKey.end())
-                    continue;
-                const Motion &p = a->motions[it->second];
-                if (std::memcmp(p.world, m.world, sizeof(m.world)) != 0 ||
-                    (m.skin && p.skin && std::memcmp(p.skin->palette, m.skin->palette, sizeof(m.skin->palette)) != 0))
-                {
-                    moved = true;
-                    break;
-                }
-            }
+        moved = moved || drawsMoved(*a, *b);
         if (!moved && !interp.force)
             return Skip::Still;
         // At t = 1 the newer frame exactly: its own matrices and vertices (the replay itself is what is checked).
@@ -8074,6 +8206,180 @@ struct GSGpuBackend::Impl
         ++interp.pictures_;
         // The picture's size in texels, as PresentedGpuPicture gives a frame's (the frame's size times the scale):
         // the window shows that much of the texture (the frame's own size showed only its top-left part, magnified).
+        out.texture = pic;
+        out.width = picture.w;
+        out.height = picture.h;
+        out.scale = scaleX;
+        out.levels = picture.mips ? picture.levels : 1u;
+        return Skip::kCount;
+    }
+
+    // ---- the picture between, warped (Method::Warp) ------------------------------------------------------
+
+    // warp_fs's uniforms (gs_gpu_shaders.hlsl, _msl.h). A picture texel q of frame X is its target's texel
+    // q + origin.xy, the GS window point (q + origin.xy) / scale + origin.zw, at the GS Z its depth holds.
+    struct WarpUniforms
+    {
+        float toA[4][4];  // B's GS window (X, Y, Z, 1) to A's (X w, Y w, Z w, w), through the world
+        float toB[4][4];  // A's to B's
+        float originA[4]; // x, y: A's picture texel 0 in its target's texels; z, w: its draws' XYOFFSET (GS pixels)
+        float originB[4];
+        float cfg[4];     // x, y: texels per GS pixel; z: t; w: 1 = A's depth is there
+        float depth[4];   // x, y: A's and B's GS Z per depth unit (2^bits); z, w: the pictures' size in texels
+    };
+
+    // A held frame's own picture (its presentation slot's, while that still holds it).
+    const PresentPicture *heldPicture(const HeldFrame &f) const
+    {
+        if (f.pictureSlot >= pictures.size())
+            return nullptr;
+        const PresentPicture &p = pictures[f.pictureSlot];
+        return p.tex && p.presented && p.frame == f.frame ? &p : nullptr;
+    }
+
+    // The picture at t between frames `from` and `to` (both presented) warped from their finished pictures, in one
+    // pass on a command buffer of the calling thread's own: the GS worker's, open with the frame it is drawing, is
+    // left as it is (the replay took it over and split its pass). Per pixel, each motion the pixel may have gives a
+    // sample of each picture, A's at p - t m and B's at p + (1 - t) m: no motion (the HUD, and what the camera
+    // follows), and the camera's motion at the depth under it in B, in A, and under four neighbours in B (the edge
+    // of something in front); the motion whose two samples agree best is the pixel's, its samples blended by t.
+    // Skip::kCount when made, else why not.
+    Skip presentWarp(uint64_t from, uint64_t to, float t, GSGpuPicture &out)
+    {
+        namespace gi = zx::gs_interpolate;
+        auto unwarpable = [&](const char *why)
+        {
+            interp.unwarpableWhy = why;
+            return Skip::Unwarpable;
+        };
+        if (!warpPipe || !linearSampler)
+            return unwarpable("no warp pipeline");
+        HeldFrame *shownA = heldFrame(from), *shownB = heldFrame(to);
+        if (!shownA || !shownB)
+            return Skip::NoPair;
+        const PresentStep &pa = shownA->present, &pb = shownB->present;
+        const PresentPicture *picA = heldPicture(*shownA), *picB = heldPicture(*shownB);
+        if (!pa.valid || !pb.valid || !picA || !picB)
+            return Skip::NoPair;
+        // One buffer shown (by one read circuit, or by both at one place: a flicker filter), the two pictures the
+        // same size. (A field's lines are a GS line off at most: the motion is the same.)
+        auto oneBuffer = [](const PresentStep &ps)
+        {
+            const uint32_t circuits = ps.pu.cfg[0] & 3u;
+            return circuits == 1u || circuits == 2u ||
+                   (circuits == 3u && ps.live1 == ps.live2 && std::abs(ps.pu.src1[0] - ps.pu.src2[0]) <= 1 &&
+                    std::abs(ps.pu.src1[1] - ps.pu.src2[1]) <= 1);
+        };
+        if (!oneBuffer(pa) || !oneBuffer(pb))
+            return unwarpable("two buffers shown");
+        if (picA->w != picB->w || picA->h != picB->h)
+            return unwarpable("pictures of two sizes");
+        // The frames whose steps drew what they show (as the replay's), and their scene depths: B's needed, A's
+        // used where it is there.
+        HeldFrame *a = pb.ownDrawing ? shownA : heldFrame(from - 1u), *b = pb.ownDrawing ? shownB : heldFrame(to - 1u);
+        if (!a || !b)
+            return Skip::NoPair;
+        auto shownTexture = [](const PresentStep &ps) { return ps.live1 ? ps.live1 : ps.live2; };
+        if (!b->sceneDepth.tex)
+            return unwarpable("no scene depth");
+        if (b->sceneDepth.colourTex != shownTexture(pb))
+            return unwarpable("the scene drawn elsewhere than shown");
+        const bool depthA = a->sceneDepth.tex && a->sceneDepth.colourTex == shownTexture(pa);
+        // None while the last is still on the GPU (the replay's budget let one be in flight; a warp takes about a
+        // millisecond, so this one holds only when the GPU is far behind).
+        if (interp.lastFence && interp.lastFence->fence && !SDL_QueryGPUFence(dev, interp.lastFence->fence))
+            return Skip::Budget;
+        // The camera: the view most of B's native draws have (split screen's other views are not warped), not
+        // cut, and something moved.
+        std::array<ViewCamera, 4> camA, camB;
+        viewCameras(*a, camA);
+        viewCameras(*b, camB);
+        std::array<uint32_t, 4> drawsOf{};
+        for (const Motion &m : b->motions)
+            if (m.key && !m.sky && (m.key & 0xFFu) < drawsOf.size())
+                ++drawsOf[m.key & 0xFFu];
+        int view = -1;
+        for (int v = 0; v < 4; ++v)
+            if (camB[v].ok && (view < 0 || drawsOf[v] > drawsOf[view]))
+                view = v;
+        if (view < 0 || !camA[view].ok)
+            return unwarpable("no camera");
+        const ViewCamera &ca = camA[view], &cb = camB[view];
+        if (gi::cameraCut(ca.view, cb.view) && !interp.force)
+            return Skip::Cut;
+        if (std::memcmp(ca.window, cb.window, sizeof(ca.window)) == 0 && !drawsMoved(*a, *b) && !interp.force)
+            return Skip::Still;
+
+        const auto tCpu = std::chrono::steady_clock::now();
+        WarpUniforms u{};
+        gi::multiply(cb.inverse, ca.window, u.toA);
+        gi::multiply(ca.inverse, cb.window, u.toB);
+        auto origin = [&](const PresentStep &ps, const ViewCamera &c, float (&o)[4])
+        {
+            const bool first = (ps.pu.cfg[0] & 1u) != 0u;
+            o[0] = static_cast<float>((first ? ps.pu.src1[0] : ps.pu.src2[0]) * static_cast<int>(scaleX));
+            o[1] = static_cast<float>((first ? ps.pu.src1[1] : ps.pu.src2[1]) * static_cast<int>(scaleY));
+            o[2] = c.ofx;
+            o[3] = c.ofy;
+        };
+        origin(pa, ca, u.originA);
+        origin(pb, cb, u.originB);
+        u.cfg[0] = static_cast<float>(scaleX);
+        u.cfg[1] = static_cast<float>(scaleY);
+        u.cfg[2] = t;
+        u.cfg[3] = depthA ? 1.0f : 0.0f;
+        u.depth[0] = static_cast<float>(std::ldexp(1.0, static_cast<int>(depthBits(depthA ? a->sceneDepth.psm : b->sceneDepth.psm))));
+        u.depth[1] = static_cast<float>(std::ldexp(1.0, static_cast<int>(depthBits(b->sceneDepth.psm))));
+        u.depth[2] = static_cast<float>(picB->w);
+        u.depth[3] = static_cast<float>(picB->h);
+
+        SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(dev);
+        if (!commands)
+            return Skip::Budget;
+        PresentPicture &picture = interp.pictures[interp.nextPicture];
+        interp.nextPicture = (interp.nextPicture + 1u) % interp.pictures.size();
+        SDL_GPUTexture *pic = presentTarget(picture, picB->w, picB->h);
+        SDL_GPUColorTargetInfo ct{};
+        ct.texture = pic;
+        ct.load_op = SDL_GPU_LOADOP_DONT_CARE;
+        ct.store_op = SDL_GPU_STOREOP_STORE;
+        SDL_GPURenderPass *rp = texcheck::beginRenderPass(commands, &ct, 1, nullptr);
+        SDL_BindGPUGraphicsPipeline(rp, warpPipe);
+        SDL_GPUTextureSamplerBinding tb[4] = {{picA->tex, linearSampler},
+                                              {picB->tex, linearSampler},
+                                              {depthA ? a->sceneDepth.tex : b->sceneDepth.tex, sampler},
+                                              {b->sceneDepth.tex, sampler}};
+        texcheck::bindFragmentSamplers(rp, 0, tb, 4);
+        SDL_PushGPUFragmentUniformData(commands, 0, &u, sizeof(u));
+        SDL_DrawGPUPrimitives(rp, 3, 1, 0, 0);
+        SDL_EndGPURenderPass(rp);
+        picture.mips = picB->mips && picture.levels > 1u;
+        if (picture.mips)
+            texcheck::generateMipmaps(commands, pic);
+        picture.presented = true;
+        picture.frame = 0;
+        const auto tSubmit = std::chrono::steady_clock::now();
+        if (interp.timing)
+            SDL_WaitForGPUIdle(dev); // (the picture's own GPU time below)
+        const auto tGpu = std::chrono::steady_clock::now();
+        auto fence = std::make_shared<FenceRef>();
+        fence->dev = dev;
+        fence->fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+        interp.olderFence = std::move(interp.lastFence);
+        interp.lastFence = fence;
+        if (interp.timing && fence->fence)
+        {
+            waitFence(fence->fence);
+            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tGpu).count();
+            const double cpu = std::chrono::duration<double, std::milli>(tSubmit - tCpu).count();
+            interp.lastGpuMs = ms;
+            interp.gpuMsSum += ms;
+            interp.gpuMsMax = std::max(interp.gpuMsMax, ms);
+            interp.cpuMsSum += cpu;
+            interp.cpuMsMax = std::max(interp.cpuMsMax, cpu);
+            ++interp.gpuTimed;
+        }
+        ++interp.pictures_;
         out.texture = pic;
         out.width = picture.w;
         out.height = picture.h;
@@ -8443,6 +8749,16 @@ PresentationFrame GSGpuBackend::Present(const GSPresentationRequest &request)
 
 zx::gs_interpolate::Skip GSGpuBackend::PresentBetween(uint64_t from, uint64_t to, float t, GSGpuPicture &out)
 {
+    if (m_impl->interp.warp)
+    {
+        Impl::OwnCommandsScope scope(*m_impl);
+        if (!m_impl->ok)
+            return zx::gs_interpolate::Skip::NoPair;
+        const zx::gs_interpolate::Skip why = m_impl->presentBetween(from, to, t, out);
+        if (why != zx::gs_interpolate::Skip::kCount)
+            m_impl->countSkip(why);
+        return why;
+    }
     Impl::CallScope scope(*m_impl);
     m_impl->settleFog();
     if (!m_impl->ok)
@@ -8480,8 +8796,11 @@ std::string GSGpuBackend::InterpolationReport()
                       in.cpuMsSum / static_cast<double>(in.gpuTimed), in.cpuMsMax, static_cast<unsigned long long>(in.gpuTimed));
         line += buf;
     }
-    if (!in.made.empty() && !in.made.back()->replayable && in.made.back()->why)
+    if (!in.warp && !in.made.empty() && !in.made.back()->replayable && in.made.back()->why)
         line += std::string(" | last frame not replayable: ") + in.made.back()->why;
+    if (in.warp && in.unwarpableWhy)
+        line += std::string(" | last not warped: ") + in.unwarpableWhy;
+    in.unwarpableWhy = nullptr;
     return line;
 }
 

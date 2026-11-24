@@ -1,6 +1,7 @@
 // Dave Mirra Freestyle BMX 2 (SLUS-20159): which native modules replace
 // which IOP modules. See dave_mirra_bmx2.cpp for the ELF identity.
 #include "dave_mirra.h"
+#include "dave_mirra_ghost.h"
 #include "machine.h"
 #include "runtime/boot_config.h"
 #include "overrides/zge_xbox_textures.h"
@@ -37,6 +38,7 @@ namespace dave_mirra
         installDevStart(runtime);       // ZX_DEV_START_LEVEL: developers, Custom Freeplay
         installGsTextureAudit(runtime); // developers, ZX_GSMEM_AUDIT=1
         panel_state::install();         // the Thor's bottom screen reads DM2's state (dave_mirra_panel.cpp)
+        installGhost(runtime);          // ghost riding (runtime/ghost_rider.h): its clock reads the panel's snapshot
         // The GPU renderer reads mip levels that sit in a render target from
         // GS memory, as the GS does: DM2's level textures have level 0 at
         // TBP 0, inside the frame buffer (gs_gpu_backend.cpp). For DM2's

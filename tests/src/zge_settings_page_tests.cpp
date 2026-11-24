@@ -3,7 +3,7 @@
 
 #include "MiniTest.h"
 #include "overrides/zge_settings.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <algorithm>
 #include <cstring>
@@ -31,7 +31,7 @@ namespace
         "display.native_meshes", "display.variable_refresh", "display.depth_test", "display.texture_dump",
         // sound
         "audio.volume", "audio.mute_in_background", "audio.movie_volume", "audio.french_voices", "audio.music_volume",
-        "audio.effects_volume", "audio.speech_volume",
+        "audio.effects_volume", "audio.speech_volume", "audio.shuffle",
         // controls
         "controls.mouse_sensitivity", "controls.invert_y", "controls.mouse_mode", "controls.stick_deadzone",
         "controls.gamepad", "controls.gamepads", "controls.test_rumble", "controls.swap_players", "controls.prompts",
@@ -49,7 +49,7 @@ namespace
         "game.all_mp_modes", "game.logo_splash", "game.trailers", "game.car_textures", "game.green_skin",
         "game.topless_girl", "game.xbox_songs",
         "game.zoo_unlock", "game.tuning",
-        "game.career_scripts", "game.ape", "game.xbox_free_skate", "game.record_play", "game.recordings",
+        "game.career_scripts", "game.ape", "game.xbox_free_skate", "game.record_play", "game.recordings", "game.practice",
         "game.custom_freeplay", "game.restart",
     };
 
@@ -61,10 +61,10 @@ namespace
     const char *const kPageBefore[] = {
         "Display: display.window display.scaling display.vsync display.variable_refresh display.widescreen display.aspect display.show_fps display.pause_in_background",
         "Graphics: display.renderer display.resolution display.full_height display.anti_aliasing display.texture_filtering display.fog display.shadows display.depth_precision display.depth_test display.perspective_correct display.character_lighting display.native_meshes display.motion_blur display.draw_distance display.xbox_textures display.xbox_skaters display.xbox_movies display.texture_dump",
-        "Sound: audio.volume audio.music_volume audio.effects_volume audio.speech_volume audio.movie_volume audio.french_voices audio.mute_in_background",
+        "Sound: audio.volume audio.music_volume audio.effects_volume audio.speech_volume audio.shuffle audio.movie_volume audio.french_voices audio.mute_in_background",
         "Controls: controls.prompts controls.gamepad controls.stick_deadzone controls.gamepads controls.test_rumble controls.swap_players controls.mouse_mode controls.mouse_sensitivity controls.invert_y #KEYS controls.key.jump #BUTTONS controls.gamepad_layout controls.pad.jump controls.reset",
         "Gameplay: #CAMERA camera.fov camera.distance camera.height camera.style #ASSISTS assist.grind_balance_loss assist.manual_balance_loss assist.juice_runs_out assist.juice_drain assist.crash_juice_loss #CHEATS cheat.perfect_grind cheat.perfect_manual cheat.perfect_handplant cheat.super_spin cheat.low_gravity_wall_ride cheat.juice_regeneration cheat.invulnerability cheat.unlock_all",
-        "Game: game.language game.skip_intro_movies game.tuning game.career_scripts game.developer_menu game.record_play game.recordings game.custom_freeplay #EXTRAS game.zoo game.zoo_unlock game.estate game.ape game.xbox_free_skate game.dm2_xbox_levels game.create_player game.xbox_themes game.retro_movie game.attract_demo game.park_editor game.xbox_challenges game.editor_pieces game.level_previews game.logo_movie game.intro_movie game.gc_levels game.menu_lines game.all_mp_modes game.logo_splash game.trailers game.car_textures game.green_skin game.topless_girl game.xbox_songs",
+        "Game: game.language game.skip_intro_movies game.tuning game.career_scripts game.developer_menu game.practice game.record_play game.recordings game.custom_freeplay #EXTRAS game.zoo game.zoo_unlock game.estate game.ape game.xbox_free_skate game.dm2_xbox_levels game.create_player game.xbox_themes game.retro_movie game.attract_demo game.park_editor game.xbox_challenges game.editor_pieces game.level_previews game.logo_movie game.intro_movie game.gc_levels game.menu_lines game.all_mp_modes game.logo_splash game.trailers game.car_textures game.green_skin game.topless_girl game.xbox_songs",
     };
 
     bool namedBy(const zs::PageTable &table, const std::string &key)

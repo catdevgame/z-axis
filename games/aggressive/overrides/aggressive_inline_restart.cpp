@@ -128,6 +128,7 @@ namespace aggressive_inline::restart
         constexpr uint32_t kRespawnNamed = sym::placeSkaterAtLevelStart; // (player, locator hash, 1)
         constexpr uint32_t kFindLocator = sym::findLocator;  // (position*, hash, matrix*) -> found
         constexpr uint32_t kPlayerFlags = 0x80u;        // bit 2: respawn at a locator
+        constexpr uint32_t kRespawnAtLocator = 0x4u;    // (skater.h kRespawnAtLocator)
         constexpr uint32_t kPlayerPosition = 0x90u;
         constexpr uint32_t kPlayerMatrix = 0xB0u;
 
@@ -188,6 +189,8 @@ namespace aggressive_inline::restart
         constexpr uint32_t kTutorialPlayer = nameHash("ScriptObj_PlayerOne");
         // Locator name of the challenge respawn (no level has it).
         constexpr uint32_t kRetryLocator = nameHash("pcRetryChallengeStart");
+        // And of a respawn at a place of ours (respawnAt).
+        constexpr uint32_t kPlaceLocator = nameHash("pcRespawnAtPlace");
         constexpr uint32_t kTerminalStates[] = {nameHash("complete"), nameHash("completed"), nameHash("done"),
                                                 nameHash("totallyDone")};
 
@@ -282,6 +285,10 @@ namespace aggressive_inline::restart
             uint32_t actionPosition[4] = {};
             bool retrying = false; // our own state changes, not recorded
             bool respawnArmed = false; // the locator lookup answers kRetryLocator
+            // respawnAt's place: the lookup answers kPlaceLocator with it
+            bool placeArmed = false;
+            uint32_t placeMatrix[12] = {}; // orientation rows (right, up, forward)
+            uint32_t placePosition[4] = {};
             std::atomic<bool> retryable{false}; // challenge.valid, for other threads
         };
         Retry &retry() { return zx::session::state<Retry>(); }
@@ -400,21 +407,26 @@ namespace aggressive_inline::restart
         // takes the last row as the position).
         void findLocatorHook(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
         {
-            if (!retry().respawnArmed || getRegU32(ctx, 5) != kRetryLocator)
+            const uint32_t name = getRegU32(ctx, 5);
+            const bool challenge = retry().respawnArmed && name == kRetryLocator;
+            const bool place = retry().placeArmed && name == kPlaceLocator;
+            if (!challenge && !place)
             {
                 hooks().findLocator(rdram, ctx, runtime);
                 return;
             }
+            const uint32_t *matrix = challenge ? retry().challenge.matrix : retry().placeMatrix;
+            const uint32_t *position = challenge ? retry().challenge.position : retry().placePosition;
             const uint32_t out = getRegU32(ctx, 6);
             for (uint32_t i = 0; i < 12u; ++i)
             {
-                uint32_t word = retry().challenge.matrix[i];
+                uint32_t word = matrix[i];
                 if (i == 5u)
                     word ^= 0x80000000u;
                 writeWord(rdram, out + i * 4u, word);
             }
             for (uint32_t i = 0; i < 4u; ++i)
-                writeWord(rdram, out + 0x30u + i * 4u, retry().challenge.position[i]);
+                writeWord(rdram, out + 0x30u + i * 4u, position[i]);
             setReturnU32(ctx, 1u);
             ctx->pc = getRegU32(ctx, 31);
         }
@@ -678,6 +690,22 @@ namespace aggressive_inline::restart
         requests().pending = Request::None;
         if (retry().retryable.load())
             dropChallenge("out of the level");
+    }
+
+    bool respawnAt(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime, const float orientation[3][4],
+                   const float position[4])
+    {
+        const uint32_t level = levelObject(rdram);
+        if (!level || !hooks().findLocator)
+            return false;
+        std::memcpy(retry().placeMatrix, orientation, sizeof(retry().placeMatrix));
+        std::memcpy(retry().placePosition, position, sizeof(retry().placePosition));
+        const uint32_t player = level + kPlayerOne;
+        writeWord(rdram, player + kPlayerFlags, readWord(rdram, player + kPlayerFlags) | kRespawnAtLocator);
+        retry().placeArmed = true;
+        const bool ok = call(rdram, ctx, runtime, kRespawnNamed, {player, kPlaceLocator, 1u});
+        retry().placeArmed = false;
+        return ok;
     }
 
     bool challengeRetryable(const uint8_t *rdram) { return retry().retryable.load() && challengeLevel(rdram); }

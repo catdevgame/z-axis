@@ -44,7 +44,7 @@
 #include "runtime/pad.h"
 #include "runtime/photo.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <atomic>
 #include <cmath>

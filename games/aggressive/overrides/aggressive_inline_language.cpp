@@ -6,8 +6,8 @@
 #include "machine.h"
 #include "runtime/disc_patch.h"
 #include "runtime/game_files.h"
-#include "runtime/settings.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/settings_registry.h"
+#include "runtime/xbox_files.h"
 #include "runtime/zaxis_text.h"
 #include "runtime/zaxis_ui.h"
 #include "runtime/boot_config.h"
@@ -267,6 +267,7 @@ namespace aggressive_inline::language
             {"Gamepads", "Manettes", "Gamepads", "Mandos"},
             {"Connected Gamepads", "Manettes connectées", "Verbundene Gamepads", "Mandos conectados"},
             {"Test Rumble", "Tester la vibration", "Vibration testen", "Probar vibración"},
+            {"Gamepad Test", "Test de la manette", "Gamepad-Test", "Prueba del mando"},
             {"Swap Pads 1 and 2", "Échanger manettes 1 et 2", "Pads 1 und 2 tauschen", "Intercambiar mandos 1 y 2"},
             // Photo mode (the pause item, the key's row, its help in the overlay).
             {"Photo Mode", "Mode photo", "Fotomodus", "Modo foto"},
@@ -414,10 +415,14 @@ namespace aggressive_inline::language
              "Menüs, Herausforderungen und Tipps.", "Menús, desafíos y consejos."},
             {"Press F1 in a level.", "Appuyez sur F1 dans un niveau.",
              "F1 in einem Level drücken.", "Pulsa F1 en un nivel."},
+            {"Press Select+L3 in a level.", "Appuyez sur Select+L3 dans un niveau.",
+             "Select+L3 in einem Level drücken.", "Pulsa Select+L3 en un nivel."},
             {"The cut level, in Free Skate and Timed Run.", "Le niveau coupé, en Freeskate et Parcours 2 min.",
              "Der gestrichene Level, in Freeskate und Zeitrennen.", "El nivel eliminado, en Patinaje Libre y Contrarreloj."},
             {"An early Tutorial, in Free Skate.", "Un ancien Tutoriel, en Freeskate.",
              "Ein frühes Tutorial, in Freeskate.", "Un Tutorial anterior, en Patinaje Libre."},
+            {"Shows what the game reads from each gamepad.", "Montre ce que le jeu lit de chaque manette.",
+             "Zeigt, was das Spiel von jedem Gamepad liest.", "Muestra lo que el juego lee de cada mando."},
             {"Opens the game's debug menu in a level.", "Ouvre le menu de débogage du jeu dans un niveau.",
              "Öffnet das Debug-Menü des Spiels in einem Level.", "Abre el menú de depuración del juego en un nivel."},
         };
@@ -446,8 +451,8 @@ namespace aggressive_inline::language
             // The Xbox string tables, key by key.
             std::vector<uint8_t> bytes;
             zt::StringTable english, other;
-            if (ps2_xbox_disc::readFile("string.eus", bytes) && zt::readStringTable(bytes, english) &&
-                ps2_xbox_disc::readFile(std::string("string.") + extension(language), bytes) &&
+            if (zx::xbox_files::readFile("string.eus", bytes) && zt::readStringTable(bytes, english) &&
+                zx::xbox_files::readFile(std::string("string.") + extension(language), bytes) &&
                 zt::readStringTable(bytes, other))
             {
                 for (const auto &[key, text] : english.entries)
@@ -465,10 +470,10 @@ namespace aggressive_inline::language
             // The level scripts: every <name>.bni with its translation, and
             // the PS2 script of the same name against the .bni.
             const std::string ext = levelExtension(language);
-            for (const std::string &level : ps2_xbox_disc::list("levels"))
+            for (const std::string &level : zx::xbox_files::list("levels"))
             {
                 const std::string dir = "levels/" + level + "/";
-                for (const std::string &name : ps2_xbox_disc::list(dir))
+                for (const std::string &name : zx::xbox_files::list(dir))
                 {
                     // tut_xbox and tut_gc are the Tutorial for other pads;
                     // the PS2's is tut.
@@ -479,7 +484,7 @@ namespace aggressive_inline::language
                     const std::string base = name.substr(0, name.size() - 4);
                     std::vector<uint8_t> a, b, p;
                     zt::LevelText textA, textB, textP;
-                    if (!ps2_xbox_disc::readFile(dir + name, a) || !ps2_xbox_disc::readFile(dir + base + "." + ext, b) ||
+                    if (!zx::xbox_files::readFile(dir + name, a) || !zx::xbox_files::readFile(dir + base + "." + ext, b) ||
                         !zt::readLevelText(a, textA) || !zt::readLevelText(b, textB))
                         continue;
                     const auto pairs = zt::pairLevelText(textA, textB);
@@ -500,7 +505,7 @@ namespace aggressive_inline::language
                     {
                         const bool ok = which == 0 ? readPs2("ASSETS/LEVELS/" + level + "/" + base + ".BIN", p) &&
                                                          zt::readLevelText(p, textP)
-                                                   : ps2_xbox_disc::readFile(dir + base + ".bin", xboxBin) &&
+                                                   : zx::xbox_files::readFile(dir + base + ".bin", xboxBin) &&
                                                          zt::readLevelText(xboxBin, textX);
                         if (!ok)
                             continue;
@@ -555,9 +560,9 @@ namespace aggressive_inline::language
         {
             zt::StringTable ps2, english, other;
             std::vector<uint8_t> x;
-            if (!zt::readStringTable(bytes, ps2) || !ps2_xbox_disc::readFile("string.eus", x) ||
+            if (!zt::readStringTable(bytes, ps2) || !zx::xbox_files::readFile("string.eus", x) ||
                 !zt::readStringTable(x, english) ||
-                !ps2_xbox_disc::readFile(std::string("string.") + extension(tables().language), x) ||
+                !zx::xbox_files::readFile(std::string("string.") + extension(tables().language), x) ||
                 !zt::readStringTable(x, other))
                 return false;
             const std::shared_ptr<const zt::Translation> words = table();
@@ -607,14 +612,14 @@ namespace aggressive_inline::language
             std::cerr << "[language] " << name << " needs ZX_GAME_SETTINGS_MENUS=1 (the app); English" << std::endl;
             return false;
         }
-        if (!ps2_xbox_disc::init() || !ps2_xbox_disc::exists(std::string("string.") + extension(tables().language)))
+        if (!zx::xbox_files::init() || !zx::xbox_files::exists(std::string("string.") + extension(tables().language)))
         {
-            std::cerr << "[language] no Xbox files (" << ps2_xbox_disc::description() << "): English" << std::endl;
+            std::cerr << "[language] no Xbox files (" << zx::xbox_files::description() << "): English" << std::endl;
             return false;
         }
         tables().active = true;
         zx::disc_patch::registerPatch("STRING.EUS", &patchStringTable, "ai");
-        std::cout << "[language] " << name << " from the Xbox release (" << ps2_xbox_disc::description() << ")"
+        std::cout << "[language] " << name << " from the Xbox release (" << zx::xbox_files::description() << ")"
                   << std::endl;
         return true;
     }
@@ -667,7 +672,7 @@ namespace aggressive_inline::language
         std::vector<uint8_t> bytes;
         std::vector<zx::zaxis::ArchiveEntry> xbox;
         std::string error;
-        if (!ps2_xbox_disc::readFile("uilib.zal", bytes) || !zx::zaxis::readArchive(bytes, xbox, &error))
+        if (!zx::xbox_files::readFile("uilib.zal", bytes) || !zx::zaxis::readArchive(bytes, xbox, &error))
         {
             std::cerr << "[language] Xbox uilib.zal not read " << error << ": PS2 fonts" << std::endl;
             return false;

@@ -32,6 +32,8 @@ LEVELS = ('WOODWARD', 'TRAINYAR', 'SWAMPYTR', 'COMMERCI', 'GALLOON', 'CLOVERLE',
 DROP = 6.0        # a ledge ridden off
 RIDE_UP = 0.75    # a face flatter than this is pedalled up (ny)
 CURB = 0.3        # a bike rolls up this much between level floors; more only on a slope
+EXIT_KINDS = (9, 10)  # a face's surface kind (tag byte 8) of the level's exit and the ground before it
+SLOPE_RISE = 1.5  # a gentle slope's cells: up to this times the face's own rise over the step (rasterized cells)
 
 
 def wall_between(walls, key, low, high):
@@ -57,7 +59,13 @@ def adjacency(nodes, walls):
                     level = flat > 0.97 and oflat > 0.97
                     if oy < y - CURB and min(flat, oflat) < RIDE_UP:
                         continue                # too steep to pedal up from slow: down only
-                    if dy > (CURB if level else nav.STEP):
+                    # (draft2) a gentle slope (normal y 0.97 .. 0.995, BMX XXX's Bronx ramps up to Scores: 0.33 a
+                    # cell) rises more than a curb from cell to cell: its own rise over the step is ridden
+                    run = math.hypot(di, dk) * nav.CELL
+                    slope = math.sqrt(max(0.0, 1.0 - min(flat, oflat) ** 2)) / max(min(flat, oflat), 0.1)
+                    # (draft2: a curb of exactly CURB, the Bronx's 0.3 kerbs between road and pavement, read 0.30000001
+                    # in floats and cut the road off: the path went 300 units round)
+                    if dy > (max(CURB + 0.01, SLOPE_RISE * run * slope) if level else nav.STEP):
                         continue
                     if dy > CURB * 0.5 or level:
                         a, b = min(y, oy), max(y, oy)
@@ -153,6 +161,10 @@ def build(level):
 
     floors, walls = collections.defaultdict(list), collections.defaultdict(list)
     segments = []
+    # (draft2) the water's surfaces (instances named watersurface..., Swamp's): not a floor. A wheel on the water
+    # splashes or bails (deep water, bail kind 9: rider/physics/impact.cpp groundImpact by the face's material), so a
+    # path over it ends in the water; the cells under a surface are left out (wet), the banks above it kept.
+    water = collections.defaultdict(list)
     edges, ramps, wall_faces, kinds = [], [], [], collections.Counter()
     tris = 0
     for d in instances:
@@ -160,13 +172,19 @@ def build(level):
             continue
         verts, faces = objects.get(struct.unpack_from('<I', d, 0x40)[0], ((), ()))
         world = [place(d, v) for v in verts]
+        if d[0x4C:0x70].split(b'\0')[0].lower().startswith(b'watersurface'):
+            nav.rasterize([tuple(world[c] for c in corners) for corners, *_ in faces], water, collections.defaultdict(list), [])
+            continue
         up = []
         for corners, normal, two_sided, tag, tagged in faces:
             n = turn(d, normal)
             t = tuple(world[c] for c in corners)
-            if two_sided or n[1] < 0.0:
-                up.append(t)
             kind = tag[8] if tag and len(tag) > 8 else 0
+            # (draft2) the level's way out (surface kinds 9, the exit warning's ground, and 10, the exit: DM2's
+            # game_frame.cpp, BMX XXX's level_exit.cpp) is no floor: riding onto it ends the run (Swamp's west bank,
+            # where a fanboat's path crosses land)
+            if (two_sided or n[1] < 0.0) and kind not in EXIT_KINDS:
+                up.append(t)
             strength = tag[9] if tag and len(tag) > 9 else 0
             kinds[kind] += 1
             if kind in (1, 2, 3) and n[1] < -0.05:
@@ -182,6 +200,16 @@ def build(level):
         nav.rasterize(up, floors, walls, segments)
         tris += len(up)
     nodes = nav.layers(floors, walls)
+    wet = 0
+    for key, surface in water.items():
+        level_y = min(y for y, _ in surface)
+        if key in nodes:
+            kept = [f for f in nodes[key] if f[0] < level_y - 0.05]
+            wet += len(nodes[key]) - len(kept)
+            if kept:
+                nodes[key] = kept
+            else:
+                del nodes[key]
     adj = adjacency(nodes, walls)
     nav.links = links_of(adj)
     part, sizes = nav.components(nodes)
@@ -193,6 +221,8 @@ def build(level):
         pickle.dump(out, f, protocol=4)
     os.replace(path + '.new', path)
     long_rails = [r for r in rails if r['length'] > 8]
+    if water:
+        print('%s: %d cells of water, %d floors under it left out' % (level, len(water), wet))
     print('%s: %d triangles, %d cells, %d parts (largest %d), %d rail edges, %d rails (%d over 8 units, longest %.0f), %d ramp faces, kinds %s' % (
         level, tris, len(nodes), len(sizes), max(sizes or [0]), len(edges), len(rails), len(long_rails),
         max([r['length'] for r in rails] or [0]), len(ramps), dict(kinds)), flush=True)

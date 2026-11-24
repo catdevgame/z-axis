@@ -49,8 +49,10 @@ ps2/runtime/games_database.cpp	private.*	ok	upstream's serial-to-title list of P
 # nothing when not; and the scanner, whose rules and self-tests name the workshop's folders.
 tools/paths.sh	workshop.ref	ok	finds a workshop's folder and its own layout file when there (none in a public checkout)
 tools/zpaths.py	workshop.ref	ok	the same for Python
+tools/paths.ps1	workshop.ref	ok	the same for PowerShell
 tools/paths.env	workshop.ref	ok	says where a workshop's own layout overrides these defaults
 tools/setup/setup.sh	workshop.ref	ok	links a workshop's agent rules in its main checkout, when there
+tools/setup/setup.ps1	workshop.ref	ok	the same on Windows
 platform/windows/make-windows.ps1	workshop.ref	ok	reads a workshop's worker folder from its layout file, when there
 tools/checks/public_scan.py	workshop.*	ok	the scanner: its rules and self-tests name the workshop's folders
 .gitignore	workshop.ref	ok	an ignore line for the agents' rules link a workshop checkout has

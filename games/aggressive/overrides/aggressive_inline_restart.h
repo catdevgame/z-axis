@@ -44,6 +44,14 @@ namespace aggressive_inline::restart
     // the level again waits in the loader until the level's UI has gone.
     void onVsync(uint8_t *rdram);
 
+    // The skater put at a place of ours by the game's own respawn
+    // (placeSkaterAtLevelStart, as at a locator: tricks and physics reset,
+    // standing, the camera cut there): `orientation` the rows right, up and
+    // forward as the skater's orientation keeps them, `position` where. From
+    // the level update, for player one. False if the respawn could not run.
+    bool respawnAt(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime, const float orientation[3][4],
+                   const float position[4]);
+
     // Career: a challenge was given in this level and can be given again
     // (its attempt is running, or failed back to its giver).
     bool challengeRetryable(const uint8_t *rdram);

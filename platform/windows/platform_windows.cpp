@@ -1,5 +1,6 @@
 #include "platform/platform.h"
 
+#include "host_backend.h"
 #include "host_sdl.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -14,18 +15,22 @@
 #include <shellapi.h>
 #include <shobjidl.h>
 
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 // Windows front end: the game files sit next to the executable, messages are
-// message boxes. The macOS app menu's and File menu's items (Settings...,
-// Switch Game..., Show Settings Folder, Show Logs Folder) are in the window's
-// system menu: the title bar's icon, a right click on the title bar, or
-// Alt+Space in every display mode. Full screen is Alt+Enter or F11 (in
-// app.cpp), and the game's own Settings pages have everything the macOS View
-// menu has. Full Screen is the window library's; Borderless is the game
-// window itself, without its frame, over the whole display.
+// message boxes. The macOS menus' items are in the window's system menu (the
+// title bar's icon, a right click on the title bar, or Alt+Space in every
+// display mode): the app menu's Settings..., the View menu's toggles (Full
+// Screen, Integer Scaling, Widescreen, Renderer, Pause in Background, Map
+// Window, each acting on the same setting as the macOS item) and the File
+// menu's Switch Game..., Show Settings Folder and Show Logs Folder. Full
+// screen is also Alt+Enter or F11 (in app.cpp). Full Screen is the window
+// library's; Borderless is the game window itself, without its frame, over
+// the whole display.
 
 namespace zx_app::platform
 {
@@ -71,7 +76,19 @@ namespace zx_app::platform
             kSwitchGameItem = 0x0020,
             kSettingsFolderItem = 0x0030,
             kLogsFolderItem = 0x0040,
+            kFullScreenItem = 0x0050,
+            kIntegerScalingItem = 0x0060,
+            kWidescreenItem = 0x0070,
+            kPauseInBackgroundItem = 0x0080,
+            kMapWindowItem = 0x0090,
+            // The Renderer submenu: the CPU renderer, then the GPU one at
+            // 1x to 4x (kRendererGpuItem + (scale - 1) * kRendererStep).
+            kRendererCpuItem = 0x0100,
+            kRendererGpuItem = 0x0110,
+            kRendererStep = 0x0010,
         };
+        constexpr int kRendererScales = 4;
+        HMENU g_rendererMenu = nullptr;
 
         // The window's procedure before the menu's (the window library's).
         WNDPROC g_windowProcedure = nullptr;
@@ -79,6 +96,28 @@ namespace zx_app::platform
         void showFolder(const std::filesystem::path &folder)
         {
             ShellExecuteW(nullptr, L"open", folder.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
+
+        bool g_borderless = false;
+
+        // Full screen or borderless, as Alt+Enter toggles it (app.cpp): the
+        // borderless window goes back to a window, else the window
+        // library's full screen.
+        bool fullScreenNow()
+        {
+            return g_borderless || ps2_host::windowFullscreen();
+        }
+
+        void toggleFullScreenItem()
+        {
+            if (!toggleFullscreen())
+                ps2_host::setWindowFullscreen(!ps2_host::windowFullscreen());
+        }
+
+        void call(const std::function<void()> &action)
+        {
+            if (action)
+                action();
         }
 
         // An item chosen: true when it is one of the app's.
@@ -102,25 +141,84 @@ namespace zx_app::platform
                 if (g_actions)
                     showFolder(g_actions->logsFolder);
                 return true;
+            case kFullScreenItem:
+                toggleFullScreenItem();
+                return true;
+            case kIntegerScalingItem:
+                if (g_actions)
+                    call(g_actions->toggleIntegerScaling);
+                return true;
+            case kWidescreenItem:
+                if (g_actions)
+                    call(g_actions->toggleWidescreen);
+                return true;
+            case kPauseInBackgroundItem:
+                if (g_actions)
+                    call(g_actions->togglePauseInBackground);
+                return true;
+            case kMapWindowItem:
+                if (g_actions)
+                    call(g_actions->toggleMapWindow);
+                return true;
+            case kRendererCpuItem:
+                if (g_actions && g_actions->setRenderer)
+                    g_actions->setRenderer(false, g_actions->internalResolution ? g_actions->internalResolution() : 1);
+                return true;
             default:
+                if (item >= kRendererGpuItem && item < kRendererGpuItem + kRendererScales * kRendererStep)
+                {
+                    if (g_actions && g_actions->setRenderer)
+                        g_actions->setRenderer(true, static_cast<int>((item - kRendererGpuItem) / kRendererStep) + 1);
+                    return true;
+                }
                 return false;
             }
         }
 
         // Borderless: the window's place before (restored, maximized or not).
-        bool g_borderless = false;
         WINDOWPLACEMENT g_savedPlacement{};
 
+        void setChecked(HMENU menu, UINT item, bool on)
+        {
+            CheckMenuItem(menu, item, MF_BYCOMMAND | (on ? MF_CHECKED : MF_UNCHECKED));
+        }
+
         // Greyed out as the macOS items are: Settings... without a settings
-        // page of the game's own, Switch Game... on the collection's menu.
+        // page of the game's own, Switch Game... on the collection's menu,
+        // Widescreen in a game without it. Ticked as they are: each toggle
+        // by its setting, the renderer in use.
         void updateMenuItems(HMENU menu)
         {
             const bool settings = g_openSettings && (!g_openSettingsAvailable || g_openSettingsAvailable());
             EnableMenuItem(menu, kSettingsItem, MF_BYCOMMAND | (settings ? MF_ENABLED : MF_GRAYED));
-            if (g_actions && g_actions->switchGame)
+            if (!g_actions)
+                return;
+            if (g_actions->switchGame)
             {
                 const bool switchGame = !g_actions->switchGameAvailable || g_actions->switchGameAvailable();
                 EnableMenuItem(menu, kSwitchGameItem, MF_BYCOMMAND | (switchGame ? MF_ENABLED : MF_GRAYED));
+            }
+            setChecked(menu, kFullScreenItem, fullScreenNow());
+            if (g_actions->integerScaling)
+                setChecked(menu, kIntegerScalingItem, g_actions->integerScaling());
+            if (g_actions->toggleWidescreen)
+            {
+                if (g_actions->widescreen)
+                    setChecked(menu, kWidescreenItem, g_actions->widescreen());
+                const bool widescreen = !g_actions->widescreenAvailable || g_actions->widescreenAvailable();
+                EnableMenuItem(menu, kWidescreenItem, MF_BYCOMMAND | (widescreen ? MF_ENABLED : MF_GRAYED));
+            }
+            if (g_actions->pauseInBackground)
+                setChecked(menu, kPauseInBackgroundItem, g_actions->pauseInBackground());
+            if (g_actions->toggleMapWindow && g_actions->mapWindow)
+                setChecked(menu, kMapWindowItem, g_actions->mapWindow());
+            if (g_rendererMenu && g_actions->gpuRenderer && g_actions->internalResolution)
+            {
+                const int scale = std::clamp(g_actions->internalResolution(), 1, kRendererScales);
+                const UINT picked = g_actions->gpuRenderer() ? kRendererGpuItem + (scale - 1) * kRendererStep
+                                                             : kRendererCpuItem;
+                CheckMenuRadioItem(g_rendererMenu, kRendererCpuItem,
+                                   kRendererGpuItem + (kRendererScales - 1) * kRendererStep, picked, MF_BYCOMMAND);
             }
         }
 
@@ -256,19 +354,42 @@ namespace zx_app::platform
         g_actions = std::make_unique<MenuActions>(actions);
 
         // At the top of the system menu: Settings..., Switch Game... (a
-        // collection), the two folders, then the system's own items. Their
-        // keys (Alt+Space, then T, G, F or L) are none of the system's.
+        // collection), the macOS View menu's items in its order, the two
+        // folders, then the system's own items. Their keys (Alt+Space, then
+        // T, G, U, I, W, E, P, D, F or L) are none of the system's.
         const HMENU menu = GetSystemMenu(window, FALSE);
         if (!menu)
             return;
         UINT at = 0;
-        InsertMenuW(menu, at++, MF_BYPOSITION | MF_STRING, kSettingsItem, L"Se&ttings\u2026");
+        auto add = [&](UINT item, const wchar_t *title)
+        { InsertMenuW(menu, at++, MF_BYPOSITION | MF_STRING, item, title); };
+        auto separator = [&]()
+        { InsertMenuW(menu, at++, MF_BYPOSITION | MF_SEPARATOR, 0, nullptr); };
+        add(kSettingsItem, L"Se&ttings\u2026");
         if (g_actions->switchGame)
-            InsertMenuW(menu, at++, MF_BYPOSITION | MF_STRING, kSwitchGameItem, L"Switch &Game\u2026");
-        InsertMenuW(menu, at++, MF_BYPOSITION | MF_SEPARATOR, 0, nullptr);
-        InsertMenuW(menu, at++, MF_BYPOSITION | MF_STRING, kSettingsFolderItem, L"Show Settings &Folder");
-        InsertMenuW(menu, at++, MF_BYPOSITION | MF_STRING, kLogsFolderItem, L"Show &Logs Folder");
-        InsertMenuW(menu, at++, MF_BYPOSITION | MF_SEPARATOR, 0, nullptr);
+            add(kSwitchGameItem, L"Switch &Game\u2026");
+        separator();
+        add(kFullScreenItem, L"F&ull Screen\tAlt+Enter");
+        add(kIntegerScalingItem, L"&Integer Scaling");
+        if (g_actions->toggleWidescreen)
+            add(kWidescreenItem, L"&Widescreen");
+        // The renderer: the CPU one, or the GPU one at 1x-4x.
+        g_rendererMenu = CreatePopupMenu();
+        AppendMenuW(g_rendererMenu, MF_STRING, kRendererCpuItem, L"&CPU (Accurate)");
+        AppendMenuW(g_rendererMenu, MF_SEPARATOR, 0, nullptr);
+        const wchar_t *const gpuTitles[kRendererScales] = {L"GPU, &Native (640x448)", L"GPU, &2x (1280x896)",
+                                                           L"GPU, &3x (1920x1344)", L"GPU, &4x (2560x1792)"};
+        for (int scale = 1; scale <= kRendererScales; ++scale)
+            AppendMenuW(g_rendererMenu, MF_STRING, kRendererGpuItem + (scale - 1) * kRendererStep, gpuTitles[scale - 1]);
+        InsertMenuW(menu, at++, MF_BYPOSITION | MF_POPUP | MF_STRING, reinterpret_cast<UINT_PTR>(g_rendererMenu),
+                    L"Rend&erer");
+        add(kPauseInBackgroundItem, L"&Pause in Background");
+        if (g_actions->toggleMapWindow)
+            add(kMapWindowItem, L"Map Win&dow");
+        separator();
+        add(kSettingsFolderItem, L"Show Settings &Folder");
+        add(kLogsFolderItem, L"Show &Logs Folder");
+        separator();
 
         g_windowProcedure = reinterpret_cast<WNDPROC>(
             SetWindowLongPtrW(window, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&menuWindowProcedure)));
@@ -348,7 +469,19 @@ namespace zx_app::platform
         g_openSettingsAvailable = std::move(available);
     }
 
+    void frameInterpolationChanged(bool on)
+    {
+        (void)on;
+    }
+
     bool pickDocuments(bool folder, std::function<void(std::vector<std::string>)> picked)
+    {
+        (void)folder;
+        (void)picked;
+        return false;
+    }
+
+    bool pickDocumentsOnce(bool folder, std::function<void(std::vector<std::string>)> picked)
     {
         (void)folder;
         (void)picked;
@@ -361,5 +494,165 @@ namespace zx_app::platform
         (void)mimeType;
         (void)created;
         return false;
+    }
+
+    bool pickFolderOrFile(const std::string &extension, std::function<void(std::vector<std::string>)> picked)
+    {
+        // (IFileOpenDialog picks folders or files, never both at once: the menu asks
+        // which, and the window library shows it)
+        (void)extension;
+        (void)picked;
+        return false;
+    }
+
+    // ---- the app's own update (collection/updater.h) ---------------------------
+
+    namespace
+    {
+        // A system tool (System32's curl.exe, tar.exe) run to its end with no
+        // window, its output (both streams) into `output`; its exit code, -1
+        // when it could not start.
+        long runTool(const std::wstring &tool, const std::vector<std::wstring> &args, std::string *output)
+        {
+            wchar_t system[MAX_PATH];
+            const UINT n = GetSystemDirectoryW(system, MAX_PATH);
+            if (n == 0 || n >= MAX_PATH)
+                return -1;
+            const std::wstring exe = std::wstring(system) + L"\\" + tool;
+            std::wstring line = L"\"" + exe + L"\"";
+            for (const std::wstring &arg : args)
+                line += L" \"" + arg + L"\"";
+            SECURITY_ATTRIBUTES inherit{sizeof(inherit), nullptr, TRUE};
+            HANDLE readEnd = nullptr, writeEnd = nullptr;
+            if (!CreatePipe(&readEnd, &writeEnd, &inherit, 0))
+                return -1;
+            SetHandleInformation(readEnd, HANDLE_FLAG_INHERIT, 0);
+            STARTUPINFOW startup{};
+            startup.cb = sizeof(startup);
+            startup.dwFlags = STARTF_USESTDHANDLES;
+            startup.hStdOutput = writeEnd;
+            startup.hStdError = writeEnd;
+            startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+            PROCESS_INFORMATION process{};
+            const BOOL started = CreateProcessW(exe.c_str(), line.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr,
+                                                nullptr, &startup, &process);
+            CloseHandle(writeEnd);
+            if (started)
+            {
+                char buffer[4096];
+                DWORD got = 0;
+                while (ReadFile(readEnd, buffer, sizeof(buffer), &got, nullptr) && got > 0)
+                    if (output && output->size() < 65536)
+                        output->append(buffer, got);
+            }
+            CloseHandle(readEnd);
+            if (!started)
+                return -1;
+            WaitForSingleObject(process.hProcess, INFINITE);
+            DWORD code = 0;
+            GetExitCodeProcess(process.hProcess, &code);
+            CloseHandle(process.hThread);
+            CloseHandle(process.hProcess);
+            return static_cast<long>(code);
+        }
+
+        std::string lastLine(std::string text)
+        {
+            while (!text.empty() && (text.back() == '\n' || text.back() == '\r'))
+                text.pop_back();
+            const size_t newline = text.rfind('\n');
+            return newline == std::string::npos ? text : text.substr(newline + 1);
+        }
+
+        std::filesystem::path executablePath()
+        {
+            std::wstring path(MAX_PATH, L'\0');
+            for (;;)
+            {
+                const DWORD n = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+                if (n == 0)
+                    return {};
+                if (n < path.size())
+                {
+                    path.resize(n);
+                    return std::filesystem::path(path);
+                }
+                path.resize(path.size() * 2);
+            }
+        }
+
+        // An executable's product version by its version resource's numbers ("1.3.1": a release's x.y.z, which
+        // ps2/CMakeLists.txt writes as x,y,z,0), "" none. (The numbers, not the ProductVersion text: the text's name
+        // as a string here would be the first one release_check.py finds in the executable, before the resource's.)
+        std::string productVersion(const std::filesystem::path &exe)
+        {
+            DWORD handle = 0;
+            const DWORD size = GetFileVersionInfoSizeW(exe.c_str(), &handle);
+            if (size == 0)
+                return {};
+            std::vector<char> info(size);
+            if (!GetFileVersionInfoW(exe.c_str(), 0, size, info.data()))
+                return {};
+            VS_FIXEDFILEINFO *fixed = nullptr;
+            UINT length = 0;
+            if (!VerQueryValueW(info.data(), L"\\", reinterpret_cast<void **>(&fixed), &length) || !fixed ||
+                length < sizeof(VS_FIXEDFILEINFO))
+                return {};
+            return std::to_string(HIWORD(fixed->dwProductVersionMS)) + "." + std::to_string(LOWORD(fixed->dwProductVersionMS)) +
+                   "." + std::to_string(HIWORD(fixed->dwProductVersionLS));
+        }
+    }
+
+    zx::collection::UpdatePlatform updatePlatform(const char *argv0)
+    {
+        (void)argv0;
+        zx::collection::UpdatePlatform update;
+        const std::filesystem::path exe = executablePath();
+        if (exe.empty())
+            return update;
+        update.install = zx::collection::UpdatePlatform::Install::Folder;
+        update.packageSuffixes = {"-windows-x64.zip", "-windows.zip"};
+        update.installed = exe.parent_path();
+        update.updateFolder = exe.parent_path() / "update";
+        update.download = [](const std::string &url, const std::filesystem::path &to, std::string *error)
+        {
+            // (curl.exe, Windows' own since Windows 10 1803: redirects followed, as GitHub's release downloads need)
+            std::string output;
+            const long code = runTool(L"curl.exe", {L"--fail", L"--silent", L"--show-error", L"--location", L"--retry", L"2",
+                                                    L"--connect-timeout", L"20", L"--output", to.wstring(), wide(url)},
+                                      &output);
+            if (code != 0 && error)
+                *error = output.empty() ? "curl.exe stopped (" + std::to_string(code) + ")" : lastLine(output);
+            return code == 0;
+        };
+        update.unpack = [](const std::filesystem::path &zip, const std::filesystem::path &into, std::string *error)
+        {
+            // (tar.exe, Windows' own bsdtar, which reads zips)
+            std::error_code ec;
+            std::filesystem::create_directories(into, ec);
+            std::string output;
+            const long code = runTool(L"tar.exe", {L"-x", L"-f", zip.wstring(), L"-C", into.wstring()}, &output);
+            if (code != 0 && error)
+                *error = "tar.exe could not unpack " + zip.filename().string() + ": " + lastLine(output);
+            return code == 0;
+        };
+        update.packageVersion = [name = exe.filename()](const std::filesystem::path &folder)
+        { return productVersion(folder / name); };
+        update.relaunch = [exe]() -> long
+        {
+            // (the executable now in place, in this one's environment but the script that drove this run)
+            SetEnvironmentVariableW(L"ZX_MENU_SCRIPT", nullptr);
+            std::wstring line = L"\"" + exe.wstring() + L"\"";
+            STARTUPINFOW startup{};
+            startup.cb = sizeof(startup);
+            PROCESS_INFORMATION process{};
+            if (!CreateProcessW(exe.c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, exe.parent_path().c_str(),
+                                &startup, &process))
+                return -1;
+            CloseHandle(process.hThread);
+            CloseHandle(process.hProcess);
+            return static_cast<long>(process.dwProcessId);
+        };
+        return update;
     }
 }

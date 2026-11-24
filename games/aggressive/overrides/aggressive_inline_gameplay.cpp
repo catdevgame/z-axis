@@ -55,11 +55,12 @@
 #include "aggressive_inline_devtools.h"
 #include "aggressive_inline_photo.h"
 #include "aggressive_inline_restart.h"
+#include "aggressive_inline_practice.h"
 #include "overrides/zge_gameplay.h"
 #include "machine.h"
 #include "runtime/host_input.h"
 #include "runtime/pad.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/boot_config.h"
 #include "runtime/session.h"
 
@@ -441,6 +442,11 @@ namespace aggressive_inline::gameplay
         {
             if (restart::runPending(rdram, ctx, runtime))
                 return;
+            // Practice (aggressive_inline_practice.cpp): a restart point made
+            // or gone back to; the update's time (its float argument) to the
+            // try's clock.
+            if (practice::runPending(rdram, ctx, runtime, ctx->f[12]))
+                return;
             hooks().playUpdate(rdram, ctx, runtime);
         }
 
@@ -517,7 +523,9 @@ namespace aggressive_inline::gameplay
             const uint32_t mode = readWord(rdram, kGameMode);
             zge_host::gameplay::Hotkeys &keys = hotkeys().keys;
             keys.poll();
-            if (keys.pressed(hi::kHotkeyRestart) && mode == kModePlay && readWord(rdram, kLevelFrame) > 30u)
+            const bool restartKey = keys.pressed(hi::kHotkeyRestart) && mode == kModePlay && readWord(rdram, kLevelFrame) > 30u;
+            // With Practice on and a restart point, the Restart key goes back to it.
+            if (!practice::onVsync(rdram, keys.pressed(hi::kHotkeyPracticePoint) && mode == kModePlay, restartKey) && restartKey)
                 restart::request(restart::Request::Key);
             restart::onVsync(rdram);
             if (keys.pressed(hi::kHotkeyHideHud) && (mode == kModePlay || mode == kModePaused))

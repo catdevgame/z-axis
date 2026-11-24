@@ -59,7 +59,9 @@ owner=Node.matrixW w of rows 0-2 of a node's local and world
 # and matrixScale, which takes Vec3. Owner: each follow camera's player, its two bob channels.
 owner=Player.bobScaleW w of the skater's bob channels' scale
 # (playfix) w of a splash ring's points: spawnSplashRing writes the rings in its frame by vec3RotateY and vu.sum, x, y and z, and hands them on whole; drawSplashRings copies a point to a
-# quad's corner and drawPrimitives (matrix 0) reads the corner's x, y, z. Rings live in memory no list reaches: the rule tests the record (career_ab.py).
+# quad's corner and drawPrimitives (matrix 0) reads the corner's x, y, z. Rings live in memory no list reaches: the rule tests the record (career_ab.py): 16 points at one height,
+# or (abdiff1) what a freed ring keeps after a later record took part of its memory, 4 or more points turning by the ring step (play-cannery t21000: written
+# at tick 5007, the ring freed at 5037, no load of the word to the route's end).
 owner=SplashRing.pointW w of a splash ring's point, alive or freed
 # (draft1) What the job thread's frames hold between their register saves. Each `unused` word is one the function's own
 # code never loads or stores (draft1/allow/pads.py on the ELF: every $sp-relative access of the function) and outside

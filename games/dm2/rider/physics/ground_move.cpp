@@ -180,6 +180,24 @@ namespace game::dm2::rider::physics
         ee::Local<ee::Float> height;        // groundAhead's: the spring's new length in, the height over the ground out
         ee::Local<ee::Float> clearance;     // and the wheel's sinking along the body's up row
         ee::Local<ee::Ptr<zge::Vec4>> keptPoints; // the points' address, which the original keeps in its frame
+        ee::Local<ee::Ptr<const zge::Vec4>> keptBodyRight;   // and the drawn body's right and forward rows' addresses,
+        ee::Local<ee::Ptr<const zge::Vec4>> keptBodyForward; // which it keeps there too
+        // The rest of what the original keeps in its frame, which outlives the
+        // return as the words above do: a later call's local it never sets reads
+        // them (editor-0: posePart's bone matrices' w lanes, the front wheel
+        // point's address, carried into a shadow's posed vertices).
+        ee::Local<uint32_t> wheelLoop;                     // the wheel loops' counter
+        ee::Local<uint32_t> wheelsOff;                     // the wheels off the ground
+        ee::Local<ee::Ptr<zge::Vec4>> keptMoved;           // the carry's address,
+        ee::Local<ee::Ptr<zge::Vec4>> keptHitPoint;        // a wheel's hit point's,
+        ee::Local<ee::Ptr<zge::Vec4>> keptSummedVelocity;  // the rider's velocity's, as the wheels' are added to it,
+        ee::Local<ee::Ptr<zge::Vec4>> keptFrontWheelPoint; // the wheel points',
+        ee::Local<ee::Ptr<zge::Vec4>> keptBackWheelPoint;
+        ee::Local<ee::Ptr<zge::Vec4>> keptVelocity;        // the rider's velocity's and force's,
+        ee::Local<ee::Ptr<zge::Vec4>> keptForce;
+        ee::Local<ee::Ptr<zge::Vec4>> keptAhead;           // the rays' ends',
+        ee::Local<uint32_t> keptBack;                      // whether the wheel is the back one,
+        ee::Local<ee::Ptr<zge::Vec4>> keptWheelForward;    // and a wheel's forward row's address
         zge::Vec4 &right = rows->row(0);
         zge::Vec4 &up = rows->row(1);
         zge::Vec4 &forward = rows->row(2);
@@ -187,20 +205,29 @@ namespace game::dm2::rider::physics
         const zge::Vec4 &bodyUp = body.row(1);
         const zge::Vec4 &bodyForward = body.row(2);
 
+        *keptMoved = &*moved;
         *moved = zge::kZero;
+        // The frame keeps the body's rows' addresses past the return: a
+        // later call's matrix whose w lanes nothing writes (bonePoint's,
+        // boneMatrix leaves row 3's w) reads the forward row's there, and
+        // VU0 carries it into the bodies a dynamics object wakes.
+        *keptBodyForward = &body.row(2);
+        *keptBodyRight = &body.row(0);
+        *wheelsOff = 0;
         rideTouchedObject(rider, &moved->x);
         // A later call with a shallower stack finds this word in a slot it
         // leaves unset: a skinned model's vertices keep it (pq-woodward's
         // 40 heap words at t6000 without it).
         *keptPoints = &points[0];
-        uint32_t wheelsOff = 0;
-        for (uint32_t wheel = 0; wheel < 2; ++wheel)
+        for (*wheelLoop = 0; *wheelLoop < 2; ++*wheelLoop)
         {
+            const uint32_t wheel = *wheelLoop;
             WheelPose &pose = rider->wheelPoses[wheel];
             WheelPose &other = rider->wheelPoses[wheel ^ 1];
             zge::Vec4 &point = points[wheel];
             zge::Vec4 &wheelVelocity = *vec4(pose.velocity);
             const bool back = (wheel & 1) != 0;
+            *keptBack = back;
             pose.touched = 0;
             point = *vec4(wheelPoint(rider, wheel));
             engine::transformPoint(&point.x, rider->body, &point.x);
@@ -328,7 +355,7 @@ namespace game::dm2::rider::physics
                 pose.spin = ee::toInt(spin * *g_spinKeep);
                 if (rider->touchedObject != 0)
                     wheelVelocity = wheelVelocity + *moved;
-                ++wheelsOff;
+                ++*wheelsOff;
                 continue;
             }
 
@@ -336,6 +363,7 @@ namespace game::dm2::rider::physics
             // the body's, turned by the yaw rate on the front wheel), its
             // velocity in the face's plane.
             collision::hitFace(hit); // (asked for, not used)
+            *keptHitPoint = &*hitPoint;
             collision::hitPoint(hit, &hitPoint->x);
             collision::hitPlane(hit, &hitPlane->x);
             // The weight's share: the original weighs the wheel's height by
@@ -354,6 +382,7 @@ namespace game::dm2::rider::physics
             zge::Vec4 &wheelUp = wheelRows.row(1);
             zge::Vec4 &wheelForward = wheelRows.row(2);
             engine::copyMatrix(lastMatrix, pose.matrix);
+            *keptWheelForward = &wheelForward;
             wheelUp = *hitPlane;
             wheelForward = bodyForward;
             wheelRight = zge::cross(wheelUp, wheelForward);
@@ -512,8 +541,10 @@ namespace game::dm2::rider::physics
         // there may throw the rider off (a bail, kind 5).
         const ee::Float lift = *g_rayLift;
         const ee::Float liftX = bodyUp.x * lift, liftY = bodyUp.y * lift, liftZ = bodyUp.z * lift;
-        for (uint32_t wheel = 0; wheel < 2; ++wheel)
+        *keptAhead = &ahead[0];
+        for (*wheelLoop = 0; *wheelLoop < 2; ++*wheelLoop)
         {
+            const uint32_t wheel = *wheelLoop;
             ahead[wheel].x = points[wheel].x + liftX;
             ahead[wheel].y = points[wheel].y + liftY;
             ahead[wheel].z = points[wheel].z + liftZ;
@@ -542,19 +573,23 @@ namespace game::dm2::rider::physics
         rows->row(3) = zge::kZero;
         difference(forward, points[0], points[1]);
         forward = zge::unit(forward);
-        if (wheelsOff < 2)
+        *keptFrontWheelPoint = vec4(rider->frontWheelPoint);
+        *keptBackWheelPoint = vec4(rider->backWheelPoint);
+        *keptForce = vec4(rider->force);
+        *keptVelocity = vec4(rider->velocity);
+        if (*wheelsOff < 2)
         {
-            if (wheelsOff == 0)
+            if (*wheelsOff == 0)
                 between(up, matrix(rider->wheelPoses[0].matrix)->row(1), matrix(rider->wheelPoses[1].matrix)->row(1), ee::Float(0.5f));
             else
             {
                 // The wheel down.
-                uint32_t wheel = 0;
-                while (wheel < 2 && rider->wheelPoses[wheel].ground == kWheelOffGround)
-                    ++wheel;
-                if (wheel < 2)
+                *wheelLoop = 0;
+                while (*wheelLoop < 2 && rider->wheelPoses[*wheelLoop].ground == kWheelOffGround)
+                    ++*wheelLoop;
+                if (*wheelLoop < 2)
                 {
-                    const zge::Vec4 &wheelUp = matrix(rider->wheelPoses[wheel].matrix)->row(1);
+                    const zge::Vec4 &wheelUp = matrix(rider->wheelPoses[*wheelLoop].matrix)->row(1);
                     up = wheelUp;
                     if (zge::angleAcos(-wheelUp.y) < kAngle50)
                         rider->flags |= kFlagUpright;
@@ -611,8 +646,9 @@ namespace game::dm2::rider::physics
 
         // Next frame: the wheels' points moved by their velocities, the body
         // rows through them and its position halfway between their mounts.
-        for (uint32_t wheel = 0; wheel < 2; ++wheel)
+        for (*wheelLoop = 0; *wheelLoop < 2; ++*wheelLoop)
         {
+            const uint32_t wheel = *wheelLoop;
             const zge::Vec4 &point = points[wheel];
             const zge::Vec4 &wheelVelocity = *vec4(rider->wheelPoses[wheel].velocity);
             zge::Vec4 &end = ahead[wheel];
@@ -656,10 +692,12 @@ namespace game::dm2::rider::physics
         zge::Vec4 &force = *vec4(rider->force);
         force = velocity;
         velocity = zge::kZero;
+        *keptSummedVelocity = &velocity;
         const ee::Float restDrag = *g_wheelRestDrag;
         const ee::Float spinPerSpeed = *g_spinPerSpeed;
-        for (uint32_t wheel = 0; wheel < 2; ++wheel)
+        for (*wheelLoop = 0; *wheelLoop < 2; ++*wheelLoop)
         {
+            const uint32_t wheel = *wheelLoop;
             WheelPose &pose = rider->wheelPoses[wheel];
             zge::Vec4 &wheelVelocity = *vec4(pose.velocity);
             zge::Vec4 &next = ahead[wheel];
@@ -704,8 +742,9 @@ namespace game::dm2::rider::physics
         {
             velocity = zge::kZero;
             rider->speed = 0.0f;
-            for (WheelPose &pose : rider->wheelPoses)
+            for (*wheelLoop = 0; *wheelLoop < 2; ++*wheelLoop)
             {
+                WheelPose &pose = rider->wheelPoses[*wheelLoop];
                 if (pose.ground != kWheelOffGround)
                 {
                     *vec4(pose.velocity) = zge::kZero;
@@ -719,7 +758,7 @@ namespace game::dm2::rider::physics
         else
             rider->flags &= ~kFlagFakie;
 
-        if (wheelsOff != 2)
+        if (*wheelsOff != 2)
             return 2;
         return setPhysicsState(rider, uint32_t(kPhysicsAir));
     }

@@ -4,3 +4,7 @@
 LICENSE -text
 NOTICE -text
 third_party/licenses/** -text
+# The other text files the Windows zip carries, for the same reason (tools/checks/release_check.py TREE_TEXT: 1.3.1's
+# had a CRLF Michroma-OFL.txt): the font's licence and the README's template (make-windows.ps1 ends its lines CRLF)
+collection/resources/fonts/*.txt -text
+platform/windows/README.txt -text

@@ -4,7 +4,7 @@
 #include "runtime_log.h"
 #include "runtime/ee_scheduler.h"
 #include "runtime/photo.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <unordered_set>
 #include "kernel/Syscalls/Helpers/State.h"
@@ -2183,48 +2183,11 @@ namespace
 void PS2DebugPanel::initialize()
 {
 #if defined(ZX_ENABLE_DEBUG_UI)
-    if (!m_initialized && ps2_host::sdlWindow() && ps2_host::gpuDevice())
+    if (!m_initialized && m_notices.initialize())
     {
-        // Dear ImGui on the SDL3 window, drawn with SDL_GPU over the game
-        // picture (ps2_host::setOverlay).
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGui::StyleColorsDark();
-        // The debug windows' font first (the default), then the player's
-        // messages' (setNoticeStyle), when its file reads.
-        ImGuiIO &io = ImGui::GetIO();
-        io.Fonts->AddFontDefault();
-        m_noticeFont = nullptr;
-        if (!m_noticeFontFile.empty())
-        {
-            if (FILE *file = std::fopen(m_noticeFontFile.c_str(), "rb"))
-            {
-                std::fclose(file);
-                m_noticeFont = io.Fonts->AddFontFromFileTTF(m_noticeFontFile.c_str(), 16.0f);
-            }
-            if (!m_noticeFont)
-                std::fprintf(stderr, "[debug-ui] notice font %s not read: ImGui's own\n", m_noticeFontFile.c_str());
-        }
-        ImGui_ImplSDL3_InitForSDLGPU(ps2_host::sdlWindow());
-        ImGui_ImplSDLGPU3_InitInfo info{};
-        info.Device = ps2_host::gpuDevice();
-        info.ColorTargetFormat = ps2_host::swapchainFormat();
-        ImGui_ImplSDLGPU3_Init(&info);
+        // The windows take the window's input (the messages take none).
         ps2_host::setEventHook([](const SDL_Event &event)
                                { ImGui_ImplSDL3_ProcessEvent(&event); });
-        ps2_host::Overlay overlay;
-        overlay.prepare = [this](SDL_GPUCommandBuffer *commands)
-        {
-            if (m_frameReady)
-                ImGui_ImplSDLGPU3_PrepareDrawData(ImGui::GetDrawData(), commands);
-        };
-        overlay.render = [this](SDL_GPUCommandBuffer *commands, SDL_GPURenderPass *pass)
-        {
-            if (m_frameReady)
-                ImGui_ImplSDLGPU3_RenderDrawData(ImGui::GetDrawData(), commands, pass);
-            m_frameReady = false;
-        };
-        ps2_host::setOverlay(std::move(overlay));
         m_initialized = true;
     }
 #endif
@@ -2235,110 +2198,12 @@ void PS2DebugPanel::shutdown()
 #if defined(ZX_ENABLE_DEBUG_UI)
     if (m_initialized)
     {
-        ps2_host::setOverlay({});
         ps2_host::setEventHook({});
-        SDL_WaitForGPUIdle(ps2_host::gpuDevice());
-        ImGui_ImplSDLGPU3_Shutdown();
-        ImGui_ImplSDL3_Shutdown();
-        ImGui::DestroyContext();
+        m_notices.shutdown();
         m_initialized = false;
-        m_frameReady = false;
     }
 #endif
 }
-
-// The game's frames per second (display buffer flips), measured over half
-// a second, in a small box at the top right.
-void PS2DebugPanel::drawFps()
-{
-#if defined(ZX_ENABLE_DEBUG_UI)
-    const double now = static_cast<double>(SDL_GetTicksNS()) / 1e9;
-    const unsigned long long flips = PS2Machine::displayFlips();
-    if (m_fpsSince == 0.0)
-    {
-        m_fpsSince = now;
-        m_fpsFlips = flips;
-    }
-    else if (now - m_fpsSince >= 0.5)
-    {
-        m_fps = static_cast<double>(flips - m_fpsFlips) / (now - m_fpsSince);
-        m_fpsSince = now;
-        m_fpsFlips = flips;
-    }
-    const ImGuiViewport *viewport = ImGui::GetMainViewport();
-    const float scale = SDL_GetWindowDisplayScale(ps2_host::sdlWindow());
-    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 12.0f, viewport->WorkPos.y + 12.0f),
-                            ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowBgAlpha(0.45f);
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                                   ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
-    if (ImGui::Begin("##fps", nullptr, flags))
-    {
-        ImGui::SetWindowFontScale(scale > 0.0f ? scale * 1.25f : 1.25f);
-        ImGui::Text("%.0f FPS", m_fps);
-    }
-    ImGui::End();
-#endif
-}
-
-// A short message for the player (zx::settings::notify), top left.
-void PS2DebugPanel::drawNotice(const std::string &text)
-{
-#if defined(ZX_ENABLE_DEBUG_UI)
-    const ImGuiViewport *viewport = ImGui::GetMainViewport();
-    const float scale = SDL_GetWindowDisplayScale(ps2_host::sdlWindow());
-    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + 12.0f, viewport->WorkPos.y + 12.0f), ImGuiCond_Always,
-                            ImVec2(0.0f, 0.0f));
-    ImGui::SetNextWindowBgAlpha(0.45f);
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                                   ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
-    if (ImGui::Begin("##notice", nullptr, flags))
-    {
-        // (the size ImGui's own font had here: 13 px, 1.25 times the display's scale)
-        const float size = 13.0f * 1.25f * (scale > 0.0f ? scale : 1.0f);
-        const uint32_t c = m_noticeColour;
-        ImGui::PushFont(m_noticeFont, size);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4((c & 0xFFu) / 255.0f, (c >> 8 & 0xFFu) / 255.0f, (c >> 16 & 0xFFu) / 255.0f,
-                                                    (c >> 24 & 0xFFu) / 255.0f));
-        ImGui::TextUnformatted(text.c_str());
-        ImGui::PopStyleColor();
-        ImGui::PopFont();
-    }
-    ImGui::End();
-#else
-    (void)text;
-#endif
-}
-
-#if defined(ZX_ENABLE_DEBUG_UI)
-namespace
-{
-    // Photo mode's framing grid (zx::photo::framingGrid) over the picture
-    // as shown, under the notice: light lines with a dark edge, seen on
-    // bright and dark scenes alike. Drawn over the window only, so the
-    // saved pictures have none.
-    void drawFramingGrid(const zx::photo::FramingGrid &grid)
-    {
-        const ImGuiViewport *viewport = ImGui::GetMainViewport();
-        const SDL_FRect shown = ps2_host::shownPicture();
-        if (shown.w <= 0.0f || shown.h <= 0.0f)
-            return;
-        const float x = viewport->Pos.x + shown.x * viewport->Size.x, y = viewport->Pos.y + shown.y * viewport->Size.y;
-        const float scale = SDL_GetWindowDisplayScale(ps2_host::sdlWindow());
-        const float width = 1.0f * (scale > 0.0f ? scale : 1.0f);
-        ImDrawList *draw = ImGui::GetBackgroundDrawList();
-        for (const zx::photo::Line &line :
-             zx::photo::thirdsLines(x, y, shown.w * viewport->Size.x, shown.h * viewport->Size.y, grid.letterbox))
-        {
-            const ImVec2 from(line.x0, line.y0), to(line.x1, line.y1);
-            draw->AddLine(from, to, IM_COL32(0, 0, 0, 110), width * 3.0f);
-            draw->AddLine(from, to, IM_COL32(255, 255, 255, 170), width);
-        }
-    }
-}
-#endif
 
 void PS2DebugPanel::draw(PS2Machine &runtime)
 {
@@ -2348,35 +2213,27 @@ void PS2DebugPanel::draw(PS2Machine &runtime)
         return;
     }
 
-    m_frameReady = false;
     if (ps2_host::keyPressed(290)) // F1
     {
         toggleVisible();
     }
-
-    const std::string notice = zx::settings::notice();
-    const zx::photo::FramingGrid grid = zx::photo::framingGrid();
-    if (!m_visible && !m_showFps && notice.empty() && !grid.shown)
+    if (m_padTestToggle.exchange(false))
     {
-        return;
+        m_selectPadTab = !m_visible;
+        m_visible = !m_visible;
     }
+    if (m_visible)
+        m_notices.draw([this, &runtime]() { drawWindows(runtime); });
+    else
+        m_notices.draw();
+#else
+    (void)runtime;
+#endif
+}
 
-    ImGui_ImplSDLGPU3_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-    ImGui::NewFrame();
-    if (grid.shown)
-        drawFramingGrid(grid);
-    if (m_showFps)
-        drawFps();
-    if (!notice.empty())
-        drawNotice(notice);
-    if (!m_visible)
-    {
-        ImGui::Render();
-        m_frameReady = true;
-        return;
-    }
-
+void PS2DebugPanel::drawWindows(PS2Machine &runtime)
+{
+#if defined(ZX_ENABLE_DEBUG_UI)
     ImGui::SetNextWindowSize(ImVec2(780.0f, 620.0f), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Runtime Debugger", &m_visible, ImGuiWindowFlags_MenuBar))
     {
@@ -2388,6 +2245,7 @@ void PS2DebugPanel::draw(PS2Machine &runtime)
 
         if (ImGui::BeginTabBar("debug-tabs"))
         {
+            const bool selectPadTab = m_selectPadTab;
             if (ImGui::BeginTabItem("CPU"))
             {
                 drawCpuTab(runtime, m_showRegisters);
@@ -2413,7 +2271,8 @@ void PS2DebugPanel::draw(PS2Machine &runtime)
                 drawRpcHistoryTab(runtime);
                 ImGui::EndTabItem();
             }
-            if (ImGui::BeginTabItem("PAD"))
+            // (the gamepad test opens the panel here: togglePadTest)
+            if (ImGui::BeginTabItem("PAD", nullptr, m_selectPadTab ? ImGuiTabItemFlags_SetSelected : 0))
             {
                 drawPadTab();
                 ImGui::EndTabItem();
@@ -2458,12 +2317,12 @@ void PS2DebugPanel::draw(PS2Machine &runtime)
                 ImGui::EndTabItem();
             }
             ImGui::EndTabBar();
+            if (selectPadTab)
+                m_selectPadTab = false;
         }
     }
     ImGui::End();
 
-    ImGui::Render();
-    m_frameReady = true;
 #else
     (void)runtime;
 #endif

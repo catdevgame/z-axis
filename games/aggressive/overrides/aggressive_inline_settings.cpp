@@ -5,7 +5,7 @@
 // (runtime/disc_patch.h) in which FrontEnd.zsc (and InGame.zsc) gain a
 // Settings screen built from the game's own widgets, fonts and materials,
 // and the Options menu's Controller item opens it. The screen's rows come
-// from the settings registry (runtime/settings.h) through script
+// from the settings registry (runtime/settings_registry.h) through script
 // natives registered next to the game's own (func_170820), so the app's
 // menu bar and these pages share one model.
 
@@ -22,7 +22,7 @@
 #include "runtime/disc_patch.h"
 #include "runtime/host_input.h"
 #include "runtime/pad.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/zaxis_text.h"
 #include "runtime/zaxis_ui.h"
 #include "runtime/boot_config.h"

@@ -4,6 +4,17 @@
 
 #include <memory>
 
+#include <spawn.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+
+extern char **environ;
+
 namespace
 {
     NSString *ns(const std::string &text)
@@ -117,6 +128,23 @@ namespace
         item.state = on ? NSControlStateValueOn : NSControlStateValueOff;
     }
     return YES;
+}
+@end
+
+// The open panel of pickFolderOrFile: folders, and files of its one type
+// (a mod's .zip), can be picked; other files are shown greyed out.
+@interface ZXFolderOrFilePanelFilter : NSObject <NSOpenSavePanelDelegate>
+@property(nonatomic, copy) NSString *extension;
+@end
+
+@implementation ZXFolderOrFilePanelFilter
+- (BOOL)panel:(id)sender shouldEnableURL:(NSURL *)url
+{
+    (void)sender;
+    NSNumber *folder = nil;
+    if ([url getResourceValue:&folder forKey:NSURLIsDirectoryKey error:nil] && folder.boolValue)
+        return YES;
+    return [url.pathExtension caseInsensitiveCompare:self.extension] == NSOrderedSame;
 }
 @end
 
@@ -313,7 +341,19 @@ namespace zx_app::platform
         g_openSettingsAvailable = std::move(available);
     }
 
+    void frameInterpolationChanged(bool on)
+    {
+        (void)on;
+    }
+
     bool pickDocuments(bool folder, std::function<void(std::vector<std::string>)> picked)
+    {
+        (void)folder;
+        (void)picked;
+        return false;
+    }
+
+    bool pickDocumentsOnce(bool folder, std::function<void(std::vector<std::string>)> picked)
     {
         (void)folder;
         (void)picked;
@@ -326,5 +366,158 @@ namespace zx_app::platform
         (void)mimeType;
         (void)created;
         return false;
+    }
+
+    bool pickFolderOrFile(const std::string &extension, std::function<void(std::vector<std::string>)> picked)
+    {
+        @autoreleasepool
+        {
+            NSOpenPanel *panel = [NSOpenPanel openPanel];
+            panel.canChooseFiles = YES;
+            panel.canChooseDirectories = YES;
+            panel.allowsMultipleSelection = YES;
+            panel.prompt = @"Add";
+            ZXFolderOrFilePanelFilter *filter = [[ZXFolderOrFilePanelFilter alloc] init];
+            filter.extension = ns(extension);
+            panel.delegate = filter;
+            auto shared = std::make_shared<std::function<void(std::vector<std::string>)>>(std::move(picked));
+            // (the handler, copied by the panel, keeps the filter until the panel is done with it)
+            void (^done)(NSModalResponse) = ^(NSModalResponse response) {
+                panel.delegate = nil;
+                (void)filter;
+                std::vector<std::string> paths;
+                if (response == NSModalResponseOK)
+                    for (NSURL *url in panel.URLs)
+                        if (url.fileURL && url.path)
+                            paths.emplace_back(url.path.UTF8String);
+                (*shared)(std::move(paths));
+            };
+            if (NSWindow *window = gameWindow())
+                [panel beginSheetModalForWindow:window completionHandler:done];
+            else
+                [panel beginWithCompletionHandler:done];
+        }
+        return true;
+    }
+
+    // ---- the app's own update (collection/updater.h) ---------------------------
+
+    namespace
+    {
+        // A system tool run to its end (its output, both streams, into
+        // `output`); its exit status, -1 when it could not start.
+        int runTool(const std::vector<std::string> &argv, std::string *output)
+        {
+            int pipeFds[2];
+            if (pipe(pipeFds) != 0)
+                return -1;
+            posix_spawn_file_actions_t actions;
+            posix_spawn_file_actions_init(&actions);
+            posix_spawn_file_actions_adddup2(&actions, pipeFds[1], STDOUT_FILENO);
+            posix_spawn_file_actions_adddup2(&actions, pipeFds[1], STDERR_FILENO);
+            posix_spawn_file_actions_addclose(&actions, pipeFds[0]);
+            std::vector<char *> args;
+            for (const std::string &arg : argv)
+                args.push_back(const_cast<char *>(arg.c_str()));
+            args.push_back(nullptr);
+            pid_t pid = -1;
+            const int spawned = posix_spawn(&pid, args[0], &actions, nullptr, args.data(), environ);
+            posix_spawn_file_actions_destroy(&actions);
+            close(pipeFds[1]);
+            char buffer[4096];
+            for (ssize_t got; (got = read(pipeFds[0], buffer, sizeof(buffer))) > 0;)
+                if (output && output->size() < 65536)
+                    output->append(buffer, static_cast<size_t>(got));
+            close(pipeFds[0]);
+            if (spawned != 0)
+                return -1;
+            int status = 0;
+            while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+            {
+            }
+            return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        }
+
+        // The tool's last line, for the menu's notice.
+        std::string lastLine(std::string text)
+        {
+            while (!text.empty() && (text.back() == '\n' || text.back() == '\r'))
+                text.pop_back();
+            const size_t newline = text.rfind('\n');
+            return newline == std::string::npos ? text : text.substr(newline + 1);
+        }
+
+        std::string bundleValue(const std::filesystem::path &app, NSString *key)
+        {
+            @autoreleasepool
+            {
+                NSString *plist = [NSString stringWithUTF8String:(app / "Contents" / "Info.plist").c_str()];
+                NSDictionary *info = [NSDictionary dictionaryWithContentsOfFile:plist];
+                id value = info[key];
+                return [value isKindOfClass:[NSString class]] ? std::string([(NSString *)value UTF8String]) : std::string();
+            }
+        }
+    }
+
+    zx::collection::UpdatePlatform updatePlatform(const char *argv0)
+    {
+        (void)argv0;
+        zx::collection::UpdatePlatform update;
+        std::filesystem::path bundle;
+        @autoreleasepool
+        {
+            NSString *path = [[NSBundle mainBundle] bundlePath];
+            if (path)
+                bundle = std::filesystem::path(path.fileSystemRepresentation);
+        }
+        // (a runner outside a bundle, a developer's build: nothing to update)
+        if (bundle.extension() != ".app")
+            return update;
+        update.install = zx::collection::UpdatePlatform::Install::Bundle;
+        update.packageSuffixes = {"-mac-arm64.zip", "-mac.zip"};
+        update.installed = bundle;
+        // (beside the bundle, on its volume: the new bundle is moved into its place, never copied)
+        update.updateFolder = bundle.parent_path() / ("." + bundle.stem().string() + " update");
+        update.download = [](const std::string &url, const std::filesystem::path &to, std::string *error)
+        {
+            // (curl, the system's own: redirects followed, as GitHub's release downloads need; an HTTP error fails it)
+            std::string output;
+            const int status = runTool({"/usr/bin/curl", "--fail", "--silent", "--show-error", "--location", "--retry", "2",
+                                        "--connect-timeout", "20", "--output", to.string(), url},
+                                       &output);
+            if (status != 0 && error)
+                *error = output.empty() ? "curl stopped (" + std::to_string(status) + ")" : lastLine(output);
+            return status == 0;
+        };
+        update.unpack = [](const std::filesystem::path &zip, const std::filesystem::path &into, std::string *error)
+        {
+            // (ditto, as Finder unpacks: the bundle's symlinks, modes and seal kept)
+            std::error_code ec;
+            std::filesystem::create_directories(into, ec);
+            std::string output;
+            const int status = runTool({"/usr/bin/ditto", "-x", "-k", zip.string(), into.string()}, &output);
+            if (status != 0 && error)
+                *error = "ditto could not unpack " + zip.filename().string() + ": " + lastLine(output);
+            return status == 0;
+        };
+        update.packageVersion = [](const std::filesystem::path &app) { return bundleValue(app, @"CFBundleShortVersionString"); };
+        update.relaunch = [bundle]() -> long
+        {
+            // (the bundle now in place: its own executable, in this one's environment but the script that drove this run)
+            const std::string executable = bundleValue(bundle, @"CFBundleExecutable");
+            if (executable.empty())
+                return -1;
+            const std::string path = (bundle / "Contents" / "MacOS" / executable).string();
+            unsetenv("ZX_MENU_SCRIPT");
+            posix_spawnattr_t attributes;
+            posix_spawnattr_init(&attributes);
+            posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSID);
+            char *args[] = {const_cast<char *>(path.c_str()), nullptr};
+            pid_t pid = -1;
+            const int spawned = posix_spawn(&pid, path.c_str(), nullptr, &attributes, args, environ);
+            posix_spawnattr_destroy(&attributes);
+            return spawned == 0 ? static_cast<long>(pid) : -1;
+        };
+        return update;
     }
 }

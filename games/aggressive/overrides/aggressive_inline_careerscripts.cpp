@@ -37,7 +37,7 @@
 
 #include "machine.h"
 #include "runtime/game_files.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 #include "runtime/boot_config.h"
 #include "runtime/session.h"
 
@@ -380,9 +380,9 @@ namespace aggressive_inline::careerscripts
         const char *which = zx::boot::text("ZX_CAREER_SCRIPTS");
         if (!which || (std::string(which) != "xbox" && std::string(which) != "ps2"))
             return;
-        if (!ps2_xbox_disc::init())
+        if (!zx::xbox_files::init())
         {
-            std::cout << "[careerscripts] no Xbox files (" << ps2_xbox_disc::description() << ")" << std::endl;
+            std::cout << "[careerscripts] no Xbox files (" << zx::xbox_files::description() << ")" << std::endl;
             return;
         }
         scripts().rdram = runtime.memory().getRDRAM();
@@ -393,7 +393,7 @@ namespace aggressive_inline::careerscripts
             const std::string xboxDir = std::string("levels/") + level.folder + "/";
             const std::string path = std::string("ASSETS/LEVELS/") + level.folder + "/" + level.folder + ".BIN";
             auto bytes = std::make_shared<std::vector<uint8_t>>();
-            if (!ps2_xbox_disc::readFile(xboxDir + level.folder + ".bin", *bytes) || dataBytes(*bytes) == 0u)
+            if (!zx::xbox_files::readFile(xboxDir + level.folder + ".bin", *bytes) || dataBytes(*bytes) == 0u)
                 continue;
             const uint32_t variables = dataBytes(*bytes);
             switch (restorePs2Texts(level.folder, *bytes))
@@ -420,7 +420,7 @@ namespace aggressive_inline::careerscripts
             if (std::string(level.folder) == "CIVIC")
             {
                 auto motions = std::make_shared<std::vector<uint8_t>>();
-                if (ps2_xbox_disc::readFile(xboxDir + "motions.zal", *motions))
+                if (zx::xbox_files::readFile(xboxDir + "motions.zal", *motions))
                     scripts().xbox[std::string("ASSETS/LEVELS/CIVIC/MOTIONS.ZAL")] = motions;
             }
         }

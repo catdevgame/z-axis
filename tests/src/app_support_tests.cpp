@@ -1,6 +1,7 @@
 #include "MiniTest.h"
 #include "collection/settings.h"
 #include "collection/disc_check.h"
+#include "collection/game_setup.h"
 #include "collection/card_import.h"
 #include "collection/levels/convert.h"
 #include "collection/levels/export.h"
@@ -10,6 +11,7 @@
 #include "collection/mods.h"
 #include "collection/mod_install.h"
 #include "collection/offered.h"
+#include "collection/refresh_rate.h"
 #include "runtime/panel_snapshot.h"
 #include "runtime/game_files.h"
 #include "test_zip_builder.h"
@@ -348,6 +350,18 @@ void register_app_support_tests()
             t.IsFalse(loadSettings(dir.path / "missing.ini", loaded), "missing file");
         });
 
+        tc.Run("refresh rate: 120 Hz with Frame Interpolation where the screen has it, 60 otherwise", [](TestCase &t)
+        {
+            const std::vector<float> thor = {60.0f, 120.0f}, near120 = {59.94f, 119.88f}, only60 = {60.0f},
+                                     fast = {60.0f, 90.0f, 144.0f}, none;
+            t.Equals(refreshRateToAsk(true, thor), 120.0f, "on, a 60 and 120 Hz screen (the Thor): 120");
+            t.Equals(refreshRateToAsk(false, thor), 60.0f, "off: 60, as before");
+            t.Equals(refreshRateToAsk(true, near120), 120.0f, "on, 119.88 Hz counts as 120");
+            t.Equals(refreshRateToAsk(true, only60), 60.0f, "on, a 60 Hz screen: 60");
+            t.Equals(refreshRateToAsk(true, fast), 60.0f, "on, 90 and 144 but no 120: 60");
+            t.Equals(refreshRateToAsk(true, none), 60.0f, "on, no rates known: 60");
+        });
+
         tc.Run("offered: what a setup has, found from its folders (none, all, the GameCube disc alone)", [](TestCase &t)
         {
             auto put = [](const std::filesystem::path &file)
@@ -603,6 +617,86 @@ void register_app_support_tests()
                 t.IsTrue(installDrop(linked, support, &error) && std::filesystem::is_symlink(support / "Mods" / "linked" / "Other"),
                          "a link in it: copied as the link");
             }
+        });
+
+        tc.Run("a mod picked as a document (Add Mod... on Android): copied, then put in as a drop is", [](TestCase &t)
+        {
+            // Documents as a folder of this machine's files ("doc:" and the path), as Android's picker gives them.
+            class FolderDocuments final : public DocumentAccess
+            {
+            public:
+                bool isDocument(std::string_view text) const override { return text.rfind("doc:", 0) == 0; }
+                bool stat(const std::string &uri, Entry &out) const override
+                {
+                    const std::filesystem::path path = uri.substr(4);
+                    std::error_code ec;
+                    if (!std::filesystem::exists(path, ec))
+                        return false;
+                    const bool folder = std::filesystem::is_directory(path, ec);
+                    out = {uri, path.filename().string(), folder ? 0u : static_cast<uint64_t>(std::filesystem::file_size(path, ec)), folder};
+                    return true;
+                }
+                std::vector<Entry> list(const std::string &folderUri) const override
+                {
+                    std::vector<Entry> out;
+                    for (const auto &entry : std::filesystem::directory_iterator(folderUri.substr(4)))
+                    {
+                        Entry e;
+                        stat("doc:" + entry.path().string(), e);
+                        out.push_back(e);
+                    }
+                    return out;
+                }
+                std::FILE *open(const std::string &uri) const override { return std::fopen(uri.substr(4).c_str(), "rb"); }
+            };
+            const FolderDocuments documents;
+            TempDir dir;
+            const std::filesystem::path support = dir.path / "support", picks = dir.path / "picks";
+            auto put = [](const std::filesystem::path &file, const std::string &text)
+            {
+                std::filesystem::create_directories(file.parent_path());
+                std::ofstream(file, std::ios::binary) << text;
+            };
+            put(picks / "hd-rails" / "MOD.INI", "[mod]\nid = hd-rails\nname = HD Rails\ngames = ai\n");
+            put(picks / "hd-rails" / "Textures" / "ai" / "rail.png", std::string(3u << 20, 'p')); // (more than one read's buffer)
+            put(picks / "discs" / "SYSTEM.CNF", "BOOT2 = cdrom0:\\SLUS_203.27;1\n");
+            put(picks / "game.iso", "iso");
+            test_zip::write(picks / "songs.zip", {{"mod.ini", "[mod]\nid = songs\nname = Songs\ngames = dm2\n"}, {"Music/01.ogg", "ogg"}});
+
+            const PickedCopy rails = copyPickedDocument(documents, "doc:" + (picks / "hd-rails").string(), support);
+            t.IsTrue(rails.ok && rails.name == "hd-rails" && rails.copy == support / ".picked" / "hd-rails" &&
+                         std::filesystem::file_size(rails.copy / "Textures" / "ai" / "rail.png") == (3u << 20),
+                     "a mod's folder: copied whole into .picked (" + rails.why + ")");
+            const PickedCopy discs = copyPickedDocument(documents, "doc:" + (picks / "discs").string(), support);
+            const PickedCopy iso = copyPickedDocument(documents, "doc:" + (picks / "game.iso").string(), support);
+            t.IsTrue(!discs.ok && discs.why == "it has no mod.ini naming its games" && !std::filesystem::exists(support / ".picked" / "discs"),
+                     "a folder with no mod.ini or map.ini: not copied");
+            t.IsTrue(!iso.ok && iso.why == "it is not a mod's folder or .zip" && !std::filesystem::exists(support / ".picked" / "game.iso"),
+                     "a file that is no .zip: not copied");
+            t.IsTrue(!copyPickedDocument(documents, "doc:" + (picks / "gone").string(), support).ok, "a document that cannot be read: none");
+
+            DropInstall plan = planDropInstall(rails.copy, support);
+            plan.pickedCopy = true;
+            std::string error;
+            t.IsTrue(plan.kind == DropInstall::Mod && plan.to == support / "Mods" / "hd-rails" && installDrop(plan, support, &error) &&
+                         std::filesystem::file_size(support / "Mods" / "hd-rails" / "Textures" / "ai" / "rail.png") == (3u << 20),
+                     "planned from its copy and put in the Mods folder (" + error + ")");
+            t.IsTrue(!std::filesystem::exists(rails.copy) && !std::filesystem::exists(support / ".picked") &&
+                         !std::filesystem::exists(support / ".incoming"),
+                     "the copy moved in: nothing left beside");
+
+            const PickedCopy songs = copyPickedDocument(documents, "doc:" + (picks / "songs.zip").string(), support);
+            DropInstall zipped = planDropInstall(songs.copy, support);
+            zipped.pickedCopy = true;
+            t.IsTrue(songs.ok && zipped.kind == DropInstall::Mod && zipped.title == "Songs", "a mod's .zip: copied, read as a mod");
+            discardPickedCopy(zipped, support);
+            t.IsTrue(!std::filesystem::exists(songs.copy) && !std::filesystem::exists(support / ".picked") &&
+                         std::filesystem::is_regular_file(picks / "songs.zip"),
+                     "said Cancel: its copy removed, the picked document untouched");
+            DropInstall elsewhere = planDropInstall(picks / "hd-rails", support);
+            elsewhere.pickedCopy = true;
+            discardPickedCopy(elsewhere, support);
+            t.IsTrue(std::filesystem::exists(picks / "hd-rails" / "MOD.INI"), "a path outside .picked is never removed");
         });
 
         tc.Run("mods: a tuning.ini only where a game reads one", [](TestCase &t)

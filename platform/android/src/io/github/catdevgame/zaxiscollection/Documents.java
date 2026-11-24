@@ -18,14 +18,18 @@ import java.util.List;
 // (collection/android_documents.cpp, game_setup.h's DocumentAccess). The app
 // may read no path outside its own folders: everything goes through the
 // content resolver, by URI, and the files are read through descriptors it
-// opens. The grants are kept (persistable), so a game's files can be
-// repaired from the same disc later.
+// opens. A disc's grants are kept (persistable), so a game's files can be
+// repaired from the same disc later; a pick read once (a mod, copied into the
+// app's folder) keeps none.
 final class Documents {
     private static final String TAG = "ZAxisDocuments";
     // Our activity results (SDLActivity's own file dialog has its own codes).
     static final int PICK_FILES = 0x5a01;
     static final int PICK_FOLDER = 0x5a02;
     static final int CREATE_FILE = 0x5a03;
+    // (a pick read once: no lasting grant taken)
+    static final int PICK_FILES_ONCE = 0x5a04;
+    static final int PICK_FOLDER_ONCE = 0x5a05;
 
     private static Activity sActivity;
 
@@ -45,7 +49,9 @@ final class Documents {
 
     // ---- the picker (called from native code, any thread) ----
 
-    static boolean pick(final boolean folder) {
+    // keep: the grants kept past this run (a disc's source); else the
+    // document is read once, now (a mod copied in), and no grant outlives it.
+    static boolean pick(final boolean folder, final boolean keep) {
         final Activity activity = sActivity;
         if (activity == null) {
             return false;
@@ -62,9 +68,9 @@ final class Documents {
                 intent.setType("*/*");
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
             }
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | (keep ? Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION : 0));
             try {
-                activity.startActivityForResult(intent, folder ? PICK_FOLDER : PICK_FILES);
+                activity.startActivityForResult(intent, keep ? (folder ? PICK_FOLDER : PICK_FILES) : (folder ? PICK_FOLDER_ONCE : PICK_FILES_ONCE));
             } catch (android.content.ActivityNotFoundException e) {
                 Log.e(TAG, "no documents UI", e);
                 nativePicked(new String[0]);
@@ -101,9 +107,11 @@ final class Documents {
             nativePicked(made != null ? new String[] { made.toString() } : new String[0]);
             return true;
         }
-        if (requestCode != PICK_FILES && requestCode != PICK_FOLDER) {
+        if (requestCode != PICK_FILES && requestCode != PICK_FOLDER && requestCode != PICK_FILES_ONCE
+                && requestCode != PICK_FOLDER_ONCE) {
             return false;
         }
+        final boolean keep = requestCode == PICK_FILES || requestCode == PICK_FOLDER;
         List<String> uris = new ArrayList<>();
         if (resultCode == Activity.RESULT_OK && data != null) {
             if (data.getClipData() != null) {
@@ -114,8 +122,9 @@ final class Documents {
                 uris.add(data.getData().toString());
             }
         }
+        // (a pick read once keeps the grant the result gives, for this run only)
         ContentResolver resolver = activity.getContentResolver();
-        for (String uri : uris) {
+        for (String uri : keep ? uris : java.util.Collections.<String>emptyList()) {
             try {
                 resolver.takePersistableUriPermission(Uri.parse(uri), Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } catch (SecurityException e) {
@@ -123,6 +132,8 @@ final class Documents {
                 Log.w(TAG, "no lasting permission for " + uri);
             }
         }
+        Log.i(TAG, "picked " + uris.size() + (keep ? ", kept" : ", read once") + "; lasting grants now "
+                + resolver.getPersistedUriPermissions().size());
         nativePicked(uris.toArray(new String[0]));
         return true;
     }

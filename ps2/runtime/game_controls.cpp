@@ -10,6 +10,7 @@
 #include "runtime/host_input.h"
 
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace ps2_host_input
@@ -36,6 +37,23 @@ namespace ps2_host_input
             std::string hotkeys;
         };
 
+        // [hotkeys]: the soundtrack's keys, every game's (engine/overrides/zge_soundtrack.h).
+        // The chords: L3 (no game's action) with a shoulder button, which the game gets as well.
+        const std::string kSoundtrackHotkeys = "# previous_track, next_track: the song before or after the one playing\n"
+                                               "# (in a level). shuffle: the songs in a random order, on and off\n"
+                                               "# (Settings > Sound > Shuffle).\n"
+                                               "previous_track = F5\n"
+                                               "next_track     = F6\n"
+                                               "shuffle        = F7\n"
+                                               "previous_track_pad = L3+L1\n"
+                                               "next_track_pad     = L3+R1\n"
+                                               "shuffle_pad        =\n";
+        const std::vector<std::pair<std::string, std::string>> kSoundtrackLabels = {
+            {"previous_track", "Previous Track"},
+            {"next_track", "Next Track"},
+            {"shuffle", "Shuffle"},
+        };
+
         std::string compose(const ControlsText &t)
         {
             const std::string &who = t.character;
@@ -58,6 +76,11 @@ namespace ps2_host_input
                    "#\n"
                    "# A gamepad keeps working alongside: its buttons add to these, and a\n"
                    "# gamepad stick that is pushed wins over keys and mouse.\n"
+                   "\n"
+                   "# The revision of the defaults this file was written with: when a later\n"
+                   "# version changes a default, the app gives it to you unless you had\n"
+                   "# changed that control yourself. Leave this line as it is.\n"
+                   "controls_version = " + std::to_string(kControlsRevision) + "\n"
                    "\n"
                    "[buttons]\n" +
                    t.buttons +
@@ -195,13 +218,26 @@ namespace ps2_host_input
                         "screenshot = F12\n"
                         "photo_mode = P\n"
                         "switch_game = F8\n"
+                        "# developer_menu: with the Developer Menu on (Settings > Game), the game's\n"
+                        "# debug menu in a level.\n"
+                        "developer_menu = F1\n"
+                        "# practice_point: with Practice on (Settings > Game), a restart point\n"
+                        "# where the skater rolls; restart then goes back to it and times the try.\n"
+                        "practice_point = F2\n"
+                        "# bottom_screen: a dual-screen handheld's bottom screen (the level's map,\n"
+                        "# goals and tricks) over the game on one screen, shown and hidden.\n"
+                        "bottom_screen = M\n"
                         "# Gamepad buttons held together for a shortcut, named by position as in\n"
                         "# [gamepad] and joined with +, e.g. \"restart_pad = L3+R3\" (both sticks pressed in).\n"
                         "restart_pad    = L3+R3\n"
                         "hide_hud_pad   =\n"
                         "screenshot_pad =\n"
                         "photo_mode_pad =\n"
-                        "switch_game_pad =\n";
+                        "switch_game_pad =\n"
+                        "developer_menu_pad = SELECT+L3\n"
+                        "practice_point_pad = L3+L2\n"
+                        "bottom_screen_pad = L3+R2\n";
+            t.hotkeys += kSoundtrackHotkeys;
             GameControls controls;
             controls.id = "ai";
             controls.title = t.title;
@@ -231,7 +267,9 @@ namespace ps2_host_input
                 {"hide_hud", "Hide HUD"},
                 {"screenshot", "Screenshot"},
                 {"photo_mode", "Photo Mode"},
+                {"practice_point", "Restart Point"},
             };
+            controls.labels.insert(controls.labels.end(), kSoundtrackLabels.begin(), kSoundtrackLabels.end());
             return controls;
         }
 
@@ -305,13 +343,26 @@ namespace ps2_host_input
                         "screenshot = F12\n"
                         "photo_mode = P\n"
                         "switch_game = F8\n"
+                        "# developer_menu: with the Developer Menu on (Settings > Game), the game's\n"
+                        "# debug display.\n"
+                        "developer_menu = F1\n"
+                        "# practice_point: with Practice on (Settings > Game), a restart point\n"
+                        "# where the rider rides; restart then puts the rider back there, stopped.\n"
+                        "practice_point = F2\n"
+                        "# bottom_screen: a dual-screen handheld's bottom screen (the level's map,\n"
+                        "# goals and tricks) over the game on one screen, shown and hidden.\n"
+                        "bottom_screen = M\n"
                         "# Gamepad buttons held together for a shortcut, named by position as in\n"
                         "# [gamepad] and joined with +, e.g. \"restart_pad = L3+R3\" (both sticks pressed in).\n"
                         "restart_pad    = L3+R3\n"
                         "hide_hud_pad   =\n"
                         "screenshot_pad =\n"
                         "photo_mode_pad =\n"
-                        "switch_game_pad =\n";
+                        "switch_game_pad =\n"
+                        "developer_menu_pad = SELECT+L3\n"
+                        "practice_point_pad = L3+L2\n"
+                        "bottom_screen_pad = L3+R2\n";
+            t.hotkeys += kSoundtrackHotkeys;
             GameControls controls;
             controls.id = "dm2";
             controls.title = t.title;
@@ -341,7 +392,9 @@ namespace ps2_host_input
                 {"hide_hud", "Hide HUD"},
                 {"screenshot", "Screenshot"},
                 {"photo_mode", "Photo Mode"},
+                {"practice_point", "Restart Point"},
             };
+            controls.labels.insert(controls.labels.end(), kSoundtrackLabels.begin(), kSoundtrackLabels.end());
             return controls;
         }
 
@@ -427,17 +480,33 @@ namespace ps2_host_input
                         "screenshot = F12\n"
                         "photo_mode = P\n"
                         "switch_game = F8\n"
+                        "# developer_menu: with the Developer Menu on (Settings > Game), the game's\n"
+                        "# debug display.\n"
+                        "developer_menu = F1\n"
+                        "# practice_point: with Practice on (Settings > Game), a restart point\n"
+                        "# where the rider rides; restart then puts the rider back there, stopped.\n"
+                        "practice_point = F2\n"
+                        "# bottom_screen: a dual-screen handheld's bottom screen (the level's map,\n"
+                        "# goals and tricks) over the game on one screen, shown and hidden.\n"
+                        "bottom_screen = M\n"
                         "# Gamepad buttons held together for a shortcut, named by position as in\n"
                         "# [gamepad] and joined with +, e.g. \"restart_pad = L3+R3\" (both sticks pressed in).\n"
                         "restart_pad    = L3+R3\n"
                         "hide_hud_pad   =\n"
                         "screenshot_pad =\n"
                         "photo_mode_pad =\n"
-                        "switch_game_pad =\n";
+                        "switch_game_pad =\n"
+                        "developer_menu_pad = SELECT+L3\n"
+                        "practice_point_pad = L3+L2\n"
+                        "bottom_screen_pad = L3+R2\n";
+            t.hotkeys += kSoundtrackHotkeys;
             GameControls controls;
             controls.id = "bmx";
             controls.title = t.title;
             controls.defaultIni = compose(t);
+            // 1.3.0 (revision 2): mouse-look on by default on the Mac and Windows; it was stick (the mouse moving
+            // nothing), which Android keeps.
+            controls.changedDefaults = {{2, "mouse", "mode", {"stick"}}};
             controls.labels = {
                 {"left_up", "Pedal"},
                 {"left_down", "Brake"},
@@ -463,7 +532,9 @@ namespace ps2_host_input
                 {"hide_hud", "Hide HUD"},
                 {"screenshot", "Screenshot"},
                 {"photo_mode", "Photo Mode"},
+                {"practice_point", "Restart Point"},
             };
+            controls.labels.insert(controls.labels.end(), kSoundtrackLabels.begin(), kSoundtrackLabels.end());
             return controls;
         }
 

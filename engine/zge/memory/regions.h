@@ -40,6 +40,8 @@ namespace zge
     uint32_t reallocate(ee::Address block, uint32_t bytes);
     void testHeapLimits(uint32_t blockBytes);
     int32_t largestFreeBlock();
+    // freeHeapBytes (ZGE4 only, regions.cpp): the heap's free bytes.
+    uint32_t freeHeapBytes();
     ee::Ptr<MemoryRegion> newMemoryRegion(uint32_t memory, uint32_t bytes);
     uint32_t freeMemoryRegion(ee::Ptr<MemoryRegion> region);
     uint32_t regionAllocate(ee::Ptr<MemoryRegion> region, uint32_t bytes);

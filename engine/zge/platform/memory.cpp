@@ -1,16 +1,19 @@
 // Memory by kind (zge/platform/platform.h; the PS2 layer, from allocateIn on):
 // aligned, cleared blocks from the heap for DMA and the GS, and the main
 // region, a level's memory (a block the game sets aside: setMainRegion),
-// taken from the top while it has room, else from the heap.
+// taken from the top while it has room, else from the heap; and ZGE4's count
+// of the bytes the C library's heap has left (mallocFreeBytes).
 
 #include "platform.h"
 
 #include "ee/abi.h"
 #include "ee/dispatch.h"
 #include "ee/readable.h"
+#include "ee/readable_waits.h"
 #include "ee/plain.h"
 #include "zge/memory/regions.h"
 #include "zge/text/cstring.h"
+#include "sce/libc.h"
 
 #include <cstdint>
 #include "sym/zge/platform/memory.cpp.h"
@@ -190,4 +193,27 @@ namespace zge
         return result;
     }
     READABLE_FUNCTION_WAITS(setMainRegion, Verified);
+
+    namespace
+    {
+        // mallocFreeBytes's top of memory: a constant of the link (its high and low halves are relocated, as
+        // crt0's link constants are), -1 in BMX XXX's link, which stands for none: then 128 MB is the top.
+        // crt0 passes two link constants of that value, SetupThread's stack and SetupHeap's heap size; which of
+        // them this one is, the machine code cannot tell (both absolute, both -1).
+        constexpr uint32_t kLinkedMemoryTop = 0xFFFFFFFFu;
+        constexpr uint32_t kNoLinkedTop = 0xFFFFFFFFu;
+        constexpr uint32_t kTopWithoutLink = 128u << 20;
+    }
+
+    // mallocFreeBytes (ZGE4 only; the PS2 half of freeHeapBytes): the bytes the C library's heap has left: the
+    // memory from the program's end to the top, less what malloc has in use, plus what it holds free. Bug kept:
+    // malloc's bytes in use already leave its free bytes out, so those are counted twice.
+    inline uint32_t mallocFreeBytes()
+    {
+        ee::Local<sce::libc::MallocInfo> heap;
+        sce::libc::mallinfo(heap);
+        const uint32_t top = kLinkedMemoryTop == kNoLinkedTop ? kTopWithoutLink : kLinkedMemoryTop;
+        return top - sym::g_programEnd - static_cast<uint32_t>(heap->uordblks) + static_cast<uint32_t>(heap->fordblks);
+    }
+    READABLE_FUNCTION_ONLY(bmx, mallocFreeBytes);
 }

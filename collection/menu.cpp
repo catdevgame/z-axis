@@ -1549,6 +1549,18 @@ namespace zx::collection
                 steps.push_back(step);
                 continue;
             }
+            if (name.rfind("pick:", 0) == 0)
+            {
+                step.pick = item.substr(5);
+                if (step.pick.empty())
+                {
+                    if (error)
+                        *error = "'" + item + "' names no file or folder";
+                    return false;
+                }
+                steps.push_back(step);
+                continue;
+            }
             if (name == "wait")
             {
                 steps.push_back(step);
@@ -1577,7 +1589,7 @@ namespace zx::collection
             if (step.key < 0 && step.padButton < 0)
             {
                 if (error)
-                    *error = "'" + item + "' is not a key, pad:BUTTON, game:ID, drop:PATH or wait";
+                    *error = "'" + item + "' is not a key, pad:BUTTON, game:ID, drop:PATH, pick:PATH or wait";
                 return false;
             }
             steps.push_back(step);
@@ -1591,7 +1603,7 @@ namespace zx::collection
     bool MenuScript::next(std::vector<int> &keys, uint16_t &padButtons) { return next(keys, padButtons, Cards{}); }
 
     bool MenuScript::next(std::vector<int> &keys, uint16_t &padButtons, const Cards &cards, std::string *problem,
-                          std::vector<std::string> *dropped)
+                          std::vector<std::string> *dropped, std::vector<std::string> *picked)
     {
         ++m_visitFrame;
         if (m_next >= m_steps.size() || m_visitFrame % kFramesPerStep != 0)
@@ -1619,6 +1631,8 @@ namespace zx::collection
         const Step &step = m_steps[m_next++];
         if (!step.drop.empty() && dropped)
             dropped->push_back(step.drop);
+        if (!step.pick.empty() && picked)
+            picked->push_back(step.pick);
         if (step.key >= 0)
             keys.push_back(step.key);
         if (step.padButton >= 0)

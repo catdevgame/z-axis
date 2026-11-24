@@ -18,6 +18,7 @@
 // Asked otherwise, a notice and nothing else.
 
 #include "bmx_xxx.h"
+#include "bmx_xxx_practice.h"
 #include "sym/game_overrides/bmx_xxx_restart.cpp.h"
 #include "overrides/zge_settings_open.h"
 
@@ -112,6 +113,19 @@ namespace bmx_xxx::restart
         void playStateFrame(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
         {
             State &st = state();
+            // Practice (bmx_xxx_practice.cpp): a restart point made or gone
+            // back to while a turn runs and play is live, the return in place
+            // of the frame; the frame's time to the try's clock.
+            {
+                const uint8_t *phase = getConstMemPtr(rdram, sym::bmx::g_round + offsetof(RoundState, phase));
+                if (phase && *phase == kTurnRunningPhase && pausable(rdram) && playing(rdram) &&
+                    practice::playFrame(rdram, ctx, runtime))
+                {
+                    setReturnU32(ctx, 0u);
+                    ctx->pc = getRegU32(ctx, kRegRa);
+                    return;
+                }
+            }
             if (st.keyPending)
             {
                 st.keyPending = false;

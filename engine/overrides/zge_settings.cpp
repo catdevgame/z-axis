@@ -8,7 +8,7 @@
 #include "runtime/host_input.h"
 #include "runtime/pad.h"
 #include "runtime/session.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 #include "runtime/zaxis_text.h"
 
 #include <algorithm>
@@ -25,7 +25,7 @@ namespace zge_host::settings
     // ---- the page: its sections, in order, and the rows of each -----------
     //
     // One order for the three games. A section lists its rows by setting key
-    // (runtime/settings.h: the key a game registers, "display.vsync"),
+    // (runtime/settings_registry.h: the key a game registers, "display.vsync"),
     // headings drawn between rows (heading("CAMERA"): a title in the section
     // title's colour, not selectable), and rows("controls.key."): every
     // registered key with that prefix, in registration order. A key the game
@@ -83,6 +83,7 @@ namespace zge_host::settings
              row("audio.music_volume"),
              row("audio.effects_volume"),
              row("audio.speech_volume"),
+             row("audio.shuffle"), // the soundtrack's (zge_soundtrack.h)
              row("audio.movie_volume"),
              row("audio.french_voices"),
              row("audio.mute_in_background"),
@@ -95,6 +96,7 @@ namespace zge_host::settings
              row("controls.stick_deadzone"),
              row("controls.gamepads"),
              row("controls.test_rumble"),
+             row("controls.gamepad_test"), // (the app's, with the Developer Menu and the debug panel)
              row("controls.swap_players"),
              row("controls.mouse_mode"),
              row("controls.mouse_sensitivity"),
@@ -138,6 +140,7 @@ namespace zge_host::settings
              row("game.tuning"),
              row("game.career_scripts"),
              row("game.developer_menu"),
+             row("game.practice"),
              row("game.record_play"),
              row("game.recordings"),
              row("game.custom_freeplay"),
@@ -202,6 +205,7 @@ namespace zge_host::settings
         {"controls.stick_deadzone", "controls.gamepad", 0},
         {"controls.gamepads", "controls.gamepad", 0},
         {"controls.test_rumble", "controls.gamepad", 0},
+        {"controls.gamepad_test", "controls.gamepad", 0},
         {"controls.swap_players", "controls.gamepad", 0},
         {"controls.gamepad_layout", "controls.gamepad", 0},
         {"controls.pad.", "controls.gamepad", 0},

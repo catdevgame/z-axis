@@ -90,6 +90,7 @@
 #include "gs/gs_quality.h"
 #include "gs/gs_types.h"
 #include "runtime/memory.h"
+#include "runtime/ghost_rider.h"
 #include "runtime/zaxis_mesh.h"
 #include "runtime/boot_config.h"
 #include "runtime/session.h"
@@ -766,11 +767,25 @@ namespace aggressive_inline
             if (terrain)
                 base.alpha = 0x80; // the terrain program's base alpha
 
+            // A rider's ghost (runtime/ghost_rider.h): its pose of this part, noted by the readable renderer's draw
+            // just now, drawn in this view after each material's triangles.
+            struct GhostView
+            {
+                std::shared_ptr<const zx::ghost_rider::Ghost> ghost;
+                float screen[4][4], clip[4][4];
+            };
+            GhostView ghostView{skinnedRenderer ? zx::ghost_rider::ghostNoted(nodeAddr, part) : nullptr, {}, {}};
+            if (ghostView.ghost)
+            {
+                std::memcpy(ghostView.screen, s.view.screen, sizeof(ghostView.screen));
+                std::memcpy(ghostView.clip, s.view.clip, sizeof(ghostView.clip));
+            }
+
             PS2Memory::Vif1Substitute sub;
             sub.tag = (static_cast<uint64_t>(tagHi) << 32) | tagLo;
             const uint32_t skinnedProgram = skinnedRenderer ? type + 2u : 0u;
             sub.begin = [runtime, base = std::move(base), items = std::move(items), sphere, skinnedProgram, lit,
-                         tagAddress]() mutable -> std::function<void()>
+                         tagAddress, ghostView]() mutable -> std::function<void()>
             {
                 // EE thread, where VIF1 reaches the node: the GS blocks and
                 // UV matrices as the DMA reads them (TEX0 patched by the
@@ -808,6 +823,10 @@ namespace aggressive_inline
                         zx::zaxis::xboxCharacterLights(*skin);
                     base.skin = std::move(skin);
                 }
+                std::shared_ptr<const GSNativeDraw> ghost;
+                if (ghostView.ghost && base.skin)
+                    ghost = std::make_shared<const GSNativeDraw>(
+                        zx::ghost_rider::ghostDraw(base, *ghostView.ghost, ghostView.screen, ghostView.clip));
                 struct Step
                 {
                     Item item;
@@ -835,7 +854,7 @@ namespace aggressive_inline
                         st.uv.matrix(r);
                     }
                 }
-                return [runtime, base, steps = std::move(steps)]()
+                return [runtime, base, steps = std::move(steps), ghost]()
                 {
                     GS &gs = runtime->gs();
                     for (const Step &st : steps)
@@ -854,6 +873,8 @@ namespace aggressive_inline
                         {
                             if (d.count >= 3u)
                                 gs.drawNative(d);
+                            if (ghost && d.count >= 3u)
+                                gs.drawNative(zx::ghost_rider::ofRun(*ghost, d));
                             continue;
                         }
                         // Grass (VU1 0x26F0): the base opaque with the Z test,

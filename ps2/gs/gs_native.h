@@ -227,6 +227,10 @@ struct GSNativeDraw
     uint8_t fog = 0;
     // Frame interpolation's identity and matrices (key 0: none).
     GSNativeMotion motion;
+    // Drawn see-through over the picture at this alpha (0x80 = 1.0; -1: the GS state as it is): blended as
+    // Cs * alpha + Cd * (1 - alpha), the depth tested but not written, the GS's own registers unchanged after it (a
+    // rider's ghost, runtime/ghost_rider.h). No game draws so: only what the host adds.
+    int seeThrough = -1;
 };
 
 // A game's depth fog drawn as planes (AI: FUN_001110C0, eight flat

@@ -60,7 +60,7 @@ platform/android/build-ffmpeg.sh <ffmpeg-9.0.2.tar.xz> <work dir> <prefix>
 cmake -S . -B <build dir> -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE=$ANDROID_HOME/ndk/<version>/build/cmake/android.toolchain.cmake \
     -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-33 -DANDROID_STL=c++_static \
-    -DZX_ENABLE_FFMPEG=ON -DZX_FFMPEG_PREFIX=<prefix> -DZX_ENABLE_DEBUG_UI=OFF \
+    -DZX_ENABLE_FFMPEG=ON -DZX_FFMPEG_PREFIX=<prefix> \
     <the collection's arguments as platform/mac/make-app.sh gives them: ZX_APP_GAMES, ZX_BIND_DIR,
      the three games' generated and VU1 folders>
 ninja -C <build dir> zx-runner
@@ -118,6 +118,8 @@ sets both. `ZX_CONTROL=<absolute path under files>` works (the game's working di
 so a relative one lands there), with `cmd` and `out` reached over `adb shell`; it serves the first game booted in
 the process only, and it reads `cmd` every vsync through the sdcard's FUSE, so leave it out of frame-time
 measurements. `ZX_DEV_START_LEVEL` and `ZX_DEV_START_SKATE` reach and skate a level without it.
+`ZX_SECOND_SCREEN=off` leaves a second display unused (GameActivity reads it from the same file): a dual-screen
+device runs as a single-screen one, with the bottom screen over the game by its shortcut (M, L3+R2).
 
 ## How it runs on the device
 

@@ -41,7 +41,7 @@ public:
     // override calls it before the first pollHost(); default "ai".
     static void setGame(const std::string &id);
 
-    // Names for the controls in the settings pages (runtime/settings.h),
+    // Names for the controls in the settings pages (runtime/settings_registry.h),
     // in the order shown: controls.ini keys ("cross", "left_up",
     // "modifier", "recentre") with what they do in the game ("Jump"). Keys
     // left out are not shown. Set before the first pollHost(); default:

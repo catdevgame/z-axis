@@ -3,7 +3,8 @@
 
 A player runs a native runner with ZX_PLAY_LINK (runtime/play_link.h): at every port-0 pad read
 the game stops, the player reads guest memory, chooses the pad, and the game goes on. Nothing here knows
-a game: dm2.py (and aggressive.py, playai's) give the table of what to read and how to play.
+a game: dm2.py (and aggressive.py, playai's) give the table of what to read and how to play. The link is two
+FIFOs in the run's folder, on Windows two named pipes (PipeLink).
 
     Run(RunConfig(...))        a runner on a link, always with a stop condition, never outliving its player
     Pad                        one pad answer (buttons by name, sticks -1 .. 1)
@@ -33,6 +34,9 @@ BUTTONS = {'SELECT': 0x0001, 'L3': 0x0002, 'R3': 0x0004, 'START': 0x0008, 'UP': 
            'TRIANGLE': 0x1000, 'CIRCLE': 0x2000, 'CROSS': 0x4000, 'SQUARE': 0x8000}
 AXES = ('RX', 'RY', 'LX', 'LY')
 HEAD = struct.Struct('<cQqI')
+WINDOWS = os.name == 'nt'
+if WINDOWS:
+    import _winapi
 
 # The players' own scratch folders (PLAYAI, PLAYDM2, BMXCORPUS, PLAYCOLL: each player's SCRATCH, its maps and runs)
 PLAYER_SCRATCH = ('PLAYAI', 'PLAYDM2', 'BMXCORPUS', 'PLAYCOLL')
@@ -113,6 +117,67 @@ class RunnerGone(Exception):
     pass
 
 
+class PipeLink:
+    """The link on Windows, which has no FIFOs: two named pipes this player makes, \\\\.\\pipe\\NAME\\up (the game
+    writes) and ...\\down (the game reads), ZX_PLAY_LINK=\\\\.\\pipe\\NAME (runtime/play_link.h). Overlapped, so every
+    wait comes back every 2 s to `check` (the runner's end, the wall limit), as Run._read's select does."""
+    INBOUND, OUTBOUND = 0x1, 0x2                      # PIPE_ACCESS_INBOUND, PIPE_ACCESS_OUTBOUND
+    OVERLAPPED = 0x40000000                           # FILE_FLAG_OVERLAPPED
+    FIRST_INSTANCE = 0x00080000                       # FILE_FLAG_FIRST_PIPE_INSTANCE: never another's pipe
+    BYTE_MODE = 0                                     # PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT
+    IO_PENDING, BROKEN_PIPE, NO_DATA, TIMEOUT = 997, 109, 232, 258
+    WAIT_MS = 2000
+
+    def __init__(self, name):
+        self.name = name
+        self.up = self._make(name + '\\up', self.INBOUND)
+        self.down = self._make(name + '\\down', self.OUTBOUND)
+
+    def _make(self, path, access):
+        return _winapi.CreateNamedPipe(path, access | self.OVERLAPPED | self.FIRST_INSTANCE, self.BYTE_MODE, 1,
+                                       1 << 16, 1 << 16, 0, _winapi.NULL)
+
+    def _wait(self, ov, check):
+        """Wait for an overlapped call, `check` every WAIT_MS (it raises to give up: the call is cancelled)."""
+        try:
+            while _winapi.WaitForMultipleObjects([ov.event], False, self.WAIT_MS) == self.TIMEOUT:
+                check()
+        except BaseException:
+            ov.cancel()
+            try:
+                ov.GetOverlappedResult(True)
+            except OSError:
+                pass
+            raise
+        return ov.GetOverlappedResult(True)
+
+    def connect(self, check):
+        """The game's opens of up, then down, at its first pad read."""
+        for h in (self.up, self.down):
+            self._wait(_winapi.ConnectNamedPipe(h, overlapped=True), check)
+
+    def read(self, n, check):
+        """Up to n bytes from the game; b'' when it closed its end."""
+        try:
+            ov, err = _winapi.ReadFile(self.up, n, overlapped=True)
+            got, err = self._wait(ov, check)
+        except OSError as e:
+            if e.winerror in (self.BROKEN_PIPE, self.NO_DATA):
+                return b''
+            raise
+        return bytes(ov.getbuffer()[:got])
+
+    def write(self, data):
+        ov, err = _winapi.WriteFile(self.down, data, overlapped=True)
+        ov.GetOverlappedResult(True)
+
+    def close(self):
+        for h in (self.down, self.up):
+            if h is not None:
+                _winapi.CloseHandle(h)
+        self.up = self.down = None
+
+
 class Run:
     """A runner on a link. `with Run(cfg) as run:` guarantees the runner is gone at the end."""
 
@@ -120,6 +185,9 @@ class Run:
         self.cfg = cfg
         self.dir = os.path.join(cfg.root, cfg.name)
         self.link = os.path.join(self.dir, 'link')
+        if WINDOWS:   # (a name of this player's own: the process and the run's folder)
+            self.link = r'\\.\pipe\zx-play-%d-%s' % (os.getpid(), hashlib.sha1(self.dir.encode()).hexdigest()[:12])
+        self.pipes = None
         self.proc = None
         self.up = self.down = None
         self.tick = self.script_time = self.reads = 0
@@ -130,7 +198,7 @@ class Run:
         refuse_main([self.dir])
         for sub in ('home', 'cwd', 'app', 'shots', 'mc0', 'mc1', 'link', 'ctl'):
             os.makedirs(os.path.join(self.dir, sub), exist_ok=True)
-        for f in ('up', 'down'):
+        for f in ('up', 'down') if not WINDOWS else ():
             p = os.path.join(self.link, f)
             if os.path.exists(p):
                 os.unlink(p)
@@ -173,7 +241,9 @@ class Run:
         self.proc = subprocess.Popen([cfg.runner, cfg.elf], cwd=os.path.join(d, 'cwd'), env=env, stdout=self.log,
                                      stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         self.t0 = time.time()
-        if 'ZX_PLAY_LINK' in env:
+        if 'ZX_PLAY_LINK' in env and WINDOWS:
+            self.pipes = PipeLink(self.link)
+        elif 'ZX_PLAY_LINK' in env:
             self.up = os.open(os.path.join(self.link, 'up'), os.O_RDONLY | os.O_NONBLOCK)
         return self
 
@@ -183,6 +253,10 @@ class Run:
 
     def close(self):
         """Stop the runner: the link closing ends it; by PID if it does not go."""
+        if self.pipes is not None:
+            self.pipes.close()
+            self.pipes = None
+            self.down = None
         if self.down is not None:
             os.close(self.down)
             self.down = None
@@ -203,9 +277,21 @@ class Run:
         self.proc = None
         self.log.close()
 
+    def _check(self):
+        """While waiting on the game: the runner gone or the wall limit passed ends the run."""
+        if self.proc.poll() is not None:
+            raise RunnerGone('exit %s' % self.proc.returncode)
+        if time.time() - self.t0 > self.cfg.max_secs:
+            raise RunnerGone('wall limit')
+
     def _read(self, n):
         """n bytes from the game, with the wall limit and the runner's death noticed."""
         data = bytearray()
+        while self.pipes is not None and len(data) < n:
+            got = self.pipes.read(n - len(data), self._check)
+            if not got:
+                raise RunnerGone('link closed')
+            data += got
         while len(data) < n:
             if not select.select([self.up], [], [], 2.0)[0]:
                 if self.proc.poll() is not None:
@@ -224,6 +310,10 @@ class Run:
 
     def _open_down(self):
         """The game opens up, then down, at its first pad read."""
+        if self.pipes is not None:
+            self.pipes.connect(self._check)
+            self.down = self.pipes.down
+            return
         path = os.path.join(self.link, 'down')
         while True:
             try:
@@ -248,15 +338,21 @@ class Run:
             raise RunnerGone('wall limit')
         return self.tick
 
+    def _write(self, data):
+        if self.pipes is not None:
+            self.pipes.write(data)
+        else:
+            os.write(self.down, data)
+
     def mem(self, address, size):
-        os.write(self.down, struct.pack('<cII', b'R', address, size))
+        self._write(struct.pack('<cII', b'R', address, size))
         return self._read(size)
 
     def u32(self, address):
         return struct.unpack('<I', self.mem(address, 4))[0]
 
     def answer(self, p=NOTHING, skip=0):
-        os.write(self.down, p.wire(skip))
+        self._write(p.wire(skip))
 
     def command(self, text):
         """A ZX_CONTROL command (a screenshot); runs at the next vsync."""
@@ -355,6 +451,7 @@ class Trace:
     """A per-tick digest of what the game showed, written to a file: two runs compare tick for tick."""
 
     def __init__(self, path, every=1):
+        os.makedirs(os.path.dirname(path), exist_ok=True)   # (a fresh scratch folder has no sessions/ yet)
         self.f = open(path, 'w')
         self.h = hashlib.blake2b(digest_size=8)
         self.every = every

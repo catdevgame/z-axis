@@ -13,6 +13,7 @@
 #include "ee/abi.h"
 #include "ee/dispatch.h"
 #include "ee/readable.h"
+#include "ee/readable_waits.h"
 #include "ee/plain.h"
 #include "zge/container/array.h"
 #include "zge/container/cursor_array.h"
@@ -404,19 +405,51 @@ namespace zge
     }
     READABLE_FUNCTION_WAITS(readChunkFile, Verified);
 
+    // reportIncludedFile (ZGE4 only): what an included file took of the heap
+    // and its size, for the debug output: the GameCube build prints them
+    // ("initial memory usage: %u KB", "file size: %u KB"); in the PS2 build
+    // the prints are gone and what is left asks the heap's free bytes, opens
+    // the file, asks its size and closes it, the answers unused (the file is
+    // closed whether or not it opened).
+    inline void reportIncludedFile(ee::Address path, uint32_t /*freeBefore*/)
+    {
+        freeHeapBytes();
+        const ee::Ptr<ZFile> file = openFile(path, kFileModeRead, 0).file();
+        ee::Local<uint32_t> fileBytes;
+        fileSize(file, fileBytes, 0);
+        closeFile(file, 0);
+    }
+    READABLE_FUNCTION_WAITS_ONLY(bmx, reportIncludedFile);
+
     // includeChunkFile: a chunk handler: the chunk names another chunk file
     // (FORM), read from the reader's file's directory with the same
-    // context. 1 when it was read.
+    // context. 1 when it was read. ZGE4 reports the file when the parser
+    // asks for it (kParserReportIncludes), with the heap's free bytes from
+    // before it was read.
     int32_t includeChunkFile(ChunkReader *reader, ee::Address context)
     {
         ee::Local<char[kIncludePathBytes]> path;
-        const uint32_t name = heapAllocate(chunkDataSize(reader));
+        const uint32_t nameBytes = chunkDataSize(reader);
+        uint32_t freeBefore = 0;
+        if constexpr (game::readable::kIsBmx)
+        {
+            if (chunkIncludesReported(*g_chunkParser))
+                freeBefore = freeHeapBytes();
+        }
+        const uint32_t name = heapAllocate(nameBytes);
         readChunkData(reader, name);
         pathDirectory(reader->name, path);
         appendString(path, name);
         const int32_t read = readChunkFile(path, context, chunkTag("FORM"));
         heapFree(name);
-        return read != 0;
+        if (read == 0)
+            return 0;
+        if constexpr (game::readable::kIsBmx)
+        {
+            if (chunkIncludesReported(*g_chunkParser))
+                reportIncludedFile(path, freeBefore);
+        }
+        return 1;
     }
     READABLE_FUNCTION_WAITS(includeChunkFile, Verified);
 

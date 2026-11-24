@@ -99,7 +99,9 @@ class Game:
             self.labels = [ck for ck, _ in m.checkpoints()]
             self.script = m.native_script()
             self.dumps = m.dump_spec()
-            self.last_script = max(int(x.split('>=')[1]) for x in self.dumps.split(','))
+            # (each dump is name:script>=N, and since lcscale1 one may add an event, name:script>=N&ADDR==VALUE: its
+            # script time is N either way)
+            self.last_script = max(int(x.split('>=')[1].split('&')[0]) for x in self.dumps.split(','))
             self.secs = 900
             # logiccheck.run's switches (run.sh: ZX_DEBUG_UI=0, the CPU renderer; lc-when-free: unpaced).
             self.config = {'ZX_SAVES': 'card',

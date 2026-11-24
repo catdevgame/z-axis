@@ -28,7 +28,7 @@
 #include "machine.h"
 #include "runtime/game_files.h"
 #include "runtime/texture_replace.h"
-#include "runtime/xbox_disc.h"
+#include "runtime/xbox_files.h"
 
 #include <filesystem>
 #include <fstream>
@@ -155,7 +155,7 @@ namespace
                 std::ifstream in(e.path(), std::ios::binary);
                 ps2Bytes.assign(std::istreambuf_iterator<char>(in), {});
             }
-            if (!ps2_xbox_disc::readFile(relative, xboxBytes))
+            if (!zx::xbox_files::readFile(relative, xboxBytes))
             {
                 ++onlyPs2;
                 continue;
@@ -261,7 +261,7 @@ namespace
                 std::ifstream in(e.path(), std::ios::binary);
                 ps2.assign(std::istreambuf_iterator<char>(in), {});
             }
-            if (!ps2_xbox_disc::readFile(relative, xbox))
+            if (!zx::xbox_files::readFile(relative, xbox))
                 continue;
             zge::native::XboxModelReport report;
             if (!zge::native::makeXboxModel(relative, ps2, xbox, out, report))
@@ -323,7 +323,7 @@ int main(int argc, char **argv)
     }
     if (!modelsOut.empty())
     {
-        if (ps2Root.empty() || xboxRoot.empty() || !ps2_xbox_disc::openPath(xboxRoot))
+        if (ps2Root.empty() || xboxRoot.empty() || !zx::xbox_files::openPath(xboxRoot))
         {
             std::cerr << "usage: zx-native-assets --xbox-models <out> --ps2 <PS2 disc folder> --xbox <Xbox folder>"
                       << std::endl;
@@ -333,7 +333,7 @@ int main(int argc, char **argv)
     }
     if (compareGeo)
     {
-        if (ps2Root.empty() || xboxRoot.empty() || !ps2_xbox_disc::openPath(xboxRoot))
+        if (ps2Root.empty() || xboxRoot.empty() || !zx::xbox_files::openPath(xboxRoot))
         {
             std::cerr << "usage: zx-native-assets --compare-geo 1 --ps2 <PS2 disc folder> --xbox <Xbox folder>"
                       << std::endl;
@@ -341,7 +341,7 @@ int main(int argc, char **argv)
         }
         return compareGeometry(ps2Root, show);
     }
-    if (pack.empty() || ps2Root.empty() || xboxRoot.empty() || !ps2_xbox_disc::openPath(xboxRoot))
+    if (pack.empty() || ps2Root.empty() || xboxRoot.empty() || !zx::xbox_files::openPath(xboxRoot))
     {
         std::cerr << "usage: zx-native-assets --pack <xbox-pack> --ps2 <PS2 disc folder> --xbox <Xbox folder>"
                   << std::endl;
@@ -368,7 +368,7 @@ int main(int argc, char **argv)
         std::vector<uint8_t> ps2, xbox;
         const auto file = files.open(normalized);
         const std::string relative = normalized.substr(std::string("ASSETS/").size());
-        if (!file || !zx::game_files::readAll(*file, ps2) || !ps2_xbox_disc::readFile(relative, xbox))
+        if (!file || !zx::game_files::readAll(*file, ps2) || !zx::xbox_files::readFile(relative, xbox))
         {
             std::cout << normalized << ": cannot read both files" << std::endl;
             continue;

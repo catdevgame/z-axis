@@ -1,7 +1,7 @@
 // The ZAudio sound driver on the host, shared by the three games (see
 // zge_sound.h). ZAUDIO.IRX was decompiled for the semantics (Aggressive
 // Inline's and Dave Mirra BMX 2's from their images, BMX XXX's from its own,
-// with its symbol table), the SPU2's voices are runtime/spu_voice.h's.
+// with its symbol table), the SPU2's voices are zge/native/spu_voice.h's.
 //
 // The commands (fn):
 //   0 Init {status on, status address} / 1 Reset;
@@ -36,7 +36,7 @@
 #include "runtime/game_files.h"
 #include "runtime/session.h"
 #include "runtime/zip_archive.h"
-#include "runtime/spu_voice.h"
+#include "zge/native/spu_voice.h"
 #include "zge_sites.h"
 
 #include <algorithm>
@@ -156,6 +156,7 @@ namespace zge_host::sound
             };
             std::map<uint32_t, SongText> songTexts;
             bool songTextsPlaced = false;
+            bool addedSongTexts = false; // the added songs' are in songTexts
             uint32_t logStatusAddress = 0;                 // the channel status bytes (Init's), for the log
             std::array<uint8_t, kChannels> loggedStatus{}; // and those last logged
             std::unique_ptr<gf::GameFileSystem> files;
@@ -477,6 +478,66 @@ namespace zge_host::sound
 
         // ---- the custom soundtrack ------------------------------------------------------
 
+        // A mod folder's (or zip's) Music folder: the files this build can
+        // read, in name order (names case-insensitive).
+        std::vector<std::filesystem::path> musicFolderFiles(const std::filesystem::path &root)
+        {
+            const auto readable = zx::audio_file::extensions();
+            auto audio = [&](const std::string &name)
+            {
+                std::string ext = std::filesystem::path(name).extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                return std::find(readable.begin(), readable.end(), ext) != readable.end();
+            };
+            std::vector<std::filesystem::path> here;
+            // A mod packed as a zip (runtime/zip_archive.h): its Music
+            // folder's files, as paths through the zip.
+            if (const zx::game_files::ZipPath zip = zx::game_files::zipPathOf(root); zip.zip)
+            {
+                const std::string music = zip.inside.empty() ? std::string("MUSIC") : zip.inside + "/MUSIC";
+                for (const std::string &file : zip.zip->filesBelow(music))
+                    if (file.find('/') == std::string::npos && audio(file))
+                        here.push_back(root / "Music" / file);
+                std::sort(here.begin(), here.end());
+                return here;
+            }
+            std::error_code ec;
+            std::filesystem::path dir;
+            for (const auto &entry : std::filesystem::directory_iterator(root, ec))
+                if (entry.is_directory(ec) && iequals(entry.path().filename().string(), "Music"))
+                    dir = entry.path();
+            if (dir.empty())
+                return here;
+            for (const auto &entry : std::filesystem::directory_iterator(dir, ec))
+                if (entry.is_regular_file(ec) && audio(entry.path().filename().string()))
+                    here.push_back(entry.path());
+            std::sort(here.begin(), here.end());
+            return here;
+        }
+
+        // The mod folders of this boot (ZX_MODS_DIR, game_files.h), in its order.
+        std::vector<std::filesystem::path> modRoots()
+        {
+            const char *modsText = zx::boot::text("ZX_MODS_DIR");
+            if (!modsText || !*modsText)
+                return {};
+            return zx::game_files::modsRoots(modsText);
+        }
+
+        // The song a Music folder's file replaces: its name's two-digit
+        // number NN (not followed by a third digit) when it is one of the
+        // game's songs (1 .. Game::songs), as MUSIC.ZSD wave NN-1; -1 for
+        // any other file, which is a song the mod adds.
+        int replacedWave(const std::filesystem::path &file)
+        {
+            const std::string name = file.filename().string();
+            auto digit = [&name](size_t i) { return i < name.size() && std::isdigit(static_cast<unsigned char>(name[i])); };
+            if (!digit(0) || !digit(1) || digit(2))
+                return -1;
+            const int number = (name[0] - '0') * 10 + (name[1] - '0');
+            return number >= 1 && static_cast<uint32_t>(number) <= game().songs ? number - 1 : -1;
+        }
+
         // <mod>/Music/NN*.wav (.ogg/.flac/.mp3 with FFmpeg's libavformat)
         // for MUSIC.ZSD wave NN-1, names case-insensitive; the files this
         // build reads, in name order, the last mod folder's first
@@ -484,56 +545,11 @@ namespace zge_host::sound
         std::vector<std::filesystem::path> customTrackFiles(uint32_t wave)
         {
             std::vector<std::filesystem::path> candidates;
-            const char *modsText = zx::boot::text("ZX_MODS_DIR");
-            if (!modsText || !*modsText)
-                return candidates;
-            const std::vector<std::filesystem::path> mods = zx::game_files::modsRoots(modsText);
-            char prefix[8];
-            std::snprintf(prefix, sizeof(prefix), "%02u", wave + 1u);
-            const auto readable = zx::audio_file::extensions();
-            auto wanted = [&](const std::string &name)
-            {
-                std::string ext = std::filesystem::path(name).extension().string();
-                std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                return name.compare(0, 2, prefix) == 0 && (name.size() == 2u || !std::isdigit(static_cast<unsigned char>(name[2]))) &&
-                       std::find(readable.begin(), readable.end(), ext) != readable.end();
-            };
+            const std::vector<std::filesystem::path> mods = modRoots();
             for (auto root = mods.rbegin(); root != mods.rend(); ++root)
-            {
-                // A mod packed as a zip (runtime/zip_archive.h): its
-                // Music folder's files, as paths through the zip.
-                if (const zx::game_files::ZipPath zip = zx::game_files::zipPathOf(*root); zip.zip)
-                {
-                    const std::string music = zip.inside.empty() ? std::string("MUSIC") : zip.inside + "/MUSIC";
-                    std::vector<std::filesystem::path> here;
-                    for (const std::string &file : zip.zip->filesBelow(music))
-                        if (file.find('/') == std::string::npos && wanted(file))
-                            here.push_back(*root / "Music" / file);
-                    std::sort(here.begin(), here.end());
-                    candidates.insert(candidates.end(), here.begin(), here.end());
-                    continue;
-                }
-                std::error_code ec;
-                std::filesystem::path dir;
-                for (const auto &entry : std::filesystem::directory_iterator(*root, ec))
-                    if (entry.is_directory(ec) && iequals(entry.path().filename().string(), "Music"))
-                        dir = entry.path();
-                if (dir.empty())
-                    continue;
-                std::vector<std::filesystem::path> here;
-                for (const auto &entry : std::filesystem::directory_iterator(dir, ec))
-                {
-                    const std::string name = entry.path().filename().string();
-                    std::string ext = entry.path().extension().string();
-                    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                    if (entry.is_regular_file(ec) && name.compare(0, 2, prefix) == 0 &&
-                        (name.size() == 2u || !std::isdigit(static_cast<unsigned char>(name[2]))) &&
-                        std::find(readable.begin(), readable.end(), ext) != readable.end())
-                        here.push_back(entry.path());
-                }
-                std::sort(here.begin(), here.end());
-                candidates.insert(candidates.end(), here.begin(), here.end());
-            }
+                for (const std::filesystem::path &file : musicFolderFiles(*root))
+                    if (replacedWave(file) == static_cast<int>(wave))
+                        candidates.push_back(file);
             return candidates;
         }
 
@@ -589,10 +605,12 @@ namespace zge_host::sound
 
         // The player's song for a music stream: the song whose wave starts
         // where the stream does.
+        Replacement addedSong(const StreamSource &source);
+
         Replacement customSong(const StreamSource &source)
         {
-            Replacement replacement;
-            if (source.bus != Music || !source.stereo || !source.file || game().songs == 0u)
+            Replacement replacement = addedSong(source);
+            if (replacement.reader || source.bus != Music || !source.stereo || !source.file || game().songs == 0u)
                 return replacement;
             const auto waves = musicWaves(*source.file);
             for (uint32_t i = 0; i < std::min<uint32_t>(game().songs, static_cast<uint32_t>(waves.size())); ++i)
@@ -601,6 +619,257 @@ namespace zge_host::sound
                     continue;
                 replacement.reader = openCustomTrack(i);
                 replacement.ownRate = true;
+                break;
+            }
+            return replacement;
+        }
+
+        // ---- the songs a mod adds ---------------------------------------------------------
+
+        // Every other file of the mods' Music folders (replacedWave -1: a
+        // number past the game's songs, or none) is a song the game plays
+        // after its own: MUSIC.ZSD is served with a wave more for each,
+        // after its last (its tables' head, zx::game_files::registerHead;
+        // the file is read through, never copied), sized as a PS2 music
+        // wave of the song's length and placed past the file's end, so
+        // nothing of the disc's is read for it. A stream of that wave plays
+        // the file (addedSong). The game's soundtrack then counts them where
+        // it counts MUSIC.ZSD's waves (Dave Mirra BMX 2, BMX XXX: they come
+        // in their turn); Aggressive Inline's playlist is its 13 songs, and
+        // zge_soundtrack.cpp plays them after those.
+        constexpr const char kMusicBankPath[] = "ASSETS/AUDIO/MUSIC.ZSD";
+        constexpr const char kAddedSongsOwner[] = "zge-sound-added-songs";
+
+        struct AddedSongs
+        {
+            std::vector<AddedSong> songs; // in the mods' order (ZX_MODS_DIR), each folder's in name order
+            uint32_t firstWave = 0;       // MUSIC.ZSD's wave of the first, once its head is made
+            std::atomic<bool> made{false};
+        };
+        AddedSongs &addedSongList() { return zx::session::state<AddedSongs>(); }
+
+        // The songs a mod adds, with their titles (the tags, else the file's
+        // name) and lengths: a file this build cannot read is left out, and
+        // said so.
+        void findAddedSongs()
+        {
+            AddedSongs &added = addedSongList();
+            added.songs.clear();
+            for (const std::filesystem::path &root : modRoots())
+                for (const std::filesystem::path &file : musicFolderFiles(root))
+                {
+                    if (replacedWave(file) >= 0)
+                        continue;
+                    std::string error;
+                    const auto reader = zx::audio_file::open(file, &error);
+                    if (!reader || reader->rate() == 0u || reader->frames() == 0u)
+                    {
+                        std::cerr << "[sound] added song " << file.string() << " left out: "
+                                  << (reader ? std::string("its length is not known") : error) << std::endl;
+                        continue;
+                    }
+                    AddedSong song;
+                    song.file = file;
+                    song.title = reader->tag("title");
+                    if (song.title.empty())
+                        song.title = zx::audio_file::nameFromFileName(file);
+                    song.artist = reader->tag("artist");
+                    song.album = reader->tag("album");
+                    song.seconds = static_cast<double>(reader->frames()) / static_cast<double>(reader->rate());
+                    added.songs.push_back(std::move(song));
+                }
+        }
+
+        // A song's length as a PS2 music wave of it: stereo PS-ADPCM at
+        // 48 kHz (16 bytes per 28 samples a channel), whole sectors.
+        uint32_t ps2MusicBytes(double seconds)
+        {
+            const uint64_t samples = static_cast<uint64_t>(seconds * 48000.0);
+            const uint64_t bytes = (samples + 27u) / 28u * 16u * 2u;
+            return static_cast<uint32_t>(std::min<uint64_t>((bytes + kSectorBytes - 1u) / kSectorBytes * kSectorBytes, 0x7FFFF800u));
+        }
+
+        uint32_t headWord(const std::vector<uint8_t> &head, size_t at)
+        {
+            uint32_t value = 0;
+            if (at + 4u <= head.size())
+                std::memcpy(&value, head.data() + at, 4);
+            return value;
+        }
+        void putHeadWord(std::vector<uint8_t> &head, size_t at, uint32_t value)
+        {
+            if (at + 4u <= head.size())
+                std::memcpy(head.data() + at, &value, 4);
+        }
+
+        // Where the added waves go: past the file's end and past every wave
+        // its tables already list (another head's added ones too), on a
+        // sector.
+        uint64_t addedWavesStart(uint64_t fileSize, const std::vector<uint8_t> &waveTable)
+        {
+            uint64_t end = fileSize;
+            for (size_t at = 0; at + 8u <= waveTable.size(); at += 8u)
+                end = std::max<uint64_t>(end, uint64_t(headWord(waveTable, at)) + headWord(waveTable, at + 4u));
+            return (end + kSectorBytes - 1u) / kSectorBytes * kSectorBytes;
+        }
+
+        // The added waves' table entries ({offset, size} each), their
+        // starts noted, from `at`; the end of the last.
+        uint64_t appendAddedWaves(std::vector<uint8_t> &waveTable, uint64_t at)
+        {
+            for (AddedSong &song : addedSongList().songs)
+            {
+                const uint32_t size = ps2MusicBytes(song.seconds);
+                song.start = at;
+                const size_t entry = waveTable.size();
+                waveTable.resize(entry + 8u);
+                putHeadWord(waveTable, entry, static_cast<uint32_t>(at));
+                putHeadWord(waveTable, entry + 4u, size);
+                at += size;
+            }
+            return at;
+        }
+
+        // ZGE3's bank (AI, DM2): "ZSNDPS2 ", the file's size (+0x08), the
+        // tables' end (+0x0C), then seven {count, offset} tables, the waves'
+        // the third ({offset, size} a wave); the waves from their first's
+        // offset on. Null when another table is not empty, the waves' is not
+        // the last, or there is no room before the first wave.
+        std::shared_ptr<const std::vector<uint8_t>> pairsHead(const std::vector<uint8_t> &head, uint64_t fileSize)
+        {
+            constexpr size_t kTables = 7, kWaveTable = 2, kHeadBytes = 0x48;
+            AddedSongs &added = addedSongList();
+            const uint32_t tableBytes = headWord(head, 0x0C);
+            for (size_t t = 0; t < kTables; ++t)
+                if (t != kWaveTable && headWord(head, 0x10 + 8 * t) != 0)
+                    return nullptr;
+            const uint32_t waves = headWord(head, 0x10 + 8 * kWaveTable), table = headWord(head, 0x14 + 8 * kWaveTable);
+            if (table != kHeadBytes || tableBytes != table + 8u * waves || waves == 0u)
+                return nullptr;
+            const uint32_t firstWave = headWord(head, table);
+            const uint32_t newTableBytes = tableBytes + 8u * static_cast<uint32_t>(added.songs.size());
+            if (newTableBytes > firstWave || firstWave > head.size())
+                return nullptr;
+            std::vector<uint8_t> waveTable(head.begin() + table, head.begin() + tableBytes);
+            const uint64_t end = appendAddedWaves(waveTable, addedWavesStart(fileSize, waveTable));
+            std::vector<uint8_t> out(head.begin(), head.begin() + firstWave);
+            std::copy(waveTable.begin(), waveTable.end(), out.begin() + table);
+            for (size_t t = 0; t < kTables; ++t)
+                if (t != kWaveTable && headWord(out, 0x14 + 8 * t) == tableBytes)
+                    putHeadWord(out, 0x14 + 8 * t, newTableBytes); // (the empty tables after the waves' move on)
+            putHeadWord(out, 0x10 + 8 * kWaveTable, waves + static_cast<uint32_t>(added.songs.size()));
+            putHeadWord(out, 0x0C, newTableBytes);
+            putHeadWord(out, 0x08, static_cast<uint32_t>(std::min<uint64_t>(end, 0xFFFFFFFFu)));
+            added.firstWave = waves;
+            return std::make_shared<const std::vector<uint8_t>>(std::move(out));
+        }
+
+        // ZGE4's bank (BMX XXX; engine/zge/sound/bank.h): "ZSNDPS2 ", the
+        // file's size (+0x08), the tables' end (+0x0C), then seven {count,
+        // hash index, table} tables (the hash index {hash, number} an entry),
+        // the waves' the third; the tables from +0x64. The added waves get
+        // hashes after the largest there. Null as pairsHead.
+        std::shared_ptr<const std::vector<uint8_t>> triplesHead(const std::vector<uint8_t> &head, uint64_t fileSize)
+        {
+            constexpr size_t kTables = 7, kWaveTable = 2, kHeadBytes = 0x64;
+            AddedSongs &added = addedSongList();
+            const uint32_t tableBytes = headWord(head, 0x0C);
+            uint32_t hashes[kTables], tables[kTables];
+            for (size_t t = 0; t < kTables; ++t)
+            {
+                hashes[t] = headWord(head, 0x14 + 12 * t);
+                tables[t] = headWord(head, 0x18 + 12 * t);
+                if (t != kWaveTable && headWord(head, 0x10 + 12 * t) != 0)
+                    return nullptr;
+            }
+            const uint32_t waves = headWord(head, 0x10 + 12 * kWaveTable);
+            const uint32_t count = static_cast<uint32_t>(added.songs.size());
+            if (hashes[kWaveTable] != kHeadBytes || tables[kWaveTable] != kHeadBytes + 8u * waves ||
+                tableBytes != tables[kWaveTable] + 8u * waves || waves == 0u)
+                return nullptr;
+            const uint32_t firstWave = headWord(head, tables[kWaveTable]);
+            const uint32_t newTableBytes = kHeadBytes + 16u * (waves + count);
+            if (newTableBytes > firstWave || firstWave > head.size())
+                return nullptr;
+            std::vector<uint8_t> hashIndex(head.begin() + hashes[kWaveTable], head.begin() + tables[kWaveTable]);
+            std::vector<uint8_t> waveTable(head.begin() + tables[kWaveTable], head.begin() + tableBytes);
+            uint32_t hash = 0;
+            for (size_t at = 0; at + 8u <= hashIndex.size(); at += 8u)
+                hash = std::max(hash, headWord(hashIndex, at));
+            const uint64_t end = appendAddedWaves(waveTable, addedWavesStart(fileSize, waveTable));
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                const size_t entry = hashIndex.size();
+                hashIndex.resize(entry + 8u);
+                putHeadWord(hashIndex, entry, hash + 1u + i);
+                putHeadWord(hashIndex, entry + 4u, waves + i);
+            }
+            std::vector<uint8_t> out(head.begin(), head.begin() + kHeadBytes);
+            out.insert(out.end(), hashIndex.begin(), hashIndex.end());
+            out.insert(out.end(), waveTable.begin(), waveTable.end());
+            for (size_t t = 0; t < kTables; ++t)
+            {
+                // (the empty tables before the waves' stay, those after move on)
+                if (t == kWaveTable)
+                {
+                    putHeadWord(out, 0x18 + 12 * t, kHeadBytes + 8u * (waves + count));
+                    continue;
+                }
+                putHeadWord(out, 0x14 + 12 * t, hashes[t] >= tableBytes ? newTableBytes : hashes[t]);
+                putHeadWord(out, 0x18 + 12 * t, tables[t] >= tableBytes ? newTableBytes : tables[t]);
+            }
+            putHeadWord(out, 0x10 + 12 * kWaveTable, waves + count);
+            putHeadWord(out, 0x0C, newTableBytes);
+            putHeadWord(out, 0x08, static_cast<uint32_t>(std::min<uint64_t>(end, 0xFFFFFFFFu)));
+            out.resize(firstWave, 0); // (up to the first wave: the bank's own padding)
+            added.firstWave = waves;
+            return std::make_shared<const std::vector<uint8_t>>(std::move(out));
+        }
+
+        // MUSIC.ZSD's head with the added songs' waves (null: the bank as it
+        // is, said once).
+        std::shared_ptr<const std::vector<uint8_t>> musicBankWithSongs(gf::GameFile &bank)
+        {
+            AddedSongs &added = addedSongList();
+            std::vector<uint8_t> head(kSectorBytes);
+            std::shared_ptr<const std::vector<uint8_t>> made;
+            if (bank.read(0, head.data(), head.size()) == head.size() && std::memcmp(head.data(), "ZSNDPS2 ", 8) == 0)
+                made = game().bankHeader == BankHeader::Triples ? triplesHead(head, bank.size()) : pairsHead(head, bank.size());
+            if (!made)
+            {
+                std::cerr << "[sound] added songs: MUSIC.ZSD (" << bank.source() << ") has no room for them: not played" << std::endl;
+                return nullptr;
+            }
+            for (size_t i = 0; i < added.songs.size(); ++i)
+                added.songs[i].wave = added.firstWave + static_cast<uint32_t>(i);
+            added.made = true;
+            std::cout << "[sound] added songs: MUSIC.ZSD's " << added.firstWave << " waves and " << added.songs.size()
+                      << " more (waves " << added.firstWave << "-" << added.firstWave + added.songs.size() - 1u << ")" << std::endl;
+            for (const AddedSong &song : added.songs)
+                std::cout << "[sound] added songs: wave " << song.wave << " \"" << song.title << "\" (" << song.file.filename().string()
+                          << ", " << static_cast<int>(song.seconds) << " s)" << std::endl;
+            return made;
+        }
+
+        // A music stream of an added song's wave: the song's file.
+        Replacement addedSong(const StreamSource &source)
+        {
+            Replacement replacement;
+            const AddedSongs &added = addedSongList();
+            if (!added.made || source.bus != Music || !source.file)
+                return replacement;
+            for (const AddedSong &song : added.songs)
+            {
+                if (song.start != source.start)
+                    continue;
+                std::string error;
+                replacement.reader = zx::audio_file::open(song.file, &error);
+                replacement.ownRate = true;
+                if (replacement.reader)
+                    std::cout << "[sound] added song: wave " << song.wave << ", \"" << song.title << "\" from "
+                              << song.file.string() << " (" << replacement.reader->rate() << " Hz)" << std::endl;
+                else
+                    std::cerr << "[sound] cannot play " << song.file.string() << ": " << error << std::endl;
                 break;
             }
             return replacement;
@@ -2068,13 +2337,39 @@ namespace zge_host::sound
             return hash;
         }
 
-        // The texts of the songs of the player's under the game's keys
-        // (Game::songKey): the title and artist from the file's tags (else
-        // the title from its name), the album from its tag, no label. A key
-        // whose text is empty would stay "$KEY" on screen: a blank is a space.
-        void makeSongTexts()
+        // A song's texts under the game's keys (Game::songKey) for its wave:
+        // its title, artist and album, no label. A key whose text is empty
+        // would stay "$KEY" on screen: a blank is a space.
+        void addSongTexts(uint32_t wave, const std::string &title, const std::string &artist, const std::string &album)
         {
             State &st = state();
+            char prefix[64];
+            std::snprintf(prefix, sizeof(prefix), game().songKey, wave);
+            const struct
+            {
+                const char *field;
+                std::string text;
+            } fields[] = {
+                {"SONGNAME", title},
+                {"ARTIST", artist},
+                {"ALBUM", album},
+                {"LABEL", ""},
+            };
+            for (const auto &field : fields)
+            {
+                State::SongText &entry = st.songTexts[keyHash(std::string(prefix) + field.field)];
+                entry.wave = wave;
+                entry.title = std::strcmp(field.field, "SONGNAME") == 0;
+                // (A text starting with '~' is expanded again by ZGE4.)
+                entry.text = field.text.empty() || field.text[0] == '~' ? " " + field.text : field.text;
+            }
+        }
+
+        // The texts of the songs of the player's under the game's keys
+        // (Game::songKey): the title and artist from the file's tags (else
+        // the title from its name), the album from its tag.
+        void makeSongTexts()
+        {
             constexpr size_t kTextLimit = 60;
             for (uint32_t wave = 0; wave < game().songs; ++wave)
             {
@@ -2087,26 +2382,26 @@ namespace zge_host::sound
                     title = captionText(zx::audio_file::nameFromFileName(path), kTextLimit);
                 if (title.empty() || title.find_first_not_of("0123456789") == std::string::npos)
                     continue;
-                char prefix[64];
-                std::snprintf(prefix, sizeof(prefix), game().songKey, wave);
-                const struct
-                {
-                    const char *field;
-                    std::string text;
-                } fields[] = {
-                    {"SONGNAME", title},
-                    {"ARTIST", captionText(track->tag("artist"), kTextLimit)},
-                    {"ALBUM", captionText(track->tag("album"), kTextLimit)},
-                    {"LABEL", ""},
-                };
-                for (const auto &field : fields)
-                {
-                    State::SongText &entry = st.songTexts[keyHash(std::string(prefix) + field.field)];
-                    entry.wave = wave;
-                    entry.title = std::strcmp(field.field, "SONGNAME") == 0;
-                    // (A text starting with '~' is expanded again by ZGE4.)
-                    entry.text = field.text.empty() || field.text[0] == '~' ? " " + field.text : field.text;
-                }
+                addSongTexts(wave, title, captionText(track->tag("artist"), kTextLimit), captionText(track->tag("album"), kTextLimit));
+            }
+        }
+
+        // The added songs' texts, under their waves' keys once MUSIC.ZSD's
+        // head has numbered them.
+        void makeAddedSongTexts()
+        {
+            State &st = state();
+            const AddedSongs &added = addedSongList();
+            if (st.addedSongTexts || !added.made)
+                return;
+            st.addedSongTexts = true;
+            constexpr size_t kTextLimit = 60;
+            for (const AddedSong &song : added.songs)
+            {
+                std::string title = captionText(song.title, kTextLimit);
+                if (title.empty())
+                    title = "SONG " + std::to_string(song.wave + 1u);
+                addSongTexts(song.wave, title, captionText(song.artist, kTextLimit), captionText(song.album, kTextLimit));
             }
         }
 
@@ -2116,6 +2411,7 @@ namespace zge_host::sound
         void songText(uint8_t *rdram, R5900Context *ctx, PS2Machine *runtime)
         {
             State &st = state();
+            makeAddedSongTexts();
             const auto found = st.songTexts.find(getRegU32(ctx, kRegA0));
             if (found == st.songTexts.end())
             {
@@ -2139,6 +2435,13 @@ namespace zge_host::sound
                 }
             }
             State::SongText &entry = found->second;
+            if (!entry.address)
+            {
+                // (an added song's, numbered after the others were placed)
+                entry.address = runtime->guestMalloc(static_cast<uint32_t>(entry.text.size() + 1u));
+                if (entry.address)
+                    writeGuestString(rdram, entry.address, entry.text, entry.text.size() + 1u);
+            }
             if (!entry.address)
             {
                 st.originalStringTableText(rdram, ctx, runtime);
@@ -2166,6 +2469,17 @@ namespace zge_host::sound
         {
             driver().rpc(rdram, ctx, runtime);
         }
+    }
+
+    std::vector<AddedSong> addedSongs()
+    {
+        const AddedSongs &added = addedSongList();
+        return added.made ? added.songs : std::vector<AddedSong>{};
+    }
+
+    bool hasAddedSongs()
+    {
+        return !addedSongList().songs.empty();
     }
 
     bool install(PS2Machine &runtime, const Game &gameSound)
@@ -2225,6 +2539,11 @@ namespace zge_host::sound
                 st.busGain[Speech] = sp;
             }
         }
+        // The songs a mod adds: MUSIC.ZSD served with their waves.
+        findAddedSongs();
+        const bool anyAdded = !addedSongList().songs.empty();
+        if (anyAdded)
+            gf::registerHead(kMusicBankPath, &musicBankWithSongs, kAddedSongsOwner);
         // Song titles: only when there is a song of the player's (else the
         // game runs untouched).
         bool anyCustom = false;
@@ -2236,11 +2555,11 @@ namespace zge_host::sound
             if (!st.originalPlaylistEntry || !runtime.replaceFunction(gameSound.setPlaylistEntry, &playlistEntry))
                 std::cerr << "[sound] custom soundtrack titles not installed" << std::endl;
         }
-        if (anyCustom && gameSound.stringTableText && gameSound.songKey)
+        if ((anyCustom || anyAdded) && gameSound.stringTableText && gameSound.songKey)
         {
             makeSongTexts();
             st.originalStringTableText = runtime.lookupFunction(gameSound.stringTableText);
-            if (!st.songTexts.empty() &&
+            if ((!st.songTexts.empty() || anyAdded) &&
                 (!st.originalStringTableText || !runtime.replaceFunction(gameSound.stringTableText, &songText)))
                 std::cerr << "[sound] custom soundtrack titles not installed" << std::endl;
         }

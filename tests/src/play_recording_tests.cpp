@@ -8,7 +8,7 @@
 #include "runtime/play_recording.h"
 #include "runtime/boot_config.h"
 #include "runtime/memory.h"
-#include "runtime/settings.h"
+#include "runtime/settings_registry.h"
 
 #include <atomic>
 #include <cstdint>

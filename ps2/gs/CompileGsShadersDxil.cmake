@@ -24,6 +24,7 @@ set(_zx_shaders
     "fog_fs;fog_fs;ps_6_0;0;0"
     "fog_alpha_fs;fog_alpha_fs;ps_6_0;0;0"
     "fxaa_fs;fxaa_fs;ps_6_0;0;0"
+    "warp_fs;warp_fs;ps_6_0;0;0"
 )
 
 get_filename_component(_zx_out_dir "${OUT}" DIRECTORY)

@@ -122,6 +122,9 @@ namespace dave_mirra
     // The ZAudio sound driver on the host; true when installed (ZAUDIO.IRX
     // is then not needed; dave_mirra_sound.cpp).
     bool installNativeSound(PS2Machine &runtime);
+    // The soundtrack's controls: next, previous, shuffle (dave_mirra_soundtrack.cpp;
+    // engine/overrides/zge_soundtrack.h).
+    bool installSoundtrack(PS2Machine &runtime);
 
     // The game's music and effects volumes as settings rows, with the app's
     // settings and the native sound (dave_mirra_volumes.cpp).

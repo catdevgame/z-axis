@@ -9,6 +9,7 @@
 // (bmx_xxx_sound.cpp). Pad and memory card are HLE on the EE (scePad*,
 // sceMc* bound by the config), so with those three nothing the game uses is
 // on the IOP, and it is not run.
+#include "bmx_xxx_ghost.h"
 #include "ee/game_id.h"
 #include "sym/game_overrides/bmx_xxx.cpp.h"
 #include "bmx_xxx.h"
@@ -54,6 +55,7 @@ namespace bmx_xxx
         installAllMultiplayerModes(runtime);
         installLevelNpcs(runtime); // ZX_BMX_LEVEL_NPCS=0: a Custom Freeplay map without the slot's NPC riders
         panel_state::install(); // the Thor's bottom screen reads BMX XXX's state (bmx_xxx_panel.cpp)
+        installGhost(runtime);          // ghost riding (runtime/ghost_rider.h): its clock reads the panel's snapshot
         // The GPU renderer may keep its 16-bit Z buffers as D16 targets (the
         // Depth Test setting's Fast, gs_gpu_backend.cpp depth16) on the strict
         // path: BMX XXX's native meshes (from the draw records, the default)

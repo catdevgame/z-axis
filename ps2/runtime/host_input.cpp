@@ -432,7 +432,9 @@ namespace ps2_host_input
 
     const char *hotkeyName(int hotkey)
     {
-        static const char *const kNames[kHotkeyCount] = {"restart", "hide_hud", "screenshot", "photo_mode", "switch_game"};
+        static const char *const kNames[kHotkeyCount] = {"restart",        "hide_hud",       "screenshot",     "photo_mode",
+                                                               "switch_game",    "developer_menu", "next_track",     "previous_track",
+                                                               "shuffle",        "practice_point", "bottom_screen"};
         return (hotkey >= 0 && hotkey < kHotkeyCount) ? kNames[hotkey] : "";
     }
 
